@@ -1,0 +1,187 @@
+import { api } from "./client";
+import { remove, upsert } from "../store";
+import { bearer } from "../auth/store";
+
+export interface ScheduleRole {
+  id: string;
+  name: string;
+  emoji: string;
+  /** sanitized HTML from the WYSIWYG editor */
+  instructions: string;
+  /** sanitized HTML: what to bring / wear / prepare BEFORE the camp for this role (Preparação page) */
+  preparation: string;
+  /** applies to every active staff member of the event — no per-person assignment */
+  forEveryone: boolean;
+  /** the assignment carries a per-person detail (team, base, shift…) */
+  hasDetail: boolean;
+  /** placeholder shown in the detail input */
+  detailPlaceholder: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScheduleRoleInput {
+  name: string;
+  emoji: string;
+  instructions: string;
+  preparation: string;
+  forEveryone: boolean;
+  hasDetail: boolean;
+  detailPlaceholder: string;
+}
+
+/** A staff member scaled into one of the event's roles. `detail` = team / base / colour / shift. */
+export interface EventAssignment {
+  staffId: string;
+  roleId: string;
+  detail: string;
+}
+
+export interface CampEvent {
+  id: string;
+  /** "YYYY-MM-DD" */
+  date: string;
+  title: string;
+  emoji: string;
+  startTime: string;
+  endTime: string | null;
+  notes: string;
+  /** ids of the roles staff fulfil in this event */
+  roles: string[];
+  assignments: EventAssignment[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CampEventInput {
+  date: string;
+  title: string;
+  emoji: string;
+  startTime: string;
+  endTime: string | null;
+  notes: string;
+  roles: string[];
+}
+
+/** "2026-09-12" → "Sábado, 12 de setembro" (date-only, no timezone shift) */
+export function formatEventDate(iso: string, opts: Intl.DateTimeFormatOptions = { weekday: "long", day: "numeric", month: "long" }): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const s = new Intl.DateTimeFormat("pt-BR", opts).format(new Date(y, m - 1, d));
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+const json = (token: string) => ({ ...bearer(token), "content-type": "application/json" });
+
+// ── roles ───────────────────────────────────────────────────────────────────
+
+export async function listRoles(token: string): Promise<ScheduleRole[]> {
+  const res = await api<{ roles: ScheduleRole[] }>("/api/schedule/roles", { headers: bearer(token) });
+  return res.roles;
+}
+
+export interface RoleEventUsage {
+  eventId: string;
+  date: string;
+  startTime: string;
+  endTime: string | null;
+  title: string;
+  emoji: string;
+  /** who does this role in the event (for "everyone" roles: everyone not doing something else) */
+  people: { staffId: string; name: string; detail: string }[];
+}
+
+export interface RoleDetail {
+  role: ScheduleRole;
+  events: RoleEventUsage[];
+}
+
+export async function getRoleDetail(token: string, id: string): Promise<RoleDetail> {
+  return api<RoleDetail>(`/api/schedule/roles/${id}/detail`, { headers: bearer(token) });
+}
+
+export async function createRole(token: string, input: ScheduleRoleInput): Promise<ScheduleRole> {
+  const res = await api<{ role: ScheduleRole }>("/api/schedule/roles", {
+    method: "POST",
+    headers: json(token),
+    body: JSON.stringify(input),
+  });
+  upsert("roles", res.role);
+  return res.role;
+}
+
+export async function updateRole(token: string, id: string, patch: Partial<ScheduleRoleInput>): Promise<ScheduleRole> {
+  const res = await api<{ role: ScheduleRole }>(`/api/schedule/roles/${id}`, {
+    method: "PUT",
+    headers: json(token),
+    body: JSON.stringify(patch),
+  });
+  upsert("roles", res.role);
+  return res.role;
+}
+
+export async function deleteRole(token: string, id: string): Promise<void> {
+  await api(`/api/schedule/roles/${id}`, { method: "DELETE", headers: bearer(token) });
+  remove("roles", id);
+}
+
+// ── events ──────────────────────────────────────────────────────────────────
+
+export async function listEvents(token: string): Promise<CampEvent[]> {
+  const res = await api<{ events: CampEvent[] }>("/api/schedule/events", { headers: bearer(token) });
+  return res.events;
+}
+
+export async function createEvent(token: string, input: CampEventInput): Promise<CampEvent> {
+  const res = await api<{ event: CampEvent }>("/api/schedule/events", {
+    method: "POST",
+    headers: json(token),
+    body: JSON.stringify(input),
+  });
+  upsert("events", res.event);
+  return res.event;
+}
+
+export async function updateEvent(token: string, id: string, patch: Partial<CampEventInput>): Promise<CampEvent> {
+  const res = await api<{ event: CampEvent }>(`/api/schedule/events/${id}`, {
+    method: "PUT",
+    headers: json(token),
+    body: JSON.stringify(patch),
+  });
+  upsert("events", res.event);
+  return res.event;
+}
+
+export async function setAssignments(token: string, eventId: string, assignments: EventAssignment[]): Promise<CampEvent> {
+  const res = await api<{ event: CampEvent }>(`/api/schedule/events/${eventId}/assignments`, {
+    method: "PUT",
+    headers: json(token),
+    body: JSON.stringify({ assignments }),
+  });
+  upsert("events", res.event);
+  return res.event;
+}
+
+/** Sets one person's role in an event (replacing any previous one). */
+export async function assignStaff(token: string, eventId: string, staffId: string, roleId: string, detail = ""): Promise<CampEvent> {
+  const res = await api<{ event: CampEvent }>(`/api/schedule/events/${eventId}/assignments/${staffId}`, {
+    method: "PUT",
+    headers: json(token),
+    body: JSON.stringify({ roleId, detail }),
+  });
+  upsert("events", res.event);
+  return res.event;
+}
+
+export async function unassignStaff(token: string, eventId: string, staffId: string): Promise<CampEvent> {
+  const res = await api<{ event: CampEvent }>(`/api/schedule/events/${eventId}/assignments/${staffId}`, {
+    method: "DELETE",
+    headers: bearer(token),
+  });
+  upsert("events", res.event);
+  return res.event;
+}
+
+export async function deleteEvent(token: string, id: string): Promise<void> {
+  await api(`/api/schedule/events/${id}`, { method: "DELETE", headers: bearer(token) });
+  remove("events", id);
+}
