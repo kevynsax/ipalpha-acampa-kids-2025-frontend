@@ -33,7 +33,7 @@ button, input { font: inherit; }
   font-weight: 700;
   letter-spacing: .02em;
   line-height: 1;
-  opacity: .16;
+  opacity: .55;
   pointer-events: none;
   user-select: none;
 }
