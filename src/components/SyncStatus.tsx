@@ -34,6 +34,8 @@ export default function SyncStatus() {
         ? `Conectando… · dados de ${ago(syncedAt, now)}`
         : `Sem conexão · usando dados salvos ${ago(syncedAt, now)}`;
 
+  if (connection === "online") return null;
+
   return (
     <button
       type="button"
@@ -43,7 +45,7 @@ export default function SyncStatus() {
       onClick={() => requestSnapshot()}
     >
       <span className="sync-dot__led" aria-hidden="true" />
-      <span className="sync-dot__text">{connection === "online" ? "ao vivo" : connection === "connecting" ? "conectando" : "offline"}</span>
+      <span className="sync-dot__text">{connection === "connecting" ? "conectando" : "offline"}</span>
     </button>
   );
 }

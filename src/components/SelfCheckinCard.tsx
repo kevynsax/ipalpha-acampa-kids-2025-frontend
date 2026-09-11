@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getSelfCheckinStatus, selfCheckin, type SelfCheckinStatus } from "../api/staff";
 import { ApiError } from "../api/client";
-import { formatEventDate } from "../api/schedule";
 import { describeGeoError, distanceMeters, formatDistance, readPosition, type DevicePosition } from "../geo";
 import type { LoggedUser } from "../roles";
 import { useCollection, useCollectionOrEmpty } from "../store";
@@ -43,7 +42,7 @@ function remember(date: string) {
   try {
     sessionStorage.setItem(DISMISS_KEY, date);
   } catch {
-    /* private mode — just don't persist */
+    /* private mode: just don't persist */
   }
 }
 
@@ -54,9 +53,9 @@ function remember(date: string) {
  * the spot the admin configured (Configurações → Local do check-in).
  *
  * The window opens ONE HOUR before the first event and lasts the rest of the
- * departure day (the server enforces the same rule). Until then — and every
- * other day — it renders nothing. When the window opens it first shows as a
- * POPUP; once dismissed ("Depois", ✕, Esc or tapping outside) the very same
+ * departure day (the server enforces the same rule). Until then, and every
+ * other day, it renders nothing. When the window opens it first shows as a
+ * POPUP; once dismissed (✕, Esc or tapping outside) the very same
  * card stays INLINE on the home page, in its usual place, so the person can
  * still check in later. Once checked in, the green "done" card shows inline.
  */
@@ -194,10 +193,8 @@ export default function SelfCheckinCard({ token, user }: SelfCheckinCardProps) {
       )}
       <span className="selfcheck__badge" aria-hidden="true">⛪</span>
       <div className="selfcheck__body">
-        <h2 className="selfcheck__title">Hoje é dia de saída!</h2>
-        <p className="selfcheck__text">
-          {formatEventDate(departure)}. Ao chegar na igreja, confirme sua presença aqui — precisamos da sua localização para saber que você já chegou.
-        </p>
+        <h2 className="selfcheck__title">O acampamento é Hoje!!!</h2>
+        <p className="selfcheck__text">Ao chegar na igreja, confirme sua presença aqui</p>
 
         {blocked && <p className="message message--error">{blocked.message}</p>}
         {error && <p className="message message--error">{error}</p>}
@@ -212,18 +209,14 @@ export default function SelfCheckinCard({ token, user }: SelfCheckinCardProps) {
           <button type="button" className="button button--primary selfcheck__cta" disabled={busy || !!blocked} onClick={handleCheckin}>
             {phase === "locating" ? "📡 Lendo o GPS…" : phase === "sending" ? "Confirmando…" : "Cheguei na igreja! ✋"}
           </button>
-          {popup && (
-            <button type="button" className="link-btn selfcheck__later" disabled={busy} onClick={dismiss}>
-              Depois
-            </button>
-          )}
         </div>
+        <p className="selfcheck__location-note">Precisamos da sua localização para saber que você já chegou.</p>
       </div>
     </section>
   );
 
   return popup ? (
-    <Dialog open onClose={dismiss} title="Hoje é dia de saída!" width={520}>
+    <Dialog open onClose={dismiss} title="O acampamento é Hoje!!!" width={520}>
       {card}
     </Dialog>
   ) : (

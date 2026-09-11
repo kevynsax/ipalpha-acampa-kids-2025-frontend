@@ -61,25 +61,52 @@ export default function InstructionsPage({ user }: InstructionsPageProps) {
       role: true,
     }));
   const generalDocs: Doc[] = docs.map((d) => ({ path: d.id, emoji: d.emoji, title: d.title, html: d.content }));
+  const allDocs = [...roleDocs, ...generalDocs];
 
   // ── one document ────────────────────────────────────────────────────────
   const path = segments.slice(1).join("/");
   if (path) {
-    const d = [...roleDocs, ...generalDocs].find((x) => x.path === path);
+    const d = allDocs.find((x) => x.path === path);
     return (
-      <div className="admin-page">
+      <div className="admin-page admin-page--wide">
         <Breadcrumbs items={[{ label: "Instruções", onClick: () => navigate("/instructions") }, { label: d?.title ?? "Documento" }]} />
         {!d ? (
           <p className="opt-empty">Documento não encontrado.</p>
         ) : (
-          <article className="detail-card instruction-doc">
-            <h1 className="admin-title instruction-doc__title">
-              <span aria-hidden="true">{d.emoji}</span> {d.title}
-              {d.extra}
-              {d.role && <span className="prep-section__tag">sua função</span>}
-            </h1>
-            {d.html ? <RichHtml html={d.html} /> : <p className="opt-empty">Este documento ainda está vazio.</p>}
-          </article>
+          <div className="instruction-reader">
+            <aside className="instruction-sidebar">
+              <h2 className="instruction-sidebar__title">Instruções</h2>
+              <nav aria-label="Instruções">
+                <ul className="instruction-sidebar__list">
+                  {allDocs.map((item) => {
+                    const selected = item.path === path;
+                    return (
+                      <li key={item.path}>
+                        <button
+                          type="button"
+                          className={`instruction-sidebar__link${selected ? " instruction-sidebar__link--selected" : ""}`}
+                          title={item.title}
+                          aria-current={selected ? "page" : undefined}
+                          onClick={() => navigate(`/instructions/${item.path}`)}
+                        >
+                          <span aria-hidden="true">{item.emoji}</span>
+                          <span className="instruction-sidebar__label">{item.title}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </nav>
+            </aside>
+            <article className="detail-card instruction-doc">
+              <h1 className="admin-title instruction-doc__title">
+                <span aria-hidden="true">{d.emoji}</span> {d.title}
+                {d.extra}
+                {d.role && <span className="prep-section__tag">sua função</span>}
+              </h1>
+              {d.html ? <RichHtml html={d.html} /> : <p className="opt-empty">Este documento ainda está vazio.</p>}
+            </article>
+          </div>
         )}
       </div>
     );
