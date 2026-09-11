@@ -2,6 +2,8 @@ import { useState } from "react";
 import { createPrepSection, deletePrepSection, reorderPrepSections, updatePrepSection, type PrepSection, type PrepSectionInput } from "../../api/preparation";
 import { useConfirm } from "../../components/ConfirmDialog";
 import EmojiPicker from "../../components/EmojiPicker";
+import { useAiAutoFill } from "../../hooks/useAiAutoFill";
+import AiTitleButton from "../../components/AiTitleButton";
 import RichHtml from "../../components/RichHtml";
 import RichTextEditor from "../../components/RichTextEditor";
 import { goBack, useRoute } from "../../router";
@@ -173,6 +175,7 @@ function SectionForm({ token, section, busy, onSubmit, onCancel }: SectionFormPr
   const [emoji, setEmoji] = useState(section?.emoji ?? "📌");
   const [content, setContent] = useState(section?.content ?? "");
   const valid = title.trim().length > 0;
+  const ai = useAiAutoFill({ token, context: "preparation", title, setTitle, emoji, setEmoji, defaultEmoji: "📌", existing: !!section });
 
   return (
     <form
@@ -186,17 +189,20 @@ function SectionForm({ token, section, busy, onSubmit, onCancel }: SectionFormPr
       <div className="cat-form__row">
         <div className="cat-field cat-field--emoji">
           <span className="cat-field__label">Ícone</span>
-          <EmojiPicker value={emoji} onChange={setEmoji} suggestions={EMOJI_SUGGESTIONS} disabled={busy} />
+          <EmojiPicker value={emoji} onChange={ai.pickEmoji} suggestions={EMOJI_SUGGESTIONS} disabled={busy} />
         </div>
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Título</span>
-          <input className="cat-input" placeholder="ex.: O que levar na mala" value={title} maxLength={80} autoFocus disabled={busy} onChange={(e) => setTitle(e.target.value)} />
+          <span className="cat-field__label">Título{ai.suggesting && <span className="cat-field__ai"> ✨ sugerindo…</span>}</span>
+          <span className="cat-input-wrap">
+            <input className="cat-input" placeholder="ex.: O que levar na mala" value={title} maxLength={80} autoFocus disabled={busy} onChange={(e) => setTitle(e.target.value)} />
+            <AiTitleButton html={content} busy={ai.suggesting} disabled={busy} onClick={() => void ai.regenerateTitle(content)} />
+          </span>
         </label>
       </div>
       <div className="cat-field">
         <span className="cat-field__label">📝 Conteúdo</span>
         <p className="cat-hint">Texto, listas, links e fotos (🖼️ ou cole / arraste uma imagem). As fotos são reduzidas automaticamente.</p>
-        <RichTextEditor token={token} value={content} onChange={setContent} disabled={busy} placeholder="ex.: Leve roupa de banho, toalha, protetor solar…" />
+        <RichTextEditor token={token} value={content} onChange={setContent} disabled={busy} placeholder="ex.: Leve roupa de banho, toalha, protetor solar…" aiContext="preparation" aiTitle={title} onAiApplied={ai.onAiApplied} />
       </div>
       <div className="cat-form__actions">
         <button type="button" className="button button--secondary" onClick={onCancel} disabled={busy}>

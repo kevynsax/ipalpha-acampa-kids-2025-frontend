@@ -1,5 +1,4 @@
-import { api } from "./client";
-import { remove, upsert } from "../store";
+import { command } from "./client";
 import { bearer } from "../auth/store";
 
 export interface ScheduleRole {
@@ -74,11 +73,6 @@ const json = (token: string) => ({ ...bearer(token), "content-type": "applicatio
 
 // ── roles ───────────────────────────────────────────────────────────────────
 
-export async function listRoles(token: string): Promise<ScheduleRole[]> {
-  const res = await api<{ roles: ScheduleRole[] }>("/api/schedule/roles", { headers: bearer(token) });
-  return res.roles;
-}
-
 export interface RoleEventUsage {
   eventId: string;
   date: string;
@@ -95,93 +89,75 @@ export interface RoleDetail {
   events: RoleEventUsage[];
 }
 
-export async function getRoleDetail(token: string, id: string): Promise<RoleDetail> {
-  return api<RoleDetail>(`/api/schedule/roles/${id}/detail`, { headers: bearer(token) });
-}
-
 export async function createRole(token: string, input: ScheduleRoleInput): Promise<ScheduleRole> {
-  const res = await api<{ role: ScheduleRole }>("/api/schedule/roles", {
+  const res = await command<{ role: ScheduleRole }>("/api/schedule/roles", {
     method: "POST",
     headers: json(token),
     body: JSON.stringify(input),
-  });
-  upsert("roles", res.role);
+  }, ["roles", "events"]);
   return res.role;
 }
 
 export async function updateRole(token: string, id: string, patch: Partial<ScheduleRoleInput>): Promise<ScheduleRole> {
-  const res = await api<{ role: ScheduleRole }>(`/api/schedule/roles/${id}`, {
+  const res = await command<{ role: ScheduleRole }>(`/api/schedule/roles/${id}`, {
     method: "PUT",
     headers: json(token),
     body: JSON.stringify(patch),
-  });
-  upsert("roles", res.role);
+  }, ["roles", "events"]);
   return res.role;
 }
 
 export async function deleteRole(token: string, id: string): Promise<void> {
-  await api(`/api/schedule/roles/${id}`, { method: "DELETE", headers: bearer(token) });
-  remove("roles", id);
+  await command(`/api/schedule/roles/${id}`, { method: "DELETE", headers: bearer(token) }, ["roles", "events"]);
 }
 
 // ── events ──────────────────────────────────────────────────────────────────
 
-export async function listEvents(token: string): Promise<CampEvent[]> {
-  const res = await api<{ events: CampEvent[] }>("/api/schedule/events", { headers: bearer(token) });
-  return res.events;
-}
-
 export async function createEvent(token: string, input: CampEventInput): Promise<CampEvent> {
-  const res = await api<{ event: CampEvent }>("/api/schedule/events", {
+  const res = await command<{ event: CampEvent }>("/api/schedule/events", {
     method: "POST",
     headers: json(token),
     body: JSON.stringify(input),
-  });
-  upsert("events", res.event);
+  }, ["roles", "events"]);
   return res.event;
 }
 
 export async function updateEvent(token: string, id: string, patch: Partial<CampEventInput>): Promise<CampEvent> {
-  const res = await api<{ event: CampEvent }>(`/api/schedule/events/${id}`, {
+  const res = await command<{ event: CampEvent }>(`/api/schedule/events/${id}`, {
     method: "PUT",
     headers: json(token),
     body: JSON.stringify(patch),
-  });
-  upsert("events", res.event);
+  }, ["roles", "events"]);
   return res.event;
 }
 
 export async function setAssignments(token: string, eventId: string, assignments: EventAssignment[]): Promise<CampEvent> {
-  const res = await api<{ event: CampEvent }>(`/api/schedule/events/${eventId}/assignments`, {
+  const res = await command<{ event: CampEvent }>(`/api/schedule/events/${eventId}/assignments`, {
     method: "PUT",
     headers: json(token),
     body: JSON.stringify({ assignments }),
-  });
-  upsert("events", res.event);
+  }, ["roles", "events"]);
   return res.event;
 }
 
 /** Sets one person's role in an event (replacing any previous one). */
 export async function assignStaff(token: string, eventId: string, staffId: string, roleId: string, detail = ""): Promise<CampEvent> {
-  const res = await api<{ event: CampEvent }>(`/api/schedule/events/${eventId}/assignments/${staffId}`, {
+  const res = await command<{ event: CampEvent }>(`/api/schedule/events/${eventId}/assignments/${staffId}`, {
     method: "PUT",
     headers: json(token),
     body: JSON.stringify({ roleId, detail }),
-  });
-  upsert("events", res.event);
+  }, ["roles", "events"]);
   return res.event;
 }
 
 export async function unassignStaff(token: string, eventId: string, staffId: string): Promise<CampEvent> {
-  const res = await api<{ event: CampEvent }>(`/api/schedule/events/${eventId}/assignments/${staffId}`, {
+  const res = await command<{ event: CampEvent }>(`/api/schedule/events/${eventId}/assignments/${staffId}`, {
     method: "DELETE",
     headers: bearer(token),
-  });
-  upsert("events", res.event);
+  }, ["roles", "events"]);
   return res.event;
 }
 
 export async function deleteEvent(token: string, id: string): Promise<void> {
-  await api(`/api/schedule/events/${id}`, { method: "DELETE", headers: bearer(token) });
-  remove("events", id);
+  await command(`/api/schedule/events/${id}`, { method: "DELETE", headers: bearer(token) }, ["roles", "events"]);
 }

@@ -12,6 +12,8 @@ import BedroomsPage from "./admin/BedroomsPage";
 import CampersPage from "./admin/CampersPage";
 import CategoriesPage from "./admin/CategoriesPage";
 import CheckinSettingsPage from "./admin/CheckinSettingsPage";
+import GeneralSettingsPage from "./admin/GeneralSettingsPage";
+import AboutPage from "./admin/AboutPage";
 import AdminCheckinPage from "./admin/AdminCheckinPage";
 import MedicalStaffPage from "./admin/MedicalStaffPage";
 import OrganizersPage from "./admin/OrganizersPage";
@@ -30,6 +32,7 @@ import MySchedulePage from "./MySchedulePage";
 import OccurrencesPage from "./OccurrencesPage";
 import StaffCheckinPage from "./StaffCheckinPage";
 import { useCheckinHelper, type HelperAccess } from "../hooks/useCheckinHelper";
+import { useCollection } from "../store";
 
 interface DashboardProps {
   user: LoggedUser;
@@ -42,8 +45,9 @@ interface DashboardProps {
 type View = TabKey | "profile" | SettingsKey;
 
 /** Admin settings live behind the ⚙️ button; each one is its own URL (#/categories, #/settings). */
-type SettingsKey = "categories" | "preparation" | "instructions-admin" | "checkin-settings" | "organizers" | "medical" | "contacts" | "notifications";
+type SettingsKey = "general" | "categories" | "preparation" | "instructions-admin" | "checkin-settings" | "organizers" | "medical" | "contacts" | "notifications" | "about";
 const SETTINGS: readonly { key: SettingsKey; label: string; emoji?: string; icon?: string }[] = [
+  { key: "general", label: "Geral", emoji: "⚙️" },
   { key: "preparation", label: "Preparação", emoji: "🎒" },
   { key: "instructions-admin", label: "Instruções", emoji: "📖" },
   { key: "checkin-settings", label: "Check-in", emoji: "✅" },
@@ -52,6 +56,7 @@ const SETTINGS: readonly { key: SettingsKey; label: string; emoji?: string; icon
   { key: "contacts", label: "Important contacts", emoji: "📞" },
   { key: "notifications", label: "Notificações", emoji: "📲" },
   { key: "categories", label: "Categorias", emoji: "🗂️" },
+  { key: "about", label: "Sobre", emoji: "ℹ️" },
 ] as const;
 const isSettingsKey = (s: string | undefined): s is SettingsKey => SETTINGS.some((x) => x.key === s);
 
@@ -74,9 +79,11 @@ interface Tab {
  * "Programação" and a read-only "Equipe"; the MEDICAL team gets read-only
  * "Acampantes" and "Ônibus" with no window (see hooks/useCheckinHelper).
  */
-function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess): Tab[] {
+function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft: boolean): Tab[] {
   const prep: Tab = { key: "prep", label: "Preparação", emoji: "🎒" };
   const home: Tab = { key: "home", label: "Início", emoji: "🏠" };
+  // rooms still a draft (Settings → Geral): nobody knows their room yet, so Preparação IS the home
+  const teamHome: Tab[] = roomsDraft ? [prep] : phase === "before" ? [prep, home] : [home, prep];
   switch (role) {
     case "admin":
       return [
@@ -91,7 +98,7 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess): Tab[] {
     case "staff":
     case "health_staff":
       return [
-        ...(phase === "before" ? [prep, home] : [home, prep]),
+        ...teamHome,
         { key: "schedule", label: "Programação", emoji: "📅" },
         { key: "instructions", label: "Instruções", emoji: "📖" },
         ...(helper.medical ? [{ key: "campers" as const, label: "Acampantes", icon: ICONS.camper }] : []),
@@ -115,8 +122,9 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
   const meta = roleMeta(user.activeRole);
   const { phase, synced } = useCampTiming();
   const isTeam = user.activeRole === "staff" || user.activeRole === "health_staff";
-  const helper = useCheckinHelper(token, user.phone, isTeam);
-  const tabs = tabsFor(user.activeRole, phase, helper);
+  const helper = useCheckinHelper(user.phone, isTeam);
+  const roomsDraft = !!useCollection("settings")?.kidsRoomsDraft;
+  const tabs = tabsFor(user.activeRole, phase, helper, roomsDraft);
   const { path, segments, navigate } = useRoute();
   useScrollTopOnRoute(path);
 
@@ -276,11 +284,13 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
           {view === "bedrooms" && <BedroomsPage token={token} readOnly={!settingsAllowed} />}
           {view === "schedule" && (settingsAllowed || helper.organizer ? <SchedulePage token={token} /> : <MySchedulePage user={user} />)}
           {view === "categories" && <CategoriesPage token={token} />}
+          {view === "general" && <GeneralSettingsPage token={token} />}
           {view === "checkin-settings" && <CheckinSettingsPage token={token} />}
           {view === "organizers" && <OrganizersPage token={token} />}
           {view === "medical" && <MedicalStaffPage token={token} />}
           {view === "contacts" && <ParentContactsPage token={token} />}
           {view === "notifications" && <NotificationsPage token={token} />}
+          {view === "about" && <AboutPage token={token} />}
           {view === "checkin" && !settingsAllowed && <CheckinPage token={token} />}
           {view === "checkin" && settingsAllowed && segments.length === 1 && <AdminCheckinPage />}
           {view === "checkin" && settingsAllowed && segments[1] === "church" && <CheckinPage token={token} canOpenStaff adminMerged />}

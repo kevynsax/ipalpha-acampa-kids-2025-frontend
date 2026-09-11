@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { ApiError } from "./api/client";
 import CampingLayout from "./components/CampingLayout";
+import StaffAccessDialog from "./components/StaffAccessDialog";
 import { clearAuth, loadAuth, saveAuth } from "./auth/store";
 import Dashboard from "./pages/Dashboard";
 import OtpStep from "./pages/OtpStep";
@@ -21,6 +23,8 @@ export default function App() {
   const [step, setStep] = useState<Step>("phone");
   const [phoneMasked, setPhoneMasked] = useState("");
   const [otp, setOtp] = useState<OtpContext | null>(null);
+  /** set when the server kicked the person out because the team's access window closed */
+  const [evicted, setEvicted] = useState<ApiError | null>(null);
 
   // restore an existing session (still within its 24h window)
   const [session, setSession] = useState<{ user: LoggedUser; token: string; tokenExpiresAt: string } | null>(
@@ -47,11 +51,14 @@ export default function App() {
   useEffect(() => {
     if (!token) return;
     connectRealtime(token, {
-      onUnauthorized: () => {
-        // session revoked / expired on the server → back to the login
+      onUnauthorized: (reason) => {
+        // session revoked / expired on the server → back to the login, nothing kept on the phone
         clearAuth();
         clearStore();
         resetToLogin();
+        if (reason === "access-window-closed") {
+          setEvicted(new ApiError(401, "STAFF_ACCESS_ENDED", "O acampamento acabou."));
+        }
       },
     });
     return () => disconnectRealtime();
@@ -110,6 +117,7 @@ export default function App() {
     <>
       <VersionMark />
       <CampingLayout>{content}</CampingLayout>
+      <StaffAccessDialog error={evicted} onClose={() => setEvicted(null)} />
     </>
   );
 }

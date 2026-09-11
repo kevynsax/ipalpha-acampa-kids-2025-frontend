@@ -4,12 +4,14 @@ export class ApiError extends Error {
   attemptsLeft?: number;
   minutesLeft?: number;
   secondsLeft?: number;
+  opensAt?: string | null;
+  closesAt?: string | null;
 
   constructor(
     status: number,
     code: string,
     message: string,
-    extra?: { attemptsLeft?: number; minutesLeft?: number; secondsLeft?: number },
+    extra?: { attemptsLeft?: number; minutesLeft?: number; secondsLeft?: number; opensAt?: string | null; closesAt?: string | null },
   ) {
     super(message);
     this.status = status;
@@ -17,6 +19,8 @@ export class ApiError extends Error {
     this.attemptsLeft = extra?.attemptsLeft;
     this.minutesLeft = extra?.minutesLeft;
     this.secondsLeft = extra?.secondsLeft;
+    this.opensAt = extra?.opensAt;
+    this.closesAt = extra?.closesAt;
   }
 }
 
@@ -53,9 +57,25 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
         attemptsLeft: err?.attemptsLeft as number | undefined,
         minutesLeft: err?.minutesLeft as number | undefined,
         secondsLeft: err?.secondsLeft as number | undefined,
+        opensAt: err?.opensAt as string | null | undefined,
+        closesAt: err?.closesAt as string | null | undefined,
       },
     );
   }
 
   return data as T;
+}
+
+/** A REST command whose resulting application state must arrive by WebSocket. */
+export async function command<T>(path: string, options: RequestInit, collections: readonly import("../store").CollectionName[]): Promise<T> {
+  const { prepareCollectionWait } = await import("../store/realtime");
+  const waiter = prepareCollectionWait(collections);
+  try {
+    const result = await api<T>(path, options);
+    await waiter.promise;
+    return result;
+  } catch (error) {
+    waiter.cancel();
+    throw error;
+  }
 }

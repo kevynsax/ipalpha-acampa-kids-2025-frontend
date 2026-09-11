@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { getSettings, updateSettings, type ParentContact, type Settings } from "../../api/settings";
-import { useCollectionOrEmpty } from "../../store";
+import { updateSettings, type ParentContact } from "../../api/settings";
+import { useCollection, useCollectionOrEmpty } from "../../store";
 import StaffPicker from "./StaffPicker";
 
 interface ParentContactsPageProps {
@@ -23,7 +23,7 @@ function contactId(): string {
 /** Admin-only list of the staff contacts that will later be shown to parents. */
 export default function ParentContactsPage({ token }: ParentContactsPageProps) {
   const staff = useCollectionOrEmpty("staff");
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const settings = useCollection("settings");
   const [contacts, setContacts] = useState<ParentContact[]>([]);
   const [draft, setDraft] = useState<ContactDraft>(EMPTY_DRAFT);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -36,18 +36,8 @@ export default function ParentContactsPage({ token }: ParentContactsPageProps) {
   const validDraft = draft.title.trim().length > 0 && !!selectedStaff?.active;
 
   useEffect(() => {
-    let alive = true;
-    getSettings(token)
-      .then((next) => {
-        if (!alive) return;
-        setSettings(next);
-        setContacts(next.parentContacts);
-      })
-      .catch((cause) => alive && setError(cause instanceof Error ? cause.message : "Algo deu errado."));
-    return () => {
-      alive = false;
-    };
-  }, [token]);
+    if (settings) setContacts(settings.parentContacts);
+  }, [settings]);
 
   function resetDraft() {
     setDraft(EMPTY_DRAFT);
@@ -61,9 +51,7 @@ export default function ParentContactsPage({ token }: ParentContactsPageProps) {
     setError(null);
     setContacts(nextContacts);
     try {
-      const next = await updateSettings(token, { parentContacts: nextContacts });
-      setSettings(next);
-      setContacts(next.parentContacts);
+      await updateSettings(token, { parentContacts: nextContacts });
       return true;
     } catch (cause) {
       setContacts(previous);

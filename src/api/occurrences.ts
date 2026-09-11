@@ -1,6 +1,5 @@
 import { bearer } from "../auth/store";
-import { upsert } from "../store";
-import { api } from "./client";
+import { command } from "./client";
 
 export interface OccurrencePerson {
   id: string;
@@ -24,11 +23,10 @@ export interface OccurrenceInput {
 }
 
 export async function createOccurrence(token: string, input: OccurrenceInput): Promise<Occurrence> {
-  const response = await api<{ occurrence: Occurrence }>("/api/occurrences", {
+  const response = await command<{ occurrence: Occurrence }>("/api/occurrences", {
     method: "POST",
     headers: { ...bearer(token), "content-type": "application/json" },
     body: JSON.stringify(input),
-  });
-  upsert("occurrences", response.occurrence);
+  }, ["occurrences"]);
   return response.occurrence;
 }

@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { command } from "./client";
 import { bearer } from "../auth/store";
 
 /** Where the team must be to check themselves in on departure day. */
@@ -17,6 +17,12 @@ export interface NotificationSettings {
   roleChanges: boolean;
   /** the person's church check-in was recorded (by themselves or by the admin roll call) */
   checkinConfirmation: boolean;
+  /** an Instruções document / Preparação section was created or edited, or the instructions / preparation text of one of the person's roles changed */
+  contentChanges: boolean;
+  /** added to the team or to an admin list (organizer, helper, medical, parent contact) — SMS with the app link */
+  enrolments: boolean;
+  /** the person's OWN allocation changed: bedroom, team or vehicle (bus) */
+  staffChanges: boolean;
 }
 
 /** The time window in which the check-in helpers (church AND bus) may act. */
@@ -64,6 +70,12 @@ export interface Settings {
   medicalStaff: StaffList;
   /** ordered staff contacts that will be shared with parents */
   parentContacts: ParentContact[];
+  /** when ORDINARY team members (on no list) may use the app; both ends null = always */
+  staffAccessWindow: CheckinWindow;
+  /** test mode: church + bus check-in open for the helpers regardless of the window (team self check-in unaffected) */
+  checkinTestMode: boolean;
+  /** the kids' room allocation is still a draft: caretakers see no kids in their room and no room SMS goes out */
+  kidsRoomsDraft: boolean;
   /** false when the server has no SMS provider configured (texts are only logged) */
   smsEnabled: boolean;
   updatedAt: string | null;
@@ -76,11 +88,6 @@ export const DEFAULT_CHECKIN_LOCATION: CheckinLocation = {
   radiusM: 300,
 };
 
-export async function getSettings(token: string): Promise<Settings> {
-  const res = await api<{ settings: Settings }>("/api/settings", { headers: bearer(token) });
-  return res.settings;
-}
-
 export interface SettingsPatch {
   checkinLocation?: CheckinLocation;
   /** partial: only the keys sent are changed */
@@ -91,15 +98,27 @@ export interface SettingsPatch {
   organizers?: StaffList;
   medicalStaff?: StaffList;
   parentContacts?: ParentContact[];
+  staffAccessWindow?: { from: string | null; until: string | null };
+  checkinTestMode?: boolean;
+  kidsRoomsDraft?: boolean;
 }
 
-export async function updateSettings(token: string, patch: SettingsPatch): Promise<Settings> {
-  const res = await api<{ settings: Settings }>("/api/settings", {
-    method: "PUT",
-    headers: { ...bearer(token), "content-type": "application/json" },
-    body: JSON.stringify(patch),
-  });
-  return res.settings;
+/** Clears every check-in (kids' church + bus, team) and the audit log — for rehearsing the process. */
+export async function resetCheckins(token: string): Promise<{ campers: number; staff: number }> {
+  return command<{ campers: number; staff: number }>("/api/settings/checkin/reset", { method: "POST", headers: bearer(token) }, ["campers", "staff"]);
+}
+
+/** Writes go through REST; the canonical value arrives in the `settings` WebSocket collection. */
+export async function updateSettings(token: string, patch: SettingsPatch): Promise<void> {
+  await command<{ settings: Settings }>(
+    "/api/settings",
+    {
+      method: "PUT",
+      headers: { ...bearer(token), "content-type": "application/json" },
+      body: JSON.stringify(patch),
+    },
+    ["settings"],
+  );
 }
 
 /** Google Maps link for a point (used on the settings page to double-check the pin). */

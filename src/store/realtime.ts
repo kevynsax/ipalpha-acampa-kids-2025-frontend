@@ -28,11 +28,25 @@ let socket: WebSocket | null = null;
 let currentToken: string | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let attempts = 0;
-let onUnauthorized: (() => void) | null = null;
+let onUnauthorized: ((reason: UnauthorizedReason) => void) | null = null;
+/** why the server refused the session: the team's access window closed, or anything else (expired / revoked) */
+export type UnauthorizedReason = "access-window-closed" | "session";
+interface CollectionWaiter {
+  names: Set<keyof Collections>;
+  finish: () => void;
+}
+const collectionWaiters = new Set<CollectionWaiter>();
 
 function clearRetry() {
   if (retryTimer) clearTimeout(retryTimer);
   retryTimer = null;
+}
+
+function resolveCollectionWaiters(data: Partial<Collections>) {
+  const received = new Set(Object.keys(data) as (keyof Collections)[]);
+  for (const waiter of collectionWaiters) {
+    if ([...waiter.names].every((name) => received.has(name))) waiter.finish();
+  }
 }
 
 function open() {
@@ -55,11 +69,14 @@ function open() {
     } catch {
       return;
     }
-    if (msg.type === "snapshot" || msg.type === "update") applyServerData(msg.data, msg.at);
+    if (msg.type === "snapshot" || msg.type === "update") {
+      applyServerData(msg.data, msg.at);
+      resolveCollectionWaiters(msg.data);
+    }
     else if (msg.type === "ping") ws.send("pong");
     else if (msg.type === "error" && msg.code === "UNAUTHORIZED") {
       currentToken = null;
-      onUnauthorized?.();
+      onUnauthorized?.(/acesso da equipe/i.test(msg.message) ? "access-window-closed" : "session");
     }
   };
 
@@ -68,7 +85,7 @@ function open() {
     setConnection("offline");
     if (evt.code === 4401) {
       currentToken = null;
-      onUnauthorized?.();
+      onUnauthorized?.(evt.reason === "access window closed" ? "access-window-closed" : "session");
       return;
     }
     scheduleRetry();
@@ -91,7 +108,7 @@ function scheduleRetry() {
 }
 
 /** Start (or restart with a new token). */
-export function connectRealtime(token: string, handlers: { onUnauthorized?: () => void } = {}): void {
+export function connectRealtime(token: string, handlers: { onUnauthorized?: (reason: UnauthorizedReason) => void } = {}): void {
   onUnauthorized = handlers.onUnauthorized ?? null;
   if (currentToken === token && socket) return;
   disconnectRealtime();
@@ -102,6 +119,7 @@ export function connectRealtime(token: string, handlers: { onUnauthorized?: () =
 
 export function disconnectRealtime(): void {
   clearRetry();
+  for (const waiter of collectionWaiters) waiter.finish();
   currentToken = null;
   if (socket) {
     const s = socket;
@@ -116,6 +134,34 @@ export function disconnectRealtime(): void {
 export function requestSnapshot(): void {
   if (socket?.readyState === WebSocket.OPEN) socket.send("refresh");
   else if (currentToken && !socket) open();
+}
+
+/**
+ * Register before a REST mutation so the caller can wait until its canonical
+ * collections arrive through the WebSocket. A missed update triggers a full
+ * snapshot request; the hard timeout prevents a successful write from hanging.
+ */
+export function prepareCollectionWait(names: readonly (keyof Collections)[], timeoutMs = 4000): { promise: Promise<void>; cancel: () => void } {
+  let finish = () => {};
+  const promise = new Promise<void>((resolve) => {
+    let done = false;
+    const refreshTimer = setTimeout(requestSnapshot, Math.min(1000, timeoutMs));
+    const hardTimer = setTimeout(() => finish(), timeoutMs);
+    const waiter: CollectionWaiter = {
+      names: new Set(names),
+      finish: () => {
+        if (done) return;
+        done = true;
+        clearTimeout(refreshTimer);
+        clearTimeout(hardTimer);
+        collectionWaiters.delete(waiter);
+        resolve();
+      },
+    };
+    finish = waiter.finish;
+    collectionWaiters.add(waiter);
+  });
+  return { promise, cancel: () => finish() };
 }
 
 // reconnect immediately when the device comes back online / the app returns to the foreground

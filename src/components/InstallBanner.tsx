@@ -48,10 +48,9 @@ export default function InstallBanner() {
       <aside className="install-banner" role="alert">
         <img className="install-banner__icon" src={appIcon} alt="" aria-hidden="true" width={48} height={48} />
         <div className="install-banner__body">
-          <strong className="install-banner__title">⚠️ Instale o Acampa Kids no seu celular</strong>
+          <strong className="install-banner__title">Instale o Acampa Kids no seu celular</strong>
           <p className="install-banner__text">
-            No acampamento <strong>não há internet</strong>. Só o aplicativo instalado guarda todos os dados no aparelho e continua
-            funcionando sem sinal. Pelo navegador você pode perder o acesso.
+            No acampamento <strong>não há internet</strong>.
           </p>
           <div className="install-banner__actions">
             <button type="button" className="button button--primary install-banner__cta" onClick={install}>

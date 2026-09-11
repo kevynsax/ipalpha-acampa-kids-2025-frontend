@@ -1,8 +1,9 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { buildBallerina, buildButterfly } from "./garden3dModels";
+import { buildUnicorn } from "./unicorn3dModel";
 
-/** Both characters share one context, lighting rig and animation loop. */
+/** All three characters share one context, lighting rig and animation loop. */
 export function mountGardenScene(host: HTMLDivElement, onReady: () => void, onUnavailable: () => void): () => void {
   let renderer: THREE.WebGLRenderer;
   try {
@@ -36,15 +37,18 @@ export function mountGardenScene(host: HTMLDivElement, onReady: () => void, onUn
   sun.position.set(-3, 7, 5);
   sun.castShadow = true;
   sun.shadow.mapSize.set(512, 512);
-  Object.assign(sun.shadow.camera, { left: -3, right: 3, top: 4, bottom: -4, near: .5, far: 20 });
-  sun.shadow.camera.updateProjectionMatrix();
+  Object.assign(sun.shadow.camera, { top: 4, bottom: -4, near: .5, far: 20 });
   sun.shadow.normalBias = .035;
   scene.add(sun, sun.target);
   const ballerina = buildBallerina();
   const butterfly = buildButterfly();
   butterfly.root.scale.setScalar(.43);
-  scene.add(ballerina.root, butterfly.root);
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(6, 5), new THREE.ShadowMaterial({ color: "#5c4052", opacity: .16 }));
+  const unicorn = buildUnicorn();
+  // Trots along a lane just behind the dancer, so crossing her never clips.
+  unicorn.root.scale.setScalar(.95);
+  unicorn.root.position.set(0, -2.1, -1.2);
+  scene.add(ballerina.root, butterfly.root, unicorn.root);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 5), new THREE.ShadowMaterial({ color: "#5c4052", opacity: .16 }));
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = -2.1;
   ground.receiveShadow = true;
@@ -67,6 +71,7 @@ export function mountGardenScene(host: HTMLDivElement, onReady: () => void, onUn
     const reduced = reducedMotion.matches;
     ballerina.pose(elapsed, reduced);
     butterfly.pose(elapsed, reduced);
+    unicorn.pose(elapsed, reduced, halfWidth);
     // A closed, smooth figure-eight flight: no teleport at the loop boundary.
     const phase = (elapsed % 12) / 12 * Math.PI * 2;
     const left = Math.min(ballerina.root.position.x + 1.5, halfWidth - .8);
@@ -100,9 +105,14 @@ export function mountGardenScene(host: HTMLDivElement, onReady: () => void, onUn
     camera.updateProjectionMatrix();
     const x = -halfWidth + Math.max(1.05, halfWidth * .20);
     ballerina.root.position.set(x, -2.1, 0);
-    ground.position.x = x;
+    // The shadow catcher and the sun's frustum span the whole stage: the
+    // unicorn crosses it end to end.
+    ground.scale.x = halfWidth * 2 + 4;
     sun.position.set(x - 3, 7, 5);
     sun.target.position.set(x, 0, 0);
+    sun.shadow.camera.left = -halfWidth - 2;
+    sun.shadow.camera.right = halfWidth + 2;
+    sun.shadow.camera.updateProjectionMatrix();
     resume();
   }
   const visibility = new IntersectionObserver(([entry]) => {

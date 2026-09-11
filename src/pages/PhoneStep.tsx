@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ApiError } from "../api/client";
 import { requestOtp } from "../auth/store";
 import PhoneInput from "../components/PhoneInput";
+import StaffAccessDialog, { isStaffAccessError } from "../components/StaffAccessDialog";
 import { isCompleteMobile, toE164 } from "../phone";
 
 interface PhoneStepProps {
@@ -14,6 +15,7 @@ interface PhoneStepProps {
 export default function PhoneStep({ phone, onPhoneChange, onSent }: PhoneStepProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [accessError, setAccessError] = useState<ApiError | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -29,7 +31,9 @@ export default function PhoneStep({ phone, onPhoneChange, onSent }: PhoneStepPro
       const res = await requestOtp(phoneE164);
       onSent({ phoneE164, expiresAt: res.expiresAt, delivery: res.delivery });
     } catch (err) {
-      if (err instanceof ApiError && err.code === "ACCOUNT_FROZEN") {
+      if (isStaffAccessError(err)) {
+        setAccessError(err);
+      } else if (err instanceof ApiError && err.code === "ACCOUNT_FROZEN") {
         setError(err.message);
       } else {
         setError(err instanceof Error ? err.message : "Algo deu errado. Tente novamente.");
@@ -56,6 +60,8 @@ export default function PhoneStep({ phone, onPhoneChange, onSent }: PhoneStepPro
 
         {error && <p className="message message--error">{error}</p>}
       </form>
+
+      <StaffAccessDialog error={accessError} onClose={() => setAccessError(null)} />
     </>
   );
 }

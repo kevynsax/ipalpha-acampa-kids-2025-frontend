@@ -1,5 +1,4 @@
-import { api } from "./client";
-import { remove, upsert } from "../store";
+import { command } from "./client";
 import { bearer } from "../auth/store";
 import { roleMeta } from "../roles";
 import { ICONS } from "../icons";
@@ -45,42 +44,30 @@ export function bedroomLabel(b: Pick<Bedroom, "name" | "group">): string {
 
 const json = (token: string) => ({ ...bearer(token), "content-type": "application/json" });
 
-export async function listBedrooms(token: string): Promise<Bedroom[]> {
-  const res = await api<{ bedrooms: Bedroom[] }>("/api/bedrooms", { headers: bearer(token) });
-  return res.bedrooms;
-}
-
 export interface BedroomDetail {
   bedroom: Bedroom;
   campers: import("./campers").Camper[];
   staff: import("./staff").Staff[];
 }
 
-export async function getBedroomDetail(token: string, id: string): Promise<BedroomDetail> {
-  return api<BedroomDetail>(`/api/bedrooms/${id}/detail`, { headers: bearer(token) });
-}
-
 export async function createBedroom(token: string, input: BedroomInput): Promise<Bedroom> {
-  const res = await api<{ bedroom: Bedroom }>("/api/bedrooms", {
+  const res = await command<{ bedroom: Bedroom }>("/api/bedrooms", {
     method: "POST",
     headers: json(token),
     body: JSON.stringify(input),
-  });
-  upsert("bedrooms", res.bedroom);
+  }, ["bedrooms"]);
   return res.bedroom;
 }
 
 export async function updateBedroom(token: string, id: string, patch: Partial<BedroomInput>): Promise<Bedroom> {
-  const res = await api<{ bedroom: Bedroom }>(`/api/bedrooms/${id}`, {
+  const res = await command<{ bedroom: Bedroom }>(`/api/bedrooms/${id}`, {
     method: "PUT",
     headers: json(token),
     body: JSON.stringify(patch),
-  });
-  upsert("bedrooms", res.bedroom);
+  }, ["bedrooms"]);
   return res.bedroom;
 }
 
 export async function deleteBedroom(token: string, id: string): Promise<void> {
-  await api(`/api/bedrooms/${id}`, { method: "DELETE", headers: bearer(token) });
-  remove("bedrooms", id);
+  await command(`/api/bedrooms/${id}`, { method: "DELETE", headers: bearer(token) }, ["bedrooms"]);
 }

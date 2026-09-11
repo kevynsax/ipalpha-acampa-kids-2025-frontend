@@ -1,12 +1,15 @@
-import { useEffect, useState } from "react";
-import { getSettings, updateSettings, type NotificationSettings, type Settings } from "../../api/settings";
+import { useState } from "react";
+import { updateSettings, type NotificationSettings } from "../../api/settings";
+import { useCollection } from "../../store";
 import Toggle from "../../components/Toggle";
+import { useRoute } from "../../router";
+import { roleMeta } from "../../roles";
 
 interface NotificationsPageProps {
   token: string;
 }
 
-const OPTIONS: { key: keyof NotificationSettings; emoji: string; title: string; text: string }[] = [
+const OPTIONS: { key: keyof NotificationSettings; emoji?: string; icon?: string; title: string; text: string }[] = [
   {
     key: "bedroomChanges",
     emoji: "🛏️",
@@ -14,16 +17,34 @@ const OPTIONS: { key: keyof NotificationSettings; emoji: string; title: string; 
     text: "Quando uma criança entra, sai ou é transferida de um quarto, quem cuida daquele quarto recebe um SMS.",
   },
   {
+    key: "staffChanges",
+    icon: roleMeta("staff").icon,
+    title: "Mudanca no cadastro da equipe",
+    text: "Quando o quarto, o time ou o transporte de alguém da equipe é alterado, a própria pessoa recebe um SMS.",
+  },
+  {
     key: "roleChanges",
     emoji: "🎯",
     title: "Mudança de função na programação",
-    text: "Quando alguém é escalado, trocado ou retirado de uma função — ou o evento muda de horário / é cancelado, ou as instruções da função mudam — a pessoa recebe um SMS.",
+    text: "Quando alguém é escalado, trocado ou retirado de uma função — ou o evento muda de horário / é cancelado — a pessoa recebe um SMS.",
+  },
+  {
+    key: "contentChanges",
+    emoji: "📖+🎒",
+    title: "Instruções ou Preparação novas / alteradas",
+    text: "Quando um documento de Instruções ou uma seção da Preparação é criado ou alterado (toda a equipe), ou as instruções / preparação de uma função mudam (quem tem a função), a pessoa recebe um SMS.",
+  },
+  {
+    key: "enrolments",
+    emoji: "🎉",
+    title: "Boas-vindas e novas responsabilidades",
+    text: "Quando o app é liberado para a equipe (início do período de acesso) cada pessoa recebe, uma única vez, um SMS de boas-vindas com o link do app. Quem vira organizador, ajudante do check-in / ônibus, equipe médica ou contato dos pais recebe o SMS na hora.",
   },
   {
     key: "checkinConfirmation",
-    emoji: "✅",
-    title: "Confirmação de check-in",
-    text: "Quando o check-in de alguém da equipe é registrado na igreja — pela própria pessoa ou pela chamada do admin — ela recebe um SMS confirmando e lembrando de conferir as crianças do seu quarto.",
+    emoji: "👋",
+    title: "Confirmação de check-in da equipe",
+    text: "Quando o check-in de alguém da equipe é registrado na igreja ela recebe um SMS confirmando e lembrando de conferir as crianças do seu quarto.",
   },
 ];
 
@@ -32,31 +53,18 @@ const OPTIONS: { key: keyof NotificationSettings; emoji: string; title: string; 
  * ("houve uma mudança… abra o app") — the details live in the app.
  */
 export default function NotificationsPage({ token }: NotificationsPageProps) {
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const settings = useCollection("settings");
+  const { navigate } = useRoute();
   const [busy, setBusy] = useState<keyof NotificationSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    getSettings(token)
-      .then((s) => alive && setSettings(s))
-      .catch((e) => alive && setError(e instanceof Error ? e.message : "Algo deu errado."));
-    return () => {
-      alive = false;
-    };
-  }, [token]);
 
   async function toggle(key: keyof NotificationSettings, value: boolean) {
     if (!settings || busy) return;
     setBusy(key);
     setError(null);
-    // optimistic — flip back on failure
-    const previous = settings;
-    setSettings({ ...settings, notifications: { ...settings.notifications, [key]: value } });
     try {
-      setSettings(await updateSettings(token, { notifications: { [key]: value } }));
+      await updateSettings(token, { notifications: { [key]: value } });
     } catch (e) {
-      setSettings(previous);
       setError(e instanceof Error ? e.message : "Algo deu errado.");
     } finally {
       setBusy(null);
@@ -77,13 +85,24 @@ export default function NotificationsPage({ token }: NotificationsPageProps) {
         <h1 className="admin-title">📲 Notificações por SMS</h1>
       </header>
       <p className="admin-intro">
-        A equipe recebe um <strong>SMS curto</strong> avisando que algo mudou e pedindo para abrir o app — as instruções ficam
-        sempre aqui, nunca na mensagem. Várias mudanças seguidas para a mesma pessoa viram um único SMS.
+        A equipe recebe um <strong>SMS curto</strong> avisando que algo mudou e pedindo para abrir o app.
       </p>
 
       {settings && !settings.smsEnabled && (
         <p className="message message--error">
           ⚠️ O envio de SMS não está configurado no servidor (COMTELE_API_KEY). As mensagens estão sendo apenas registradas no console.
+        </p>
+      )}
+      {settings && settings.staffAccessWindow && !settings.staffAccessWindow.open && (
+        <p className="message message--warn">
+          A equipe está sem acesso ao sistema, então não recebe notificações.{" "}
+          <a href="#/general" onClick={(e) => { e.preventDefault(); navigate("/general"); }}>Ajustar período de acesso</a>
+        </p>
+      )}
+      {settings?.kidsRoomsDraft && (
+        <p className="message message--warn">
+          Os quartos das crianças estão em rascunho: os avisos de quarto (crianças e equipe) estão pausados.{" "}
+          <a href="#/general" onClick={(e) => { e.preventDefault(); navigate("/general"); }}>Ajustar em Geral</a>
         </p>
       )}
       {error && <p className="message message--error">{error}</p>}
@@ -94,7 +113,9 @@ export default function NotificationsPage({ token }: NotificationsPageProps) {
             const on = settings.notifications[o.key];
             return (
               <li key={o.key} className={`notif-item ${on ? "notif-item--on" : ""}`}>
-                <span className="notif-item__emoji" aria-hidden="true">{o.emoji}</span>
+                <span className={`notif-item__emoji ${o.emoji?.includes("+") ? "notif-item__emoji--pair" : ""}`} aria-hidden="true">
+                  {o.icon ? <img src={o.icon} alt="" className="notif-item__icon" /> : o.emoji?.includes("+") ? o.emoji.split("+").map((e, i) => (i ? <span key={e}><span className="notif-item__plus">+</span>{e}</span> : <span key={e}>{e}</span>)) : o.emoji}
+                </span>
                 <div className="notif-item__body">
                   <h2 className="notif-item__title">{o.title}</h2>
                   <p className="notif-item__text">{o.text}</p>
@@ -107,9 +128,7 @@ export default function NotificationsPage({ token }: NotificationsPageProps) {
       )}
 
       <p className="footer-note">
-        Só recebe SMS quem tem celular cadastrado na equipe e está ativo. Exemplos de mensagem: <em>"AcampaKids: João, houve uma
-        mudança na sua escala (função). Abra o app para ver suas instruções."</em> · <em>"AcampaKids: João, seu check-in foi feito
-        com sucesso. Lembre-se de conferir as crianças do seu quarto no app."</em>
+        Só recebe SMS quem tem celular cadastrado na equipe e está ativo.
       </p>
     </div>
   );

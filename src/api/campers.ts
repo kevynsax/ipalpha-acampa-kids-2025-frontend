@@ -1,5 +1,4 @@
-import { api } from "./client";
-import { remove, upsert } from "../store";
+import { command } from "./client";
 import { bearer } from "../auth/store";
 import type { Staff } from "./staff";
 
@@ -68,25 +67,18 @@ export interface CamperDetail {
 
 const json = (token: string) => ({ ...bearer(token), "content-type": "application/json" });
 
-export async function getCamperDetail(token: string, id: string): Promise<CamperDetail> {
-  return api<CamperDetail>(`/api/campers/${id}/detail`, { headers: bearer(token) });
-}
-
 export async function createCamper(token: string, input: CamperInput): Promise<Camper> {
-  const res = await api<{ camper: Camper }>("/api/campers", { method: "POST", headers: json(token), body: JSON.stringify(input) });
-  upsert("campers", res.camper);
+  const res = await command<{ camper: Camper }>("/api/campers", { method: "POST", headers: json(token), body: JSON.stringify(input) }, ["campers", "bedrooms"]);
   return res.camper;
 }
 
 export async function updateCamper(token: string, id: string, patch: Partial<CamperInput>): Promise<Camper> {
-  const res = await api<{ camper: Camper }>(`/api/campers/${id}`, { method: "PUT", headers: json(token), body: JSON.stringify(patch) });
-  upsert("campers", res.camper);
+  const res = await command<{ camper: Camper }>(`/api/campers/${id}`, { method: "PUT", headers: json(token), body: JSON.stringify(patch) }, ["campers", "bedrooms"]);
   return res.camper;
 }
 
 export async function deleteCamper(token: string, id: string): Promise<void> {
-  await api(`/api/campers/${id}`, { method: "DELETE", headers: bearer(token) });
-  remove("campers", id);
+  await command(`/api/campers/${id}`, { method: "DELETE", headers: bearer(token) }, ["campers", "bedrooms"]);
 }
 
 export type CheckinKind = "church" | "bus";
@@ -94,21 +86,13 @@ const checkinPath = (id: string, kind: CheckinKind) => `/api/campers/${id}/check
 
 /** The kid arrived (church: parent confirmed the data at the gate; bus: boarded). */
 export async function checkinCamper(token: string, id: string, kind: CheckinKind = "church"): Promise<Camper> {
-  const res = await api<{ camper: Camper }>(checkinPath(id, kind), { method: "POST", headers: bearer(token) });
-  upsert("campers", res.camper);
+  const res = await command<{ camper: Camper }>(checkinPath(id, kind), { method: "POST", headers: bearer(token) }, ["campers"]);
   return res.camper;
 }
 
 export async function undoCheckinCamper(token: string, id: string, kind: CheckinKind = "church"): Promise<Camper> {
-  const res = await api<{ camper: Camper }>(checkinPath(id, kind), { method: "DELETE", headers: bearer(token) });
-  upsert("campers", res.camper);
+  const res = await command<{ camper: Camper }>(checkinPath(id, kind), { method: "DELETE", headers: bearer(token) }, ["campers"]);
   return res.camper;
-}
-
-export async function listCampers(token: string, filter: { bedroom?: string } = {}): Promise<Camper[]> {
-  const q = filter.bedroom ? `?bedroom=${encodeURIComponent(filter.bedroom)}` : "";
-  const res = await api<{ campers: Camper[] }>(`/api/campers${q}`, { headers: bearer(token) });
-  return res.campers;
 }
 
 /** age in whole years at `at` (defaults to today) */

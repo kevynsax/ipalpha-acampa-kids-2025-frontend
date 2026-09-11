@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { formatEventDate } from "../api/schedule";
 import { setMyPrepDone } from "../api/staff";
 import RichHtml from "../components/RichHtml";
+import SelfCheckinCard from "../components/SelfCheckinCard";
 import { useCampTiming } from "../campPhase";
 import type { LoggedUser } from "../roles";
 import { useCollection, useCollectionOrEmpty } from "../store";
@@ -47,6 +48,8 @@ export default function PreparationPage({ user, token }: PreparationPageProps) {
   const myRoles = useMyPrepRoles(user.phone);
   const staff = useCollectionOrEmpty("staff");
   const timing = useCampTiming();
+  /** rooms still a draft: this page is the team's home, so the departure-day self check-in lives here */
+  const roomsDraft = !!useCollection("settings")?.kidsRoomsDraft;
   const first = user.name.split(" ")[0];
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -147,6 +150,8 @@ export default function PreparationPage({ user, token }: PreparationPageProps) {
         <h1 className="admin-title">🎒 Preparação</h1>
       </header>
 
+      {roomsDraft && <SelfCheckinCard token={token} user={user} />}
+
       {countdown && (
         <div className="prep-countdown" role="status">
           <span className="prep-countdown__emoji" aria-hidden="true">{countdown.emoji}</span>
@@ -165,7 +170,7 @@ export default function PreparationPage({ user, token }: PreparationPageProps) {
 
       <p className="admin-intro">
         Olá, {first}! Aqui está tudo o que você precisa saber, levar e vestir antes do acampamento.
-        {canTick && total > 0 && " Conforme for resolvendo cada item, marque como feito — ele vai para o fim da lista."} 😊
+        {canTick && total > 0 && " Conforme for resolvendo cada item, marque como feito."} 😊
       </p>
 
       {error && <p className="message message--error">{error}</p>}

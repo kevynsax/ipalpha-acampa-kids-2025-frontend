@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { getSettings, updateSettings, type Settings } from "../../api/settings";
+import { updateSettings } from "../../api/settings";
+import { useCollection } from "../../store";
 import { ICONS } from "../../icons";
 import StaffListEditor from "./StaffListEditor";
 
@@ -14,24 +15,14 @@ interface OrganizersPageProps {
  * add / edit / remove staff nor export the list. No time window.
  */
 export default function OrganizersPage({ token }: OrganizersPageProps) {
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const settings = useCollection("settings");
   const [ids, setIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let alive = true;
-    getSettings(token)
-      .then((s) => {
-        if (!alive) return;
-        setSettings(s);
-        setIds(s.organizers.staffIds);
-      })
-      .catch((e) => alive && setError(e instanceof Error ? e.message : "Algo deu errado."));
-    return () => {
-      alive = false;
-    };
-  }, [token]);
+    if (settings) setIds(settings.organizers.staffIds);
+  }, [settings]);
 
   async function saveIds(nextIds: string[]) {
     if (busy) return;
@@ -40,9 +31,7 @@ export default function OrganizersPage({ token }: OrganizersPageProps) {
     setBusy(true);
     setError(null);
     try {
-      const s = await updateSettings(token, { organizers: { staffIds: nextIds } });
-      setSettings(s);
-      setIds(s.organizers.staffIds);
+      await updateSettings(token, { organizers: { staffIds: nextIds } });
     } catch (err) {
       setIds(previous);
       setError(err instanceof Error ? err.message : "Algo deu errado.");

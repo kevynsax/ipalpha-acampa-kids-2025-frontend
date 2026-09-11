@@ -1,5 +1,4 @@
-import { api } from "./client";
-import { remove, upsert } from "../store";
+import { api, command } from "./client";
 import { bearer } from "../auth/store";
 
 /** Category keys that feed each staff field (must match the backend). */
@@ -59,11 +58,6 @@ export interface StaffInput {
 
 const json = (token: string) => ({ ...bearer(token), "content-type": "application/json" });
 
-export async function listStaff(token: string): Promise<Staff[]> {
-  const res = await api<{ staff: Staff[] }>("/api/staff", { headers: bearer(token) });
-  return res.staff;
-}
-
 export interface StaffScheduleItem {
   eventId: string;
   date: string;
@@ -89,40 +83,32 @@ export interface StaffDetail {
   roommates: Staff[];
 }
 
-export async function getStaffDetail(token: string, id: string): Promise<StaffDetail> {
-  return api<StaffDetail>(`/api/staff/${id}/detail`, { headers: bearer(token) });
-}
-
 export async function createStaff(token: string, input: StaffInput): Promise<Staff> {
-  const res = await api<{ staff: Staff }>("/api/staff", {
+  const res = await command<{ staff: Staff }>("/api/staff", {
     method: "POST",
     headers: json(token),
     body: JSON.stringify(input),
-  });
-  upsert("staff", res.staff);
+  }, ["staff", "bedrooms"]);
   return res.staff;
 }
 
 export async function updateStaff(token: string, id: string, patch: Partial<StaffInput>): Promise<Staff> {
-  const res = await api<{ staff: Staff }>(`/api/staff/${id}`, {
+  const res = await command<{ staff: Staff }>(`/api/staff/${id}`, {
     method: "PUT",
     headers: json(token),
     body: JSON.stringify(patch),
-  });
-  upsert("staff", res.staff);
+  }, ["staff", "bedrooms"]);
   return res.staff;
 }
 
 /** The team member arrived. */
 export async function checkinStaff(token: string, id: string): Promise<Staff> {
-  const res = await api<{ staff: Staff }>(`/api/staff/${id}/checkin`, { method: "POST", headers: bearer(token) });
-  upsert("staff", res.staff);
+  const res = await command<{ staff: Staff }>(`/api/staff/${id}/checkin`, { method: "POST", headers: bearer(token) }, ["staff"]);
   return res.staff;
 }
 
 export async function undoCheckinStaff(token: string, id: string): Promise<Staff> {
-  const res = await api<{ staff: Staff }>(`/api/staff/${id}/checkin`, { method: "DELETE", headers: bearer(token) });
-  upsert("staff", res.staff);
+  const res = await command<{ staff: Staff }>(`/api/staff/${id}/checkin`, { method: "DELETE", headers: bearer(token) }, ["staff"]);
   return res.staff;
 }
 
@@ -147,23 +133,20 @@ export async function getSelfCheckinStatus(token: string): Promise<SelfCheckinSt
 
 /** Sends the device position; the server decides whether it is close enough. */
 export async function selfCheckin(token: string, pos: { lat: number; lng: number; accuracyM?: number }): Promise<{ staff: Staff; distanceM: number }> {
-  const res = await api<{ staff: Staff; distanceM: number }>("/api/staff/me/checkin", {
+  const res = await command<{ staff: Staff; distanceM: number }>("/api/staff/me/checkin", {
     method: "POST",
     headers: json(token),
     body: JSON.stringify(pos),
-  });
-  upsert("staff", res.staff);
+  }, ["staff"]);
   return res;
 }
 
 /** Ticks / unticks one item of the logged-in person's Preparação checklist. */
 export async function setMyPrepDone(token: string, key: string, done: boolean): Promise<Staff> {
-  const res = await api<{ staff: Staff }>(`/api/staff/me/prep/${key}`, { method: "PUT", headers: json(token), body: JSON.stringify({ done }) });
-  upsert("staff", res.staff);
+  const res = await command<{ staff: Staff }>(`/api/staff/me/prep/${key}`, { method: "PUT", headers: json(token), body: JSON.stringify({ done }) }, ["staff"]);
   return res.staff;
 }
 
 export async function deleteStaff(token: string, id: string): Promise<void> {
-  await api(`/api/staff/${id}`, { method: "DELETE", headers: bearer(token) });
-  remove("staff", id);
+  await command(`/api/staff/${id}`, { method: "DELETE", headers: bearer(token) }, ["staff", "bedrooms", "events"]);
 }

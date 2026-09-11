@@ -1,5 +1,7 @@
 import { useState } from "react";
 import EmojiPicker from "../../components/EmojiPicker";
+import { useAiAutoFill } from "../../hooks/useAiAutoFill";
+import AiTitleButton from "../../components/AiTitleButton";
 import type { ScheduleRole, ScheduleRoleInput } from "../../api/schedule";
 import RichTextEditor from "../../components/RichTextEditor";
 import Toggle from "../../components/Toggle";
@@ -30,6 +32,7 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
   const [error, setError] = useState<string | null>(null);
 
   const valid = name.trim().length > 0;
+  const ai = useAiAutoFill({ token, context: "role_instructions", title: name, setTitle: setName, emoji, setEmoji, defaultEmoji: "🎯", existing: editing });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,19 +64,22 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
       <div className="cat-form__row">
         <div className="cat-field cat-field--emoji">
           <span className="cat-field__label">Ícone</span>
-          <EmojiPicker value={emoji} onChange={setEmoji} suggestions={EMOJI_SUGGESTIONS} disabled={busy} />
+          <EmojiPicker value={emoji} onChange={ai.pickEmoji} suggestions={EMOJI_SUGGESTIONS} disabled={busy} />
         </div>
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Nome</span>
-          <input
-            className="cat-input"
-            placeholder="ex.: Supervisão da piscina"
-            value={name}
-            maxLength={80}
-            autoFocus
-            disabled={busy}
-            onChange={(e) => setName(e.target.value)}
-          />
+          <span className="cat-field__label">Nome{ai.suggesting && <span className="cat-field__ai"> ✨ sugerindo…</span>}</span>
+          <span className="cat-input-wrap">
+            <input
+              className="cat-input"
+              placeholder="ex.: Supervisão da piscina"
+              value={name}
+              maxLength={80}
+              autoFocus
+              disabled={busy}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <AiTitleButton html={instructions || preparation} busy={ai.suggesting} disabled={busy} onClick={() => void ai.regenerateTitle(instructions || preparation)} />
+          </span>
         </label>
       </div>
 
@@ -84,6 +90,9 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
         </p>
         <RichTextEditor
           token={token}
+          aiContext="role_instructions"
+          aiTitle={name}
+          onAiApplied={ai.onAiApplied}
           value={instructions}
           onChange={setInstructions}
           disabled={busy}
@@ -99,6 +108,9 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
         </p>
         <RichTextEditor
           token={token}
+          aiContext="role_preparation"
+          aiTitle={name}
+          onAiApplied={ai.onAiApplied}
           value={preparation}
           onChange={setPreparation}
           disabled={busy}

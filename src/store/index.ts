@@ -7,6 +7,7 @@ import type { Occurrence } from "../api/occurrences";
 import type { PrepSection } from "../api/preparation";
 import type { CampEvent, ScheduleRole } from "../api/schedule";
 import type { Staff } from "../api/staff";
+import type { Settings } from "../api/settings";
 
 /**
  * Local-first data store.
@@ -29,9 +30,11 @@ export interface Collections {
   preparation: PrepSection[];
   instructions: Instruction[];
   occurrences: Occurrence[];
+  settings: Settings;
 }
 export type CollectionName = keyof Collections;
-export const COLLECTION_NAMES: CollectionName[] = ["campers", "staff", "bedrooms", "categories", "roles", "events", "preparation", "instructions", "occurrences"];
+type ListCollectionName = Exclude<CollectionName, "settings">;
+export const COLLECTION_NAMES: CollectionName[] = ["campers", "staff", "bedrooms", "categories", "roles", "events", "preparation", "instructions", "occurrences", "settings"];
 
 export type ConnectionState = "connecting" | "online" | "offline";
 
@@ -102,7 +105,7 @@ export function setConnection(connection: ConnectionState): void {
 }
 
 /** Optimistic local edit of one collection (after a successful REST write). */
-export function patchCollection<K extends CollectionName>(name: K, fn: (list: Collections[K]) => Collections[K]): void {
+export function patchCollection<K extends ListCollectionName>(name: K, fn: (list: Collections[K]) => Collections[K]): void {
   const current = (state.data[name] ?? []) as Collections[K];
   state = { ...state, data: { ...state.data, [name]: fn(current) } };
   persist();
@@ -110,7 +113,7 @@ export function patchCollection<K extends CollectionName>(name: K, fn: (list: Co
 }
 
 /** Upsert one item by id. */
-export function upsert<K extends CollectionName>(name: K, item: Collections[K][number]): void {
+export function upsert<K extends ListCollectionName>(name: K, item: Collections[K][number]): void {
   patchCollection(name, (list) => {
     const i = list.findIndex((x) => x.id === item.id);
     const next = list.slice() as Collections[K];
@@ -120,12 +123,17 @@ export function upsert<K extends CollectionName>(name: K, item: Collections[K][n
   });
 }
 
-export function remove<K extends CollectionName>(name: K, id: string): void {
+export function remove<K extends ListCollectionName>(name: K, id: string): void {
   patchCollection(name, (list) => list.filter((x) => x.id !== id) as Collections[K]);
 }
 
 /** Wipe everything (logout). */
 export function clearStore(): void {
+  // drop any write still coalescing, or it would resurrect the data after the wipe
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+  }
   state = { data: {}, syncedAt: null, connection: "offline" };
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(STORAGE_META);

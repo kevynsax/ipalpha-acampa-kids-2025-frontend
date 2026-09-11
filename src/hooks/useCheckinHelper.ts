@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { getSettings, type Settings } from "../api/settings";
+import type { Settings } from "../api/settings";
 import { requestSnapshot } from "../store/realtime";
-import { patchCollection, useCollection, useConnection } from "../store";
+import { patchCollection, useCollection } from "../store";
 
 const MAX_TIMEOUT = 2 ** 31 - 1;
 
@@ -20,7 +20,7 @@ export interface HelperAccess {
 
 const NONE: HelperAccess = { church: false, bus: false, busVehicle: null, organizer: false, medical: false };
 
-type Lists = Pick<Settings, "checkinWindow" | "checkinHelpers" | "busHelpers" | "organizers" | "medicalStaff">;
+type Lists = Pick<Settings, "checkinWindow" | "checkinHelpers" | "busHelpers" | "organizers" | "medicalStaff"> & Partial<Pick<Settings, "checkinTestMode">>;
 
 /**
  * Is the logged-in team member a check-in helper (church and/or bus) inside
@@ -36,30 +36,17 @@ type Lists = Pick<Settings, "checkinWindow" | "checkinHelpers" | "busHelpers" | 
  * localStorage on a phone that happens to be offline at that moment — the
  * server's next snapshot would do the same, but may be late.
  */
-export function useCheckinHelper(token: string, phone: string, enabled: boolean): HelperAccess {
+export function useCheckinHelper(phone: string, enabled: boolean): HelperAccess {
   const staff = useCollection("staff");
-  const connection = useConnection();
-  const [lists, setLists] = useState<Lists | null>(null);
+  const lists = useCollection("settings") as Lists | null;
   const [, tick] = useState(0);
-
-  // (re)load the settings when we (re)connect — the admin may have changed them
-  useEffect(() => {
-    if (!enabled || connection !== "online") return;
-    let alive = true;
-    getSettings(token)
-      .then((s) => alive && setLists(s))
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [token, enabled, connection]);
 
   const me = staff?.find((s) => s.phone === phone) ?? null;
   const now = Date.now();
   const from = lists?.checkinWindow.from ? new Date(lists.checkinWindow.from).getTime() : null;
   const until = lists?.checkinWindow.until ? new Date(lists.checkinWindow.until).getTime() : null;
-  const windowOpen = from !== null && until !== null && from <= now && now < until;
-  const listed = (l: keyof Omit<Lists, "checkinWindow" | "busHelpers">) => !!me && !!lists && lists[l].staffIds.includes(me.id);
+  const windowOpen = !!lists?.checkinTestMode || (from !== null && until !== null && from <= now && now < until);
+  const listed = (l: "checkinHelpers" | "organizers" | "medicalStaff") => !!me && !!lists && lists[l].staffIds.includes(me.id);
   const church = windowOpen && listed("checkinHelpers");
   const linkedVehicle = me && lists ? (lists.busHelpers.helpers.find((h) => h.staffId === me.id)?.vehicleId ?? null) : null;
   const busVehicle = windowOpen ? linkedVehicle : null;

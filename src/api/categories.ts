@@ -1,5 +1,4 @@
-import { api } from "./client";
-import { patchCollection, remove, upsert } from "../store";
+import { command } from "./client";
 import { bearer } from "../auth/store";
 import { ICONS } from "../icons";
 import { roleMeta } from "../roles";
@@ -53,19 +52,12 @@ export interface CategoryInput {
 
 const json = (token: string) => ({ ...bearer(token), "content-type": "application/json" });
 
-export async function listCategories(token: string, audience?: CategoryAudience): Promise<Category[]> {
-  const q = audience ? `?audience=${audience}` : "";
-  const res = await api<{ categories: Category[] }>(`/api/categories${q}`, { headers: bearer(token) });
-  return res.categories;
-}
-
 export async function createCategory(token: string, input: CategoryInput): Promise<Category> {
-  const res = await api<{ category: Category }>("/api/categories", {
+  const res = await command<{ category: Category }>("/api/categories", {
     method: "POST",
     headers: json(token),
     body: JSON.stringify(input),
-  });
-  upsert("categories", res.category);
+  }, ["categories"]);
   return res.category;
 }
 
@@ -74,37 +66,33 @@ export async function updateCategory(
   id: string,
   patch: Partial<Omit<CategoryInput, "options">>,
 ): Promise<Category> {
-  const res = await api<{ category: Category }>(`/api/categories/${id}`, {
+  const res = await command<{ category: Category }>(`/api/categories/${id}`, {
     method: "PUT",
     headers: json(token),
     body: JSON.stringify(patch),
-  });
-  upsert("categories", res.category);
+  }, ["categories"]);
   return res.category;
 }
 
 export async function deleteCategory(token: string, id: string): Promise<void> {
-  await api(`/api/categories/${id}`, { method: "DELETE", headers: bearer(token) });
-  remove("categories", id);
+  await command(`/api/categories/${id}`, { method: "DELETE", headers: bearer(token) }, ["categories"]);
 }
 
 export async function reorderCategories(token: string, ids: string[]): Promise<Category[]> {
-  const res = await api<{ categories: Category[] }>("/api/categories/reorder", {
+  const res = await command<{ categories: Category[] }>("/api/categories/reorder", {
     method: "PUT",
     headers: json(token),
     body: JSON.stringify({ ids }),
-  });
-  patchCollection("categories", () => res.categories);
+  }, ["categories"]);
   return res.categories;
 }
 
 export async function addOption(token: string, categoryId: string, label: string): Promise<Category> {
-  const res = await api<{ category: Category }>(`/api/categories/${categoryId}/options`, {
+  const res = await command<{ category: Category }>(`/api/categories/${categoryId}/options`, {
     method: "POST",
     headers: json(token),
     body: JSON.stringify({ label }),
-  });
-  upsert("categories", res.category);
+  }, ["categories"]);
   return res.category;
 }
 
@@ -114,30 +102,27 @@ export async function updateOption(
   optionId: string,
   patch: { label?: string; active?: boolean },
 ): Promise<Category> {
-  const res = await api<{ category: Category }>(`/api/categories/${categoryId}/options/${optionId}`, {
+  const res = await command<{ category: Category }>(`/api/categories/${categoryId}/options/${optionId}`, {
     method: "PUT",
     headers: json(token),
     body: JSON.stringify(patch),
-  });
-  upsert("categories", res.category);
+  }, ["categories"]);
   return res.category;
 }
 
 export async function deleteOption(token: string, categoryId: string, optionId: string): Promise<Category> {
-  const res = await api<{ category: Category }>(`/api/categories/${categoryId}/options/${optionId}`, {
+  const res = await command<{ category: Category }>(`/api/categories/${categoryId}/options/${optionId}`, {
     method: "DELETE",
     headers: bearer(token),
-  });
-  upsert("categories", res.category);
+  }, ["categories"]);
   return res.category;
 }
 
 export async function reorderOptions(token: string, categoryId: string, ids: string[]): Promise<Category> {
-  const res = await api<{ category: Category }>(`/api/categories/${categoryId}/options/reorder`, {
+  const res = await command<{ category: Category }>(`/api/categories/${categoryId}/options/reorder`, {
     method: "PUT",
     headers: json(token),
     body: JSON.stringify({ ids }),
-  });
-  upsert("categories", res.category);
+  }, ["categories"]);
   return res.category;
 }

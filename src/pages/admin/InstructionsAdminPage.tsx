@@ -3,6 +3,8 @@ import { createInstruction, deleteInstruction, reorderInstructions, updateInstru
 import Breadcrumbs from "../../components/Breadcrumbs";
 import { useConfirm } from "../../components/ConfirmDialog";
 import EmojiPicker from "../../components/EmojiPicker";
+import { useAiAutoFill } from "../../hooks/useAiAutoFill";
+import AiTitleButton from "../../components/AiTitleButton";
 import RichHtml from "../../components/RichHtml";
 import RichTextEditor from "../../components/RichTextEditor";
 import { goBack, useRoute } from "../../router";
@@ -218,6 +220,7 @@ function DocForm({ token, doc, busy, onSubmit, onCancel }: DocFormProps) {
   const [emoji, setEmoji] = useState(doc?.emoji ?? "📖");
   const [content, setContent] = useState(doc?.content ?? "");
   const valid = title.trim().length > 0;
+  const ai = useAiAutoFill({ token, context: "instruction", title, setTitle, emoji, setEmoji, defaultEmoji: "📖", existing: !!doc });
 
   return (
     <form
@@ -231,17 +234,20 @@ function DocForm({ token, doc, busy, onSubmit, onCancel }: DocFormProps) {
       <div className="cat-form__row">
         <div className="cat-field cat-field--emoji">
           <span className="cat-field__label">Ícone</span>
-          <EmojiPicker value={emoji} onChange={setEmoji} suggestions={EMOJI_SUGGESTIONS} disabled={busy} />
+          <EmojiPicker value={emoji} onChange={ai.pickEmoji} suggestions={EMOJI_SUGGESTIONS} disabled={busy} />
         </div>
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Título</span>
-          <input className="cat-input" placeholder="ex.: Regras do acampamento" value={title} maxLength={120} autoFocus={!doc} disabled={busy} onChange={(e) => setTitle(e.target.value)} />
+          <span className="cat-field__label">Título{ai.suggesting && <span className="cat-field__ai"> ✨ sugerindo…</span>}</span>
+          <span className="cat-input-wrap">
+            <input className="cat-input" placeholder="ex.: Regras do acampamento" value={title} maxLength={120} autoFocus={!doc} disabled={busy} onChange={(e) => setTitle(e.target.value)} />
+            <AiTitleButton html={content} busy={ai.suggesting} disabled={busy} onClick={() => void ai.regenerateTitle(content)} />
+          </span>
         </label>
       </div>
       <div className="cat-field">
         <span className="cat-field__label">📝 Documento</span>
         <p className="cat-hint">Texto, títulos, listas, links e fotos (🖼️ ou cole / arraste uma imagem). As fotos são reduzidas automaticamente.</p>
-        <RichTextEditor token={token} value={content} onChange={setContent} disabled={busy} placeholder="Escreva o documento aqui…" tall />
+        <RichTextEditor token={token} value={content} onChange={setContent} disabled={busy} placeholder="Escreva o documento aqui…" tall aiContext="instruction" aiTitle={title} onAiApplied={ai.onAiApplied} />
       </div>
       <div className="cat-form__actions">
         <button type="button" className="button button--secondary" onClick={onCancel} disabled={busy}>

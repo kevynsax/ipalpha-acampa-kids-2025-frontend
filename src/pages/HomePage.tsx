@@ -8,6 +8,7 @@ import StaffIcon from "../components/StaffIcon";
 import WhatsAppButton from "../components/WhatsAppButton";
 import { kidSexOf } from "../icons";
 import type { LoggedUser } from "../roles";
+import { useCollection } from "../store";
 import { useLabelOf, useMyRoom } from "../store/derive";
 import { guardianGreeting, whatsappLink } from "../whatsapp";
 
@@ -25,7 +26,24 @@ interface HomePageProps {
 export default function HomePage({ user, token }: HomePageProps) {
   const data = useMyRoom(user.phone);
   const labelOf = useLabelOf();
+  const settings = useCollection("settings");
   const first = user.name.split(" ")[0];
+  const access = settings?.staffAccessWindow;
+  const fmt = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+  // ordinary team member outside the access window: the server sends no staff record at all
+  if (data === undefined && access && !access.open) {
+    return (
+      <div className="admin-page">
+        <h1 className="admin-title">Olá, {first}! 👋</h1>
+        <p className="opt-empty">
+          O app ainda não está liberado para a equipe.
+          <br />
+          {access.from && new Date(access.from).getTime() > Date.now() ? `Abre ${fmt.format(new Date(access.from))}.` : "O período de acesso já terminou."}
+        </p>
+      </div>
+    );
+  }
 
   if (data === null) {
     return (

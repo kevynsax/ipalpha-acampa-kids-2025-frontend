@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { DEFAULT_CHECKIN_LOCATION, getSettings, mapsLink, updateSettings, type BusHelper, type CheckinLocation, type Settings } from "../../api/settings";
+import { DEFAULT_CHECKIN_LOCATION, mapsLink, updateSettings, type BusHelper, type CheckinLocation, type Settings } from "../../api/settings";
+import { useCollection } from "../../store";
 import { describeGeoError, readPosition } from "../../geo";
 import BusHelpersEditor from "./BusHelpersEditor";
 import StaffListEditor from "./StaffListEditor";
+import CheckinTestTools from "./CheckinTestTools";
 
 interface CheckinSettingsPageProps {
   token: string;
@@ -44,7 +46,7 @@ const fmt = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit",
  * Each section saves on its own, so a change in one never touches the others.
  */
 export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps) {
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const settings = useCollection("settings");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
@@ -73,19 +75,9 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
   }
 
   useEffect(() => {
-    let alive = true;
-    getSettings(token)
-      .then((s) => {
-        if (!alive) return;
-        setSettings(s);
-        fill(s);
-      })
-      .catch((e) => alive && setError(e instanceof Error ? e.message : "Algo deu errado."));
-    return () => {
-      alive = false;
-    };
+    if (settings) fill(settings);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [settings]);
 
   /** Saves the time/location forms and refreshes their drafts after success. */
   async function save(section: string, patch: Parameters<typeof updateSettings>[1]) {
@@ -94,9 +86,7 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
     setError(null);
     setSaved(null);
     try {
-      const s = await updateSettings(token, patch);
-      setSettings(s);
-      fill(s);
+      await updateSettings(token, patch);
       setSaved(section);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Algo deu errado.");
@@ -113,9 +103,7 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
     setBusy("church");
     setError(null);
     try {
-      const s = await updateSettings(token, { checkinHelpers: { staffIds: nextIds } });
-      setSettings(s);
-      setChurch(s.checkinHelpers.staffIds);
+      await updateSettings(token, { checkinHelpers: { staffIds: nextIds } });
     } catch (err) {
       setChurch(previous);
       setError(err instanceof Error ? err.message : "Algo deu errado.");
@@ -131,9 +119,7 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
     setBusy("bus");
     setError(null);
     try {
-      const s = await updateSettings(token, { busHelpers: { helpers: nextHelpers } });
-      setSettings(s);
-      setBus(s.busHelpers.helpers);
+      await updateSettings(token, { busHelpers: { helpers: nextHelpers } });
     } catch (err) {
       setBus(previous);
       setError(err instanceof Error ? err.message : "Algo deu errado.");
@@ -158,6 +144,7 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
   const windowDirty = !!settings && (!sameMinute(fromIso, settings.checkinWindow.from) || !sameMinute(untilIso, settings.checkinWindow.until));
   const now = Date.now();
   const openNow = windowComplete && orderOk && new Date(fromIso!).getTime() <= now && now < new Date(untilIso!).getTime();
+  const testMode = !!settings?.checkinTestMode;
 
   // ── location ──
   const latN = Number(lat.replace(",", "."));
@@ -226,6 +213,7 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
             <input className="cat-input" type="datetime-local" value={until} disabled={!!busy} onChange={(e) => setUntil(e.target.value)} />
           </label>
         </div>
+        {testMode && <p className="cat-hint">🧪 Modo de teste ligado — igreja e ônibus estão liberados agora, independente da janela.</p>}
         {!orderOk ? (
           <p className="cat-hint cat-hint--error">O fim da janela precisa ser depois do início.</p>
         ) : windowComplete ? (
@@ -235,7 +223,7 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
               : new Date(fromIso!).getTime() > now
                 ? `🕒 Abre ${fmt.format(new Date(fromIso!))} até ${fmt.format(new Date(untilIso!))}`
                 : `⚫ Fechada — era ${fmt.format(new Date(fromIso!))} até ${fmt.format(new Date(untilIso!))}`}
-            . Horário do seu aparelho.
+            .
           </p>
         ) : null}
         {ok("window", openNow ? "Janela salva — está aberta agora." : "Janela salva.")}
@@ -327,6 +315,9 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
           </button>
         </div>
       </form>
+
+      {/* ── 5. rehearsal tools (also on Geral) ── */}
+      <CheckinTestTools token={token} />
 
       <p className="footer-note">
         🔒 Os ajudantes nunca veem os dados dos outros membros da equipe. Os check-ins que registram ficam no histórico com o nome deles.

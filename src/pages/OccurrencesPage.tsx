@@ -117,7 +117,7 @@ export default function OccurrencesPage({ token, user }: OccurrencesPageProps) {
           <div className="cat-field">
             <span className="cat-field__label">Descrição do que aconteceu</span>
             <p className="cat-hint">Inclua fatos, horário, providências tomadas e informações importantes. Use o botão de imagem ou cole/arraste uma foto.</p>
-            <RichTextEditor token={token} value={description} onChange={setDescription} disabled={busy} placeholder="Descreva a ocorrência…" tall />
+            <RichTextEditor token={token} value={description} onChange={setDescription} disabled={busy} placeholder="Descreva a ocorrência…" tall aiContext="occurrence" />
           </div>
           <div className="cat-form__actions">
             <button type="button" className="button button--secondary" disabled={busy} onClick={() => { resetForm(); setCreating(false); }}>

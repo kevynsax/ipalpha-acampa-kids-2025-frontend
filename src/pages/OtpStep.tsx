@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "../api/client";
 import { requestOtp, verifyOtp } from "../auth/store";
 import OtpInput from "../components/OtpInput";
+import StaffAccessDialog, { isStaffAccessError } from "../components/StaffAccessDialog";
 import type { LoggedUser } from "../roles";
 
 interface OtpStepProps {
@@ -46,6 +47,7 @@ export default function OtpStep({
   const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
   const [frozenMinutes, setFrozenMinutes] = useState<number | null>(null);
   const [resending, setResending] = useState(false);
+  const [accessError, setAccessError] = useState<ApiError | null>(null);
   const submittedRef = useRef(false);
 
   const secondsLeft = useCountdown(expiresAt);
@@ -64,7 +66,10 @@ export default function OtpStep({
         const res = await verifyOtp(phoneE164, value);
         onVerified({ token: res.token, tokenExpiresAt: res.tokenExpiresAt, user: res.user });
       } catch (err) {
-        if (err instanceof ApiError) {
+        if (isStaffAccessError(err)) {
+          setAccessError(err);
+          setCode("");
+        } else if (err instanceof ApiError) {
           setError(err.message);
           if (err.code === "OTP_INVALID" && err.attemptsLeft != null) {
             setAttemptsLeft(err.attemptsLeft);
@@ -98,7 +103,8 @@ export default function OtpStep({
       setCode("");
       setAttemptsLeft(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível reenviar.");
+      if (isStaffAccessError(err)) setAccessError(err);
+      else setError(err instanceof Error ? err.message : "Não foi possível reenviar.");
     } finally {
       setResending(false);
     }
@@ -175,6 +181,14 @@ export default function OtpStep({
       >
         {resending ? "Reenviando…" : expired ? "Reenviar código" : "Você pode pedir um novo código quando este expirar"}
       </button>
+
+      <StaffAccessDialog
+        error={accessError}
+        onClose={() => {
+          setAccessError(null);
+          onBack();
+        }}
+      />
 
     </>
   );
