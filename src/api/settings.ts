@@ -23,6 +23,8 @@ export interface NotificationSettings {
   enrolments: boolean;
   /** the person's OWN allocation changed: bedroom, team or vehicle (bus) */
   staffChanges: boolean;
+  /** an occurrence was registered — every admin is texted */
+  occurrences: boolean;
 }
 
 /** The time window in which the check-in helpers (church AND bus) may act. */

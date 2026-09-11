@@ -46,6 +46,12 @@ const OPTIONS: { key: keyof NotificationSettings; emoji?: string; icon?: string;
     title: "Confirmação de check-in da equipe",
     text: "Quando o check-in de alguém da equipe é registrado na igreja ela recebe um SMS confirmando e lembrando de conferir as crianças do seu quarto.",
   },
+  {
+    key: "occurrences",
+    emoji: "🚨",
+    title: "Ocorrência registrada",
+    text: "Quando uma ocorrência é registrada (pela organização ou pela equipe médica), todos os administradores recebem um SMS — exceto quem registrou.",
+  },
 ];
 
 /**
