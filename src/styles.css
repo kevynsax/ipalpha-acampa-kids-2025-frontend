@@ -17,8 +17,10 @@
 }
 
 * { box-sizing: border-box; }
-html, body, #root { min-height: 100vh; margin: 0; }
-body { font-family: var(--font-body); color: var(--ink); background: var(--sand); }
+html, body, #root { min-height: 100%; margin: 0; }
+html { background: var(--sand); }
+body { min-height: 100dvh; font-family: var(--font-body); color: var(--ink); background: var(--sand); }
+#root { background: var(--sand); }
 button, input { font: inherit; }
 
 /* First page: built from the generated Acampa Kids poster elements on the poster's dark green. */
@@ -783,9 +785,10 @@ select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38
 }
 
 @media (max-width: 560px) {
-  .play-scene { height: 130px; margin-bottom: -40px; }
-  .play-prop { transform-origin: 50% 100%; zoom: .7; }
-  .play-car { --car-width: 190px; height: 130px; }
+  /* The decorative WebGL scene can become an opaque black/white canvas on
+     some Android GPU/browser combinations. It is non-essential, so do not
+     mount a visible canvas below the content on phones. */
+  .play-scene { display: none; }
 }
 
 /* ── sync status (header dot) ─────────────────────────────────────────── */
