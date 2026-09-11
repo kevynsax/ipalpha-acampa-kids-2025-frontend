@@ -60,15 +60,18 @@ export default function App() {
 
   if (step === "done" && session) {
     return (
-      <Dashboard
-        user={session.user}
-        token={session.token}
-        tokenExpiresAt={session.tokenExpiresAt}
-        onLoggedOut={() => {
-          clearStore();
-          resetToLogin();
-        }}
-      />
+      <>
+        <VersionMark />
+        <Dashboard
+          user={session.user}
+          token={session.token}
+          tokenExpiresAt={session.tokenExpiresAt}
+          onLoggedOut={() => {
+            clearStore();
+            resetToLogin();
+          }}
+        />
+      </>
     );
   }
 
@@ -103,5 +106,14 @@ export default function App() {
     );
   }
 
-  return <CampingLayout>{content}</CampingLayout>;
+  return (
+    <>
+      <VersionMark />
+      <CampingLayout>{content}</CampingLayout>
+    </>
+  );
+}
+
+function VersionMark() {
+  return <span className="version-mark" aria-label={`Versão ${__APP_VERSION__}`}>v{__APP_VERSION__}</span>;
 }

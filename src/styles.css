@@ -23,6 +23,21 @@ body { min-height: 100dvh; font-family: var(--font-body); color: var(--ink); bac
 #root { background: var(--sand); }
 button, input { font: inherit; }
 
+.version-mark {
+  position: fixed;
+  top: max(5px, env(safe-area-inset-top));
+  right: max(7px, env(safe-area-inset-right));
+  z-index: 100;
+  color: var(--forest);
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  line-height: 1;
+  opacity: .16;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* First page: built from the generated Acampa Kids poster elements on the poster's dark green. */
 .camping-home { position: relative; min-height: 100dvh; overflow: hidden; background: var(--forest-dark); }
 .camping-nav { max-width: 1240px; margin: 0 auto; padding: 22px 28px 0; display: flex; justify-content: center; }
