@@ -8,10 +8,8 @@ RUN bun install --frozen-lockfile
 
 COPY . .
 
-# VITE_API_URL is embedded into the frontend at build time.
-ARG VITE_API_URL=http://localhost:3000
-ENV VITE_API_URL=${VITE_API_URL}
-
+# Production uses the browser's current origin. Traefik routes /api to the
+# backend, so no deployment-specific API URL needs to be embedded in the image.
 RUN bun run build
 
 # Serve the static SPA with nginx

@@ -1,7 +1,9 @@
 import { ApiError, OFFLINE_MESSAGE } from "./client";
 import { bearer } from "../auth/store";
 
-const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+// In production the API is served by the same origin through the /api Ingress.
+// VITE_API_URL is only needed when development uses a separate backend.
+const BASE = import.meta.env.VITE_API_URL || window.location.origin;
 
 export interface UploadedFile {
   id: string;

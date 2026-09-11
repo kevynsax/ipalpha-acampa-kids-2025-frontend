@@ -7,7 +7,9 @@ import { applyServerData, setConnection, type Collections } from "./index";
  * showing what is in localStorage.
  */
 
-const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+// In production the API is served by the same origin through the /api Ingress.
+// VITE_API_URL is only needed when development uses a separate backend.
+const BASE = import.meta.env.VITE_API_URL || window.location.origin;
 
 function wsUrl(token: string): string {
   const u = new URL("/api/realtime", BASE);

@@ -20,7 +20,9 @@ export class ApiError extends Error {
   }
 }
 
-const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+// In production the API is served by the same origin through the /api Ingress.
+// VITE_API_URL is only needed when development uses a separate backend.
+const BASE = import.meta.env.VITE_API_URL || window.location.origin;
 
 /** Writes need the server; when it can't be reached this is what the user sees. */
 export const OFFLINE_MESSAGE = "Sem conexão com o servidor. Verifique o Wi-Fi do acampamento e tente novamente.";
