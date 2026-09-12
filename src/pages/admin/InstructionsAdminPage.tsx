@@ -3,6 +3,7 @@ import { createInstruction, deleteInstruction, reorderInstructions, updateInstru
 import Breadcrumbs from "../../components/Breadcrumbs";
 import { useConfirm } from "../../components/ConfirmDialog";
 import EmojiPicker from "../../components/EmojiPicker";
+import AudiencePicker, { AudienceTag, type DocAudience } from "../../components/AudiencePicker";
 import { useAiAutoFill } from "../../hooks/useAiAutoFill";
 import AiTitleButton from "../../components/AiTitleButton";
 import RichHtml from "../../components/RichHtml";
@@ -182,7 +183,7 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
                 }}
               >
                 <h3 className="staff-card__name">
-                  <span aria-hidden="true">{d.emoji}</span> {d.title}
+                  <span aria-hidden="true">{d.emoji}</span> {d.title} <AudienceTag audience={d.audience} />
                 </h3>
                 <p className="staff-card__meta">
                   {d.content ? `Atualizado ${fmtDate.format(new Date(d.updatedAt))}` : <span className="staff-card__missing">sem conteúdo</span>}
@@ -218,6 +219,7 @@ interface DocFormProps {
 function DocForm({ token, doc, busy, onSubmit, onCancel }: DocFormProps) {
   const [title, setTitle] = useState(doc?.title ?? "");
   const [emoji, setEmoji] = useState(doc?.emoji ?? "📖");
+  const [audience, setAudience] = useState<DocAudience>(doc?.audience ?? "all");
   const [content, setContent] = useState(doc?.content ?? "");
   const valid = title.trim().length > 0;
   const ai = useAiAutoFill({ token, context: "instruction", title, setTitle, emoji, setEmoji, defaultEmoji: "📖", existing: !!doc });
@@ -227,7 +229,7 @@ function DocForm({ token, doc, busy, onSubmit, onCancel }: DocFormProps) {
       className="cat-form instruction-form"
       onSubmit={(e) => {
         e.preventDefault();
-        if (valid && !busy) void onSubmit({ title: title.trim(), emoji: emoji.trim() || "📖", content }).catch(() => {});
+        if (valid && !busy) void onSubmit({ title: title.trim(), emoji: emoji.trim() || "📖", audience, content }).catch(() => {});
       }}
     >
       <h2 className="cat-form__title">{doc ? "✏️ Editar documento" : "✨ Novo documento"}</h2>
@@ -244,6 +246,7 @@ function DocForm({ token, doc, busy, onSubmit, onCancel }: DocFormProps) {
           </span>
         </label>
       </div>
+      <AudiencePicker value={audience} onChange={setAudience} disabled={busy} />
       <div className="cat-field">
         <span className="cat-field__label">📝 Documento</span>
         <p className="cat-hint">Texto, títulos, listas, links e fotos (🖼️ ou cole / arraste uma imagem). As fotos são reduzidas automaticamente.</p>

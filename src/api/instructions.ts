@@ -1,3 +1,4 @@
+import type { DocAudience } from "../components/AudiencePicker";
 import { command } from "./client";
 import { bearer } from "../auth/store";
 
@@ -6,6 +7,8 @@ export interface Instruction {
   id: string;
   title: string;
   emoji: string;
+  /** who sees it: everyone, only room caretakers or only helpers */
+  audience: DocAudience;
   /** sanitized HTML (may include uploaded images) */
   content: string;
   order: number;
@@ -16,6 +19,8 @@ export interface Instruction {
 export interface InstructionInput {
   title: string;
   emoji: string;
+  /** who sees it: everyone, only room caretakers or only helpers */
+  audience: DocAudience;
   content: string;
 }
 

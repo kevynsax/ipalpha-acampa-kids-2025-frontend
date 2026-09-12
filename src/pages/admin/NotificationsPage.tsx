@@ -22,7 +22,7 @@ const OPTIONS: { key: Exclude<keyof NotificationSettings, "checkinReminder">; em
     key: "staffChanges",
     icon: roleMeta("staff").icon,
     title: "Mudanca no cadastro da equipe",
-    text: "Quando o quarto, o time ou o transporte de alguém da equipe é alterado, a própria pessoa recebe um SMS.",
+    text: "Quando o quarto, a função no quarto (responsável ↔ auxiliar), o time ou o transporte de alguém da equipe é alterado, a própria pessoa recebe um SMS.",
   },
   {
     key: "roleChanges",

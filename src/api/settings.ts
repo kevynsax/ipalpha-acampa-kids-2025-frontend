@@ -27,6 +27,8 @@ export interface NotificationSettings {
   occurrences: boolean;
   /** at `checkinReminder.at` the whole team is reminded to do their check-in (nothing goes out while the date is unset) */
   checkinReminder: boolean;
+  /** a parent edited their kid's "Pontos de atenção": medical data → medical team + admins + caretaker; observations only → caretaker */
+  parentEdits: boolean;
 }
 
 /** One-shot reminder to the whole team to do their check-in. */

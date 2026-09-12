@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createPrepSection, deletePrepSection, reorderPrepSections, updatePrepSection, type PrepSection, type PrepSectionInput } from "../../api/preparation";
 import { useConfirm } from "../../components/ConfirmDialog";
 import EmojiPicker from "../../components/EmojiPicker";
+import AudiencePicker, { AudienceTag, type DocAudience } from "../../components/AudiencePicker";
 import { useAiAutoFill } from "../../hooks/useAiAutoFill";
 import AiTitleButton from "../../components/AiTitleButton";
 import RichHtml from "../../components/RichHtml";
@@ -139,7 +140,7 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
             <article key={s.id} className="detail-card prep-section">
               <header className="prep-section__head">
                 <h3 className="prep-section__title">
-                  <span aria-hidden="true">{s.emoji}</span> {s.title}
+                  <span aria-hidden="true">{s.emoji}</span> {s.title} <AudienceTag audience={s.audience} />
                 </h3>
                 <div className="opt-item__actions">
                   <button type="button" className="icon-btn" title="Subir" aria-label="Subir" disabled={busy || i === 0} onClick={() => move(s, -1)}>
@@ -173,6 +174,7 @@ interface SectionFormProps {
 function SectionForm({ token, section, busy, onSubmit, onCancel }: SectionFormProps) {
   const [title, setTitle] = useState(section?.title ?? "");
   const [emoji, setEmoji] = useState(section?.emoji ?? "📌");
+  const [audience, setAudience] = useState<DocAudience>(section?.audience ?? "all");
   const [content, setContent] = useState(section?.content ?? "");
   const valid = title.trim().length > 0;
   const ai = useAiAutoFill({ token, context: "preparation", title, setTitle, emoji, setEmoji, defaultEmoji: "📌", existing: !!section });
@@ -182,7 +184,7 @@ function SectionForm({ token, section, busy, onSubmit, onCancel }: SectionFormPr
       className="cat-form"
       onSubmit={(e) => {
         e.preventDefault();
-        if (valid && !busy) void onSubmit({ title: title.trim(), emoji: emoji.trim() || "📌", content }).catch(() => {});
+        if (valid && !busy) void onSubmit({ title: title.trim(), emoji: emoji.trim() || "📌", audience, content }).catch(() => {});
       }}
     >
       <h2 className="cat-form__title">{section ? "✏️ Editar seção" : "✨ Nova seção"}</h2>
@@ -199,6 +201,7 @@ function SectionForm({ token, section, busy, onSubmit, onCancel }: SectionFormPr
           </span>
         </label>
       </div>
+      <AudiencePicker value={audience} onChange={setAudience} disabled={busy} />
       <div className="cat-field">
         <span className="cat-field__label">📝 Conteúdo</span>
         <p className="cat-hint">Texto, listas, links e fotos (🖼️ ou cole / arraste uma imagem). As fotos são reduzidas automaticamente.</p>
