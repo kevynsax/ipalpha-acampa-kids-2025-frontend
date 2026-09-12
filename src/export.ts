@@ -56,7 +56,7 @@ export function camperRow(k: Camper, roomById: Map<string, Bedroom>, labelOf: La
     "Série": k.schoolGrade,
     Igreja: k.church,
     "Convidado por": k.invitedBy,
-    "Responsável (equipe)": k.caretakerId ? (staffName?.get(k.caretakerId) ?? "") : "",
+    "Tio do quarto": k.caretakerId ? (staffName?.get(k.caretakerId) ?? "") : "",
     Equipe: labelOf(k.team) ?? "",
     Ala: room ? GROUP_META[room.group].label : "",
     Quarto: room?.name ?? "",
