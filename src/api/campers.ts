@@ -19,6 +19,22 @@ export interface Camper {
   redacted?: boolean;
   /** "YYYY-MM-DD" or null */
   birthDate: string | null;
+  /** "F" | "M" | null */
+  sex: CamperSex | null;
+  cpf: string;
+  rg: string;
+  school: string;
+  schoolGrade: string;
+  /** church the kid attends */
+  church: string;
+  /** who invited the kid */
+  invitedBy: string;
+  /** the "tio(a)" assigned to the kid */
+  caretaker: string;
+  /** token printed on the QR badge */
+  qrToken: string;
+  /** id in the registration system */
+  externalId: string;
   team: string | null;
   transportation: string | null;
   /** category option id (cima / baixo) */
@@ -40,6 +56,8 @@ export interface Camper {
   emergencyContact: string;
   guardianName: string;
   guardianPhone: string | null;
+  guardianCpf: string;
+  guardianEmail: string;
   /** set once the kid arrived at the church and the parent confirmed the registration data */
   checkin: CamperCheckin | null;
   /** set once the kid boarded the bus (roll call inside the vehicle) */
@@ -47,6 +65,8 @@ export interface Camper {
   createdAt: string;
   updatedAt: string;
 }
+
+export type CamperSex = "F" | "M";
 
 export interface CamperCheckin {
   at: string;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { updateSettings, type Settings } from "../../api/settings";
 import { useCollection } from "../../store";
+import CheckinReminderCard from "./CheckinReminderCard";
 import CheckinTestTools from "./CheckinTestTools";
 import KidsRoomsDraftCard from "./KidsRoomsDraftCard";
 
@@ -31,8 +32,9 @@ const fmt = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit",
  *   1. the ACCESS window of the ordinary team (people on no list: not
  *      organizers, check-in helpers, medical team or parent contacts) — outside
  *      it the server sends them nothing and the app shows no data;
- *   2. the "kids' rooms still a draft" switch (hides kids from caretakers, mutes room SMS);
- *   3. the check-in rehearsal tools (also on the Check-in settings page).
+ *   2. the check-in reminder date (SMS to the whole team; also on Notificações);
+ *   3. the "kids' rooms still a draft" switch (hides kids from caretakers, mutes room SMS);
+ *   4. the check-in rehearsal tools (also on the Check-in settings page).
  */
 export default function GeneralSettingsPage({ token }: GeneralSettingsPageProps) {
   const settings = useCollection("settings");
@@ -130,6 +132,8 @@ export default function GeneralSettingsPage({ token }: GeneralSettingsPageProps)
           </button>
         </div>
       </form>
+
+      <CheckinReminderCard token={token} />
 
       <KidsRoomsDraftCard token={token} />
 

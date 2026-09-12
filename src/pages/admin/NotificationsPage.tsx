@@ -4,12 +4,14 @@ import { useCollection } from "../../store";
 import Toggle from "../../components/Toggle";
 import { useRoute } from "../../router";
 import { roleMeta } from "../../roles";
+import CheckinReminderCard from "./CheckinReminderCard";
 
 interface NotificationsPageProps {
   token: string;
 }
 
-const OPTIONS: { key: keyof NotificationSettings; emoji?: string; icon?: string; title: string; text: string }[] = [
+/** every toggle except `checkinReminder`, which has its own card (needs a date) */
+const OPTIONS: { key: Exclude<keyof NotificationSettings, "checkinReminder">; emoji?: string; icon?: string; title: string; text: string }[] = [
   {
     key: "bedroomChanges",
     emoji: "🛏️",
@@ -132,6 +134,8 @@ export default function NotificationsPage({ token }: NotificationsPageProps) {
           })}
         </ul>
       )}
+
+      {settings && <CheckinReminderCard token={token} />}
 
       <p className="footer-note">
         Só recebe SMS quem tem celular cadastrado na equipe e está ativo.

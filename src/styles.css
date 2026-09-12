@@ -818,6 +818,7 @@ button, input { font: inherit; }
 /* form bits */
 .staff-form__row { flex-wrap: wrap; align-items: flex-start; }
 .staff-form__row > .cat-field--grow { min-width: 180px; }
+.staff-form__row > .cat-form__actions { align-self: flex-end; }
 .cat-form .phone-field { padding: 8px 14px; border-radius: 14px; box-shadow: none; }
 .cat-form .phone-field input { font-size: 1.05rem; }
 select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38px; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='10' viewBox='0 0 14 10'><path d='M1 1l6 6 6-6' fill='none' stroke='%232e6652' stroke-width='2.5' stroke-linecap='round'/></svg>"); background-repeat: no-repeat; background-position: right 14px center; cursor: pointer; }
@@ -1132,7 +1133,7 @@ select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38
 @media (max-width: 560px) { .selfcheck__actions { flex-direction: column; align-items: stretch; } .selfcheck--popup .selfcheck__actions { align-items: center; } }
 
 /* ── settings › notifications (SMS toggles) ─────────────────────────────── */
-.notif-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.notif-list { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .notif-item { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: var(--radius); background: var(--paper); border: 3px solid #fff; box-shadow: 0 6px 0 rgba(24,61,54,.12); transition: border-color .15s ease, background .15s ease; }
 .notif-item--on { border-color: #b9dfc2; background: #f1f9f3; }
 .notif-item__emoji { flex: none; width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; font-size: 1.6rem; border-radius: 14px; background: #fff; box-shadow: 0 3px 0 rgba(24,61,54,.1); }

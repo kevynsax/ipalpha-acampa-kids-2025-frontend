@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Bedroom } from "../../api/bedrooms";
-import { CAMPER_CATEGORY_KEYS, type Camper, type CamperInput } from "../../api/campers";
+import { CAMPER_CATEGORY_KEYS, type Camper, type CamperInput, type CamperSex } from "../../api/campers";
 import type { Category } from "../../api/categories";
 import { BedroomSelect, CategoryChips, CategorySelect } from "../../components/CategoryFields";
 import ParentIcon from "../../components/ParentIcon";
@@ -23,6 +23,14 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
 
   const [name, setName] = useState(camper?.name ?? "");
   const [birthDate, setBirthDate] = useState(camper?.birthDate ?? "");
+  const [sex, setSex] = useState<CamperSex | null>(camper?.sex ?? null);
+  const [cpf, setCpf] = useState(camper?.cpf ?? "");
+  const [rg, setRg] = useState(camper?.rg ?? "");
+  const [school, setSchool] = useState(camper?.school ?? "");
+  const [schoolGrade, setSchoolGrade] = useState(camper?.schoolGrade ?? "");
+  const [church, setChurch] = useState(camper?.church ?? "");
+  const [invitedBy, setInvitedBy] = useState(camper?.invitedBy ?? "");
+  const [caretaker, setCaretaker] = useState(camper?.caretaker ?? "");
   const [team, setTeam] = useState<string | null>(camper?.team ?? null);
   const [bedroom, setBedroom] = useState<string | null>(camper?.bedroom ?? null);
   const [bed, setBed] = useState<string | null>(camper?.bed ?? null);
@@ -30,6 +38,8 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
 
   const [guardianName, setGuardianName] = useState(camper?.guardianName ?? "");
   const [guardianPhone, setGuardianPhone] = useState(camper?.guardianPhone ? maskBrazilPhone(camper.guardianPhone.replace(/^\+55/, "")) : "");
+  const [guardianCpf, setGuardianCpf] = useState(camper?.guardianCpf ?? "");
+  const [guardianEmail, setGuardianEmail] = useState(camper?.guardianEmail ?? "");
   const [emergencyContact, setEmergencyContact] = useState(camper?.emergencyContact ?? "");
   const [insurance, setInsurance] = useState(camper?.insurance ?? "");
   const [insuranceCard, setInsuranceCard] = useState(camper?.insuranceCard ?? "");
@@ -46,6 +56,8 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
 
   const hasHealth = allergies.length > 0 || drugAllergies.length > 0 || healthIssues.length > 0 || !!medicines || !!foodRestrictions || !!healthNotes || !!generalNotes;
   const [showHealth, setShowHealth] = useState(hasHealth);
+  const hasExtra = !!cpf || !!rg || !!school || !!schoolGrade || !!church || !!invitedBy;
+  const [showExtra, setShowExtra] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const phoneE164 = toE164(guardianPhone);
@@ -62,6 +74,16 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
       await onSubmit({
         name: name.trim(),
         birthDate: birthDate || null,
+        sex,
+        cpf: cpf.trim(),
+        rg: rg.trim(),
+        school: school.trim(),
+        schoolGrade: schoolGrade.trim(),
+        church: church.trim(),
+        invitedBy: invitedBy.trim(),
+        caretaker: caretaker.trim(),
+        qrToken: camper?.qrToken ?? "",
+        externalId: camper?.externalId ?? "",
         team,
         bedroom,
         bed,
@@ -80,6 +102,8 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
         emergencyContact: emergencyContact.trim(),
         guardianName: guardianName.trim(),
         guardianPhone: phoneE164 ?? null,
+        guardianCpf: guardianCpf.trim(),
+        guardianEmail: guardianEmail.trim().toLowerCase(),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Algo deu errado.");
@@ -110,6 +134,14 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
           <span className="cat-field__label">Nascimento</span>
           <input className="cat-input" type="date" value={birthDate} disabled={busy} onChange={(e) => setBirthDate(e.target.value)} />
         </label>
+        <label className="cat-field">
+          <span className="cat-field__label">Sexo</span>
+          <select className="cat-input" value={sex ?? ""} disabled={busy} onChange={(e) => setSex((e.target.value || null) as CamperSex | null)}>
+            <option value="">—</option>
+            <option value="F">Feminino</option>
+            <option value="M">Masculino</option>
+          </select>
+        </label>
         <label className="cat-field cat-field--weight">
           <span className="cat-field__label">Peso (kg)</span>
           <input className="cat-input" inputMode="decimal" placeholder="ex.: 28,5" value={weight} maxLength={6} disabled={busy} onChange={(e) => setWeight(e.target.value)} />
@@ -123,7 +155,33 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
         <CategorySelect label="Cama" category={cat(CAMPER_CATEGORY_KEYS.bed)} value={bed} onChange={setBed} disabled={busy} />
         <CategorySelect label="Transporte" category={cat(CAMPER_CATEGORY_KEYS.transportation)} value={transportation} onChange={setTransportation} disabled={busy} />
       </div>
-      {text("🛏️ Prefere dividir quarto com", bedroomPreference, setBedroomPreference, "ex.: Bernardo Faria, Lucas (primo)")}
+      <div className="cat-form__row staff-form__row">
+        {text("🛏️ Prefere dividir quarto com", bedroomPreference, setBedroomPreference, "ex.: Bernardo Faria, Lucas (primo)")}
+        {text("🧑 Tio(a) responsável", caretaker, setCaretaker, "ex.: Caio")}
+      </div>
+
+      <button type="button" className={`disclosure ${showExtra ? "disclosure--open" : ""}`} aria-expanded={showExtra} onClick={() => setShowExtra((v) => !v)}>
+        <span className="disclosure__arrow" aria-hidden="true">▶</span>
+        🪪 Documentos e escola
+        {hasExtra && !showExtra && <span className="disclosure__badge">preenchido</span>}
+        <span className="disclosure__hint">CPF, RG, escola, série, igreja</span>
+      </button>
+      {showExtra && (
+        <div className="staff-form__obs">
+          <div className="cat-form__row staff-form__row">
+            {text("CPF", cpf, setCpf, "ex.: 123.456.789-00")}
+            {text("RG", rg, setRg)}
+          </div>
+          <div className="cat-form__row staff-form__row">
+            {text("Escola", school, setSchool, "ex.: Mackenzie")}
+            {text("Série", schoolGrade, setSchoolGrade, "ex.: 4º ano")}
+          </div>
+          <div className="cat-form__row staff-form__row">
+            {text("Frequenta igreja", church, setChurch, "ex.: IPAlpha")}
+            {text("Convidado por", invitedBy, setInvitedBy, "ex.: Pedro Brassioli")}
+          </div>
+        </div>
+      )}
 
       <section className="form-box" aria-labelledby="guardian-title">
         <h3 id="guardian-title" className="form-box__title">
@@ -136,6 +194,10 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
             <PhoneInput value={guardianPhone} onChange={setGuardianPhone} disabled={busy} />
             {guardianPhone && !phoneE164 && <p className="cat-hint cat-hint--error">Informe um celular válido com DDD.</p>}
           </div>
+        </div>
+        <div className="cat-form__row staff-form__row">
+          {text("CPF do responsável", guardianCpf, setGuardianCpf)}
+          {text("E-mail do responsável", guardianEmail, setGuardianEmail, "ex.: nome@email.com")}
         </div>
         {text("Contato de emergência", emergencyContact, setEmergencyContact, "ex.: Marcos (pai) 11 99999-0000")}
         <div className="cat-form__row staff-form__row">

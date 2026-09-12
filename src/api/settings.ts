@@ -25,6 +25,16 @@ export interface NotificationSettings {
   staffChanges: boolean;
   /** an occurrence was registered — every admin is texted */
   occurrences: boolean;
+  /** at `checkinReminder.at` the whole team is reminded to do their check-in (nothing goes out while the date is unset) */
+  checkinReminder: boolean;
+}
+
+/** One-shot reminder to the whole team to do their check-in. */
+export interface CheckinReminder {
+  /** ISO instant; null = no reminder */
+  at: string | null;
+  /** read-only: when it went out (null until then; reset whenever `at` changes) */
+  sentAt: string | null;
 }
 
 /** The time window in which the check-in helpers (church AND bus) may act. */
@@ -78,6 +88,8 @@ export interface Settings {
   checkinTestMode: boolean;
   /** the kids' room allocation is still a draft: caretakers see no kids in their room and no room SMS goes out */
   kidsRoomsDraft: boolean;
+  /** the "do your check-in" SMS to the whole team, scheduled for one instant */
+  checkinReminder: CheckinReminder;
   /** false when the server has no SMS provider configured (texts are only logged) */
   smsEnabled: boolean;
   updatedAt: string | null;
@@ -103,6 +115,7 @@ export interface SettingsPatch {
   staffAccessWindow?: { from: string | null; until: string | null };
   checkinTestMode?: boolean;
   kidsRoomsDraft?: boolean;
+  checkinReminder?: { at: string | null };
 }
 
 /** Clears every check-in (kids' church + bus, team) and the audit log — for rehearsing the process. */

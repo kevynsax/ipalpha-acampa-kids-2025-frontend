@@ -57,7 +57,7 @@ export default function CamperDetail({ camperId, nav, onEdit, onOpenStaff, onOpe
 
   const { camper: k, bedroom, caretakers, roommates } = data;
   const age = ageOf(k.birthDate);
-  const sex = kidSexOf(bedroom?.group);
+  const sex = k.sex === "F" ? "girl" : k.sex === "M" ? "boy" : kidSexOf(bedroom?.group);
 
   return (
     <div className="admin-page">
@@ -106,6 +106,36 @@ export default function CamperDetail({ camperId, nav, onEdit, onOpenStaff, onOpe
               <dd>{k.bedroomPreference}</dd>
             </>
           )}
+          {k.caretaker && (
+            <>
+              <dt>Tio(a)</dt>
+              <dd>{k.caretaker}</dd>
+            </>
+          )}
+          {(k.school || k.schoolGrade) && (
+            <>
+              <dt>Escola</dt>
+              <dd>{[k.school, k.schoolGrade].filter(Boolean).join(" · ")}</dd>
+            </>
+          )}
+          {k.church && (
+            <>
+              <dt>Igreja</dt>
+              <dd>{k.church}</dd>
+            </>
+          )}
+          {k.invitedBy && (
+            <>
+              <dt>Convidado por</dt>
+              <dd>{k.invitedBy}</dd>
+            </>
+          )}
+          {(k.rg || k.cpf) && (
+            <>
+              <dt>Documentos</dt>
+              <dd>{[k.rg && `RG ${k.rg}`, k.cpf && `CPF ${k.cpf}`].filter(Boolean).join(" · ")}</dd>
+            </>
+          )}
         </dl>
         <HealthAlerts person={k} labelOf={labelOf} boxed />
         {k.generalNotes && <p className="detail-note">📝 {k.generalNotes}</p>}
@@ -134,6 +164,20 @@ export default function CamperDetail({ camperId, nav, onEdit, onOpenStaff, onOpe
                 <em className="staff-card__missing">não informado</em>
               )}
             </dd>
+            {k.guardianEmail && (
+              <>
+                <dt>E-mail</dt>
+                <dd>
+                  <a href={`mailto:${k.guardianEmail}`}>{k.guardianEmail}</a>
+                </dd>
+              </>
+            )}
+            {k.guardianCpf && (
+              <>
+                <dt>CPF</dt>
+                <dd>{k.guardianCpf}</dd>
+              </>
+            )}
             <dt>Emergência</dt>
             <dd>{k.emergencyContact || "—"}</dd>
             <dt>Convênio</dt>
