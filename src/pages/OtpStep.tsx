@@ -15,17 +15,28 @@ interface OtpStepProps {
   onBack: () => void;
 }
 
+function remaining(expiresAt: string): number {
+  return Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+}
+
+/** Always derived from the wall clock, so a backgrounded tab / reopened browser shows the real time left. */
 function useCountdown(expiresAt: string): number {
-  const [secondsLeft, setSecondsLeft] = useState(() =>
-    Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000)),
-  );
+  const [secondsLeft, setSecondsLeft] = useState(() => remaining(expiresAt));
 
   useEffect(() => {
-    setSecondsLeft(Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000)));
-    const id = setInterval(() => {
-      setSecondsLeft((prev) => (prev <= 0 ? 0 : prev - 1));
-    }, 1000);
-    return () => clearInterval(id);
+    const tick = () => setSecondsLeft(remaining(expiresAt));
+    tick();
+    const id = setInterval(tick, 1000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", tick);
+    };
   }, [expiresAt]);
 
   return secondsLeft;

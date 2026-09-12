@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ApiError } from "./api/client";
 import CampingLayout from "./components/CampingLayout";
 import StaffAccessDialog from "./components/StaffAccessDialog";
-import { clearAuth, loadAuth, saveAuth } from "./auth/store";
+import { clearAuth, clearPendingOtp, loadAuth, loadPendingOtp, saveAuth, savePendingOtp } from "./auth/store";
 import Dashboard from "./pages/Dashboard";
 import OtpStep from "./pages/OtpStep";
 import PhoneStep from "./pages/PhoneStep";
@@ -35,6 +35,14 @@ export default function App() {
     if (stored) {
       setSession({ user: stored.user, token: stored.token, tokenExpiresAt: stored.tokenExpiresAt });
       setStep("done");
+      return;
+    }
+    // an SMS was already sent and is still valid → go straight to the code step with the real expiry
+    const pending = loadPendingOtp();
+    if (pending) {
+      setOtp(pending);
+      setPhoneMasked(formatBrazilPhoneClient(pending.phoneE164));
+      setStep("otp");
     }
   }, []);
 
@@ -43,6 +51,7 @@ export default function App() {
     setStep("phone");
     setPhoneMasked("");
     setOtp(null);
+    clearPendingOtp();
   }
 
   // live data feed: one WebSocket for the whole session; the store keeps a
@@ -91,13 +100,21 @@ export default function App() {
         phoneMasked={formatBrazilPhoneClient(otp.phoneE164)}
         expiresAt={otp.expiresAt}
         delivery={otp.delivery}
-        onExpiryChange={(iso) => setOtp({ ...otp, expiresAt: iso })}
+        onExpiryChange={(iso) => {
+          const next = { ...otp, expiresAt: iso };
+          savePendingOtp(next);
+          setOtp(next);
+        }}
         onVerified={({ token, tokenExpiresAt, user }) => {
+          clearPendingOtp();
           saveAuth({ token, tokenExpiresAt, user });
           setSession({ user, token, tokenExpiresAt });
           setStep("done");
         }}
-        onBack={() => setStep("phone")}
+        onBack={() => {
+          clearPendingOtp();
+          setStep("phone");
+        }}
       />
     );
   } else {
@@ -106,6 +123,7 @@ export default function App() {
         phone={phoneMasked}
         onPhoneChange={setPhoneMasked}
         onSent={({ phoneE164, expiresAt, delivery }) => {
+          savePendingOtp({ phoneE164, expiresAt, delivery });
           setOtp({ phoneE164, expiresAt, delivery });
           setStep("otp");
         }}

@@ -36,6 +36,41 @@ export function clearAuth(): void {
   localStorage.removeItem(STORAGE_KEY);
 }
 
+const OTP_STORAGE_KEY = "acampa.otp";
+
+export interface PendingOtp {
+  phoneE164: string;
+  expiresAt: string; // ISO — when the SMS code stops being valid
+  delivery: "sms" | "mock";
+}
+
+/** Remembers the SMS that was sent so leaving the browser and coming back keeps the real expiry. */
+export function savePendingOtp(state: PendingOtp): void {
+  localStorage.setItem(OTP_STORAGE_KEY, JSON.stringify(state));
+}
+
+/** Returns the pending SMS code context if it hasn't expired yet. */
+export function loadPendingOtp(): PendingOtp | null {
+  try {
+    const raw = localStorage.getItem(OTP_STORAGE_KEY);
+    if (!raw) return null;
+
+    const state = JSON.parse(raw) as PendingOtp;
+    if (!state.phoneE164 || !state.expiresAt) return null;
+    if (new Date(state.expiresAt) <= new Date()) {
+      localStorage.removeItem(OTP_STORAGE_KEY);
+      return null;
+    }
+    return state;
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingOtp(): void {
+  localStorage.removeItem(OTP_STORAGE_KEY);
+}
+
 export function bearer(token: string): Record<string, string> {
   return { authorization: `Bearer ${token}` };
 }
