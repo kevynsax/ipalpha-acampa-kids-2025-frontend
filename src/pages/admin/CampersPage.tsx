@@ -222,7 +222,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
             <input
               className="cat-input staff-toolbar__search"
               type="search"
-              placeholder="Buscar por nome, responsável, time, quarto…"
+              placeholder="Buscar por nome, líder, time, quarto…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -290,7 +290,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
 
           <p className="admin-intro">
             {visible.length === campers.length ? `${campers.length} crianças` : `${visible.length} de ${campers.length} crianças`}
-            {orphanCount > 0 && <span className="orphan-tag"> · ⚠️ {orphanCount} sem responsável</span>}
+            {orphanCount > 0 && <span className="orphan-tag"> · ⚠️ {orphanCount} sem líder</span>}
           </p>
 
           <ul className="staff-list">
@@ -320,7 +320,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
                       {k.name}
                       {age !== null && <span className="kid-card__age">{age} anos</span>}
                     </h3>
-                    {orphan && <p className="staff-card__meta orphan-msg">⚠️ Esta criança está sem responsável{!k.bedroom ? " e sem quarto" : ""}.</p>}
+                    {orphan && <p className="staff-card__meta orphan-msg">⚠️ Esta criança está sem líder{!k.bedroom ? " e sem quarto" : ""}.</p>}
                     {k.guardianName && (
                       <p className="staff-card__meta">
                         Resp.: {k.guardianName}

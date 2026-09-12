@@ -36,6 +36,59 @@ export default function AudiencePicker({ value, onChange, disabled }: AudiencePi
   );
 }
 
+// ── Preparação: a section is POSTED to one or more groups (parents / caretakers / helpers) ──
+
+export type PrepAudience = "parent" | "caretaker" | "helper";
+
+export const PREP_AUDIENCE_META: Record<PrepAudience, { label: string; emoji: string; hint: string }> = {
+  parent: { label: "Pais", emoji: "👨‍👩‍👧", hint: "os responsáveis pelas crianças" },
+  caretaker: DOC_AUDIENCE_META.caretaker,
+  helper: DOC_AUDIENCE_META.helper,
+};
+const PREP_ORDER: PrepAudience[] = ["parent", "caretaker", "helper"];
+
+interface PrepAudiencePickerProps {
+  value: PrepAudience[];
+  onChange: (v: PrepAudience[]) => void;
+  disabled?: boolean;
+}
+
+/** Multi-select: tap to post the section to each group (at least one). */
+export function PrepAudiencePicker({ value, onChange, disabled }: PrepAudiencePickerProps) {
+  const toggle = (a: PrepAudience) => onChange(PREP_ORDER.filter((x) => (x === a ? !value.includes(a) : value.includes(x))));
+  return (
+    <fieldset className="cat-fieldset">
+      <legend className="cat-field__label">Publicar para</legend>
+      <div className="big-options big-options--row">
+        {PREP_ORDER.map((a) => {
+          const on = value.includes(a);
+          return (
+            <button key={a} type="button" className={`big-option ${on ? "big-option--on" : ""}`} aria-pressed={on} disabled={disabled} onClick={() => toggle(a)}>
+              <span className="big-option__emoji" aria-hidden="true">{PREP_AUDIENCE_META[a].emoji}</span>
+              <span className="big-option__label">{PREP_AUDIENCE_META[a].label}</span>
+              <span className="big-option__hint">{PREP_AUDIENCE_META[a].hint}</span>
+            </button>
+          );
+        })}
+      </div>
+      {value.length === 0 && <p className="cat-hint">Escolha pelo menos um público.</p>}
+    </fieldset>
+  );
+}
+
+/** Tags for lists — one per group the section is posted to. */
+export function PrepAudienceTags({ audiences }: { audiences: PrepAudience[] }) {
+  return (
+    <>
+      {PREP_ORDER.filter((a) => audiences.includes(a)).map((a) => (
+        <span key={a} className="staff-tag staff-tag--soft" title={PREP_AUDIENCE_META[a].hint}>
+          {PREP_AUDIENCE_META[a].emoji} {PREP_AUDIENCE_META[a].label}
+        </span>
+      ))}
+    </>
+  );
+}
+
 /** Small tag for lists — nothing when the document is for everyone. */
 export function AudienceTag({ audience }: { audience: DocAudience }) {
   if (audience === "all") return null;

@@ -39,14 +39,16 @@ function clock(): { date: string; time: string } {
  * what other people do in an event is never displayed (nor sent). It is a
  * single list — no detail pages; the role's instructions open in a dialog.
  *
- *   /schedule          list (`?all=1` → whole programme)
+ * Default view: the whole programme while the camp is happening (from the
+ * day of the first event to the day of the last one, as in
+ * `services/camp.ts#campInProgress`); their own escala outside it.
+ *
+ *   /schedule          list (`?all=1` → whole programme, `?all=0` → own escala)
  */
 export default function MySchedulePage({ user }: MySchedulePageProps) {
   const storedEvents = useCollection("events");
   const roles = useCollectionOrEmpty("roles");
   const { params, navigate } = useRoute();
-  const filter: Filter = params.get("all") ? "all" : "mine";
-  const setFilter = (f: Filter) => navigate("/schedule", { query: { all: f === "all" ? "1" : undefined }, replace: true });
   const [instructionsFor, setInstructionsFor] = useState<MyEvent | null>(null);
   /** past events are collapsed by default so the first card is what's happening now */
   const [showPast, setShowPast] = useState(false);
@@ -70,6 +72,12 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
     const t = setInterval(() => setNow(clock()), 60_000);
     return () => clearInterval(t);
   }, []);
+
+  // camp happening now? → whole programme by default; otherwise only what concerns them
+  const campOn = !!items?.length && items[0].event.date <= now.date && now.date <= items[items.length - 1].event.date;
+  const chosen = params.get("all");
+  const filter: Filter = chosen === "1" ? "all" : chosen === "0" ? "mine" : campOn ? "all" : "mine";
+  const setFilter = (f: Filter) => navigate("/schedule", { query: { all: f === "all" ? "1" : "0" }, replace: true });
 
   if (!items) {
     return (

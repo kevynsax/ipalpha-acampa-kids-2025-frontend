@@ -20,7 +20,21 @@ function contactId(): string {
     : `contact-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-/** Admin-only list of the staff contacts that will later be shown to parents. */
+const fmt = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+/** When the parents actually see these contacts: only during the camp (check-in start → end of the last event). */
+function ParentWindowNote({ window: w }: { window: { from: string | null; until: string | null; open: boolean } }) {
+  const range = w.from && w.until ? `de ${fmt.format(new Date(w.from))} até ${fmt.format(new Date(w.until))}` : null;
+  return (
+    <p className={`message ${w.open ? "message--ok" : "message--warn"}`}>
+      {w.open ? "🟢" : "🕒"} Os pais só veem estes contatos <strong>durante o acampamento</strong> — do início do check-in das crianças até o fim do último evento da programação
+      {range ? <>: <strong>{range}</strong></> : " (defina a janela de check-in e a programação)"}.{" "}
+      {w.open ? "Visível para os pais agora." : "Fora desse período os pais veem só os dados da própria criança."}
+    </p>
+  );
+}
+
+/** Admin-only list of the staff contacts shown to parents. */
 export default function ParentContactsPage({ token }: ParentContactsPageProps) {
   const staff = useCollectionOrEmpty("staff");
   const settings = useCollection("settings");
@@ -106,8 +120,9 @@ export default function ParentContactsPage({ token }: ParentContactsPageProps) {
         <h1 className="admin-title">📞 Important contacts</h1>
       </header>
       <p className="admin-intro">
-        Escolha quem os pais poderão procurar e dê um <strong>título claro</strong> para o assunto de cada contato. A tela dos pais será criada depois.
+        Escolha quem os pais poderão procurar e dê um <strong>título claro</strong> para o assunto de cada contato. Os pais veem o nome, o celular e um botão de WhatsApp de cada pessoa.
       </p>
+      {settings && <ParentWindowNote window={settings.parentWindow} />}
 
       {error && <p className="message message--error">{error}</p>}
 
@@ -182,7 +197,7 @@ export default function ParentContactsPage({ token }: ParentContactsPageProps) {
         )}
       </section>
 
-      <p className="footer-note">Somente o título e a pessoa escolhida são configurados agora. O telefone virá do cadastro da equipe quando a tela dos pais for criada.</p>
+      <p className="footer-note">O telefone vem do cadastro da equipe. Quem entra nesta lista passa a ter acesso ao app fora da janela da equipe (como os organizadores).</p>
 
       <StaffPicker
         open={pickerOpen}

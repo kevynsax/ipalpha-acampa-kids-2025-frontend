@@ -16,15 +16,17 @@ export interface HelperAccess {
   organizer: boolean;
   /** game organizer (no window): organizer + writes the scoreboard (Placar) */
   gameOrganizer: boolean;
+  /** score helper (no window): bulk QR scan by event only; no per-team points, no zero, deletes only own scans */
+  scoreHelper: boolean;
   /** medical team (no window): every camper, bedroom and vehicle, read-only, the whole time */
   medical: boolean;
   /** vest (colete) helper (no window): hands out / takes back the team vests; sees everyone as name + phone */
   vest: boolean;
 }
 
-const NONE: HelperAccess = { church: false, bus: false, busVehicle: null, organizer: false, gameOrganizer: false, medical: false, vest: false };
+const NONE: HelperAccess = { church: false, bus: false, busVehicle: null, organizer: false, gameOrganizer: false, scoreHelper: false, medical: false, vest: false };
 
-type Lists = Pick<Settings, "checkinWindow" | "checkinHelpers" | "busHelpers" | "organizers" | "gameOrganizers" | "medicalStaff" | "vestHelpers"> & Partial<Pick<Settings, "checkinTestMode">>;
+type Lists = Pick<Settings, "checkinWindow" | "checkinHelpers" | "busHelpers" | "organizers" | "gameOrganizers" | "scoreHelpers" | "medicalStaff" | "vestHelpers"> & Partial<Pick<Settings, "checkinTestMode">>;
 
 /**
  * Is the logged-in team member a check-in helper (church and/or bus) inside
@@ -50,12 +52,13 @@ export function useCheckinHelper(phone: string, enabled: boolean): HelperAccess 
   const from = lists?.checkinWindow.from ? new Date(lists.checkinWindow.from).getTime() : null;
   const until = lists?.checkinWindow.until ? new Date(lists.checkinWindow.until).getTime() : null;
   const windowOpen = !!lists?.checkinTestMode || (from !== null && until !== null && from <= now && now < until);
-  const listed = (l: "checkinHelpers" | "organizers" | "gameOrganizers" | "medicalStaff" | "vestHelpers") => !!me && !!lists && !!lists[l] && lists[l].staffIds.includes(me.id);
+  const listed = (l: "checkinHelpers" | "organizers" | "gameOrganizers" | "scoreHelpers" | "medicalStaff" | "vestHelpers") => !!me && !!lists && !!lists[l] && lists[l].staffIds.includes(me.id);
   const church = windowOpen && listed("checkinHelpers");
   const linkedVehicle = me && lists ? (lists.busHelpers.helpers.find((h) => h.staffId === me.id)?.vehicleId ?? null) : null;
   const busVehicle = windowOpen ? linkedVehicle : null;
   const bus = busVehicle !== null;
   const gameOrganizer = listed("gameOrganizers");
+  const scoreHelper = listed("scoreHelpers");
   const organizer = gameOrganizer || listed("organizers");
   const medical = listed("medicalStaff");
   const vest = listed("vestHelpers");
@@ -78,12 +81,12 @@ export function useCheckinHelper(phone: string, enabled: boolean): HelperAccess 
   // (unless they are on the medical team — their access has no window)
   const wasOpen = useRef(false);
   useEffect(() => {
-    if (wasOpen.current && !anyOpen && !medical) {
+    if (wasOpen.current && !anyOpen && !medical && !scoreHelper) {
       patchCollection("campers", (list) => list.filter((k) => myBedroom !== null && k.bedroom === myBedroom));
       patchCollection("bedrooms", (list) => list.filter((b) => b.id === myBedroom));
     }
     wasOpen.current = anyOpen;
-  }, [anyOpen, medical, myBedroom]);
+  }, [anyOpen, medical, scoreHelper, myBedroom]);
 
-  return enabled ? { church, bus, busVehicle, organizer, gameOrganizer, medical, vest } : NONE;
+  return enabled ? { church, bus, busVehicle, organizer, gameOrganizer, scoreHelper, medical, vest } : NONE;
 }

@@ -3,12 +3,17 @@ import { addScore, deleteScore, resetScore, type ScoreEntry } from "../api/score
 import { contrastText, type Team } from "../api/teams";
 import { useConfirm } from "../components/ConfirmDialog";
 import Dialog from "../components/Dialog";
+import ScanPointsDialog from "../components/ScanPointsDialog";
 import { useCollection, useCollectionOrEmpty } from "../store";
 
 interface ScoreboardPageProps {
   token: string;
-  /** admin / game organizer: may give, take, zero and delete lines; everyone else just watches */
+  /** the logged-in user's id — a score helper may delete only their own lines */
+  userId: string;
+  /** admin / game organizer: may give, take, zero and delete any line */
   canEdit: boolean;
+  /** score helper (or anyone who canEdit): may scan QR codes in bulk (points by event) and delete their own scan lines — nothing else */
+  canScan: boolean;
 }
 
 type Pending = { team: Team; sign: 1 | -1 } | { team: Team; sign: 0 };
@@ -16,13 +21,15 @@ type Pending = { team: Team; sign: 1 | -1 } | { team: Team; sign: 0 };
 /**
  * Placar: every team ranked by its points, with the ledger underneath. Game
  * organizers (Settings → Placar) and the admin give / take points — each with
- * an optional note of why — zero a team, or delete a wrong line.
+ * an optional note of why — zero a team, or delete a wrong line. Score
+ * helpers only scan QR codes in bulk (the 📷 FAB) and undo their own scans.
  */
-export default function ScoreboardPage({ token, canEdit }: ScoreboardPageProps) {
+export default function ScoreboardPage({ token, userId, canEdit, canScan }: ScoreboardPageProps) {
   const teams = useCollection("teams");
   const scores = useCollectionOrEmpty("scores");
   const confirm = useConfirm();
   const [pending, setPending] = useState<Pending | null>(null);
+  const [scanning, setScanning] = useState(false);
   const [historyTeam, setHistoryTeam] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +86,8 @@ export default function ScoreboardPage({ token, canEdit }: ScoreboardPageProps) 
       <header className="admin-head">
         <h1 className="admin-title">🏆 Placar</h1>
       </header>
-      {canEdit && <p className="admin-intro">Toque em ➕ / ➖ para lançar pontos (com o motivo, se quiser) ou em 🔄 para zerar o time.</p>}
+      {canEdit && <p className="admin-intro">Toque em ➕ / ➖ para lançar pontos (com o motivo, se quiser), em 🔄 para zerar o time ou em 📷 para dar pontos em massa lendo os crachás.</p>}
+      {!canEdit && canScan && <p className="admin-intro">Toque em 📷 para dar pontos em massa lendo os crachás das crianças no evento que está acontecendo.</p>}
 
       {error && <p className="message message--error">{error}</p>}
 
@@ -152,9 +160,10 @@ export default function ScoreboardPage({ token, canEdit }: ScoreboardPageProps) 
                     {e.note && <span className="score-log__note">{e.note}</span>}
                     <span className="score-log__meta">
                       {fmtStamp(e.createdAt)} · {e.by.name.split(" ")[0]}
+                      {e.camperName && <> · 📷 {e.camperName}</>}
                     </span>
                   </span>
-                  {canEdit && (
+                  {(canEdit || (canScan && !!e.camperId && e.by.id === userId)) && (
                     <button type="button" className="icon-btn icon-btn--danger" title="Apagar lançamento" aria-label="Apagar lançamento" disabled={busy} onClick={() => void handleDelete(e)}>
                       🗑️
                     </button>
@@ -167,6 +176,16 @@ export default function ScoreboardPage({ token, canEdit }: ScoreboardPageProps) 
       </section>
 
       {pending && <PointsDialog pending={pending} current={totals.get(pending.team.id) ?? 0} busy={busy} onSubmit={submitPoints} onClose={() => setPending(null)} />}
+
+      {canScan && teams.length > 0 && (
+        <button type="button" className="fab" title="Dar pontos em massa lendo os crachás" aria-label="Dar pontos em massa lendo os crachás" onClick={() => setScanning(true)}>
+          <span className="fab__icon" aria-hidden="true">
+            📷
+          </span>
+          <span className="fab__label">Ler crachás</span>
+        </button>
+      )}
+      {scanning && <ScanPointsDialog token={token} onClose={() => setScanning(false)} />}
     </div>
   );
 }

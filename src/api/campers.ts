@@ -1,4 +1,4 @@
-import { command } from "./client";
+import { api, command } from "./client";
 import { bearer } from "../auth/store";
 import type { Staff } from "./staff";
 
@@ -109,6 +109,49 @@ export async function moveCamper(token: string, id: string, bedroom: string | nu
 
 export async function deleteCamper(token: string, id: string): Promise<void> {
   await command(`/api/campers/${id}`, { method: "DELETE", headers: bearer(token) }, ["campers", "bedrooms"]);
+}
+
+/** The fields a PARENT may edit on their own kid ("Pontos de atenção"). Everything but `generalNotes` is medical. */
+export type ParentEditableField = "allergies" | "drugAllergies" | "healthIssues" | "medicines" | "foodRestrictions" | "healthNotes" | "weightKg" | "insurance" | "insuranceCard" | "generalNotes";
+export type ParentPatch = Partial<Pick<Camper, ParentEditableField>>;
+
+export const PARENT_FIELD_LABEL: Record<ParentEditableField, string> = {
+  allergies: "Alergias",
+  drugAllergies: "Alergia a medicamentos",
+  healthIssues: "Condição de saúde",
+  medicines: "Medicação",
+  foodRestrictions: "Alimentação",
+  healthNotes: "Observações médicas",
+  weightKg: "Peso",
+  insurance: "Convênio",
+  insuranceCard: "Carteirinha",
+  generalNotes: "Observações",
+};
+
+/** One edit a parent made to their kid (history read by the admin). */
+export interface CamperChange {
+  id: string;
+  camperId: string;
+  camperName: string;
+  at: string;
+  byUserId: string;
+  byName: string;
+  byRole: string;
+  /** at least one MEDICAL field changed */
+  medical: boolean;
+  changes: { field: ParentEditableField; before: unknown; after: unknown }[];
+}
+
+/** A PARENT edits the "Pontos de atenção" of their own kid. */
+export async function parentUpdateCamper(token: string, id: string, patch: ParentPatch): Promise<Camper> {
+  const res = await command<{ camper: Camper }>(`/api/campers/${id}/parent`, { method: "PUT", headers: json(token), body: JSON.stringify(patch) }, ["campers"]);
+  return res.camper;
+}
+
+/** The parent-edit history of one kid, newest first (admin). */
+export async function listCamperChanges(token: string, id: string): Promise<CamperChange[]> {
+  const res = await api<{ changes: CamperChange[] }>(`/api/campers/${id}/changes`, { headers: bearer(token) });
+  return res.changes;
 }
 
 export type CheckinKind = "church" | "bus";

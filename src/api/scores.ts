@@ -12,8 +12,18 @@ export interface ScoreEntry {
   points: number;
   kind: "add" | "remove" | "reset";
   note: string;
+  /** set when the line came from scanning a kid's QR code: the kid whose team earned the points */
+  camperId: string | null;
+  camperName: string;
+  /** the programme event the scan belongs to — a kid counts once per event (across devices) and every scan of an event carries the same points */
+  eventId: string | null;
   by: { id: string; name: string };
   createdAt: string;
+}
+
+export interface ScanScoreResult {
+  score: ScoreEntry;
+  team: { id: string; name: string; color: string };
 }
 
 const json = (token: string) => ({ ...bearer(token), "content-type": "application/json" });
@@ -22,6 +32,17 @@ const json = (token: string) => ({ ...bearer(token), "content-type": "applicatio
 export async function addScore(token: string, input: { teamId: string; points: number; note?: string }): Promise<ScoreEntry> {
   const res = await command<{ score: ScoreEntry }>("/api/scores", { method: "POST", headers: json(token), body: JSON.stringify(input) }, ["scores"]);
   return res.score;
+}
+
+/** Bulk giving at a door: the scanned kid's TEAM gets `points` (> 0) for the event; a kid counts once per event. A new value re-points the event's earlier scans. */
+export async function scanScore(token: string, input: { camperId: string; eventId: string; points: number }): Promise<ScanScoreResult> {
+  return command<ScanScoreResult>("/api/scores/scan", { method: "POST", headers: json(token), body: JSON.stringify(input) }, ["scores"]);
+}
+
+/** Changes the points of every scan already made for the event. Returns how many lines changed. */
+export async function repointEventScans(token: string, eventId: string, points: number): Promise<number> {
+  const res = await command<{ changed: number }>(`/api/scores/scan/${eventId}`, { method: "PUT", headers: json(token), body: JSON.stringify({ points }) }, ["scores"]);
+  return res.changed;
 }
 
 /** Zeroes the team (writes a line cancelling its current total). */

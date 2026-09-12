@@ -6,12 +6,14 @@ export class ApiError extends Error {
   secondsLeft?: number;
   opensAt?: string | null;
   closesAt?: string | null;
+  /** access-window errors: who the window is for */
+  audience?: "staff" | "parent";
 
   constructor(
     status: number,
     code: string,
     message: string,
-    extra?: { attemptsLeft?: number; minutesLeft?: number; secondsLeft?: number; opensAt?: string | null; closesAt?: string | null },
+    extra?: { attemptsLeft?: number; minutesLeft?: number; secondsLeft?: number; opensAt?: string | null; closesAt?: string | null; audience?: "staff" | "parent" },
   ) {
     super(message);
     this.status = status;
@@ -21,6 +23,7 @@ export class ApiError extends Error {
     this.secondsLeft = extra?.secondsLeft;
     this.opensAt = extra?.opensAt;
     this.closesAt = extra?.closesAt;
+    this.audience = extra?.audience;
   }
 }
 
@@ -59,6 +62,7 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
         secondsLeft: err?.secondsLeft as number | undefined,
         opensAt: err?.opensAt as string | null | undefined,
         closesAt: err?.closesAt as string | null | undefined,
+        audience: err?.audience as "staff" | "parent" | undefined,
       },
     );
   }

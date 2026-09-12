@@ -23,6 +23,7 @@ const fmt = new Intl.DateTimeFormat("pt-BR", {
 /** Full-screen colourful popup shown when a team member tries to log in outside the access window. */
 export default function StaffAccessDialog({ error, onClose }: StaffAccessDialogProps) {
   const ended = error?.code === "STAFF_ACCESS_ENDED";
+  const parent = error?.audience === "parent";
   const opensAt = error?.opensAt ? fmt.format(new Date(error.opensAt)) : null;
 
   return (
@@ -37,15 +38,16 @@ export default function StaffAccessDialog({ error, onClose }: StaffAccessDialogP
           </h2>
           {ended ? (
             <p className="access-pop__text">
-              Obrigado por fazer parte da equipe. Esperamos você no <strong>ano que vem</strong>! 🌲
+              {parent ? "Obrigado por confiar em nós. Esperamos sua família no " : "Obrigado por fazer parte da equipe. Esperamos você no "}
+              <strong>ano que vem</strong>! 🌲
             </p>
           ) : opensAt ? (
             <p className="access-pop__text">
-              O app fica disponível para a equipe a partir de
+              O app fica disponível para {parent ? "os pais" : "a equipe"} a partir de
               <span className="access-pop__when">{opensAt}</span>
             </p>
           ) : (
-            <p className="access-pop__text">O app ainda não está liberado para a equipe. Fique de olho!</p>
+            <p className="access-pop__text">O app ainda não está liberado para {parent ? "os pais" : "a equipe"}. Fique de olho!</p>
           )}
           <div className="access-pop__confetti" aria-hidden="true">
             {ended ? "🎉 🏕️ ✨ 🌲 🎈" : "🏕️ 🌲 🔥 🌙 ⭐"}

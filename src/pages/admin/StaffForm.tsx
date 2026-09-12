@@ -132,7 +132,7 @@ export default function StaffForm({ member, categories, bedrooms, busy, onSubmit
             );
           })}
         </div>
-        {editing && member?.roomRole === "caretaker" && roomRole === "helper" && <p className="cat-hint cat-hint--error">Ao virar auxiliar, as crianças sob sua responsabilidade ficam sem responsável.</p>}
+        {editing && member?.roomRole === "caretaker" && roomRole === "helper" && <p className="cat-hint cat-hint--error">Ao virar auxiliar, as crianças sob sua responsabilidade ficam sem líder.</p>}
       </fieldset>
 
       <button

@@ -98,7 +98,7 @@ export default function BedroomDetail({ bedroomId, nav, onEdit, onOpenStaff, onO
           <StaffIcon size={24} /> Responsáveis no quarto <span className="cat-tab__count">{staff.length}</span>
         </h2>
         {staff.length === 0 ? (
-          <p className="opt-empty">{b.group === "staff" ? "Ninguém alocado." : "⚠️ Nenhum responsável da equipe neste quarto."}</p>
+          <p className="opt-empty">{b.group === "staff" ? "Ninguém alocado." : "⚠️ Nenhum líder da equipe neste quarto."}</p>
         ) : (
           <ul className="staff-list">
             {staff.map((s) => (

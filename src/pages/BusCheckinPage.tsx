@@ -4,6 +4,7 @@ import { ageOf, CAMPER_CATEGORY_KEYS, checkinCamper, undoCheckinCamper, type Cam
 import { useConfirm } from "../components/ConfirmDialog";
 import Breadcrumbs from "../components/Breadcrumbs";
 import QrScannerDialog from "../components/QrScannerDialog";
+import { camperIdFromQr } from "../print/camperLabels";
 import { useRoute } from "../router";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import { useLabelOf } from "../store/derive";
@@ -272,19 +273,6 @@ export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false,
       <QrScannerDialog open={scannerOpen} busy={scanBusy} onScan={scanQr} onClose={() => setScannerOpen(false)} />
     </div>
   );
-}
-
-/** Accept only this app's camper-detail URL, as printed on the badge and bracelet. */
-function camperIdFromQr(raw: string): string | null {
-  const value = raw.trim();
-  try {
-    const url = new URL(value, location.href);
-    if (url.origin !== location.origin || url.pathname !== location.pathname) return null;
-    const match = url.hash.match(/^#\/campers\/([^/?#]+)\/?(?:\?.*)?$/);
-    return match ? decodeURIComponent(match[1]) : null;
-  } catch {
-    return null;
-  }
 }
 
 function rank(k: Camper): number {

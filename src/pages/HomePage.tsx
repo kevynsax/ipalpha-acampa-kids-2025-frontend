@@ -111,7 +111,7 @@ export default function HomePage({ user, token }: HomePageProps) {
       </header>
       <p className="admin-intro">
         Olá, {first}! Este é o seu quarto ({m.label}).{" "}
-        {isStaffRoom ? "Aqui ficam só pessoas da equipe." : caretaker ? "Você é responsável por crianças deste quarto." : "Você é auxiliar neste quarto."}
+        {isStaffRoom ? "Aqui ficam só pessoas da equipe." : caretaker ? "Você é líder de crianças deste quarto." : "Você é auxiliar neste quarto."}
       </p>
 
       {/* departure day only: "Cheguei na igreja!" */}
@@ -141,7 +141,7 @@ export default function HomePage({ user, token }: HomePageProps) {
           <h2 className="detail-h2">
             <KidIcon sex={sex} group size={26} /> Minhas crianças <span className="cat-tab__count">{myKids.length}</span>
           </h2>
-          <p className="admin-intro">Você é o responsável por elas. Toque para ver saúde, alimentação e observações.</p>
+          <p className="admin-intro">Você é o líder delas. Toque para ver saúde, alimentação e observações.</p>
           {myKids.length === 0 ? (
             <p className="opt-empty">Nenhuma criança sob sua responsabilidade ainda.</p>
           ) : (

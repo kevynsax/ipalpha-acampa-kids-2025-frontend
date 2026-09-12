@@ -12,27 +12,37 @@ interface GameOrganizersPageProps {
  * the scoreboard (Placar): give / take points from any team, zero a team.
  * They get everything a programme organizer has too (schedule, roles, the
  * whole team), so they can help there as well. No time window.
+ *
+ * Plus the SCORE helpers: people who ONLY do the bulk QR scan tied to a
+ * programme event ("everyone in costume earns a point for their team").
+ * They never give / take points by team, never zero, delete only their own
+ * scans and have no organizer rights. No time window either.
  */
 export default function GameOrganizersPage({ token }: GameOrganizersPageProps) {
   const settings = useCollection("settings");
   const [ids, setIds] = useState<string[]>([]);
+  const [helperIds, setHelperIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (settings) setIds(settings.gameOrganizers?.staffIds ?? []);
+    if (settings) {
+      setIds(settings.gameOrganizers?.staffIds ?? []);
+      setHelperIds(settings.scoreHelpers?.staffIds ?? []);
+    }
   }, [settings]);
 
-  async function saveIds(nextIds: string[]) {
+  async function saveList(key: "gameOrganizers" | "scoreHelpers", nextIds: string[]) {
     if (busy) return;
-    const previous = ids;
-    setIds(nextIds);
+    const [get, set] = key === "gameOrganizers" ? [ids, setIds] : [helperIds, setHelperIds];
+    const previous = get;
+    set(nextIds);
     setBusy(true);
     setError(null);
     try {
-      await updateSettings(token, { gameOrganizers: { staffIds: nextIds } });
+      await updateSettings(token, { [key]: { staffIds: nextIds } });
     } catch (err) {
-      setIds(previous);
+      set(previous);
       setError(err instanceof Error ? err.message : "Algo deu errado.");
     } finally {
       setBusy(false);
@@ -63,7 +73,7 @@ export default function GameOrganizersPage({ token }: GameOrganizersPageProps) {
         <StaffListEditor
           title="Quem cuida do placar"
           value={ids}
-          onChange={(nextIds) => void saveIds(nextIds)}
+          onChange={(nextIds) => void saveList("gameOrganizers", nextIds)}
           disabled={busy}
           pickerTitle="Adicionar organizador dos jogos"
           empty="Ninguém escolhido ainda. Só o admin lança pontos."
@@ -73,6 +83,28 @@ export default function GameOrganizersPage({ token }: GameOrganizersPageProps) {
       <p className="footer-note">
         🎯 Quem está nesta lista também é <strong>organizador da programação</strong> (Configurações → Organizadores): edita eventos, funções e a escala,
         e vê toda a equipe. Ao entrar na lista a pessoa recebe um SMS avisando (Notificações → Boas-vindas e novas responsabilidades).
+      </p>
+
+      <p className="admin-intro">
+        <strong>Ajudantes do placar</strong>: pessoas que só <strong>leem crachás</strong> — dão pontos em massa lendo o QR code das crianças na porta,
+        sempre ligados a um evento da programação (ex.: quem veio fantasiado ganha ponto para o time). Não lançam pontos por time, não zeram times nem
+        mexem na programação. Sem período: valem o tempo todo.
+      </p>
+
+      <section className="cat-form">
+        <StaffListEditor
+          title="Quem ajuda a lançar pontos"
+          value={helperIds}
+          onChange={(nextIds) => void saveList("scoreHelpers", nextIds)}
+          disabled={busy}
+          pickerTitle="Adicionar ajudante do placar"
+          empty="Ninguém escolhido ainda."
+        />
+      </section>
+
+      <p className="footer-note">
+        📷 O ajudante ganha a aba <strong>Placar</strong> só com o botão de leitura em massa e vê das crianças apenas <strong>nome e time</strong>. Apaga só as
+        próprias leituras. Ao entrar na lista a pessoa recebe um SMS avisando.
       </p>
     </div>
   );

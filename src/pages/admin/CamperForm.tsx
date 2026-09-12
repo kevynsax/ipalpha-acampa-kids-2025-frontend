@@ -164,9 +164,9 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
       </div>
       <div className="cat-form__row staff-form__row">
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">{ROOM_ROLE_META.caretaker.emoji} Responsável no quarto</span>
+          <span className="cat-field__label">{ROOM_ROLE_META.caretaker.emoji} Líder no quarto</span>
           <select className="cat-input" value={caretakerId ?? ""} disabled={busy || !bedroom} onChange={(e) => setCaretakerId(e.target.value || null)}>
-            <option value="">{!bedroom ? "Escolha o quarto primeiro" : caretakers.length ? "Sem responsável" : "Nenhum responsável neste quarto"}</option>
+            <option value="">{!bedroom ? "Escolha o quarto primeiro" : caretakers.length ? "Sem líder" : "Nenhum líder neste quarto"}</option>
             {caretakers.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createPrepSection, deletePrepSection, reorderPrepSections, updatePrepSection, type PrepSection, type PrepSectionInput } from "../../api/preparation";
 import { useConfirm } from "../../components/ConfirmDialog";
 import EmojiPicker from "../../components/EmojiPicker";
-import AudiencePicker, { AudienceTag, type DocAudience } from "../../components/AudiencePicker";
+import { PrepAudiencePicker, PrepAudienceTags, type PrepAudience } from "../../components/AudiencePicker";
 import { useAiAutoFill } from "../../hooks/useAiAutoFill";
 import AiTitleButton from "../../components/AiTitleButton";
 import RichHtml from "../../components/RichHtml";
@@ -17,8 +17,9 @@ interface PreparationAdminPageProps {
 const EMOJI_SUGGESTIONS = ["📌", "🎒", "👕", "🧢", "🧴", "💊", "⛪", "🚌", "🕐", "📱", "💤", "🍽️", "🌧️", "☀️", "🙏", "📸", "🧸", "🩹"];
 
 /**
- * ⚙️ → Preparação: the general sections every team member reads before the
- * camp. Each section is a title + emoji + rich text (with pictures). Role
+ * ⚙️ → Preparação: the general sections read before the camp, each POSTED
+ * to the parents and/or the room caretakers and/or the helpers. Each section
+ * is a title + emoji + rich text (with pictures). Role
  * specific preparation ("Inspetor: roupa verde") is written on the role
  * itself (Programação → Funções).
  *
@@ -99,7 +100,7 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
       {mode.kind === "list" && (
         <>
           <p className="admin-intro">
-            O que a equipe precisa saber, levar e vestir <strong>antes</strong> do acampamento.
+            O que a equipe e os pais precisam saber, levar e vestir <strong>antes</strong> do acampamento. Cada seção é publicada para os pais, os líderes e/ou os auxiliares.
           </p>
           <p className="cat-hint">
             🎯 A preparação <strong>por função</strong> (ex.: “Inspeção: roupa verde estilo exército com boné”) é escrita na própria função, em{" "}
@@ -140,7 +141,7 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
             <article key={s.id} className="detail-card prep-section">
               <header className="prep-section__head">
                 <h3 className="prep-section__title">
-                  <span aria-hidden="true">{s.emoji}</span> {s.title} <AudienceTag audience={s.audience} />
+                  <span aria-hidden="true">{s.emoji}</span> {s.title} <PrepAudienceTags audiences={s.audiences} />
                 </h3>
                 <div className="opt-item__actions">
                   <button type="button" className="icon-btn" title="Subir" aria-label="Subir" disabled={busy || i === 0} onClick={() => move(s, -1)}>
@@ -174,9 +175,9 @@ interface SectionFormProps {
 function SectionForm({ token, section, busy, onSubmit, onCancel }: SectionFormProps) {
   const [title, setTitle] = useState(section?.title ?? "");
   const [emoji, setEmoji] = useState(section?.emoji ?? "📌");
-  const [audience, setAudience] = useState<DocAudience>(section?.audience ?? "all");
+  const [audiences, setAudiences] = useState<PrepAudience[]>(section?.audiences ?? ["caretaker", "helper"]);
   const [content, setContent] = useState(section?.content ?? "");
-  const valid = title.trim().length > 0;
+  const valid = title.trim().length > 0 && audiences.length > 0;
   const ai = useAiAutoFill({ token, context: "preparation", title, setTitle, emoji, setEmoji, defaultEmoji: "📌", existing: !!section });
 
   return (
@@ -184,7 +185,7 @@ function SectionForm({ token, section, busy, onSubmit, onCancel }: SectionFormPr
       className="cat-form"
       onSubmit={(e) => {
         e.preventDefault();
-        if (valid && !busy) void onSubmit({ title: title.trim(), emoji: emoji.trim() || "📌", audience, content }).catch(() => {});
+        if (valid && !busy) void onSubmit({ title: title.trim(), emoji: emoji.trim() || "📌", audiences, content }).catch(() => {});
       }}
     >
       <h2 className="cat-form__title">{section ? "✏️ Editar seção" : "✨ Nova seção"}</h2>
@@ -201,7 +202,7 @@ function SectionForm({ token, section, busy, onSubmit, onCancel }: SectionFormPr
           </span>
         </label>
       </div>
-      <AudiencePicker value={audience} onChange={setAudience} disabled={busy} />
+      <PrepAudiencePicker value={audiences} onChange={setAudiences} disabled={busy} />
       <div className="cat-field">
         <span className="cat-field__label">📝 Conteúdo</span>
         <p className="cat-hint">Texto, listas, links e fotos (🖼️ ou cole / arraste uma imagem). As fotos são reduzidas automaticamente.</p>

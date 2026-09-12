@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ROOM_ROLE_META } from "../../api/staff";
 import ChangeRoomDialog from "./ChangeRoomDialog";
+import CamperHistoryDialog from "./CamperHistoryDialog";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import HealthAlerts from "../../components/HealthAlerts";
 import CamperCard from "../../components/CamperCard";
@@ -39,6 +40,7 @@ function fmtDate(iso: string | null): string | null {
 /** One kid: full registration info, the room + caretakers, and roommates. */
 export default function CamperDetail({ token, camperId, nav, onEdit, onOpenStaff, onOpenCamper, onOpenBedroom }: CamperDetailProps) {
   const [moveOpen, setMoveOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   // joined locally from the store — works offline and updates live
   const data = useCamperDetail(camperId);
   const error = data === undefined ? "Acampante não encontrado." : null;
@@ -72,19 +74,24 @@ export default function CamperDetail({ token, camperId, nav, onEdit, onOpenStaff
           {age !== null && <span className="kid-card__age">{age} anos</span>}
         </h1>
         {onEdit && (
-          <button type="button" className="icon-btn icon-btn--lg" title="Editar" aria-label="Editar" onClick={() => onEdit(k)}>
-            ✏️
-          </button>
+          <>
+            <button type="button" className="icon-btn icon-btn--lg" title="Histórico de alterações feitas pelos pais" aria-label="Histórico de alterações" onClick={() => setHistoryOpen(true)}>
+              🕓
+            </button>
+            <button type="button" className="icon-btn icon-btn--lg" title="Editar" aria-label="Editar" onClick={() => onEdit(k)}>
+              ✏️
+            </button>
+          </>
         )}
       </header>
 
       <section className="detail-card">
         <dl className="detail-grid">
-          <dt>Responsável</dt>
+          <dt>Líder</dt>
           <dd>
             {caretaker ? (
               onOpenStaff ? (
-                <button type="button" className="link-chip" title="Ver responsável" onClick={() => onOpenStaff(caretaker.id)}>
+                <button type="button" className="link-chip" title="Ver líder" onClick={() => onOpenStaff(caretaker.id)}>
                   {ROOM_ROLE_META.caretaker.emoji} {caretaker.name} ›
                 </button>
               ) : (
@@ -95,7 +102,7 @@ export default function CamperDetail({ token, camperId, nav, onEdit, onOpenStaff
             ) : k.caretakerId ? (
               "—"
             ) : (
-              <span className="orphan-tag">⚠️ Sem responsável</span>
+              <span className="orphan-tag">⚠️ Sem líder</span>
             )}
           </dd>
           <dt>Nascimento</dt>
@@ -126,7 +133,7 @@ export default function CamperDetail({ token, camperId, nav, onEdit, onOpenStaff
               <dt></dt>
               <dd>
                 <button type="button" className="button button--secondary button--sm" onClick={() => setMoveOpen(true)}>
-                  🔄 Trocar de quarto / responsável
+                  🔄 Trocar de quarto / líder
                 </button>
               </dd>
             </>
@@ -249,6 +256,7 @@ export default function CamperDetail({ token, camperId, nav, onEdit, onOpenStaff
       )}
 
       {onEdit && <ChangeRoomDialog token={token} open={moveOpen} camper={k} onClose={() => setMoveOpen(false)} />}
+      {onEdit && <CamperHistoryDialog token={token} open={historyOpen} camperId={k.id} camperName={k.name} onClose={() => setHistoryOpen(false)} />}
       <PlayScene sex={sex} />
     </div>
   );

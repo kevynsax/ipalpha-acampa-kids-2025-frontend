@@ -137,6 +137,49 @@ export function useMyRoom(phone: string): MyRoom | null | undefined {
   }, [staff, campers, bedrooms, phone]);
 }
 
+export interface MyKid {
+  camper: Camper;
+  bedroom: Bedroom | null;
+  /** the team member responsible for the kid (only sent inside the parents' window) */
+  caretaker: Staff | null;
+  /** the OTHER team members sleeping in the kid's room (only sent inside the parents' window) */
+  roomStaff: Staff[];
+}
+
+export interface ParentHome {
+  kids: MyKid[];
+  /** Settings → Contatos, joined to the staff records the server sent (empty outside the parents' window) */
+  contacts: { id: string; title: string; staff: Staff }[];
+}
+
+/**
+ * The parent's view: their kids (the server only sends the guardian's own
+ * kids), each with its room, caretaker and room staff, plus the important
+ * contacts. Staff records only exist in the store while the parents' window
+ * is open — outside it the joins simply come back empty. `null` while syncing.
+ */
+export function useParentHome(): ParentHome | null {
+  const campers = useCollection("campers");
+  const staff = useCollectionOrEmpty("staff");
+  const bedrooms = useCollectionOrEmpty("bedrooms");
+  const settings = useCollection("settings");
+  return useMemo(() => {
+    if (!campers) return null;
+    const staffById = new Map(staff.map((s) => [s.id, s]));
+    const kids: MyKid[] = [...campers].sort(byName).map((k) => ({
+      camper: k,
+      bedroom: k.bedroom ? (bedrooms.find((b) => b.id === k.bedroom) ?? null) : null,
+      caretaker: k.caretakerId ? (staffById.get(k.caretakerId) ?? null) : null,
+      roomStaff: k.bedroom ? staff.filter((s) => s.bedroom === k.bedroom && s.id !== k.caretakerId).sort(byName) : [],
+    }));
+    const contacts = (settings?.parentContacts ?? []).flatMap((c) => {
+      const s = staffById.get(c.staffId);
+      return s ? [{ id: c.id, title: c.title, staff: s }] : [];
+    });
+    return { kids, contacts };
+  }, [campers, staff, bedrooms, settings]);
+}
+
 export interface MyPrepRole {
   role: ScheduleRole;
   /** distinct assignment details across events ("Base 3", "Time Belém"…) */

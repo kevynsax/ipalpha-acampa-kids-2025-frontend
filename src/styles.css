@@ -1087,6 +1087,42 @@ select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38
   .team-card { flex-wrap: wrap; }
   .team-card__actions { width: 100%; justify-content: flex-end; }
 }
+/* ── floating action button (Placar → bulk points by QR) ── */
+.fab { position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); z-index: 120; display: inline-flex; align-items: center; gap: 10px; padding: 14px 20px 14px 16px; border: 3px solid #fff; border-radius: 999px; background: var(--sun); color: var(--forest-dark); font-family: var(--font-display); font-weight: 800; font-size: 1rem; box-shadow: 0 6px 0 rgba(24,61,54,.25), 0 10px 24px rgba(24,61,54,.25); cursor: pointer; transition: transform .15s ease, filter .15s ease; }
+.fab:hover { transform: translateY(-2px); filter: brightness(1.05); }
+.fab:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(24,61,54,.25), 0 6px 16px rgba(24,61,54,.2); }
+.fab__icon { font-size: 1.5rem; line-height: 1; }
+@media (max-width: 560px) {
+  .fab { padding: 14px; }
+  .fab__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .admin-page { padding-bottom: 96px; }
+}
+/* ── bulk points by QR: camera stays on, flashes green / red per read ── */
+.scan-points__fields { display: grid; grid-template-columns: 1fr 130px; gap: 10px; align-items: end; }
+.scan-points__fields .cat-field { margin: 0; }
+.scan-points__viewport { transition: box-shadow .15s ease; }
+.scan-points__viewport--ok { box-shadow: 0 0 0 6px #2fbf5b; animation: scan-blink-ok .5s ease; }
+.scan-points__viewport--error { box-shadow: 0 0 0 6px var(--red); animation: scan-blink-error .5s ease; }
+.scan-points__flash { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 20px; text-align: center; color: #fff; font-family: var(--font-display); font-weight: 800; font-size: 1.15rem; pointer-events: none; animation: scan-flash-in .15s ease; }
+.scan-points__flash--ok { background: rgba(31,143,72,.82); }
+.scan-points__flash--error { background: rgba(170,46,32,.86); }
+.scan-points__flash-icon { font-size: 3rem; line-height: 1; }
+.scan-points__flash-text { max-width: 26ch; text-shadow: 0 2px 6px rgba(0,0,0,.3); }
+.scan-points__repoint { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.scan-points__repoint-btn { padding: 8px 14px; font-size: .9rem; }
+.scan-points__summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--forest); font-weight: 700; }
+.scan-points__teams { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.scan-points__team-chip { padding: 2px 10px; border: 2px solid var(--sage); border-radius: 999px; background: #fff; font-size: .85rem; }
+.scan-points__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: .92rem; color: var(--pine); }
+.scan-points__list li { display: flex; align-items: center; gap: 8px; }
+.scan-points__list small { color: var(--muted); }
+@keyframes scan-blink-ok { 0% { box-shadow: 0 0 0 0 #2fbf5b; } 50% { box-shadow: 0 0 0 14px #2fbf5b; } 100% { box-shadow: 0 0 0 6px #2fbf5b; } }
+@keyframes scan-blink-error { 0% { box-shadow: 0 0 0 0 var(--red); } 25% { box-shadow: 0 0 0 14px var(--red); } 50% { box-shadow: 0 0 0 4px var(--red); } 75% { box-shadow: 0 0 0 14px var(--red); } 100% { box-shadow: 0 0 0 6px var(--red); } }
+@keyframes scan-flash-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+@media (max-width: 560px) {
+  .scan-points__fields { grid-template-columns: 1fr 110px; }
+  .scan-points__viewport { min-height: 240px; }
+}
 /* team vests (coletes): a row is not a single tap — it carries its own buttons */
 .vest-row { cursor: default; }
 .vest-row:active { transform: none; }
@@ -1387,3 +1423,27 @@ select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38
 .stat-card__emoji { font-size: 1.6rem; }
 .stat-card__n { font-family: var(--font-display); font-weight: 800; font-size: 2.2rem; line-height: 1.1; }
 .stat-card__label { font-weight: 700; font-size: .8rem; text-align: center; }
+
+/* ── parents' area ──────────────────────────────────────────────────────── */
+.parent-kid { padding-top: 8px; border-top: 3px dashed var(--sage); gap: 14px; }
+.parent-kid:first-of-type { border-top: 0; padding-top: 0; }
+.parent-contact { gap: 12px; }
+.parent-contact__title { margin: 0 0 2px; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.parent-qr { align-items: center; text-align: center; }
+.camper-qr { margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.camper-qr__code { width: 100%; aspect-ratio: 1; padding: 10px; background: #fff; border: 3px solid #fff; border-radius: var(--radius); box-shadow: 0 6px 0 rgba(24,61,54,.12); }
+.camper-qr__code svg { width: 100%; height: 100%; display: block; }
+.camper-qr__name { font-family: var(--font-display); font-weight: 800; color: var(--forest); text-align: center; }
+.qr-dialog { border-color: var(--forest); }
+.qr-dialog__codes { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; }
+.history-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.history-item { padding: 12px 14px; background: #fff; border: 2px solid var(--sage); border-radius: 14px; display: flex; flex-direction: column; gap: 8px; }
+.history-item--medical { border-color: var(--red); }
+.history-item__head { margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--muted); font-size: .9rem; }
+.history-item__head strong { color: var(--forest); }
+.history-item__changes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.history-item__changes li { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: .9rem; }
+.history-item__field { font-weight: 800; color: var(--forest); min-width: 120px; }
+.history-item__before { color: var(--muted); text-decoration: line-through; }
+.history-item__after { font-weight: 700; color: var(--ink); }
+.sms-example { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: #eef2ef; color: var(--ink); font-family: var(--font-body); font-size: .85rem; line-height: 1.45; white-space: pre-wrap; }

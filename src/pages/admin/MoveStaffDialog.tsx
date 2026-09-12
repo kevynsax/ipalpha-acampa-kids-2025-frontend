@@ -15,8 +15,8 @@ interface MoveStaffDialogProps {
 const OPTIONS: { key: MoveKids; emoji: string; label: string; hint: string }[] = [
   { key: "swap", emoji: "🔁", label: "Trocar com alguém", hint: "a outra pessoa vem para cá e assume estas crianças; ela leva as dela" },
   { key: "bring", emoji: "🧳", label: "Levar as crianças junto", hint: "as crianças mudam de quarto com a pessoa" },
-  { key: "assign", emoji: "🤝", label: "Passar para outra pessoa", hint: "as crianças ficam e alguém do quarto assume (um auxiliar vira responsável)" },
-  { key: "orphan", emoji: "⚠️", label: "Deixar sem responsável", hint: "as crianças ficam no quarto sem responsável, para resolver depois" },
+  { key: "assign", emoji: "🤝", label: "Passar para outra pessoa", hint: "as crianças ficam e alguém do quarto assume (um auxiliar vira líder)" },
+  { key: "orphan", emoji: "⚠️", label: "Deixar sem líder", hint: "as crianças ficam no quarto sem líder, para resolver depois" },
 ];
 
 /**
@@ -118,7 +118,7 @@ export default function MoveStaffDialog({ token, open, member: s, onClose }: Mov
                     <span className="big-option__hint">
                       {ROOM_ROLE_META[x.roomRole].label}
                       {x.roomRole === "caretaker" && ` · ${n} criança${n === 1 ? "" : "s"}`}
-                      {x.roomRole === "helper" && " · vira responsável"}
+                      {x.roomRole === "helper" && " · vira líder"}
                     </span>
                   </button>
                 );

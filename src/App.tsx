@@ -57,7 +57,7 @@ export default function App() {
         clearStore();
         resetToLogin();
         if (reason === "access-window-closed") {
-          setEvicted(new ApiError(401, "STAFF_ACCESS_ENDED", "O acampamento acabou."));
+          setEvicted(new ApiError(401, "STAFF_ACCESS_ENDED", "O acampamento acabou.", { audience: session?.user.activeRole === "parent" ? "parent" : "staff" }));
         }
       },
     });

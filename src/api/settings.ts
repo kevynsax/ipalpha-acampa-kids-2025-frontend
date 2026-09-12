@@ -1,4 +1,4 @@
-import { command } from "./client";
+import { api, command } from "./client";
 import { bearer } from "../auth/store";
 
 /** Where the team must be to check themselves in on departure day. */
@@ -19,6 +19,8 @@ export interface NotificationSettings {
   checkinConfirmation: boolean;
   /** an Instruções document / Preparação section was created or edited, or the instructions / preparation text of one of the person's roles changed */
   contentChanges: boolean;
+  /** a Preparação section posted to the PARENTS was created or edited → every parent, only while the parents' access window is open */
+  parentContentChanges: boolean;
   /** added to the team or to an admin list (organizer, helper, medical, vest helper, parent contact) — SMS with the app link */
   enrolments: boolean;
   /** the person's OWN allocation changed: bedroom, team or vehicle (bus) */
@@ -29,6 +31,10 @@ export interface NotificationSettings {
   checkinReminder: boolean;
   /** a parent edited their kid's "Pontos de atenção": medical data → medical team + admins + caretaker; observations only → caretaker */
   parentEdits: boolean;
+  /** the kid boarded the bus → the guardian is texted */
+  busCheckin: boolean;
+  /** when the PARENTS' access window opens each parent gets, once ever, the welcome SMS with the app link */
+  parentWelcome: boolean;
 }
 
 /** One-shot reminder to the whole team to do their check-in. */
@@ -72,6 +78,8 @@ export interface ParentContact {
 
 export interface Settings {
   checkinLocation: CheckinLocation;
+  /** read-only: when PARENTS see the team's contacts — from the kids' check-in start to the end of the last event */
+  parentWindow: CheckinWindow;
   notifications: NotificationSettings;
   checkinWindow: CheckinWindow;
   /** church check-in helpers: inside the window they receive every camper (health included) */
@@ -82,6 +90,8 @@ export interface Settings {
   organizers: StaffList;
   /** game organizers (no window): everything an organizer may do + the scoreboard (Placar) */
   gameOrganizers: StaffList;
+  /** score helpers (no window): bulk QR scan by event only; no per-team points, no zero, delete only their own scans */
+  scoreHelpers: StaffList;
   /** medical team (no window): every camper in full, every bedroom and vehicle, the whole time — read-only */
   medicalStaff: StaffList;
   /** vest (colete) helpers (no window): hand out / take back the team vests; see everyone as name + phone only */
@@ -90,10 +100,14 @@ export interface Settings {
   parentContacts: ParentContact[];
   /** when ORDINARY team members (on no list) may use the app; both ends null = always */
   staffAccessWindow: CheckinWindow;
+  /** when PARENTS may use the app (and the moment their welcome SMS goes out); both ends null = always */
+  parentAccessWindow: CheckinWindow;
   /** test mode: church + bus check-in open for the helpers regardless of the window (team self check-in unaffected) */
   checkinTestMode: boolean;
   /** the kids' room allocation is still a draft: caretakers see no kids in their room and no room SMS goes out */
   kidsRoomsDraft: boolean;
+  /** scoreboard rehearsal: the Placar tab opens and accepts points regardless of the camp days; off + outside the camp = no tab, no writes */
+  scoreDraft: boolean;
   /** the "do your check-in" SMS to the whole team, scheduled for one instant */
   checkinReminder: CheckinReminder;
   /** false when the server has no SMS provider configured (texts are only logged) */
@@ -117,13 +131,26 @@ export interface SettingsPatch {
   busHelpers?: BusHelperList;
   organizers?: StaffList;
   gameOrganizers?: StaffList;
+  scoreHelpers?: StaffList;
   medicalStaff?: StaffList;
   vestHelpers?: StaffList;
   parentContacts?: ParentContact[];
   staffAccessWindow?: { from: string | null; until: string | null };
+  parentAccessWindow?: { from: string | null; until: string | null };
   checkinTestMode?: boolean;
   kidsRoomsDraft?: boolean;
+  scoreDraft?: boolean;
   checkinReminder?: { at: string | null };
+}
+
+export interface WelcomePreview {
+  staff: { count: number; windowOpen: boolean; names: string[] };
+  parents: { count: number; windowOpen: boolean; names: string[] };
+}
+
+/** How many people would get the welcome SMS right now if the toggle were on (never welcomed, phone, window open). */
+export async function welcomePreview(token: string): Promise<WelcomePreview> {
+  return api<WelcomePreview>("/api/settings/welcome-preview", { headers: bearer(token) });
 }
 
 /** Clears every check-in (kids' church + bus, team) and the audit log — for rehearsing the process. */

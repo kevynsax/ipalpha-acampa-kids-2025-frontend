@@ -19,7 +19,7 @@ export interface Staff {
   transportation: string | null;
   /** Bedroom id (see api/bedrooms.ts) — not a category option */
   bedroom: string | null;
-  /** CARETAKER ("responsável"): looks after specific kids; HELPER ("auxiliar"): only helps out in the room */
+  /** CARETAKER ("líder"): looks after specific kids; HELPER ("auxiliar"): only helps out in the room */
   roomRole: RoomRole;
   allergies: string[];
   drugAllergies: string[];
@@ -52,7 +52,7 @@ export interface VestStatus {
 
 export type RoomRole = "caretaker" | "helper";
 export const ROOM_ROLE_META: Record<RoomRole, { label: string; emoji: string; hint: string }> = {
-  caretaker: { label: "Responsável", emoji: "🧑‍🍼", hint: "cuida de crianças específicas do quarto" },
+  caretaker: { label: "Líder", emoji: "🧑‍🍼", hint: "cuida de crianças específicas do quarto" },
   helper: { label: "Auxiliar", emoji: "🤝", hint: "ajuda no quarto, sem crianças próprias" },
 };
 

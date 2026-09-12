@@ -1,4 +1,4 @@
-import type { DocAudience } from "../components/AudiencePicker";
+import type { PrepAudience } from "../components/AudiencePicker";
 import { command } from "./client";
 import { bearer } from "../auth/store";
 
@@ -7,8 +7,8 @@ export interface PrepSection {
   id: string;
   title: string;
   emoji: string;
-  /** who sees it: everyone, only room caretakers or only helpers */
-  audience: DocAudience;
+  /** who it is posted to (at least one): parents, room caretakers, helpers */
+  audiences: PrepAudience[];
   /** sanitized HTML (may include uploaded images) */
   content: string;
   order: number;
@@ -19,8 +19,8 @@ export interface PrepSection {
 export interface PrepSectionInput {
   title: string;
   emoji: string;
-  /** who sees it: everyone, only room caretakers or only helpers */
-  audience: DocAudience;
+  /** who it is posted to (at least one): parents, room caretakers, helpers */
+  audiences: PrepAudience[];
   content: string;
 }
 

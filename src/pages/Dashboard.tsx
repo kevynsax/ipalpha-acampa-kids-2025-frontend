@@ -37,7 +37,12 @@ import TeamsPage from "./admin/TeamsPage";
 import GameOrganizersPage from "./admin/GameOrganizersPage";
 import ScoreboardPage from "./ScoreboardPage";
 import { useCheckinHelper, type HelperAccess } from "../hooks/useCheckinHelper";
+import { useParentWindow } from "../hooks/useParentWindow";
 import { useCollection } from "../store";
+import ParentHomePage from "./parent/ParentHomePage";
+import ParentPreparationPage from "./parent/ParentPreparationPage";
+import ParentSchedulePage from "./parent/ParentSchedulePage";
+import ParentProfile from "./parent/ParentProfile";
 
 interface DashboardProps {
   user: LoggedUser;
@@ -86,12 +91,13 @@ interface Tab {
  * the admin's window for that roll call is open; an ORGANIZER gets the admin
  * "Programação" and a read-only "Equipe"; the MEDICAL team gets read-only
  * "Acampantes" and "Ônibus" with no window; a VEST helper gets "Coletes";
- * everyone gets "Placar" while the camp is on (read-only unless GAME
- * organizer / admin) — see hooks/useCheckinHelper and campPhase.
+ * everyone gets "Placar" while the camp is on, or while the admin's
+ * "scoreboard draft" is on (read-only unless GAME organizer / score helper /
+ * admin) — see hooks/useCheckinHelper and campPhase.
  */
-function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft: boolean, during: boolean): Tab[] {
-  /** the scoreboard only exists while the camp is happening (first → last event day) */
-  const scoreboard: Tab[] = during ? [{ key: "scoreboard", label: "Placar", emoji: "🏆" }] : [];
+function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft: boolean, scoreOpen: boolean): Tab[] {
+  /** the scoreboard only exists while the camp is happening (first → last event day) or in draft (rehearsal) mode */
+  const scoreboard: Tab[] = scoreOpen ? [{ key: "scoreboard", label: "Placar", emoji: "🏆" }] : [];
   const prep: Tab = { key: "prep", label: "Preparação", emoji: "🎒" };
   const home: Tab = { key: "home", label: "Início", emoji: "🏠" };
   // rooms still a draft (Settings → Geral): nobody knows their room yet, so Preparação IS the home
@@ -124,6 +130,9 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
         ...(helper.medical ? [{ key: "occurrences" as const, label: "Ocorrências", emoji: "📋" }] : []),
         ...(helper.vest ? [{ key: "vests" as const, label: "Coletes", emoji: "🦺" }] : []),
       ];
+    // parents: their kids (Início) + the programme from the check-in onwards
+    case "parent":
+      return [home, { key: "schedule", label: "Programação", emoji: "📅" }, prep];
     default:
       return [];
   }
@@ -138,9 +147,14 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
   const meta = roleMeta(user.activeRole);
   const { phase, synced, during } = useCampTiming();
   const isTeam = user.activeRole === "staff" || user.activeRole === "health_staff";
+  const isParent = user.activeRole === "parent";
   const helper = useCheckinHelper(user.phone, isTeam);
-  const roomsDraft = !!useCollection("settings")?.kidsRoomsDraft;
-  const tabs = tabsFor(user.activeRole, phase, helper, roomsDraft, during);
+  const parentAccess = useParentWindow(isParent);
+  const settings = useCollection("settings");
+  const roomsDraft = !!settings?.kidsRoomsDraft;
+  /** the scoreboard opens on the camp days, or any day while the admin's "Placar em rascunho" is on (the server refuses writes otherwise) */
+  const scoreOpen = during || !!settings?.scoreDraft;
+  const tabs = tabsFor(user.activeRole, phase, helper, roomsDraft, scoreOpen);
   const { path, segments, navigate } = useRoute();
   useScrollTopOnRoute(path);
 
@@ -289,8 +303,8 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
           </nav>
         )}
         <TabOverrideContext.Provider value={setTabOverride}>
-          {view === "home" && <HomePage user={user} token={token} />}
-          {view === "prep" && <PreparationPage user={user} token={token} />}
+          {view === "home" && (isParent ? <ParentHomePage user={user} token={token} access={parentAccess} /> : <HomePage user={user} token={token} />)}
+          {view === "prep" && (isParent ? <ParentPreparationPage user={user} /> : <PreparationPage user={user} token={token} />)}
           {view === "preparation" && <PreparationAdminPage token={token} />}
           {view === "instructions-admin" && <InstructionsAdminPage token={token} />}
           {view === "instructions" && <InstructionsPage user={user} />}
@@ -298,7 +312,7 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
           {view === "campers" && <CampersPage token={token} readOnly={!settingsAllowed} />}
           {view === "staff" && <StaffPage token={token} readOnly={!settingsAllowed} />}
           {view === "bedrooms" && <BedroomsPage token={token} readOnly={!settingsAllowed} />}
-          {view === "schedule" && (settingsAllowed || helper.organizer ? <SchedulePage token={token} /> : <MySchedulePage user={user} />)}
+          {view === "schedule" && (isParent ? <ParentSchedulePage /> : settingsAllowed || helper.organizer ? <SchedulePage token={token} /> : <MySchedulePage user={user} />)}
           {view === "categories" && <CategoriesPage token={token} />}
           {view === "general" && <GeneralSettingsPage token={token} />}
           {view === "checkin-settings" && <CheckinSettingsPage token={token} />}
@@ -307,7 +321,7 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
           {view === "vests-settings" && <VestHelpersPage token={token} />}
           {view === "teams" && <TeamsPage token={token} />}
           {view === "game-organizers" && <GameOrganizersPage token={token} />}
-          {view === "scoreboard" && <ScoreboardPage token={token} canEdit={settingsAllowed || helper.gameOrganizer} />}
+          {view === "scoreboard" && <ScoreboardPage token={token} userId={user.id} canEdit={settingsAllowed || helper.gameOrganizer} canScan={settingsAllowed || helper.gameOrganizer || helper.scoreHelper} />}
           {view === "contacts" && <ParentContactsPage token={token} />}
           {view === "notifications" && <NotificationsPage token={token} />}
           {view === "about" && <AboutPage token={token} />}
@@ -322,7 +336,7 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
             <BusCheckinPage token={token} onlyVehicleId={helper.busVehicle ?? undefined} readOnly={!helper.bus} />
           )}
           {view === "staffcheckin" && <StaffCheckinPage token={token} />}
-          {view === "profile" && <ProfileView user={user} tokenExpiresAt={tokenExpiresAt} />}
+          {view === "profile" && (isParent ? <ParentProfile user={user} tokenExpiresAt={tokenExpiresAt} /> : <ProfileView user={user} tokenExpiresAt={tokenExpiresAt} />)}
         </TabOverrideContext.Provider>
       </main>
     </div>

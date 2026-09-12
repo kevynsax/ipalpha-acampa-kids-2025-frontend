@@ -68,7 +68,7 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
   return (
     <Dialog open={open} onClose={onClose} title="Trocar de quarto" width={560}>
       <div className="cat-form">
-        <h2 className="cat-form__title">🔄 {k.name.split(" ")[0]}: quarto e responsável</h2>
+        <h2 className="cat-form__title">🔄 {k.name.split(" ")[0]}: quarto e líder</h2>
 
         <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} current={k.bedroom} groups={["girls", "boys"]} disabled={busy} />
 
@@ -79,12 +79,12 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
             </legend>
             {caretakers.length === 0 && (
               <p className="message message--warn">
-                ⚠️ Nenhum responsável neste quarto{helpers.length ? ` (só auxiliares: ${helpers.map((h) => h.name.split(" ")[0]).join(", ")})` : ""}. A criança ficará <strong>sem responsável</strong>.
+                ⚠️ Nenhum líder neste quarto{helpers.length ? ` (só auxiliares: ${helpers.map((h) => h.name.split(" ")[0]).join(", ")})` : ""}. A criança ficará <strong>sem líder</strong>.
               </p>
             )}
             {caretakers.length === 1 && (
               <p className="cat-hint">
-                Único responsável do quarto: <strong>{caretakers[0].name}</strong>.
+                Único líder do quarto: <strong>{caretakers[0].name}</strong>.
               </p>
             )}
             {caretakers.length > 1 && (
@@ -104,7 +104,7 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
             )}
           </fieldset>
         )}
-        {!bedroom && <p className="cat-hint">Sem quarto a criança fica sem responsável.</p>}
+        {!bedroom && <p className="cat-hint">Sem quarto a criança fica sem líder.</p>}
         {room && <p className="cat-hint">{GROUP_META[room.group].emoji} {GROUP_META[room.group].label} · quarto {room.name}</p>}
 
         {error && <p className="message message--error">{error}</p>}

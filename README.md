@@ -111,7 +111,13 @@ are scaled in** (e.g. "Inspeção: roupa verde estilo exército com boné" —
 written on the role, `ScheduleRole.preparation`, joined locally by
 `store/derive.ts#useMyPrepRoles`) and the **general sections** the admin
 wrote (collection `preparation`, edited under ⚙️ **Preparação**, route
-`#/preparation`, `pages/admin/PreparationAdminPage`).
+`#/preparation`, `pages/admin/PreparationAdminPage`). Each general section is
+**posted to** one or more groups (`audiences`: pais / líderes / auxiliares,
+`components/AudiencePicker#PrepAudiencePicker`); the server only sends each
+person the sections posted to them. **Parents** get their own read-only
+**Preparação** tab (`pages/parent/ParentPreparationPage`, same `#/prep`) with
+the sections posted to "Pais"; the admin can text them about new / edited ones
+(⚙️ Notificações → "Preparação nova / alterada para os pais").
 
 **Which tab is the landing page depends on the camp phase** (`src/campPhase.ts`,
 from the first event date in the programme): more than **3 days** before the
@@ -231,13 +237,57 @@ Boas-vindas e novas responsabilidades).
 ⚙️ **Configurações → Important contacts** (`pages/admin/ParentContactsPage`,
 `#/contacts`) stores an ordered list of purpose-specific contacts. Each item
 has a title and one active staff member selected through the shared searchable
-`StaffPicker`. The parent-facing screen is intentionally left for a later
-feature; it can join the saved `staffId` to the staff record for the name and
-phone.
+`StaffPicker`. Parents see them on their **Início** while the parents' window
+is open (below); the page shows that window (check-in start → last event) so
+the admin knows when the list is visible.
+
+## Parents' area 👨‍👩‍👧
+
+A parent logs in with the phone registered as the kid's guardian
+(`Camper.guardianPhone`; `bun run seed:parents` on the backend creates the
+accounts). Same header; two tabs:
+
+- **Início** (`pages/parent/ParentHomePage`, `store/derive.ts#useParentHome`):
+  the **important contacts** (title, name, phone, WhatsApp) on top, then one
+  section per kid — name, birth date, team, room, bed, transport, the
+  **caretaker** and the **team of the room** (name + phone + WhatsApp only;
+  the server sends nothing else), **⚠️ Pontos de atenção** (weight, insurance
+  + card, allergies, drug allergies, conditions, medication, food, medical
+  notes, observations — editable by the parent through
+  `pages/parent/AttentionEditDialog`, `PUT /api/campers/:id/parent`) and the
+  kid's **QR code** (`components/CamperQr`, same link as the printed badge).
+- **Programação** (`pages/parent/ParentSchedulePage`): the programme from the
+  check-in onwards, no roles.
+- Clicking their name opens `pages/parent/ParentProfile`: their data plus the
+  emergency block of each kid (guardian, emergency contact, insurance,
+  documents).
+
+**Access window.** ⚙️ Geral has a second card (`pages/admin/AccessWindowCard`,
+shared with the team's) — the **parents' access window**: when they may log
+in at all. Each card says whether the welcome SMS will go out when the window
+opens (green) or not because its toggle is off (yellow warning). Parents are
+never texted about rooms or any other change.
+
+**The parents' window** (`hooks/useParentWindow`, `settings.parentWindow`
+from the server): from the start of the kids' check-in window to the end of
+the last event. Outside it the contacts sections disappear, the caretaker is
+hidden and the `staff` collection is **purged from localStorage** at the edge
+(the server stops sending it too). **While the check-in window is open** the
+kids' QR codes pop up in a dialog (`pages/parent/CheckinQrDialog`) every time
+the app is opened or the tab comes back to the foreground — dismissible, but
+sticky on purpose so the check-in goes fast; kids already checked in are left
+out.
+
+The admin sees every parent edit on the kid's page (🕓 button →
+`pages/admin/CamperHistoryDialog`, `GET /api/campers/:id/changes`).
 
 ## SMS notifications (admin toggles) 📲
 
-`pages/admin/NotificationsPage` has three switches, saved instantly:
+`pages/admin/NotificationsPage` has one switch per kind, saved instantly.
+The two **welcome** switches (team / parents) ask for confirmation before
+turning on, previewing how many people (and who) get the SMS immediately
+(`GET /api/settings/welcome-preview`). The **bus check-in** and **parent
+welcome** entries show the exact text parents receive.
 
 - **Mudança de criança no quarto** — caretakers of a room are texted when a kid
   enters / leaves it.
