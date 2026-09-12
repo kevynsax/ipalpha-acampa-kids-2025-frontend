@@ -16,6 +16,8 @@ export interface HealthLike {
   medicines: string;
   foodRestrictions: string;
   healthNotes: string;
+  /** kids only (admin / medical view) */
+  neurodivergent?: boolean;
 }
 
 interface HealthAlertsProps {
@@ -31,6 +33,7 @@ export function healthLines(p: HealthLike, labelOf: HealthAlertsProps["labelOf"]
   const drugs = p.drugAllergies.map(labelOf).filter(Boolean) as string[];
   const lines: { icon: ReactNode; title: string; text: string; soft?: boolean }[] = [];
   if (health.length) lines.push({ icon: "⚠️", title: "Condição de saúde", text: health.join(", ") });
+  if (p.neurodivergent) lines.push({ icon: "🧩", title: "Neurodivergente", text: "Neurodivergente" });
   if (allergies.length) lines.push({ icon: "🤮", title: "Alergias", text: allergies.join(", ") });
   if (drugs.length) lines.push({ icon: <NoPillIcon />, title: "Não pode tomar", text: drugs.join(", ") });
   if (p.medicines) lines.push({ icon: "💊", title: "Medicação", text: p.medicines });

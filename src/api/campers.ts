@@ -46,6 +46,8 @@ export interface Camper {
   allergies: string[];
   drugAllergies: string[];
   healthIssues: string[];
+  /** neurodivergent (TEA, TDAH…) — only admins and the medical team receive it (false for everyone else) */
+  neurodivergent: boolean;
   medicines: string;
   foodRestrictions: string;
   healthNotes: string;

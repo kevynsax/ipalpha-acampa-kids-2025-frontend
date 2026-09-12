@@ -5,6 +5,7 @@ import type { Category } from "../../api/categories";
 import { BedroomSelect, CategoryChips, CategorySelect, TeamSelect } from "../../components/CategoryFields";
 import ParentIcon from "../../components/ParentIcon";
 import PhoneInput from "../../components/PhoneInput";
+import Toggle from "../../components/Toggle";
 import { maskBrazilPhone, toE164 } from "../../phone";
 import { ROOM_ROLE_META } from "../../api/staff";
 import { useCollectionOrEmpty } from "../../store";
@@ -51,6 +52,7 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
   const [allergies, setAllergies] = useState<string[]>(camper?.allergies ?? []);
   const [drugAllergies, setDrugAllergies] = useState<string[]>(camper?.drugAllergies ?? []);
   const [healthIssues, setHealthIssues] = useState<string[]>(camper?.healthIssues ?? []);
+  const [neurodivergent, setNeurodivergent] = useState(camper?.neurodivergent ?? false);
   const [medicines, setMedicines] = useState(camper?.medicines ?? "");
   const [foodRestrictions, setFoodRestrictions] = useState(camper?.foodRestrictions ?? "");
   const [weight, setWeight] = useState(camper?.weightKg != null ? String(camper.weightKg).replace(".", ",") : "");
@@ -58,7 +60,7 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
   const [generalNotes, setGeneralNotes] = useState(camper?.generalNotes ?? "");
   const [bedroomPreference, setBedroomPreference] = useState(camper?.bedroomPreference ?? "");
 
-  const hasHealth = allergies.length > 0 || drugAllergies.length > 0 || healthIssues.length > 0 || !!medicines || !!foodRestrictions || !!healthNotes || !!generalNotes;
+  const hasHealth = allergies.length > 0 || drugAllergies.length > 0 || healthIssues.length > 0 || neurodivergent || !!medicines || !!foodRestrictions || !!healthNotes || !!generalNotes;
   const [showHealth, setShowHealth] = useState(hasHealth);
   const hasExtra = !!cpf || !!rg || !!school || !!schoolGrade || !!church || !!invitedBy;
   const [showExtra, setShowExtra] = useState(false);
@@ -96,6 +98,7 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
         allergies,
         drugAllergies,
         healthIssues,
+        neurodivergent,
         medicines: medicines.trim(),
         foodRestrictions: foodRestrictions.trim(),
         healthNotes: healthNotes.trim(),
@@ -231,6 +234,11 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
           <CategoryChips label="Alergias" category={cat(CAMPER_CATEGORY_KEYS.allergies)} value={allergies} onChange={setAllergies} disabled={busy} />
           <CategoryChips label="Alergia a medicamentos" category={cat(CAMPER_CATEGORY_KEYS.drugAllergies)} value={drugAllergies} onChange={setDrugAllergies} disabled={busy} />
           <CategoryChips label="Condição crônica" category={cat(CAMPER_CATEGORY_KEYS.healthIssues)} value={healthIssues} onChange={setHealthIssues} disabled={busy} />
+          <div className="cat-field">
+            <span className="cat-field__label">🧩 Neurodivergente</span>
+            <Toggle checked={neurodivergent} onChange={setNeurodivergent} disabled={busy} label={neurodivergent ? "Sim" : "Não"} />
+            <p className="cat-hint">TEA, TDAH… Visível só para a organização e a equipe médica.</p>
+          </div>
           {text("💊 Medicação de uso diário", medicines, setMedicines, "ex.: Ritalina 10mg pela manhã", 2)}
           {text("🍽️ Alimentação / restrições", foodRestrictions, setFoodRestrictions, "ex.: sem lactose", 2)}
           {text("🩺 Observações médicas", healthNotes, setHealthNotes, "ex.: em caso de crise, 4 puffs de Aerolin…", 3)}

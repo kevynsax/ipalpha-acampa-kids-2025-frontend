@@ -7,7 +7,7 @@ import { useRoute } from "../../router";
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import { useCategories, useLabelOf } from "../../store/derive";
 import HealthAlerts from "../../components/HealthAlerts";
-import HealthFilter, { matchesHealth, hasHealth, type HealthKey } from "../../components/HealthFilter";
+import HealthFilter, { CAMPER_HEALTH_KEYS, matchesHealth, hasHealth, type HealthKey } from "../../components/HealthFilter";
 import { downloadCampersXlsx } from "../../export";
 import PrintLabelsDialog from "../../components/PrintLabelsDialog";
 import WhatsAppButton from "../../components/WhatsAppButton";
@@ -115,12 +115,12 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
   /** how many kids have each health thing (within the other filters, so the chips stay honest) */
   const healthCounts = useMemo(() => {
     const c: Partial<Record<HealthKey, number>> = {};
-    for (const key of ["healthIssues", "allergies", "drugAllergies", "medicines", "foodRestrictions"] as const) c[key] = 0;
+    for (const key of CAMPER_HEALTH_KEYS) c[key] = 0;
     for (const k of campers ?? []) {
       const room = k.bedroom ? roomById.get(k.bedroom) : null;
       if (wing !== "all" && room?.group !== wing) continue;
       if (team && k.team !== team) continue;
-      for (const key of ["healthIssues", "allergies", "drugAllergies", "medicines", "foodRestrictions"] as const) if (hasHealth(k, key)) c[key]!++;
+      for (const key of CAMPER_HEALTH_KEYS) if (hasHealth(k, key)) c[key]!++;
     }
     return c;
   }, [campers, wing, team, roomById]);
@@ -251,7 +251,29 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
               </select>
             )}
           </div>
-          <HealthFilter value={health} onChange={setHealth} counts={healthCounts} />
+          {/* medical team: the big picture at a glance (tap = filter) */}
+          {readOnly && (
+            <div className="stat-grid" role="group" aria-label="Resumo de saúde">
+              {(
+                [
+                  [null, "🧒", "Crianças", campers.length],
+                  ["medicines", "💊", "Tomam medicação", healthCounts.medicines ?? 0],
+                  ["allergies", "🤮", "Têm alergias", healthCounts.allergies ?? 0],
+                  ["foodRestrictions", "🍽️", "Restrição alimentar", healthCounts.foodRestrictions ?? 0],
+                ] as [HealthKey | null, string, string, number][]
+              ).map(([key, emoji, label, n]) => {
+                const on = key ? health.has(key) : health.size === 0;
+                return (
+                  <button key={label} type="button" className={`stat-card ${on ? "stat-card--on" : ""}`} aria-pressed={on} onClick={() => setHealth(key ? new Set(health.has(key) ? [] : [key]) : new Set())}>
+                    <span className="stat-card__emoji" aria-hidden="true">{emoji}</span>
+                    <span className="stat-card__n">{n}</span>
+                    <span className="stat-card__label">{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <HealthFilter keys={CAMPER_HEALTH_KEYS} value={health} onChange={setHealth} counts={healthCounts} />
 
           {campers.length === 0 && (
             <div className="admin-empty">

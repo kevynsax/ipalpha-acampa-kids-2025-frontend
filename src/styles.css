@@ -1378,3 +1378,12 @@ select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38
 .big-option__label { font-family: var(--font-display); font-weight: 800; font-size: 1.05rem; }
 .big-option__hint { font-size: .8rem; opacity: .8; }
 .button--sm { padding: 6px 12px; font-size: .85rem; }
+
+/* ── medical team: big health counters on the campers list ── */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 6px 0; }
+.stat-card { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 10px; border: 3px solid var(--sage); border-radius: 16px; background: #fff; font: inherit; color: var(--pine); cursor: pointer; box-shadow: 0 4px 0 rgba(24,61,54,.1); transition: transform .15s ease; }
+.stat-card:hover { transform: translateY(-2px); }
+.stat-card--on { background: var(--forest); border-color: var(--forest); color: #fff; box-shadow: 0 4px 0 var(--forest-dark); }
+.stat-card__emoji { font-size: 1.6rem; }
+.stat-card__n { font-family: var(--font-display); font-weight: 800; font-size: 2.2rem; line-height: 1.1; }
+.stat-card__label { font-weight: 700; font-size: .8rem; text-align: center; }
