@@ -2,10 +2,12 @@ import { useState } from "react";
 import type { Bedroom } from "../../api/bedrooms";
 import { CAMPER_CATEGORY_KEYS, type Camper, type CamperInput, type CamperSex } from "../../api/campers";
 import type { Category } from "../../api/categories";
-import { BedroomSelect, CategoryChips, CategorySelect } from "../../components/CategoryFields";
+import { BedroomSelect, CategoryChips, CategorySelect, TeamSelect } from "../../components/CategoryFields";
 import ParentIcon from "../../components/ParentIcon";
 import PhoneInput from "../../components/PhoneInput";
 import { maskBrazilPhone, toE164 } from "../../phone";
+import { ROOM_ROLE_META } from "../../api/staff";
+import { useCollectionOrEmpty } from "../../store";
 
 interface CamperFormProps {
   camper?: Camper;
@@ -30,11 +32,13 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
   const [schoolGrade, setSchoolGrade] = useState(camper?.schoolGrade ?? "");
   const [church, setChurch] = useState(camper?.church ?? "");
   const [invitedBy, setInvitedBy] = useState(camper?.invitedBy ?? "");
-  const [caretaker, setCaretaker] = useState(camper?.caretaker ?? "");
+  const [caretakerId, setCaretakerId] = useState<string | null>(camper?.caretakerId ?? null);
   const [team, setTeam] = useState<string | null>(camper?.team ?? null);
   const [bedroom, setBedroom] = useState<string | null>(camper?.bedroom ?? null);
   const [bed, setBed] = useState<string | null>(camper?.bed ?? null);
   const [transportation, setTransportation] = useState<string | null>(camper?.transportation ?? null);
+  const staff = useCollectionOrEmpty("staff");
+  const caretakers = bedroom ? staff.filter((s) => s.active && s.bedroom === bedroom && s.roomRole === "caretaker") : [];
 
   const [guardianName, setGuardianName] = useState(camper?.guardianName ?? "");
   const [guardianPhone, setGuardianPhone] = useState(camper?.guardianPhone ? maskBrazilPhone(camper.guardianPhone.replace(/^\+55/, "")) : "");
@@ -81,7 +85,7 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
         schoolGrade: schoolGrade.trim(),
         church: church.trim(),
         invitedBy: invitedBy.trim(),
-        caretaker: caretaker.trim(),
+        caretakerId: caretakers.some((s) => s.id === caretakerId) ? caretakerId : null,
         qrToken: camper?.qrToken ?? "",
         externalId: camper?.externalId ?? "",
         team,
@@ -150,14 +154,24 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
       </div>
 
       <div className="cat-form__row staff-form__row">
-        <CategorySelect label="Time" category={cat(CAMPER_CATEGORY_KEYS.team)} value={team} onChange={setTeam} disabled={busy} />
+        <TeamSelect value={team} onChange={setTeam} disabled={busy} />
         <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} current={camper?.bedroom} groups={["girls", "boys"]} disabled={busy} />
         <CategorySelect label="Cama" category={cat(CAMPER_CATEGORY_KEYS.bed)} value={bed} onChange={setBed} disabled={busy} />
         <CategorySelect label="Transporte" category={cat(CAMPER_CATEGORY_KEYS.transportation)} value={transportation} onChange={setTransportation} disabled={busy} />
       </div>
       <div className="cat-form__row staff-form__row">
+        <label className="cat-field cat-field--grow">
+          <span className="cat-field__label">{ROOM_ROLE_META.caretaker.emoji} Responsável no quarto</span>
+          <select className="cat-input" value={caretakerId ?? ""} disabled={busy || !bedroom} onChange={(e) => setCaretakerId(e.target.value || null)}>
+            <option value="">{!bedroom ? "Escolha o quarto primeiro" : caretakers.length ? "Sem responsável" : "Nenhum responsável neste quarto"}</option>
+            {caretakers.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </label>
         {text("🛏️ Prefere dividir quarto com", bedroomPreference, setBedroomPreference, "ex.: Bernardo Faria, Lucas (primo)")}
-        {text("🧑 Tio(a) responsável", caretaker, setCaretaker, "ex.: Caio")}
       </div>
 
       <button type="button" className={`disclosure ${showExtra ? "disclosure--open" : ""}`} aria-expanded={showExtra} onClick={() => setShowExtra((v) => !v)}>

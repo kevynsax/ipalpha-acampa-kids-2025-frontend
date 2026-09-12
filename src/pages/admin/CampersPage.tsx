@@ -2,7 +2,7 @@ import { useConfirm } from "../../components/ConfirmDialog";
 import { useMemo, useState } from "react";
 import { ICONS } from "../../icons";
 import { GROUP_META, bedroomLabel } from "../../api/bedrooms";
-import { CAMPER_CATEGORY_KEYS, ageOf, createCamper, deleteCamper, updateCamper, type Camper, type CamperInput } from "../../api/campers";
+import { ageOf, createCamper, deleteCamper, updateCamper, type Camper, type CamperInput } from "../../api/campers";
 import { useRoute } from "../../router";
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import { useCategories, useLabelOf } from "../../store/derive";
@@ -10,6 +10,10 @@ import HealthAlerts from "../../components/HealthAlerts";
 import HealthFilter, { matchesHealth, hasHealth, type HealthKey } from "../../components/HealthFilter";
 import { downloadCampersXlsx } from "../../export";
 import PrintLabelsDialog from "../../components/PrintLabelsDialog";
+import WhatsAppButton from "../../components/WhatsAppButton";
+import { loadAuth } from "../../auth/store";
+import { staffGreeting, whatsappLink } from "../../whatsapp";
+import { ROOM_ROLE_META } from "../../api/staff";
 
 import CamperForm from "./CamperForm";
 import DetailStack from "./DetailStack";
@@ -53,7 +57,10 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
   const [printOpen, setPrintOpen] = useState(false);
 
   const roomById = useMemo(() => new Map(bedrooms.map((b) => [b.id, b])), [bedrooms]);
-  const teamCat = categories.find((c) => c.key === CAMPER_CATEGORY_KEYS.team);
+  const teams = useCollectionOrEmpty("teams");
+  const staff = useCollectionOrEmpty("staff");
+  const staffById = useMemo(() => new Map(staff.map((s) => [s.id, s])), [staff]);
+  const myName = loadAuth()?.user.name ?? "";
 
   async function withBusy<T>(fn: () => Promise<T>): Promise<T> {
     setBusy(true);
@@ -89,16 +96,21 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
   const visible = useMemo(() => {
     if (!campers) return [];
     const q = normalize(search);
-    return sortByName(campers).filter((k) => {
+    // orphans (no caretaker) first: they need the admin's attention
+    const orphanFirst = (a: Camper, b: Camper) => Number(!!a.caretakerId) - Number(!!b.caretakerId);
+    return sortByName(campers)
+      .sort(orphanFirst)
+      .filter((k) => {
       const room = k.bedroom ? roomById.get(k.bedroom) : null;
       if (wing !== "all" && room?.group !== wing) return false;
       if (team && k.team !== team) return false;
       if (!matchesHealth(k, health)) return false;
       if (!q) return true;
-      const hay = normalize([k.name, k.guardianName, labelOf(k.team), room?.name, labelOf(k.transportation)].filter(Boolean).join(" "));
+      const hay = normalize([k.name, k.guardianName, labelOf(k.team), room?.name, labelOf(k.transportation), staffById.get(k.caretakerId ?? "")?.name].filter(Boolean).join(" "));
       return hay.includes(q);
     });
-  }, [campers, wing, team, search, health, labelOf, roomById]);
+  }, [campers, wing, team, search, health, labelOf, roomById, staffById]);
+  const orphanCount = useMemo(() => (campers ?? []).filter((k) => !k.caretakerId).length, [campers]);
 
   /** how many kids have each health thing (within the other filters, so the chips stay honest) */
   const healthCounts = useMemo(() => {
@@ -157,7 +169,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
               className="button button--secondary admin-head__new"
               disabled={busy || campers.length === 0}
               title="Baixar todos os acampantes em Excel"
-              onClick={() => downloadCampersXlsx(campers, bedrooms, labelOf)}
+              onClick={() => downloadCampersXlsx(campers, bedrooms, labelOf, staff)}
             >
               ⬇️ Excel
             </button>
@@ -228,16 +240,14 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
                 </button>
               ))}
             </div>
-            {teamCat && (
+            {teams.length > 0 && (
               <select className="cat-input staff-toolbar__select" value={team} onChange={(e) => setTeam(e.target.value)} aria-label="Filtrar por time">
                 <option value="">Todos os times</option>
-                {teamCat.options
-                  .filter((o) => o.active)
-                  .map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.label}
-                    </option>
-                  ))}
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
               </select>
             )}
           </div>
@@ -256,16 +266,21 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
           )}
           {campers.length > 0 && visible.length === 0 && <p className="opt-empty">Nenhum resultado. 🔍</p>}
 
-          <p className="admin-intro">{visible.length === campers.length ? `${campers.length} crianças` : `${visible.length} de ${campers.length} crianças`}</p>
+          <p className="admin-intro">
+            {visible.length === campers.length ? `${campers.length} crianças` : `${visible.length} de ${campers.length} crianças`}
+            {orphanCount > 0 && <span className="orphan-tag"> · ⚠️ {orphanCount} sem responsável</span>}
+          </p>
 
           <ul className="staff-list">
             {visible.map((k) => {
               const room = k.bedroom ? roomById.get(k.bedroom) : null;
               const age = ageOf(k.birthDate);
-              const tags = [room && bedroomLabel(room), labelOf(k.bed) && `Cama ${labelOf(k.bed)!.toLowerCase()}`, labelOf(k.team), labelOf(k.transportation)].filter(Boolean) as string[];
+              const caretaker = k.caretakerId ? staffById.get(k.caretakerId) : undefined;
+              const orphan = !k.caretakerId;
+              const tags = [room && bedroomLabel(room), labelOf(k.bed) && `Cama ${labelOf(k.bed)!.toLowerCase()}`, labelOf(k.team), labelOf(k.transportation), caretaker && `${ROOM_ROLE_META.caretaker.emoji} ${caretaker.name.split(" ")[0]}`].filter(Boolean) as string[];
 
               return (
-                <li key={k.id} className="staff-card staff-card--clickable">
+                <li key={k.id} className={`staff-card staff-card--clickable ${orphan ? "staff-card--orphan" : ""}`}>
                   <div
                     className="staff-card__body"
                     role="link"
@@ -283,10 +298,11 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
                       {k.name}
                       {age !== null && <span className="kid-card__age">{age} anos</span>}
                     </h3>
+                    {orphan && <p className="staff-card__meta orphan-msg">⚠️ Esta criança está sem responsável{!k.bedroom ? " e sem quarto" : ""}.</p>}
                     {k.guardianName && (
                       <p className="staff-card__meta">
                         Resp.: {k.guardianName}
-                        {!k.bedroom && <span className="staff-card__missing"> · sem quarto</span>}
+                        {!k.bedroom && !orphan && <span className="staff-card__missing"> · sem quarto</span>}
                       </p>
                     )}
                     {tags.length > 0 && (
@@ -300,10 +316,12 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
                     )}
                     <HealthAlerts person={k} labelOf={labelOf} />
                   </div>
-                  {!readOnly && (
-                    <button type="button" className="icon-btn icon-btn--lg" title="Editar" aria-label={`Editar ${k.name}`} disabled={busy} onClick={() => navigate(`/campers/${k.id}/edit`)}>
-                      ✏️
-                    </button>
+                  {k.guardianPhone && (
+                    <WhatsAppButton
+                      className="wa-btn--sm"
+                      href={whatsappLink(k.guardianPhone, staffGreeting({ toName: k.guardianName, fromName: myName, about: k.name }))}
+                      label={`Falar com ${k.guardianName.split(" ")[0] || "o responsável"} no WhatsApp`}
+                    />
                   )}
                 </li>
               );

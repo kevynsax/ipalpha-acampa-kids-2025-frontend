@@ -4,7 +4,6 @@ import type { Staff } from "./staff";
 
 /** Category keys that feed each camper field (must match the backend). */
 export const CAMPER_CATEGORY_KEYS = {
-  team: "equipe",
   transportation: "transporte",
   bed: "cama",
   allergies: "alergias",
@@ -17,6 +16,8 @@ export interface Camper {
   name: string;
   /** true when the server sent a NAME-ONLY record (bus helper roll call): no health, contacts or notes */
   redacted?: boolean;
+  /** true when the server sent a CARE record (room caretaker / helper): health and notes, but no guardian / emergency / documents */
+  contactsHidden?: boolean;
   /** "YYYY-MM-DD" or null */
   birthDate: string | null;
   /** "F" | "M" | null */
@@ -29,8 +30,8 @@ export interface Camper {
   church: string;
   /** who invited the kid */
   invitedBy: string;
-  /** the "tio(a)" assigned to the kid */
-  caretaker: string;
+  /** staff id of the team member responsible for the kid (a caretaker of the kid's room); null = orphan */
+  caretakerId: string | null;
   /** token printed on the QR badge */
   qrToken: string;
   /** id in the registration system */
@@ -80,7 +81,9 @@ export type CamperInput = Omit<Camper, "id" | "checkin" | "busCheckin" | "create
 export interface CamperDetail {
   camper: Camper;
   bedroom: { id: string; name: string; group: "girls" | "boys" | "staff" } | null;
-  /** staff sleeping in the same room */
+  /** the team member responsible for the kid (null = orphan, or not visible to the viewer) */
+  caretaker: Staff | null;
+  /** staff sleeping in the same room (caretakers and helpers) */
   caretakers: Staff[];
   roommates: Camper[];
 }
@@ -95,6 +98,11 @@ export async function createCamper(token: string, input: CamperInput): Promise<C
 export async function updateCamper(token: string, id: string, patch: Partial<CamperInput>): Promise<Camper> {
   const res = await command<{ camper: Camper }>(`/api/campers/${id}`, { method: "PUT", headers: json(token), body: JSON.stringify(patch) }, ["campers", "bedrooms"]);
   return res.camper;
+}
+
+/** Moves the kid to another room and (optionally) under a caretaker of that room. `caretakerId` null = orphan. */
+export async function moveCamper(token: string, id: string, bedroom: string | null, caretakerId: string | null): Promise<Camper> {
+  return updateCamper(token, id, { bedroom, caretakerId });
 }
 
 export async function deleteCamper(token: string, id: string): Promise<void> {

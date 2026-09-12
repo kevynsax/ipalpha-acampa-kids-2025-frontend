@@ -42,7 +42,7 @@ function checkinBy(c: { byName: string; byRole: string } | null): string {
 
 // ── rows ───────────────────────────────────────────────────────────────
 
-export function camperRow(k: Camper, roomById: Map<string, Bedroom>, labelOf: LabelOf): Row {
+export function camperRow(k: Camper, roomById: Map<string, Bedroom>, labelOf: LabelOf, staffName?: Map<string, string>): Row {
   const room = k.bedroom ? roomById.get(k.bedroom) : null;
   const age = ageOf(k.birthDate);
   return {
@@ -56,7 +56,7 @@ export function camperRow(k: Camper, roomById: Map<string, Bedroom>, labelOf: La
     "Série": k.schoolGrade,
     Igreja: k.church,
     "Convidado por": k.invitedBy,
-    "Tio(a)": k.caretaker,
+    "Responsável (equipe)": k.caretakerId ? (staffName?.get(k.caretakerId) ?? "") : "",
     Equipe: labelOf(k.team) ?? "",
     Ala: room ? GROUP_META[room.group].label : "",
     Quarto: room?.name ?? "",
@@ -107,6 +107,12 @@ export function staffRow(s: Staff, roomById: Map<string, Bedroom>, labelOf: Labe
     "Check-in": s.checkin ? "Sim" : "Não",
     "Check-in em": s.checkin ? brDateTime(s.checkin.at) : "",
     "Check-in por": checkinBy(s.checkin),
+    "Colete entregue": s.vest?.delivered ? "Sim" : "Não",
+    "Colete entregue em": s.vest?.delivered ? brDateTime(s.vest.delivered.at) : "",
+    "Colete entregue por": s.vest?.delivered?.byName ?? "",
+    "Colete devolvido": s.vest?.returned ? "Sim" : "Não",
+    "Colete devolvido em": s.vest?.returned ? brDateTime(s.vest.returned.at) : "",
+    "Colete devolvido por": s.vest?.returned?.byName ?? "",
   };
 }
 
@@ -122,9 +128,10 @@ function saveWorkbook(wb: XLSX.WorkBook, basename: string) {
 
 // ── public API ─────────────────────────────────────────────────────────
 
-export function downloadCampersXlsx(campers: Camper[], bedrooms: Bedroom[], labelOf: LabelOf) {
+export function downloadCampersXlsx(campers: Camper[], bedrooms: Bedroom[], labelOf: LabelOf, staff: Staff[] = []) {
   const roomById = new Map(bedrooms.map((b) => [b.id, b]));
-  const rows = campers.slice().sort(byName).map((k) => camperRow(k, roomById, labelOf));
+  const staffName = new Map(staff.map((s) => [s.id, s.name]));
+  const rows = campers.slice().sort(byName).map((k) => camperRow(k, roomById, labelOf, staffName));
   const headers = Object.keys(camperRow(blankCamper, roomById, labelOf));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, sheet(rows, headers), "Acampantes");
@@ -240,7 +247,7 @@ const blankCamper: Camper = {
   schoolGrade: "",
   church: "",
   invitedBy: "",
-  caretaker: "",
+  caretakerId: null,
   qrToken: "",
   externalId: "",
   team: null,
@@ -277,6 +284,7 @@ const blankStaff: Staff = {
   team: null,
   transportation: null,
   bedroom: null,
+  roomRole: "helper",
   allergies: [],
   drugAllergies: [],
   foodRestrictions: "",
@@ -284,6 +292,7 @@ const blankStaff: Staff = {
   medicines: "",
   healthNotes: "",
   checkin: null,
+  vest: { delivered: null, returned: null },
   createdAt: "",
   updatedAt: "",
   prepDone: [],

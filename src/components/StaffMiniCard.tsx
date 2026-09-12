@@ -1,4 +1,4 @@
-import type { Staff } from "../api/staff";
+import { ROOM_ROLE_META, type Staff } from "../api/staff";
 import { formatBrazilPhoneClient } from "../phoneFormat";
 
 interface StaffMiniCardProps {
@@ -33,6 +33,11 @@ export default function StaffMiniCard({ staff: s, labelOf, onOpen }: StaffMiniCa
         <h3 className="staff-card__name">
           {s.name}
           {!s.active && <span className="staff-card__inactive">inativo</span>}
+          {s.bedroom && (
+            <span className="staff-tag staff-tag--soft" title={ROOM_ROLE_META[s.roomRole].hint}>
+              {ROOM_ROLE_META[s.roomRole].emoji} {ROOM_ROLE_META[s.roomRole].label}
+            </span>
+          )}
         </h3>
         {/* a colleague in the same room comes name-only from the server (no phone, no team) */}
         {!s.redacted && (

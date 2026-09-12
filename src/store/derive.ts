@@ -4,6 +4,7 @@ import type { Camper, CamperDetail } from "../api/campers";
 import type { Category, CategoryAudience } from "../api/categories";
 import type { CampEvent, RoleDetail, ScheduleRole } from "../api/schedule";
 import type { Staff, StaffDetail, StaffScheduleItem } from "../api/staff";
+import type { Team } from "../api/teams";
 import { useCollection, useCollectionOrEmpty } from "./index";
 
 /**
@@ -28,6 +29,7 @@ export function useCamperDetail(camperId: string): CamperDetail | null | undefin
     return {
       camper: k,
       bedroom: room ? { id: room.id, name: room.name, group: room.group } : null,
+      caretaker: k.caretakerId ? (staff.find((s) => s.id === k.caretakerId) ?? null) : null,
       caretakers: k.bedroom ? staff.filter((s) => s.bedroom === k.bedroom).sort(byName) : [],
       roommates: k.bedroom ? campers.filter((x) => x.bedroom === k.bedroom && x.id !== k.id).sort(byName) : [],
     };
@@ -93,7 +95,8 @@ export function useStaffDetail(staffId: string): StaffDetail | null | undefined 
       staff: s,
       bedroom: room ? { id: room.id, name: room.name, group: room.group } : null,
       schedule,
-      campers: s.bedroom ? campers.filter((k) => k.bedroom === s.bedroom).sort(byName) : [],
+      // a caretaker's OWN kids; a helper: every kid of the room
+      campers: s.roomRole === "caretaker" ? campers.filter((k) => k.caretakerId === s.id).sort(byName) : s.bedroom ? campers.filter((k) => k.bedroom === s.bedroom).sort(byName) : [],
       roommates: s.bedroom ? staff.filter((x) => x.bedroom === s.bedroom && x.id !== s.id).sort(byName) : [],
     };
   }, [staff, campers, bedrooms, events, roles, staffId]);
@@ -103,7 +106,9 @@ export interface MyRoom {
   /** the logged-in person's staff record (matched by phone) */
   me: Staff;
   bedroom: Bedroom | null;
-  /** kids sleeping in the room — the ones this person looks after */
+  /** the kids under MY care (Camper.caretakerId === me) — empty for a helper */
+  myKids: Camper[];
+  /** the OTHER kids of the room the server let me see (only while the camp is happening) */
   campers: Camper[];
   /** other team members in the same room */
   roommates: Staff[];
@@ -125,7 +130,8 @@ export function useMyRoom(phone: string): MyRoom | null | undefined {
     return {
       me,
       bedroom,
-      campers: me.bedroom ? campers.filter((k) => k.bedroom === me.bedroom).sort(byName) : [],
+      myKids: campers.filter((k) => k.caretakerId === me.id).sort(byName),
+      campers: me.bedroom ? campers.filter((k) => k.bedroom === me.bedroom && k.caretakerId !== me.id).sort(byName) : [],
       roommates: me.bedroom ? staff.filter((s) => s.bedroom === me.bedroom && s.id !== me.id).sort(byName) : [],
     };
   }, [staff, campers, bedrooms, phone]);
@@ -207,11 +213,23 @@ export function useCategories(audience?: CategoryAudience): Category[] {
 }
 
 /** option id → label across every category. */
+/** id (a category option OR a team) → label. Teams are looked up like options so `labelOf(x.team)` keeps working everywhere. */
 export function useLabelOf(): (id: string | null | undefined) => string | null {
   const all = useCollectionOrEmpty("categories");
+  const teams = useCollectionOrEmpty("teams");
   return useMemo(() => {
     const map = new Map<string, string>();
     for (const c of all) for (const o of c.options) map.set(o.id, o.label);
+    for (const t of teams) map.set(t.id, t.name);
     return (id: string | null | undefined) => (id ? (map.get(id) ?? null) : null);
-  }, [all]);
+  }, [all, teams]);
+}
+
+/** team id → Team (null when unknown) */
+export function useTeamOf(): (id: string | null | undefined) => Team | null {
+  const teams = useCollectionOrEmpty("teams");
+  return useMemo(() => {
+    const map = new Map(teams.map((t) => [t.id, t]));
+    return (id: string | null | undefined) => (id ? (map.get(id) ?? null) : null);
+  }, [teams]);
 }

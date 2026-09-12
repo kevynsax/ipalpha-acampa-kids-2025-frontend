@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { updateSettings } from "../../api/settings";
-import { useCollection } from "../../store";
+import { useRoute } from "../../router";
+import { useCollection, useCollectionOrEmpty } from "../../store";
 import { ICONS } from "../../icons";
 import StaffListEditor from "./StaffListEditor";
 
@@ -16,9 +17,16 @@ interface OrganizersPageProps {
  */
 export default function OrganizersPage({ token }: OrganizersPageProps) {
   const settings = useCollection("settings");
+  const staff = useCollectionOrEmpty("staff");
+  const { navigate } = useRoute();
   const [ids, setIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** the game organizers (Settings → Placar) organize the programme too — shown here read-only so the admin sees the whole picture */
+  const gameOrganizers = useMemo(() => {
+    const byId = new Map(staff.map((s) => [s.id, s]));
+    return (settings?.gameOrganizers?.staffIds ?? []).map((id) => byId.get(id)).filter((s): s is NonNullable<typeof s> => !!s);
+  }, [settings, staff]);
 
   useEffect(() => {
     if (settings) setIds(settings.organizers.staffIds);
@@ -65,6 +73,29 @@ export default function OrganizersPage({ token }: OrganizersPageProps) {
 
       <section className="cat-form">
         <StaffListEditor title="Quem organiza" value={ids} onChange={(nextIds) => void saveIds(nextIds)} disabled={busy} pickerTitle="Adicionar organizador" empty="Ninguém escolhido ainda. Só o admin altera a programação." />
+      </section>
+
+      <section className="cat-form">
+        <div className="list-head">
+          <h2 className="cat-form__title">
+            🏆 Organizadores dos jogos <span className="cat-tab__count">{gameOrganizers.length}</span>
+          </h2>
+          <button type="button" className="button button--secondary list-head__add" onClick={() => navigate("/game-organizers")}>
+            Editar em Placar ›
+          </button>
+        </div>
+        <p className="cat-hint">Também organizam a programação, com os mesmos poderes — e ainda lançam pontos no Placar. A lista é editada em Configurações → Placar.</p>
+        {gameOrganizers.length === 0 ? (
+          <p className="opt-empty">Ninguém ainda.</p>
+        ) : (
+          <ul className="staff-card__tags helpers-list" aria-label="Organizadores dos jogos">
+            {gameOrganizers.map((s) => (
+              <li key={s.id} className="staff-tag helpers-tag">
+                <span className="helpers-tag__name">{s.name}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <p className="footer-note">

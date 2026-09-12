@@ -19,7 +19,7 @@ export interface NotificationSettings {
   checkinConfirmation: boolean;
   /** an Instruções document / Preparação section was created or edited, or the instructions / preparation text of one of the person's roles changed */
   contentChanges: boolean;
-  /** added to the team or to an admin list (organizer, helper, medical, parent contact) — SMS with the app link */
+  /** added to the team or to an admin list (organizer, helper, medical, vest helper, parent contact) — SMS with the app link */
   enrolments: boolean;
   /** the person's OWN allocation changed: bedroom, team or vehicle (bus) */
   staffChanges: boolean;
@@ -78,8 +78,12 @@ export interface Settings {
   busHelpers: BusHelperList;
   /** programme organizers (no window): write the schedule, see the whole team; never write staff */
   organizers: StaffList;
+  /** game organizers (no window): everything an organizer may do + the scoreboard (Placar) */
+  gameOrganizers: StaffList;
   /** medical team (no window): every camper in full, every bedroom and vehicle, the whole time — read-only */
   medicalStaff: StaffList;
+  /** vest (colete) helpers (no window): hand out / take back the team vests; see everyone as name + phone only */
+  vestHelpers: StaffList;
   /** ordered staff contacts that will be shared with parents */
   parentContacts: ParentContact[];
   /** when ORDINARY team members (on no list) may use the app; both ends null = always */
@@ -110,7 +114,9 @@ export interface SettingsPatch {
   checkinHelpers?: StaffList;
   busHelpers?: BusHelperList;
   organizers?: StaffList;
+  gameOrganizers?: StaffList;
   medicalStaff?: StaffList;
+  vestHelpers?: StaffList;
   parentContacts?: ParentContact[];
   staffAccessWindow?: { from: string | null; until: string | null };
   checkinTestMode?: boolean;
@@ -119,8 +125,8 @@ export interface SettingsPatch {
 }
 
 /** Clears every check-in (kids' church + bus, team) and the audit log — for rehearsing the process. */
-export async function resetCheckins(token: string): Promise<{ campers: number; staff: number }> {
-  return command<{ campers: number; staff: number }>("/api/settings/checkin/reset", { method: "POST", headers: bearer(token) }, ["campers", "staff"]);
+export async function resetCheckins(token: string): Promise<{ campers: number; staff: number; vests: number }> {
+  return command<{ campers: number; staff: number; vests: number }>("/api/settings/checkin/reset", { method: "POST", headers: bearer(token) }, ["campers", "staff"]);
 }
 
 /** Writes go through REST; the canonical value arrives in the `settings` WebSocket collection. */

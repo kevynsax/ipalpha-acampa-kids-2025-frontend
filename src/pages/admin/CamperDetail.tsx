@@ -1,4 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { ROOM_ROLE_META } from "../../api/staff";
+import ChangeRoomDialog from "./ChangeRoomDialog";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import HealthAlerts from "../../components/HealthAlerts";
 import CamperCard from "../../components/CamperCard";
@@ -21,7 +23,7 @@ interface CamperDetailProps {
   token: string;
   camperId: string;
   nav: DetailNav;
-  /** absent = read-only (medical team, or opened from another page): no pencil */
+  /** absent = read-only (medical team, or opened from another page): no pencil, no room change */
   onEdit?: (camper: Camper) => void;
   onOpenStaff?: (staffId: string) => void;
   onOpenCamper?: (camperId: string) => void;
@@ -35,7 +37,8 @@ function fmtDate(iso: string | null): string | null {
 }
 
 /** One kid: full registration info, the room + caretakers, and roommates. */
-export default function CamperDetail({ camperId, nav, onEdit, onOpenStaff, onOpenCamper, onOpenBedroom }: CamperDetailProps) {
+export default function CamperDetail({ token, camperId, nav, onEdit, onOpenStaff, onOpenCamper, onOpenBedroom }: CamperDetailProps) {
+  const [moveOpen, setMoveOpen] = useState(false);
   // joined locally from the store — works offline and updates live
   const data = useCamperDetail(camperId);
   const error = data === undefined ? "Acampante não encontrado." : null;
@@ -55,7 +58,7 @@ export default function CamperDetail({ camperId, nav, onEdit, onOpenStaff, onOpe
     );
   }
 
-  const { camper: k, bedroom, caretakers, roommates } = data;
+  const { camper: k, bedroom, caretaker, caretakers, roommates } = data;
   const age = ageOf(k.birthDate);
   const sex = k.sex === "F" ? "girl" : k.sex === "M" ? "boy" : kidSexOf(bedroom?.group);
 
@@ -77,6 +80,24 @@ export default function CamperDetail({ camperId, nav, onEdit, onOpenStaff, onOpe
 
       <section className="detail-card">
         <dl className="detail-grid">
+          <dt>Responsável</dt>
+          <dd>
+            {caretaker ? (
+              onOpenStaff ? (
+                <button type="button" className="link-chip" title="Ver responsável" onClick={() => onOpenStaff(caretaker.id)}>
+                  {ROOM_ROLE_META.caretaker.emoji} {caretaker.name} ›
+                </button>
+              ) : (
+                <>
+                  {ROOM_ROLE_META.caretaker.emoji} {caretaker.name}
+                </>
+              )
+            ) : k.caretakerId ? (
+              "—"
+            ) : (
+              <span className="orphan-tag">⚠️ Sem responsável</span>
+            )}
+          </dd>
           <dt>Nascimento</dt>
           <dd>{fmtDate(k.birthDate) ?? "—"}</dd>
           <dt>Peso</dt>
@@ -100,16 +121,20 @@ export default function CamperDetail({ camperId, nav, onEdit, onOpenStaff, onOpe
           </dd>
           <dt>Transporte</dt>
           <dd>{labelOf(k.transportation) ?? "—"}</dd>
+          {onEdit && (
+            <>
+              <dt></dt>
+              <dd>
+                <button type="button" className="button button--secondary button--sm" onClick={() => setMoveOpen(true)}>
+                  🔄 Trocar de quarto / responsável
+                </button>
+              </dd>
+            </>
+          )}
           {k.bedroomPreference && (
             <>
               <dt>Quer ficar com</dt>
               <dd>{k.bedroomPreference}</dd>
-            </>
-          )}
-          {k.caretaker && (
-            <>
-              <dt>Tio(a)</dt>
-              <dd>{k.caretaker}</dd>
             </>
           )}
           {(k.school || k.schoolGrade) && (
@@ -141,60 +166,62 @@ export default function CamperDetail({ camperId, nav, onEdit, onOpenStaff, onOpe
         {k.generalNotes && <p className="detail-note">📝 {k.generalNotes}</p>}
       </section>
 
-      <section className="detail-section">
-        <h2 className="detail-h2">
-          <ParentIcon size={24} /> Pai ou Responsável
-        </h2>
-        <div className="detail-card">
-          <dl className="detail-grid">
-            <dt>Nome</dt>
-            <dd>{k.guardianName || "—"}</dd>
-            <dt>Telefone</dt>
-            <dd>
-              {k.guardianPhone ? (
+      {!k.contactsHidden && (
+        <section className="detail-section">
+          <h2 className="detail-h2">
+            <ParentIcon size={24} /> Pai ou Responsável
+          </h2>
+          <div className="detail-card">
+            <dl className="detail-grid">
+              <dt>Nome</dt>
+              <dd>{k.guardianName || "—"}</dd>
+              <dt>Telefone</dt>
+              <dd>
+                {k.guardianPhone ? (
+                  <>
+                    {formatBrazilPhoneClient(k.guardianPhone)}
+                    <WhatsAppButton
+                      className="wa-btn--sm"
+                      href={whatsappLink(k.guardianPhone, staffGreeting({ toName: k.guardianName, fromName: myName, about: k.name }))}
+                      label={`Falar com ${k.guardianName.split(" ")[0] || "o responsável"} no WhatsApp`}
+                    />
+                  </>
+                ) : (
+                  <em className="staff-card__missing">não informado</em>
+                )}
+              </dd>
+              {k.guardianEmail && (
                 <>
-                  {formatBrazilPhoneClient(k.guardianPhone)}
-                  <WhatsAppButton
-                    className="wa-btn--sm"
-                    href={whatsappLink(k.guardianPhone, staffGreeting({ toName: k.guardianName, fromName: myName, about: k.name }))}
-                    label={`Falar com ${k.guardianName.split(" ")[0] || "o responsável"} no WhatsApp`}
-                  />
+                  <dt>E-mail</dt>
+                  <dd>
+                    <a href={`mailto:${k.guardianEmail}`}>{k.guardianEmail}</a>
+                  </dd>
                 </>
-              ) : (
-                <em className="staff-card__missing">não informado</em>
               )}
-            </dd>
-            {k.guardianEmail && (
-              <>
-                <dt>E-mail</dt>
-                <dd>
-                  <a href={`mailto:${k.guardianEmail}`}>{k.guardianEmail}</a>
-                </dd>
-              </>
-            )}
-            {k.guardianCpf && (
-              <>
-                <dt>CPF</dt>
-                <dd>{k.guardianCpf}</dd>
-              </>
-            )}
-            <dt>Emergência</dt>
-            <dd>{k.emergencyContact || "—"}</dd>
-            <dt>Convênio</dt>
-            <dd>
-              {k.insurance || "—"}
-              {k.insuranceCard && <span className="cat-hint">· {k.insuranceCard}</span>}
-            </dd>
-          </dl>
-        </div>
-      </section>
+              {k.guardianCpf && (
+                <>
+                  <dt>CPF</dt>
+                  <dd>{k.guardianCpf}</dd>
+                </>
+              )}
+              <dt>Emergência</dt>
+              <dd>{k.emergencyContact || "—"}</dd>
+              <dt>Convênio</dt>
+              <dd>
+                {k.insurance || "—"}
+                {k.insuranceCard && <span className="cat-hint">· {k.insuranceCard}</span>}
+              </dd>
+            </dl>
+          </div>
+        </section>
+      )}
 
       <section className="detail-section">
         <h2 className="detail-h2">
-          <StaffIcon size={24} /> Responsáveis no quarto <span className="cat-tab__count">{caretakers.length}</span>
+          <StaffIcon size={24} /> Equipe no quarto <span className="cat-tab__count">{caretakers.length}</span>
         </h2>
         {!bedroom && <p className="opt-empty">Sem quarto definido.</p>}
-        {bedroom && caretakers.length === 0 && <p className="opt-empty">⚠️ Nenhum responsável da equipe no quarto {bedroom.name}.</p>}
+        {bedroom && caretakers.length === 0 && <p className="opt-empty">⚠️ Ninguém da equipe no quarto {bedroom.name}.</p>}
         {caretakers.length > 0 && (
           <ul className="staff-list">
             {caretakers.map((s) => (
@@ -221,6 +248,7 @@ export default function CamperDetail({ camperId, nav, onEdit, onOpenStaff, onOpe
         </section>
       )}
 
+      {onEdit && <ChangeRoomDialog token={token} open={moveOpen} camper={k} onClose={() => setMoveOpen(false)} />}
       <PlayScene sex={sex} />
     </div>
   );

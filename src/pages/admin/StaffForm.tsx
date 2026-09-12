@@ -1,8 +1,8 @@
 import { useState } from "react";
 import type { Bedroom } from "../../api/bedrooms";
 import type { Category } from "../../api/categories";
-import { BedroomSelect, CategoryChips, CategorySelect } from "../../components/CategoryFields";
-import { STAFF_CATEGORY_KEYS, type Staff, type StaffInput } from "../../api/staff";
+import { BedroomSelect, CategoryChips, CategorySelect, TeamSelect } from "../../components/CategoryFields";
+import { ROOM_ROLE_META, STAFF_CATEGORY_KEYS, type RoomRole, type Staff, type StaffInput } from "../../api/staff";
 import PhoneInput from "../../components/PhoneInput";
 import Toggle from "../../components/Toggle";
 import { maskBrazilPhone, toE164 } from "../../phone";
@@ -21,7 +21,6 @@ interface StaffFormProps {
 export default function StaffForm({ member, categories, bedrooms, busy, onSubmit, onCancel }: StaffFormProps) {
   const editing = !!member;
   const byKey = (key: string) => categories.find((c) => c.key === key);
-  const teamCat = byKey(STAFF_CATEGORY_KEYS.team);
   const transportCat = byKey(STAFF_CATEGORY_KEYS.transportation);
   const allergyCat = byKey(STAFF_CATEGORY_KEYS.allergies);
   const drugCat = byKey(STAFF_CATEGORY_KEYS.drugAllergies);
@@ -32,6 +31,7 @@ export default function StaffForm({ member, categories, bedrooms, busy, onSubmit
   const [active, setActive] = useState(member?.active ?? true);
   const [team, setTeam] = useState<string | null>(member?.team ?? null);
   const [bedroom, setBedroom] = useState<string | null>(member?.bedroom ?? null);
+  const [roomRole, setRoomRole] = useState<RoomRole>(member?.roomRole ?? "helper");
   const [transportation, setTransportation] = useState<string | null>(member?.transportation ?? null);
   const [allergies, setAllergies] = useState<string[]>(member?.allergies ?? []);
   const [drugAllergies, setDrugAllergies] = useState<string[]>(member?.drugAllergies ?? []);
@@ -66,6 +66,7 @@ export default function StaffForm({ member, categories, bedrooms, busy, onSubmit
         active,
         team,
         bedroom,
+        roomRole,
         transportation,
         allergies,
         drugAllergies,
@@ -110,12 +111,29 @@ export default function StaffForm({ member, categories, bedrooms, busy, onSubmit
       </div>
 
       <div className="cat-form__row staff-form__row">
-        <CategorySelect label="Time" category={teamCat} value={team} onChange={setTeam} disabled={busy} />
+        <TeamSelect value={team} onChange={setTeam} disabled={busy} />
 
         <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} current={member?.bedroom} disabled={busy} />
 
         <CategorySelect label="Transporte" category={transportCat} value={transportation} onChange={setTransportation} disabled={busy} />
       </div>
+
+      <fieldset className="cat-fieldset">
+        <legend className="cat-field__label">Função no quarto</legend>
+        <div className="big-options big-options--row">
+          {(Object.keys(ROOM_ROLE_META) as RoomRole[]).map((r) => {
+            const on = roomRole === r;
+            return (
+              <button key={r} type="button" className={`big-option ${on ? "big-option--on" : ""}`} aria-pressed={on} disabled={busy} onClick={() => setRoomRole(r)}>
+                <span className="big-option__emoji" aria-hidden="true">{ROOM_ROLE_META[r].emoji}</span>
+                <span className="big-option__label">{ROOM_ROLE_META[r].label}</span>
+                <span className="big-option__hint">{ROOM_ROLE_META[r].hint}</span>
+              </button>
+            );
+          })}
+        </div>
+        {editing && member?.roomRole === "caretaker" && roomRole === "helper" && <p className="cat-hint cat-hint--error">Ao virar auxiliar, as crianças sob sua responsabilidade ficam sem responsável.</p>}
+      </fieldset>
 
       <button
         type="button"

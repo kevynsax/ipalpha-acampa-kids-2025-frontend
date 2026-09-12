@@ -31,6 +31,11 @@ import HomePage from "./HomePage";
 import MySchedulePage from "./MySchedulePage";
 import OccurrencesPage from "./OccurrencesPage";
 import StaffCheckinPage from "./StaffCheckinPage";
+import VestPage from "./VestPage";
+import VestHelpersPage from "./admin/VestHelpersPage";
+import TeamsPage from "./admin/TeamsPage";
+import GameOrganizersPage from "./admin/GameOrganizersPage";
+import ScoreboardPage from "./ScoreboardPage";
 import { useCheckinHelper, type HelperAccess } from "../hooks/useCheckinHelper";
 import { useCollection } from "../store";
 
@@ -45,16 +50,19 @@ interface DashboardProps {
 type View = TabKey | "profile" | SettingsKey;
 
 /** Admin settings live behind the ⚙️ button; each one is its own URL (#/categories, #/settings). */
-type SettingsKey = "general" | "categories" | "preparation" | "instructions-admin" | "checkin-settings" | "organizers" | "medical" | "contacts" | "notifications" | "about";
+type SettingsKey = "general" | "categories" | "teams" | "preparation" | "instructions-admin" | "checkin-settings" | "organizers" | "game-organizers" | "medical" | "vests-settings" | "contacts" | "notifications" | "about";
 const SETTINGS: readonly { key: SettingsKey; label: string; emoji?: string; icon?: string }[] = [
   { key: "general", label: "Geral", emoji: "⚙️" },
   { key: "preparation", label: "Preparação", emoji: "🎒" },
   { key: "instructions-admin", label: "Instruções", emoji: "📖" },
   { key: "checkin-settings", label: "Check-in", emoji: "✅" },
   { key: "organizers", label: "Organizadores", icon: ICONS.organizer },
+  { key: "game-organizers", label: "Placar", emoji: "🏆" },
   { key: "medical", label: "Equipe médica", icon: roleMeta("health_staff").icon },
+  { key: "vests-settings", label: "Coletes", emoji: "🦺" },
   { key: "contacts", label: "Important contacts", emoji: "📞" },
   { key: "notifications", label: "Notificações", emoji: "📲" },
+  { key: "teams", label: "Times", emoji: "🚩" },
   { key: "categories", label: "Categorias", emoji: "🗂️" },
   { key: "about", label: "Sobre", emoji: "ℹ️" },
 ] as const;
@@ -77,9 +85,13 @@ interface Tab {
  * member listed as a helper gets "Check-in Igreja" / "Check-in Ônibus" while
  * the admin's window for that roll call is open; an ORGANIZER gets the admin
  * "Programação" and a read-only "Equipe"; the MEDICAL team gets read-only
- * "Acampantes" and "Ônibus" with no window (see hooks/useCheckinHelper).
+ * "Acampantes" and "Ônibus" with no window; a VEST helper gets "Coletes";
+ * everyone gets "Placar" while the camp is on (read-only unless GAME
+ * organizer / admin) — see hooks/useCheckinHelper and campPhase.
  */
-function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft: boolean): Tab[] {
+function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft: boolean, during: boolean): Tab[] {
+  /** the scoreboard only exists while the camp is happening (first → last event day) */
+  const scoreboard: Tab[] = during ? [{ key: "scoreboard", label: "Placar", emoji: "🏆" }] : [];
   const prep: Tab = { key: "prep", label: "Preparação", emoji: "🎒" };
   const home: Tab = { key: "home", label: "Início", emoji: "🏠" };
   // rooms still a draft (Settings → Geral): nobody knows their room yet, so Preparação IS the home
@@ -92,6 +104,7 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
         { key: "bedrooms", label: "Quartos", emoji: "🛏️" },
         { key: "schedule", label: "Programação", emoji: "📅" },
         { key: "checkin", label: "Check-in", emoji: "✅" },
+        ...scoreboard,
         { key: "occurrences", label: "Ocorrências", emoji: "📋" },
       ];
     // the team gets its room + a read-only programme; the KIDS' church roll call only as a helper inside the window
@@ -101,12 +114,15 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
         ...teamHome,
         { key: "schedule", label: "Programação", emoji: "📅" },
         { key: "instructions", label: "Instruções", emoji: "📖" },
+        // the whole team follows the games (while the camp is on); only the game organizers write the points
+        ...scoreboard,
         ...(helper.medical ? [{ key: "campers" as const, label: "Acampantes", icon: ICONS.camper }] : []),
         ...(helper.organizer ? [{ key: "staff" as const, label: "Equipe", icon: roleMeta("staff").icon }] : []),
         ...(helper.church ? [{ key: "checkin" as const, label: "Check-in Igreja", emoji: "⛪" }] : []),
         // a bus helper rolls-call inside the window; the medical team just LOOKS at every vehicle, always
         ...(helper.bus || helper.medical ? [{ key: "bus" as const, label: helper.bus ? "Check-in Ônibus" : "Ônibus", emoji: "🚌" }] : []),
         ...(helper.medical ? [{ key: "occurrences" as const, label: "Ocorrências", emoji: "📋" }] : []),
+        ...(helper.vest ? [{ key: "vests" as const, label: "Coletes", emoji: "🦺" }] : []),
       ];
     default:
       return [];
@@ -120,11 +136,11 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
  */
 export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: DashboardProps) {
   const meta = roleMeta(user.activeRole);
-  const { phase, synced } = useCampTiming();
+  const { phase, synced, during } = useCampTiming();
   const isTeam = user.activeRole === "staff" || user.activeRole === "health_staff";
   const helper = useCheckinHelper(user.phone, isTeam);
   const roomsDraft = !!useCollection("settings")?.kidsRoomsDraft;
-  const tabs = tabsFor(user.activeRole, phase, helper, roomsDraft);
+  const tabs = tabsFor(user.activeRole, phase, helper, roomsDraft, during);
   const { path, segments, navigate } = useRoute();
   useScrollTopOnRoute(path);
 
@@ -288,6 +304,10 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
           {view === "checkin-settings" && <CheckinSettingsPage token={token} />}
           {view === "organizers" && <OrganizersPage token={token} />}
           {view === "medical" && <MedicalStaffPage token={token} />}
+          {view === "vests-settings" && <VestHelpersPage token={token} />}
+          {view === "teams" && <TeamsPage token={token} />}
+          {view === "game-organizers" && <GameOrganizersPage token={token} />}
+          {view === "scoreboard" && <ScoreboardPage token={token} canEdit={settingsAllowed || helper.gameOrganizer} />}
           {view === "contacts" && <ParentContactsPage token={token} />}
           {view === "notifications" && <NotificationsPage token={token} />}
           {view === "about" && <AboutPage token={token} />}
@@ -296,6 +316,8 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
           {view === "checkin" && settingsAllowed && segments[1] === "church" && <CheckinPage token={token} canOpenStaff adminMerged />}
           {view === "checkin" && settingsAllowed && segments[1] === "bus" && <BusCheckinPage token={token} basePath="/checkin/bus" checkinHomePath="/checkin" />}
           {view === "checkin" && settingsAllowed && segments[1] === "staff" && <StaffCheckinPage token={token} checkinHomePath="/checkin" />}
+          {view === "checkin" && settingsAllowed && segments[1] === "vests" && <VestPage token={token} myName={user.name} checkinHomePath="/checkin" />}
+          {view === "vests" && <VestPage token={token} myName={user.name} />}
           {view === "bus" && (
             <BusCheckinPage token={token} onlyVehicleId={helper.busVehicle ?? undefined} readOnly={!helper.bus} />
           )}

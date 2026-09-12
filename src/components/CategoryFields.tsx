@@ -1,5 +1,7 @@
 import { BEDROOM_GROUPS, GROUP_META, type Bedroom, type BedroomGroup } from "../api/bedrooms";
 import type { Category, CategoryOption } from "../api/categories";
+import type { Team } from "../api/teams";
+import { useCollectionOrEmpty } from "../store";
 
 /** Options shown in a picker: the active ones + whatever is currently selected (even if inactive). */
 function pickable(cat: Category | undefined, selected: string[] | string | null): CategoryOption[] {
@@ -30,6 +32,34 @@ export function CategorySelect({ label, category: cat, value, onChange, disabled
           <option key={o.id} value={o.id}>
             {o.label}
             {!o.active ? " (inativo)" : ""}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+interface TeamProps {
+  value: string | null;
+  onChange: (v: string | null) => void;
+  disabled?: boolean;
+  label?: string;
+}
+
+/** Team (Configurações → Times) → <select>, with the team colour as a swatch. */
+export function TeamSelect({ value, onChange, disabled, label = "Time" }: TeamProps) {
+  const teams: Team[] = useCollectionOrEmpty("teams");
+  const current = teams.find((t) => t.id === value);
+  return (
+    <label className="cat-field cat-field--grow">
+      <span className="cat-field__label">
+        <span className="team-swatch" style={{ background: current?.color ?? "transparent", borderColor: current ? current.color : "var(--sage)" }} aria-hidden="true" /> {label}
+      </span>
+      <select className="cat-input" value={value ?? ""} disabled={disabled || teams.length === 0} onChange={(e) => onChange(e.target.value || null)}>
+        <option value="">{teams.length ? "Não definido" : "Nenhum time cadastrado"}</option>
+        {teams.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name}
           </option>
         ))}
       </select>

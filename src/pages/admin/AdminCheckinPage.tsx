@@ -20,9 +20,15 @@ const OPTIONS = [
     icon: roleMeta("staff").icon,
     title: "Equipe",
   },
+  {
+    key: "vests",
+    path: "/checkin/vests",
+    emoji: "🦺",
+    title: "Coletes",
+  },
 ] as const;
 
-/** Admin landing page for the three check-in workflows. */
+/** Admin landing page for the check-in workflows (kids at the church / bus, team, team vests). */
 export default function AdminCheckinPage() {
   const { navigate } = useRoute();
 
@@ -42,7 +48,7 @@ export default function AdminCheckinPage() {
               ) : (
                 <span className="checkin-picker__emoji" aria-hidden="true">{option.emoji}</span>
               )}
-              <span className="checkin-picker__name">Check-in {option.title}</span>
+              <span className="checkin-picker__name">{option.key === "vests" ? "Coletes" : `Check-in ${option.title}`}</span>
               <span className="checkin-picker__arrow" aria-hidden="true">›</span>
             </button>
           </li>

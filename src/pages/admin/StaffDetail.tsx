@@ -8,7 +8,8 @@ import { GROUP_META, bedroomLabel } from "../../api/bedrooms";
 import { formatEventDate, unassignStaff } from "../../api/schedule";
 import AssignRoleDialog from "./AssignRoleDialog";
 import { useConfirm } from "../../components/ConfirmDialog";
-import type { Staff, StaffScheduleItem } from "../../api/staff";
+import { ROOM_ROLE_META, type Staff, type StaffScheduleItem } from "../../api/staff";
+import MoveStaffDialog from "./MoveStaffDialog";
 import CamperCard from "../../components/CamperCard";
 import WhatsAppButton from "../../components/WhatsAppButton";
 import { loadAuth } from "../../auth/store";
@@ -16,6 +17,21 @@ import { useLabelOf, useStaffDetail } from "../../store/derive";
 import { formatBrazilPhoneClient } from "../../phoneFormat";
 import { staffGreeting, whatsappLink } from "../../whatsapp";
 import type { DetailNav } from "./DetailStack";
+
+/** ISO instant → "12/09 07:42" */
+function fmtStamp(iso: string): string {
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+}
+
+/**
+ * Who stamped it, as the sentence reads: "por Ana" (recorded by Ana),
+ * "para Ana" (the vest was returned TO Ana), or "pelo próprio celular" when
+ * the person did it themself (self check-in).
+ */
+function stampBy(c: { byName: string }, self: string, prep: "por" | "para" = "por"): string {
+  if (!c.byName) return "";
+  return c.byName === self ? "pelo próprio celular" : `${prep} ${c.byName.split(" ")[0]}`;
+}
 
 interface StaffDetailProps {
   token: string;
@@ -39,6 +55,7 @@ export default function StaffDetail({ token, staffId, nav, onEdit, onOpenStaff, 
   /** the schedule item whose instructions are open in the dialog */
   const [instructionsFor, setInstructionsFor] = useState<StaffScheduleItem | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
   const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
   const labelOf = useLabelOf();
@@ -140,9 +157,37 @@ export default function StaffDetail({ token, staffId, nav, onEdit, onOpenStaff, 
             ) : (
               "—"
             )}
+            {!s.redacted && bedroom && bedroom.group !== "staff" && (
+              <span className="staff-tag" title={ROOM_ROLE_META[s.roomRole].hint}>
+                {ROOM_ROLE_META[s.roomRole].emoji} {ROOM_ROLE_META[s.roomRole].label}
+              </span>
+            )}
+            {onEdit && (
+              <button type="button" className="icon-btn" title="Mudar de quarto" aria-label="Mudar de quarto" onClick={() => setMoveOpen(true)}>
+                ✏️
+              </button>
+            )}
           </dd>
           <dt>Transporte</dt>
           <dd>{labelOf(s.transportation) ?? "—"}</dd>
+          {!s.redacted && (
+            <>
+              <dt>Check-in</dt>
+              <dd>{s.checkin ? `✅ ${fmtStamp(s.checkin.at)} · ${stampBy(s.checkin, s.name)}` : "Ainda não chegou"}</dd>
+              <dt>Colete</dt>
+              <dd>
+                {!s.vest?.delivered && "📦 Ainda não recebeu"}
+                {s.vest?.delivered && !s.vest.returned && `🦺 Entregue ${fmtStamp(s.vest.delivered.at)} · ${stampBy(s.vest.delivered, s.name)}`}
+                {s.vest?.delivered && s.vest.returned && (
+                  <>
+                    ✅ Devolvido {fmtStamp(s.vest.returned.at)} · {stampBy(s.vest.returned, s.name, "para")}
+                    <br />
+                    <small>Entregue {fmtStamp(s.vest.delivered.at)} · {stampBy(s.vest.delivered, s.name)}</small>
+                  </>
+                )}
+              </dd>
+            </>
+          )}
         </dl>
         <HealthAlerts person={s} labelOf={labelOf} boxed />
       </section>
@@ -225,6 +270,7 @@ export default function StaffDetail({ token, staffId, nav, onEdit, onOpenStaff, 
       </section>
 
       <AssignRoleDialog token={token} entry={{ staff: s }} open={assignOpen} onClose={() => setAssignOpen(false)} onAssigned={reload} />
+      {onEdit && <MoveStaffDialog token={token} open={moveOpen} member={s} onClose={() => setMoveOpen(false)} />}
       <InstructionsDialog
         role={instructionsFor?.role ?? null}
         context={instructionsFor ? `em ${instructionsFor.emoji} ${instructionsFor.title} · ${formatEventDate(instructionsFor.date, { weekday: "short" }).replace(".", "")} ${instructionsFor.startTime}` : undefined}
@@ -234,7 +280,7 @@ export default function StaffDetail({ token, staffId, nav, onEdit, onOpenStaff, 
       {/* ── kids ── */}
       <section className="detail-section">
         <h2 className="detail-h2">
-          <KidIcon sex={kidSexOf(bedroom?.group)} group={!!kidSexOf(bedroom?.group)} size={26} /> Crianças sob responsabilidade <span className="cat-tab__count">{campers.length}</span>
+          <KidIcon sex={kidSexOf(bedroom?.group)} group={!!kidSexOf(bedroom?.group)} size={26} /> {s.roomRole === "caretaker" ? "Crianças sob responsabilidade" : "Crianças do quarto"} <span className="cat-tab__count">{campers.length}</span>
         </h2>
         {!bedroom && <p className="opt-empty">Sem quarto definido — nenhuma criança vinculada.</p>}
         {bedroom && bedroom.group === "staff" && <p className="opt-empty">Quarto da equipe — sem crianças.</p>}

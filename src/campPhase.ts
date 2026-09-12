@@ -32,13 +32,16 @@ export interface CampTiming {
   firstDate: string | null;
   /** whole days from today until the first event (negative once it started) */
   daysToGo: number | null;
+  /** true on the camp days themselves: from the first event's day through the last event's day (the scoreboard is only shown then) */
+  during: boolean;
 }
 
-export function campTiming(firstDate: string | null, now = new Date(), synced = true): CampTiming {
-  if (!firstDate) return { phase: "unknown", synced, firstDate: null, daysToGo: null };
+export function campTiming(firstDate: string | null, now = new Date(), synced = true, lastDate: string | null = firstDate): CampTiming {
+  if (!firstDate) return { phase: "unknown", synced, firstDate: null, daysToGo: null, during: false };
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const daysToGo = Math.round((dayStart(firstDate) - today) / DAY_MS);
-  return { phase: daysToGo > PREP_DAYS ? "before" : "camp", synced, firstDate, daysToGo };
+  const during = daysToGo <= 0 && today <= dayStart(lastDate ?? firstDate);
+  return { phase: daysToGo > PREP_DAYS ? "before" : "camp", synced, firstDate, daysToGo, during };
 }
 
 /** Live camp timing from the programme in the store (re-checked every hour so midnight flips it). */
@@ -50,8 +53,8 @@ export function useCampTiming(): CampTiming {
     return () => clearInterval(t);
   }, []);
   return useMemo(() => {
-    const firstDate = events && events.length ? events.map((e) => e.date).sort()[0] : null;
-    return campTiming(firstDate, new Date(), events !== null);
+    const dates = events && events.length ? events.map((e) => e.date).sort() : [];
+    return campTiming(dates[0] ?? null, new Date(), events !== null, dates[dates.length - 1] ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, tick]);
 }

@@ -198,6 +198,34 @@ search / filters / detail, no create / edit / Excel / print), **Quartos**
 The server scopes the data the same way (`medical: true`), and
 `useCheckinHelper` never purges their campers / bedrooms at a window edge.
 
+🚩 **Configurações → Times** (`pages/admin/TeamsPage`, `#/teams`): the camp
+teams — name, **colour picker** (presets + native picker) and the team's
+**coringa** (a staff member — not notified, it is not an access role). Teams replaced the old `equipe` category;
+`useLabelOf()` resolves team ids too, and `TeamSelect` (components/
+CategoryFields) is the form field. Deleting a team unlinks its people and
+drops its score lines.
+
+🏆 **Configurações → Placar** (`pages/admin/GameOrganizersPage`,
+`#/game-organizers`): the GAME organizers. They are organizers too (same
+rights: schedule, roles, whole team) and additionally write the scoreboard.
+The list is shown read-only on **Organizadores** with a link here.
+
+🏆 **Placar** tab (`pages/ScoreboardPage`, `#/scoreboard`): shown only while the
+camp is on (first → last event day, `useCampTiming().during`). Every role sees the
+ranking (colour bars, medals) and the ledger; the admin and game organizers get
+➕ / ➖ (amount + optional note of why), 🔄 zero a team (writes a cancelling
+line — history kept) and 🗑️ on a wrong line.
+
+🦺 **Configurações → Coletes** (`pages/admin/VestHelpersPage`, `#/vests-settings`):
+team members who hand out the team vests and take them back — the admin
+does not do it. **No time window.** They get a **Coletes** tab
+(`pages/VestPage`, `#/vests`) listing the whole team as **name + phone only**
+(the server sends `redacted` records with `vest`), with "Entregar" /
+"Devolver" buttons and an undo for each stamp, a status filter and a
+WhatsApp shortcut. The admin has the same screen under Check-in → Coletes
+(`#/checkin/vests`). Joining the list texts the person (Notificações →
+Boas-vindas e novas responsabilidades).
+
 ## Contacts shared with parents 📞
 
 ⚙️ **Configurações → Important contacts** (`pages/admin/ParentContactsPage`,

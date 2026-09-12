@@ -12,15 +12,19 @@ export interface HelperAccess {
   bus: boolean;
   /** the vehicle (transportation option id) the admin linked this bus helper to; null when not a bus helper / window closed */
   busVehicle: string | null;
-  /** programme organizer (no window): edits the schedule, sees the whole team */
+  /** programme organizer (no window): edits the schedule, sees the whole team — game organizers count too */
   organizer: boolean;
+  /** game organizer (no window): organizer + writes the scoreboard (Placar) */
+  gameOrganizer: boolean;
   /** medical team (no window): every camper, bedroom and vehicle, read-only, the whole time */
   medical: boolean;
+  /** vest (colete) helper (no window): hands out / takes back the team vests; sees everyone as name + phone */
+  vest: boolean;
 }
 
-const NONE: HelperAccess = { church: false, bus: false, busVehicle: null, organizer: false, medical: false };
+const NONE: HelperAccess = { church: false, bus: false, busVehicle: null, organizer: false, gameOrganizer: false, medical: false, vest: false };
 
-type Lists = Pick<Settings, "checkinWindow" | "checkinHelpers" | "busHelpers" | "organizers" | "medicalStaff"> & Partial<Pick<Settings, "checkinTestMode">>;
+type Lists = Pick<Settings, "checkinWindow" | "checkinHelpers" | "busHelpers" | "organizers" | "gameOrganizers" | "medicalStaff" | "vestHelpers"> & Partial<Pick<Settings, "checkinTestMode">>;
 
 /**
  * Is the logged-in team member a check-in helper (church and/or bus) inside
@@ -46,13 +50,15 @@ export function useCheckinHelper(phone: string, enabled: boolean): HelperAccess 
   const from = lists?.checkinWindow.from ? new Date(lists.checkinWindow.from).getTime() : null;
   const until = lists?.checkinWindow.until ? new Date(lists.checkinWindow.until).getTime() : null;
   const windowOpen = !!lists?.checkinTestMode || (from !== null && until !== null && from <= now && now < until);
-  const listed = (l: "checkinHelpers" | "organizers" | "medicalStaff") => !!me && !!lists && lists[l].staffIds.includes(me.id);
+  const listed = (l: "checkinHelpers" | "organizers" | "gameOrganizers" | "medicalStaff" | "vestHelpers") => !!me && !!lists && !!lists[l] && lists[l].staffIds.includes(me.id);
   const church = windowOpen && listed("checkinHelpers");
   const linkedVehicle = me && lists ? (lists.busHelpers.helpers.find((h) => h.staffId === me.id)?.vehicleId ?? null) : null;
   const busVehicle = windowOpen ? linkedVehicle : null;
   const bus = busVehicle !== null;
-  const organizer = listed("organizers");
+  const gameOrganizer = listed("gameOrganizers");
+  const organizer = gameOrganizer || listed("organizers");
   const medical = listed("medicalStaff");
+  const vest = listed("vestHelpers");
   const anyOpen = church || bus;
   const myBedroom = me?.bedroom ?? null;
 
@@ -79,5 +85,5 @@ export function useCheckinHelper(phone: string, enabled: boolean): HelperAccess 
     wasOpen.current = anyOpen;
   }, [anyOpen, medical, myBedroom]);
 
-  return enabled ? { church, bus, busVehicle, organizer, medical } : NONE;
+  return enabled ? { church, bus, busVehicle, organizer, gameOrganizer, medical, vest } : NONE;
 }

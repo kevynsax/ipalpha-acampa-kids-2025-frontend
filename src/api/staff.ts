@@ -3,7 +3,6 @@ import { bearer } from "../auth/store";
 
 /** Category keys that feed each staff field (must match the backend). */
 export const STAFF_CATEGORY_KEYS = {
-  team: "equipe",
   transportation: "transporte",
   allergies: "alergias",
   drugAllergies: "alergia-medicamentos",
@@ -20,6 +19,8 @@ export interface Staff {
   transportation: string | null;
   /** Bedroom id (see api/bedrooms.ts) — not a category option */
   bedroom: string | null;
+  /** CARETAKER ("responsável"): looks after specific kids; HELPER ("auxiliar"): only helps out in the room */
+  roomRole: RoomRole;
   allergies: string[];
   drugAllergies: string[];
   foodRestrictions: string;
@@ -29,17 +30,31 @@ export interface Staff {
   healthNotes: string;
   /** set when the person arrived on departure day */
   checkin: import("./campers").CamperCheckin | null;
+  /** the team vest (colete): handed out, then taken back */
+  vest: VestStatus;
   /** Preparação items ticked as done: "section:<id>" | "role:<id>" */
   prepDone: string[];
   /**
-   * true when the server sent a NAME-ONLY record: the viewer is a colleague in
-   * the same room, not an admin nor the person themself (phone, team, health
-   * and check-in are all blank)
+   * true when the server sent a reduced record: the viewer is a colleague in
+   * the same room (name only) or a vest helper (name + phone + vest) — not an
+   * admin nor the person themself (team, room, health and check-in are blank)
    */
   redacted?: boolean;
   createdAt: string;
   updatedAt: string;
 }
+
+/** Vest (colete) check-out / check-in: `returned` is never set without `delivered`. */
+export interface VestStatus {
+  delivered: import("./campers").CamperCheckin | null;
+  returned: import("./campers").CamperCheckin | null;
+}
+
+export type RoomRole = "caretaker" | "helper";
+export const ROOM_ROLE_META: Record<RoomRole, { label: string; emoji: string; hint: string }> = {
+  caretaker: { label: "Responsável", emoji: "🧑‍🍼", hint: "cuida de crianças específicas do quarto" },
+  helper: { label: "Auxiliar", emoji: "🤝", hint: "ajuda no quarto, sem crianças próprias" },
+};
 
 export interface StaffInput {
   name: string;
@@ -47,6 +62,7 @@ export interface StaffInput {
   active: boolean;
   team: string | null;
   bedroom: string | null;
+  roomRole: RoomRole;
   transportation: string | null;
   allergies: string[];
   drugAllergies: string[];
@@ -101,6 +117,22 @@ export async function updateStaff(token: string, id: string, patch: Partial<Staf
   return res.staff;
 }
 
+/** What to do with the kids under a caretaker's care when the caretaker changes room (see POST /api/staff/:id/move). */
+export type MoveKids = "orphan" | "bring" | "assign" | "swap";
+export interface MoveStaffInput {
+  bedroom: string | null;
+  kids: MoveKids;
+  /** kids: "assign" — the member of the SAME room who takes the kids (a helper is promoted) */
+  assignTo?: string;
+  /** kids: "swap" — the member of the TARGET room who comes to this room and takes these kids */
+  swapWith?: string;
+}
+
+export async function moveStaff(token: string, id: string, input: MoveStaffInput): Promise<Staff> {
+  const res = await command<{ staff: Staff }>(`/api/staff/${id}/move`, { method: "POST", headers: json(token), body: JSON.stringify(input) }, ["staff", "bedrooms", "campers"]);
+  return res.staff;
+}
+
 /** The team member arrived. */
 export async function checkinStaff(token: string, id: string): Promise<Staff> {
   const res = await command<{ staff: Staff }>(`/api/staff/${id}/checkin`, { method: "POST", headers: bearer(token) }, ["staff"]);
@@ -109,6 +141,18 @@ export async function checkinStaff(token: string, id: string): Promise<Staff> {
 
 export async function undoCheckinStaff(token: string, id: string): Promise<Staff> {
   const res = await command<{ staff: Staff }>(`/api/staff/${id}/checkin`, { method: "DELETE", headers: bearer(token) }, ["staff"]);
+  return res.staff;
+}
+
+// ── vest (colete): admin or a listed vest helper ──
+
+export type VestAction = "deliver" | "undo-deliver" | "return" | "undo-return";
+
+/** Stamps / clears the vest delivery or return of one team member. */
+export async function setStaffVest(token: string, id: string, action: VestAction): Promise<Staff> {
+  const path = `/api/staff/${id}/vest/${action.endsWith("deliver") ? "delivery" : "return"}`;
+  const method = action.startsWith("undo") ? "DELETE" : "POST";
+  const res = await command<{ staff: Staff }>(path, { method, headers: bearer(token) }, ["staff"]);
   return res.staff;
 }
 

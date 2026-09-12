@@ -1,16 +1,18 @@
+import { useCallback, useState } from "react";
 import { GROUP_META } from "../api/bedrooms";
+import { ROOM_ROLE_META } from "../api/staff";
 import CamperCard from "../components/CamperCard";
 import GroupIcon from "../components/GroupIcon";
 import KidIcon from "../components/KidIcon";
 import PlayScene from "../components/PlayScene";
 import SelfCheckinCard from "../components/SelfCheckinCard";
 import StaffIcon from "../components/StaffIcon";
-import WhatsAppButton from "../components/WhatsAppButton";
 import { kidSexOf } from "../icons";
 import type { LoggedUser } from "../roles";
 import { useCollection } from "../store";
 import { useLabelOf, useMyRoom } from "../store/derive";
-import { guardianGreeting, whatsappLink } from "../whatsapp";
+import { useRoute } from "../router";
+import CamperDetail from "./admin/CamperDetail";
 
 interface HomePageProps {
   user: LoggedUser;
@@ -18,15 +20,23 @@ interface HomePageProps {
 }
 
 /**
- * "Início" for a team member: their room — the kids they look after and the
- * colleagues sharing it. It is a view of the ROOM, not of the people: for
- * colleagues only the name is shown (the server already strips phones and
- * health data of other staff; the UI never asks for them).
+ * "Início" for a team member: their room — the kids under THEIR care (a
+ * caretaker), the other kids of the room (collapsed; the server only sends
+ * them while the camp is happening) and the colleagues sharing it. For
+ * colleagues only the name and room role are shown (the server already
+ * strips phones and health data of other staff; the UI never asks for them).
+ * Guardian / emergency data never reaches this page.
  */
 export default function HomePage({ user, token }: HomePageProps) {
   const data = useMyRoom(user.phone);
   const labelOf = useLabelOf();
   const settings = useCollection("settings");
+  const { navigate, segments } = useRoute();
+  const [showOthers, setShowOthers] = useState(false);
+  /** #/home/<camperId> → the kid's page (only the kids the server sent me are in the store) */
+  const openKid = segments[0] === "home" ? segments[1] : undefined;
+  const setTitle = useCallback(() => {}, []);
+  const openCamper = (id: string) => navigate(`/home/${id}`);
   const first = user.name.split(" ")[0];
   const access = settings?.staffAccessWindow;
   const fmt = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -66,7 +76,12 @@ export default function HomePage({ user, token }: HomePageProps) {
     );
   }
 
-  const { me, bedroom, campers, roommates } = data;
+  const { me, bedroom, myKids, campers, roommates } = data;
+  const caretaker = me.roomRole === "caretaker";
+
+  if (openKid) {
+    return <CamperDetail token={token} camperId={openKid} nav={{ crumbs: [{ label: "Início", onClick: () => navigate("/home") }, { label: "Criança" }], setTitle }} onOpenCamper={openCamper} />;
+  }
 
   if (!bedroom) {
     return (
@@ -96,7 +111,7 @@ export default function HomePage({ user, token }: HomePageProps) {
       </header>
       <p className="admin-intro">
         Olá, {first}! Este é o seu quarto ({m.label}).{" "}
-        {isStaffRoom ? "Aqui ficam só pessoas da equipe." : "Você cuida das crianças que dormem aqui."}
+        {isStaffRoom ? "Aqui ficam só pessoas da equipe." : caretaker ? "Você é responsável por crianças deste quarto." : "Você é auxiliar neste quarto."}
       </p>
 
       {/* departure day only: "Cheguei na igreja!" */}
@@ -112,42 +127,51 @@ export default function HomePage({ user, token }: HomePageProps) {
         ) : (
           <ul className="staff-card__tags roommate-list" aria-label="Colegas de equipe no quarto">
             {roommates.map((r) => (
-              <li key={r.id} className="staff-tag staff-tag--soft">
-                {r.name}
+              <li key={r.id} className="staff-tag staff-tag--soft" title={ROOM_ROLE_META[r.roomRole]?.label}>
+                {r.roomRole === "caretaker" && <span aria-hidden="true">{ROOM_ROLE_META.caretaker.emoji}</span>} {r.name}
               </li>
             ))}
           </ul>
         )}
       </section>
 
-      {/* ── kids ── */}
-      {!isStaffRoom && (
+      {/* ── my kids (caretaker only) ── */}
+      {!isStaffRoom && caretaker && (
         <section className="detail-section">
           <h2 className="detail-h2">
-            <KidIcon sex={sex} group size={26} /> Crianças <span className="cat-tab__count">{campers.length}</span>
+            <KidIcon sex={sex} group size={26} /> Minhas crianças <span className="cat-tab__count">{myKids.length}</span>
           </h2>
-          {campers.length === 0 ? (
-            <p className="opt-empty">Nenhuma criança neste quarto ainda.</p>
+          <p className="admin-intro">Você é o responsável por elas. Toque para ver saúde, alimentação e observações.</p>
+          {myKids.length === 0 ? (
+            <p className="opt-empty">Nenhuma criança sob sua responsabilidade ainda.</p>
           ) : (
             <ul className="kid-list">
-              {campers.map((k) => (
-                <CamperCard
-                  key={k.id}
-                  camper={k}
-                  labelOf={labelOf}
-                  hideBedroom
-                  corner={
-                    k.guardianPhone ? (
-                      <WhatsAppButton
-                        href={whatsappLink(k.guardianPhone, guardianGreeting({ guardianName: k.guardianName, staffName: me.name, camperName: k.name }))}
-                        label={`Falar com ${k.guardianName.split(" ")[0] || "o responsável"} no WhatsApp`}
-                      />
-                    ) : undefined
-                  }
-                />
+              {myKids.map((k) => (
+                <CamperCard key={k.id} camper={k} labelOf={labelOf} hideBedroom onOpen={openCamper} />
               ))}
             </ul>
           )}
+        </section>
+      )}
+
+      {/* ── the other kids of the room: collapsed; only sent by the server while the camp is happening ── */}
+      {!isStaffRoom && (campers.length > 0 || !caretaker) && (
+        <section className="detail-section">
+          <button type="button" className={`disclosure ${showOthers ? "disclosure--open" : ""}`} aria-expanded={showOthers} onClick={() => setShowOthers((v) => !v)}>
+            <span className="disclosure__arrow" aria-hidden="true">▶</span>
+            {caretaker ? "Outras crianças do quarto" : "Crianças do quarto"} <span className="cat-tab__count">{campers.length}</span>
+            <span className="disclosure__hint">para ajudar os colegas com saúde e cuidados</span>
+          </button>
+          {showOthers &&
+            (campers.length === 0 ? (
+              <p className="opt-empty">As crianças do quarto aparecem aqui durante o acampamento.</p>
+            ) : (
+              <ul className="kid-list">
+                {campers.map((k) => (
+                  <CamperCard key={k.id} camper={k} labelOf={labelOf} hideBedroom onOpen={openCamper} />
+                ))}
+              </ul>
+            ))}
         </section>
       )}
 

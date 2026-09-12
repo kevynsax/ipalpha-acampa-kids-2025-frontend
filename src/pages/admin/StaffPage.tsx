@@ -2,6 +2,7 @@ import { useConfirm } from "../../components/ConfirmDialog";
 import { useMemo, useState } from "react";
 import { bedroomLabel } from "../../api/bedrooms";
 import {
+  ROOM_ROLE_META,
   STAFF_CATEGORY_KEYS,
   createStaff,
   deleteStaff,
@@ -261,8 +262,9 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
           <ul className="staff-list">
             {visible.map((s) => {
               const tags = [
-                { key: "team", title: catByKey(STAFF_CATEGORY_KEYS.team)?.name, label: labelOf(s.team) },
+                { key: "team", title: "Time", label: labelOf(s.team) },
                 { key: "bedroom", title: "Quarto", label: bedroomOf(s.bedroom) },
+                { key: "roomRole", title: "Função no quarto", label: s.bedroom && !s.redacted ? `${ROOM_ROLE_META[s.roomRole].emoji} ${ROOM_ROLE_META[s.roomRole].label}` : null },
                 { key: "transport", title: catByKey(STAFF_CATEGORY_KEYS.transportation)?.name, label: labelOf(s.transportation) },
               ].filter((t) => t.label);
 

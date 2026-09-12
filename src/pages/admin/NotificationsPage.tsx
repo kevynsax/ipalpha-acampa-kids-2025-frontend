@@ -15,8 +15,8 @@ const OPTIONS: { key: Exclude<keyof NotificationSettings, "checkinReminder">; em
   {
     key: "bedroomChanges",
     emoji: "🛏️",
-    title: "Mudança de criança no quarto",
-    text: "Quando uma criança entra, sai ou é transferida de um quarto, quem cuida daquele quarto recebe um SMS.",
+    title: "Mudança de criança sob responsabilidade",
+    text: "Quando uma criança passa a ser (ou deixa de ser) responsabilidade de alguem, só o responsável envolvido recebe um SMS — auxiliares não são avisados.",
   },
   {
     key: "staffChanges",
@@ -40,7 +40,7 @@ const OPTIONS: { key: Exclude<keyof NotificationSettings, "checkinReminder">; em
     key: "enrolments",
     emoji: "🎉",
     title: "Boas-vindas e novas responsabilidades",
-    text: "Quando o app é liberado para a equipe (início do período de acesso) cada pessoa recebe, uma única vez, um SMS de boas-vindas com o link do app. Quem vira organizador, ajudante do check-in / ônibus, equipe médica ou contato dos pais recebe o SMS na hora.",
+    text: "Quando o app é liberado para a equipe (início do período de acesso) cada pessoa recebe, uma única vez, um SMS de boas-vindas com o link do app. Quem vira organizador (da programação ou dos jogos / placar), ajudante do check-in / ônibus, equipe médica, responsável pelos coletes ou contato dos pais recebe o SMS na hora.",
   },
   {
     key: "checkinConfirmation",

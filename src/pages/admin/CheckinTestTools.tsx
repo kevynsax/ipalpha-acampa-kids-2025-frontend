@@ -59,7 +59,7 @@ export default function CheckinTestTools({ token }: CheckinTestToolsProps) {
     setDone(null);
     try {
       const r = await resetCheckins(token);
-      setDone(`Check-ins zerados: ${r.campers} criança(s) e ${r.staff} pessoa(s) da equipe.`);
+      setDone(`Check-ins zerados: ${r.campers} criança(s), ${r.staff} pessoa(s) da equipe e ${r.vests} colete(s).`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Algo deu errado.");
     } finally {

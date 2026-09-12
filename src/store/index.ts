@@ -8,6 +8,8 @@ import type { PrepSection } from "../api/preparation";
 import type { CampEvent, ScheduleRole } from "../api/schedule";
 import type { Staff } from "../api/staff";
 import type { Settings } from "../api/settings";
+import type { Team } from "../api/teams";
+import type { ScoreEntry } from "../api/scores";
 
 /**
  * Local-first data store.
@@ -25,6 +27,8 @@ export interface Collections {
   staff: Staff[];
   bedrooms: Bedroom[];
   categories: Category[];
+  teams: Team[];
+  scores: ScoreEntry[];
   roles: ScheduleRole[];
   events: CampEvent[];
   preparation: PrepSection[];
@@ -34,7 +38,7 @@ export interface Collections {
 }
 export type CollectionName = keyof Collections;
 type ListCollectionName = Exclude<CollectionName, "settings">;
-export const COLLECTION_NAMES: CollectionName[] = ["campers", "staff", "bedrooms", "categories", "roles", "events", "preparation", "instructions", "occurrences", "settings"];
+export const COLLECTION_NAMES: CollectionName[] = ["campers", "staff", "bedrooms", "categories", "teams", "scores", "roles", "events", "preparation", "instructions", "occurrences", "settings"];
 
 export type ConnectionState = "connecting" | "online" | "offline";
 
