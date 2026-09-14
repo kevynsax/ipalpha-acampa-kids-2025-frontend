@@ -54,8 +54,7 @@ export default function VestHelpersPage({ token }: VestHelpersPageProps) {
         <h1 className="admin-title">🦺 Coletes</h1>
       </header>
       <p className="admin-intro">
-        Pessoas da equipe que <strong>entregam e recolhem os coletes</strong> da equipe durante o acampamento. Elas ganham a aba{" "}
-        <strong>Coletes</strong> com toda a equipe e marcam quem já recebeu e quem já devolveu. Não há período: valem o tempo todo.
+        Pessoas da equipe que <strong>entregam e recolhem os coletes</strong> durante o acampamento. Veem só nome e celular da equipe.
       </p>
 
       {error && <p className="message message--error">{error}</p>}

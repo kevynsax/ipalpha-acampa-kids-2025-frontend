@@ -97,6 +97,7 @@ export function useStaffDetail(staffId: string): StaffDetail | null | undefined 
       schedule,
       // a caretaker's OWN kids; a helper: every kid of the room
       campers: s.roomRole === "caretaker" ? campers.filter((k) => k.caretakerId === s.id).sort(byName) : s.bedroom ? campers.filter((k) => k.bedroom === s.bedroom).sort(byName) : [],
+      otherCampers: s.roomRole === "caretaker" && s.bedroom ? campers.filter((k) => k.bedroom === s.bedroom && k.caretakerId !== s.id).sort(byName) : [],
       roommates: s.bedroom ? staff.filter((x) => x.bedroom === s.bedroom && x.id !== s.id).sort(byName) : [],
     };
   }, [staff, campers, bedrooms, events, roles, staffId]);

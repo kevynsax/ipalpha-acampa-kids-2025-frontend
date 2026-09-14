@@ -1,26 +1,23 @@
 import { useState } from "react";
-import type { Bedroom } from "../../api/bedrooms";
-import { CAMPER_CATEGORY_KEYS, type Camper, type CamperInput, type CamperSex } from "../../api/campers";
+import { CAMPER_CATEGORY_KEYS, blankMedication, type Camper, type CamperInput, type CamperSex, type Medication } from "../../api/campers";
+import MedicationsEditor from "../../components/MedicationsEditor";
 import type { Category } from "../../api/categories";
-import { BedroomSelect, CategoryChips, CategorySelect, TeamSelect } from "../../components/CategoryFields";
+import { CategoryChips, CategoryRadio } from "../../components/CategoryFields";
 import ParentIcon from "../../components/ParentIcon";
 import PhoneInput from "../../components/PhoneInput";
 import Toggle from "../../components/Toggle";
 import { maskBrazilPhone, toE164 } from "../../phone";
-import { ROOM_ROLE_META } from "../../api/staff";
-import { useCollectionOrEmpty } from "../../store";
 
 interface CamperFormProps {
   camper?: Camper;
   categories: Category[];
-  bedrooms: Bedroom[];
   busy?: boolean;
   onSubmit: (input: CamperInput) => Promise<void>;
   onCancel: () => void;
 }
 
 /** Create / edit a camper (kid). The health block is collapsible; the guardian box is always open. */
-export default function CamperForm({ camper, categories, bedrooms, busy, onSubmit, onCancel }: CamperFormProps) {
+export default function CamperForm({ camper, categories, busy, onSubmit, onCancel }: CamperFormProps) {
   const editing = !!camper;
   const cat = (key: string) => categories.find((c) => c.key === key);
 
@@ -33,13 +30,7 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
   const [schoolGrade, setSchoolGrade] = useState(camper?.schoolGrade ?? "");
   const [church, setChurch] = useState(camper?.church ?? "");
   const [invitedBy, setInvitedBy] = useState(camper?.invitedBy ?? "");
-  const [caretakerId, setCaretakerId] = useState<string | null>(camper?.caretakerId ?? null);
-  const [team, setTeam] = useState<string | null>(camper?.team ?? null);
-  const [bedroom, setBedroom] = useState<string | null>(camper?.bedroom ?? null);
   const [bed, setBed] = useState<string | null>(camper?.bed ?? null);
-  const [transportation, setTransportation] = useState<string | null>(camper?.transportation ?? null);
-  const staff = useCollectionOrEmpty("staff");
-  const caretakers = bedroom ? staff.filter((s) => s.active && s.bedroom === bedroom && s.roomRole === "caretaker") : [];
 
   const [guardianName, setGuardianName] = useState(camper?.guardianName ?? "");
   const [guardianPhone, setGuardianPhone] = useState(camper?.guardianPhone ? maskBrazilPhone(camper.guardianPhone.replace(/^\+55/, "")) : "");
@@ -53,17 +44,20 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
   const [drugAllergies, setDrugAllergies] = useState<string[]>(camper?.drugAllergies ?? []);
   const [healthIssues, setHealthIssues] = useState<string[]>(camper?.healthIssues ?? []);
   const [neurodivergent, setNeurodivergent] = useState(camper?.neurodivergent ?? false);
-  const [medicines, setMedicines] = useState(camper?.medicines ?? "");
+  const [medications, setMedications] = useState<Medication[]>(camper?.medications ?? []);
   const [foodRestrictions, setFoodRestrictions] = useState(camper?.foodRestrictions ?? "");
   const [weight, setWeight] = useState(camper?.weightKg != null ? String(camper.weightKg).replace(".", ",") : "");
   const [healthNotes, setHealthNotes] = useState(camper?.healthNotes ?? "");
   const [generalNotes, setGeneralNotes] = useState(camper?.generalNotes ?? "");
   const [bedroomPreference, setBedroomPreference] = useState(camper?.bedroomPreference ?? "");
 
-  const hasHealth = allergies.length > 0 || drugAllergies.length > 0 || healthIssues.length > 0 || neurodivergent || !!medicines || !!foodRestrictions || !!healthNotes || !!generalNotes;
-  const [showHealth, setShowHealth] = useState(hasHealth);
-  const hasExtra = !!cpf || !!rg || !!school || !!schoolGrade || !!church || !!invitedBy;
-  const [showExtra, setShowExtra] = useState(false);
+  // each health topic is a switch: off = nothing to declare (field hidden and cleared on save)
+  const [hasAllergies, setHasAllergies] = useState(allergies.length > 0);
+  const [hasDrugAllergies, setHasDrugAllergies] = useState(drugAllergies.length > 0);
+  const [hasHealthIssues, setHasHealthIssues] = useState(healthIssues.length > 0);
+  const [hasMedicines, setHasMedicines] = useState(medications.length > 0);
+  const [hasFoodRestrictions, setHasFoodRestrictions] = useState(!!foodRestrictions);
+  const [hasHealthNotes, setHasHealthNotes] = useState(!!healthNotes);
   const [error, setError] = useState<string | null>(null);
 
   const phoneE164 = toE164(guardianPhone);
@@ -87,21 +81,22 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
         schoolGrade: schoolGrade.trim(),
         church: church.trim(),
         invitedBy: invitedBy.trim(),
-        caretakerId: caretakers.some((s) => s.id === caretakerId) ? caretakerId : null,
         qrToken: camper?.qrToken ?? "",
         externalId: camper?.externalId ?? "",
-        team,
-        bedroom,
+        // team, room, leader and transportation are edited from the detail page (pencil dialogs), not here
+        caretakerId: camper?.caretakerId ?? null,
+        team: camper?.team ?? null,
+        bedroom: camper?.bedroom ?? null,
         bed,
-        transportation,
+        transportation: camper?.transportation ?? null,
         weightKg: weightOk && weightKg !== null ? Math.round(weightKg * 10) / 10 : null,
-        allergies,
-        drugAllergies,
-        healthIssues,
+        allergies: hasAllergies ? allergies : [],
+        drugAllergies: hasDrugAllergies ? drugAllergies : [],
+        healthIssues: hasHealthIssues ? healthIssues : [],
         neurodivergent,
-        medicines: medicines.trim(),
-        foodRestrictions: foodRestrictions.trim(),
-        healthNotes: healthNotes.trim(),
+        medications: hasMedicines ? medications.filter((m) => m.name.trim()) : [],
+        foodRestrictions: hasFoodRestrictions ? foodRestrictions.trim() : "",
+        healthNotes: hasHealthNotes ? healthNotes.trim() : "",
         generalNotes: generalNotes.trim(),
         bedroomPreference: bedroomPreference.trim(),
         insurance: insurance.trim(),
@@ -128,10 +123,18 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
     </label>
   );
 
-  return (
-    <form className="cat-form" onSubmit={handleSubmit}>
-      <h2 className="cat-form__title">{editing ? "✏️ Editar acampante" : "✨ Novo acampante"}</h2>
+  /** a switch that reveals its field only when on */
+  const optional = (label: string, on: boolean, setOn: (v: boolean) => void, field: React.ReactNode) => (
+    <div className="cat-field opt-field">
+      <div className="opt-field__head">
+        <Toggle checked={on} onChange={setOn} disabled={busy} label={label} />
+      </div>
+      {on && field}
+    </div>
+  );
 
+  return (
+    <form className="cat-form cat-form--plain" onSubmit={handleSubmit}>
       <div className="cat-form__row staff-form__row">
         <label className="cat-field cat-field--grow">
           <span className="cat-field__label">Nome</span>
@@ -157,50 +160,27 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
       </div>
 
       <div className="cat-form__row staff-form__row">
-        <TeamSelect value={team} onChange={setTeam} disabled={busy} />
-        <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} current={camper?.bedroom} groups={["girls", "boys"]} disabled={busy} />
-        <CategorySelect label="Cama" category={cat(CAMPER_CATEGORY_KEYS.bed)} value={bed} onChange={setBed} disabled={busy} />
-        <CategorySelect label="Transporte" category={cat(CAMPER_CATEGORY_KEYS.transportation)} value={transportation} onChange={setTransportation} disabled={busy} />
-      </div>
-      <div className="cat-form__row staff-form__row">
-        <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">{ROOM_ROLE_META.caretaker.emoji} Líder no quarto</span>
-          <select className="cat-input" value={caretakerId ?? ""} disabled={busy || !bedroom} onChange={(e) => setCaretakerId(e.target.value || null)}>
-            <option value="">{!bedroom ? "Escolha o quarto primeiro" : caretakers.length ? "Sem líder" : "Nenhum líder neste quarto"}</option>
-            {caretakers.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <CategoryRadio label="Cama" category={cat(CAMPER_CATEGORY_KEYS.bed)} value={bed} onChange={setBed} disabled={busy} />
         {text("🛏️ Prefere dividir quarto com", bedroomPreference, setBedroomPreference, "ex.: Bernardo Faria, Lucas (primo)")}
       </div>
 
-      <button type="button" className={`disclosure ${showExtra ? "disclosure--open" : ""}`} aria-expanded={showExtra} onClick={() => setShowExtra((v) => !v)}>
-        <span className="disclosure__arrow" aria-hidden="true">▶</span>
-        🪪 Documentos e escola
-        {hasExtra && !showExtra && <span className="disclosure__badge">preenchido</span>}
-        <span className="disclosure__hint">CPF, RG, escola, série, igreja</span>
-      </button>
-      {showExtra && (
-        <div className="staff-form__obs">
-          <div className="cat-form__row staff-form__row">
-            {text("CPF", cpf, setCpf, "ex.: 123.456.789-00")}
-            {text("RG", rg, setRg)}
-          </div>
-          <div className="cat-form__row staff-form__row">
-            {text("Escola", school, setSchool, "ex.: Mackenzie")}
-            {text("Série", schoolGrade, setSchoolGrade, "ex.: 4º ano")}
-          </div>
-          <div className="cat-form__row staff-form__row">
-            {text("Frequenta igreja", church, setChurch, "ex.: IPAlpha")}
-            {text("Convidado por", invitedBy, setInvitedBy, "ex.: Pedro Brassioli")}
-          </div>
+      <section className="form-box form-box--plain" aria-labelledby="extra-title">
+        <h3 id="extra-title" className="form-box__title">🪪 Documentos e escola</h3>
+        <div className="cat-form__row staff-form__row">
+          {text("CPF", cpf, setCpf, "ex.: 123.456.789-00")}
+          {text("RG", rg, setRg)}
         </div>
-      )}
+        <div className="cat-form__row staff-form__row">
+          {text("Escola", school, setSchool, "ex.: Mackenzie")}
+          {text("Série", schoolGrade, setSchoolGrade, "ex.: 4º ano")}
+        </div>
+        <div className="cat-form__row staff-form__row">
+          {text("Frequenta igreja", church, setChurch, "ex.: IPAlpha")}
+          {text("Convidado por", invitedBy, setInvitedBy, "ex.: Pedro Brassioli")}
+        </div>
+      </section>
 
-      <section className="form-box" aria-labelledby="guardian-title">
+      <section className="form-box form-box--plain" aria-labelledby="guardian-title">
         <h3 id="guardian-title" className="form-box__title">
           <ParentIcon size={22} /> Pai ou Responsável
         </h3>
@@ -223,28 +203,30 @@ export default function CamperForm({ camper, categories, bedrooms, busy, onSubmi
         </div>
       </section>
 
-      <button type="button" className={`disclosure ${showHealth ? "disclosure--open" : ""}`} aria-expanded={showHealth} onClick={() => setShowHealth((v) => !v)}>
-        <span className="disclosure__arrow" aria-hidden="true">▶</span>
-        📝 Saúde e observações
-        {hasHealth && !showHealth && <span className="disclosure__badge">preenchido</span>}
-        <span className="disclosure__hint">alergias, condições, medicação, alimentação</span>
-      </button>
-      {showHealth && (
-        <div className="staff-form__obs">
-          <CategoryChips label="Alergias" category={cat(CAMPER_CATEGORY_KEYS.allergies)} value={allergies} onChange={setAllergies} disabled={busy} />
-          <CategoryChips label="Alergia a medicamentos" category={cat(CAMPER_CATEGORY_KEYS.drugAllergies)} value={drugAllergies} onChange={setDrugAllergies} disabled={busy} />
-          <CategoryChips label="Condição crônica" category={cat(CAMPER_CATEGORY_KEYS.healthIssues)} value={healthIssues} onChange={setHealthIssues} disabled={busy} />
-          <div className="cat-field">
-            <span className="cat-field__label">🧩 Neurodivergente</span>
-            <Toggle checked={neurodivergent} onChange={setNeurodivergent} disabled={busy} label={neurodivergent ? "Sim" : "Não"} />
-            <p className="cat-hint">TEA, TDAH… Visível só para a organização e a equipe médica.</p>
+      <section className="form-box form-box--plain" aria-labelledby="health-title">
+        <h3 id="health-title" className="form-box__title">📝 Saúde e observações</h3>
+        {optional("🤧 Alergias", hasAllergies, setHasAllergies, <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.allergies)} value={allergies} onChange={setAllergies} disabled={busy} />)}
+        {optional("💊 Alergia a medicamentos", hasDrugAllergies, setHasDrugAllergies, <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.drugAllergies)} value={drugAllergies} onChange={setDrugAllergies} disabled={busy} />)}
+        {optional("🩺 Condição crônica", hasHealthIssues, setHasHealthIssues, <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.healthIssues)} value={healthIssues} onChange={setHealthIssues} disabled={busy} />)}
+        <div className="cat-field opt-field">
+          <div className="opt-field__head">
+            <Toggle checked={neurodivergent} onChange={setNeurodivergent} disabled={busy} label="🧩 Neurodivergente" />
           </div>
-          {text("💊 Medicação de uso diário", medicines, setMedicines, "ex.: Ritalina 10mg pela manhã", 2)}
-          {text("🍽️ Alimentação / restrições", foodRestrictions, setFoodRestrictions, "ex.: sem lactose", 2)}
-          {text("🩺 Observações médicas", healthNotes, setHealthNotes, "ex.: em caso de crise, 4 puffs de Aerolin…", 3)}
-          {text("📝 Observações gerais", generalNotes, setGeneralNotes, "ex.: tem dificuldade em dormir sozinha", 3)}
+          <p className="cat-hint">TEA, TDAH… Visível só para a organização e a equipe médica.</p>
         </div>
-      )}
+        {optional(
+          "💊 Medicação de uso diário",
+          hasMedicines,
+          (on) => {
+            setHasMedicines(on);
+            if (on && medications.length === 0) setMedications([blankMedication()]);
+          },
+          <MedicationsEditor value={medications} onChange={setMedications} disabled={busy} />,
+        )}
+        {optional("🍽️ Alimentação / restrições", hasFoodRestrictions, setHasFoodRestrictions, text("Quais", foodRestrictions, setFoodRestrictions, "ex.: sem lactose", 2))}
+        {optional("🩺 Observações médicas", hasHealthNotes, setHasHealthNotes, text("Observações", healthNotes, setHealthNotes, "ex.: em caso de crise, 4 puffs de Aerolin…", 3))}
+        {text("📝 Observações gerais", generalNotes, setGeneralNotes, "ex.: tem dificuldade em dormir sozinha", 3)}
+      </section>
 
       {error && <p className="message message--error">{error}</p>}
 

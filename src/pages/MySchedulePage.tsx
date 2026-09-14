@@ -4,6 +4,7 @@ import InstructionsDialog from "../components/InstructionsDialog";
 import type { LoggedUser } from "../roles";
 import { useRoute } from "../router";
 import { useCollection, useCollectionOrEmpty } from "../store";
+import { useCampTiming } from "../campPhase";
 
 interface MySchedulePageProps {
   user: LoggedUser;
@@ -73,8 +74,8 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
     return () => clearInterval(t);
   }, []);
 
-  // camp happening now? → whole programme by default; otherwise only what concerns them
-  const campOn = !!items?.length && items[0].event.date <= now.date && now.date <= items[items.length - 1].event.date;
+  // camp happening now (first day → end of the last event)? → whole programme by default; otherwise only what concerns them
+  const { during: campOn } = useCampTiming();
   const chosen = params.get("all");
   const filter: Filter = chosen === "1" ? "all" : chosen === "0" ? "mine" : campOn ? "all" : "mine";
   const setFilter = (f: Filter) => navigate("/schedule", { query: { all: f === "all" ? "1" : "0" }, replace: true });

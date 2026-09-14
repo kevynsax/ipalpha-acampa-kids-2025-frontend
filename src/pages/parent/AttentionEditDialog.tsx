@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { CAMPER_CATEGORY_KEYS, parentUpdateCamper, type Camper, type ParentPatch } from "../../api/campers";
+import { CAMPER_CATEGORY_KEYS, parentUpdateCamper, type Camper, type Medication, type ParentPatch } from "../../api/campers";
 import { CategoryChips } from "../../components/CategoryFields";
+import MedicationsEditor from "../../components/MedicationsEditor";
 import Dialog from "../../components/Dialog";
 import { useCategories } from "../../store/derive";
 
@@ -24,7 +25,7 @@ export default function AttentionEditDialog({ token, open, camper: k, onClose }:
   const [allergies, setAllergies] = useState<string[]>(k.allergies);
   const [drugAllergies, setDrugAllergies] = useState<string[]>(k.drugAllergies);
   const [healthIssues, setHealthIssues] = useState<string[]>(k.healthIssues);
-  const [medicines, setMedicines] = useState(k.medicines);
+  const [medications, setMedications] = useState<Medication[]>(k.medications);
   const [foodRestrictions, setFoodRestrictions] = useState(k.foodRestrictions);
   const [healthNotes, setHealthNotes] = useState(k.healthNotes);
   const [weight, setWeight] = useState(k.weightKg != null ? String(k.weightKg).replace(".", ",") : "");
@@ -42,7 +43,8 @@ export default function AttentionEditDialog({ token, open, camper: k, onClose }:
   if (!same(allergies, k.allergies)) patch.allergies = allergies;
   if (!same(drugAllergies, k.drugAllergies)) patch.drugAllergies = drugAllergies;
   if (!same(healthIssues, k.healthIssues)) patch.healthIssues = healthIssues;
-  if (medicines.trim() !== k.medicines) patch.medicines = medicines.trim();
+  const cleanMeds = medications.filter((m) => m.name.trim()).map((m) => ({ ...m, name: m.name.trim(), dose: m.dose.trim(), notes: m.notes.trim() }));
+  if (JSON.stringify(cleanMeds) !== JSON.stringify(k.medications)) patch.medications = cleanMeds;
   if (foodRestrictions.trim() !== k.foodRestrictions) patch.foodRestrictions = foodRestrictions.trim();
   if (healthNotes.trim() !== k.healthNotes) patch.healthNotes = healthNotes.trim();
   const roundedWeight = weightOk && weightKg !== null ? Math.round(weightKg * 10) / 10 : null;
@@ -88,7 +90,10 @@ export default function AttentionEditDialog({ token, open, camper: k, onClose }:
         <CategoryChips label="Alergia a medicamentos" category={cat(CAMPER_CATEGORY_KEYS.drugAllergies)} value={drugAllergies} onChange={setDrugAllergies} disabled={busy} />
         <CategoryChips label="Condição de saúde" category={cat(CAMPER_CATEGORY_KEYS.healthIssues)} value={healthIssues} onChange={setHealthIssues} disabled={busy} />
 
-        {text("💊 Medicação de uso diário", medicines, setMedicines, "ex.: Ritalina 10mg pela manhã", 2)}
+        <div className="cat-field">
+          <span className="cat-field__label">💊 Medicação de uso diário</span>
+          <MedicationsEditor value={medications} onChange={setMedications} disabled={busy} />
+        </div>
         {text("🍽️ Alimentação / restrições", foodRestrictions, setFoodRestrictions, "ex.: sem lactose", 2)}
         {text("🩺 Observações médicas", healthNotes, setHealthNotes, "ex.: em caso de crise, 4 puffs de Aerolin…", 3)}
 

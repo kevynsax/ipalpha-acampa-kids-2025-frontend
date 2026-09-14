@@ -8,6 +8,7 @@ import { camperIdFromQr } from "../print/camperLabels";
 import { useRoute } from "../router";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import { useLabelOf } from "../store/derive";
+import { QrGlyph, UndoGlyph } from "../components/Glyph";
 
 interface BusCheckinPageProps {
   token: string;
@@ -77,7 +78,7 @@ export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false,
   async function toggle(k: Camper) {
     if (readOnly || pending.has(k.id)) return;
     if (!k.busCheckin && !k.checkin) return; // must pass through the church first
-    if (k.busCheckin && !(await confirm({ emoji: "↩️", title: `Tirar ${k.name.split(" ")[0]} do ônibus?`, message: "A criança voltará para a lista de quem ainda não embarcou.", confirmLabel: "Tirar", danger: true }))) return;
+    if (k.busCheckin && !(await confirm({ emoji: <UndoGlyph />, title: `Tirar ${k.name.split(" ")[0]} do ônibus?`, message: "A criança voltará para a lista de quem ainda não embarcou.", confirmLabel: "Tirar", danger: true }))) return;
     setPending((p) => new Set(p).add(k.id));
     setError(null);
     try {
@@ -219,12 +220,14 @@ export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false,
         <button
           type="button"
           className="button button--primary bus-scan-button"
+          title="Ler QR da pulseira ou crachá"
+          aria-label="Ler QR da pulseira ou crachá"
           onClick={() => {
             setScanNotice(null);
             setScannerOpen(true);
           }}
         >
-          📷 Ler QR da pulseira ou crachá
+          <QrGlyph size="1.6em" />
         </button>
       )}
 

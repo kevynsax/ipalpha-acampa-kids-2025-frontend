@@ -14,6 +14,8 @@ export interface Staff {
   name: string;
   /** E.164, or null while the person hasn't registered a phone */
   phone: string | null;
+  /** an ADMIN's own roster record: can't be deleted, deactivated or have the phone changed */
+  admin?: boolean;
   active: boolean;
   team: string | null;
   transportation: string | null;
@@ -34,6 +36,10 @@ export interface Staff {
   vest: VestStatus;
   /** Preparação items ticked as done: "section:<id>" | "role:<id>" */
   prepDone: string[];
+  /** distinct kids scanned via the emergency QR outside this person's scope */
+  foreignLookupCount?: number;
+  /** names of those kids (newest last) — for the admin export / Geral card */
+  foreignLookupNames?: string[];
   /**
    * true when the server sent a reduced record: the viewer is a colleague in
    * the same room (name only) or a vest helper (name + phone + vest) — not an
@@ -72,6 +78,16 @@ export interface StaffInput {
   healthNotes: string;
 }
 
+/**
+ * A team member's sex, taken from the wing of the room they sleep in
+ * (Meninas → "F", Meninos → "M"). There is no sex field on the roster: null
+ * when the person has no room or sleeps in the staff wing — treat as unknown.
+ */
+export function staffSex(s: Pick<Staff, "bedroom">, bedrooms: Pick<import("./bedrooms").Bedroom, "id" | "group">[]): import("./campers").CamperSex | null {
+  const group = s.bedroom ? bedrooms.find((b) => b.id === s.bedroom)?.group : undefined;
+  return group === "girls" ? "F" : group === "boys" ? "M" : null;
+}
+
 const json = (token: string) => ({ ...bearer(token), "content-type": "application/json" });
 
 export interface StaffScheduleItem {
@@ -95,6 +111,8 @@ export interface StaffDetail {
   schedule: StaffScheduleItem[];
   /** kids sleeping in this person's bedroom (their responsibility) */
   campers: import("./campers").Camper[];
+  /** the OTHER kids of the room (a caretaker: those under someone else's care; a helper: none) */
+  otherCampers: import("./campers").Camper[];
   /** other staff in the same bedroom */
   roommates: Staff[];
 }
@@ -167,7 +185,8 @@ export interface SelfCheckinStatus {
   date: string | null;
   /** ISO instant from which the check-in is accepted (1 h before the first event) — null when the programme is empty */
   opensAt: string | null;
-  location: import("./settings").CheckinLocation;
+  /** every meeting point — the phone shows the distance to the nearest one */
+  locations: import("./settings").CheckinLocation[];
   staff: Staff | null;
 }
 
@@ -176,8 +195,8 @@ export async function getSelfCheckinStatus(token: string): Promise<SelfCheckinSt
 }
 
 /** Sends the device position; the server decides whether it is close enough. */
-export async function selfCheckin(token: string, pos: { lat: number; lng: number; accuracyM?: number }): Promise<{ staff: Staff; distanceM: number }> {
-  const res = await command<{ staff: Staff; distanceM: number }>("/api/staff/me/checkin", {
+export async function selfCheckin(token: string, pos: { lat: number; lng: number; accuracyM?: number }): Promise<{ staff: Staff; distanceM: number; location: import("./settings").CheckinLocation }> {
+  const res = await command<{ staff: Staff; distanceM: number; location: import("./settings").CheckinLocation }>("/api/staff/me/checkin", {
     method: "POST",
     headers: json(token),
     body: JSON.stringify(pos),

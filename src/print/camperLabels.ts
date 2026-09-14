@@ -26,7 +26,7 @@ export function healthMarks(k: Camper, labelOf: LabelOf): string {
   const marks: string[] = [];
   if (real(k.allergies) || real(k.drugAllergies)) marks.push("*");
   if (real(k.healthIssues)) marks.push("#");
-  if ((k.medicines ?? "").trim()) marks.push("+");
+  if ((k.medications ?? []).length) marks.push("+");
   return marks.join(" ");
 }
 

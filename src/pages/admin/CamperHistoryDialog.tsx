@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listCamperChanges, PARENT_FIELD_LABEL, type CamperChange } from "../../api/campers";
+import { listCamperChanges, medicationLine, PARENT_FIELD_LABEL, type CamperChange, type Medication } from "../../api/campers";
 import Dialog from "../../components/Dialog";
 import { useLabelOf } from "../../store/derive";
 
@@ -30,7 +30,12 @@ export default function CamperHistoryDialog({ token, open, camperId, camperName,
   /** a stored value → readable text (option ids become labels) */
   const show = (v: unknown): string => {
     if (v === null || v === undefined || v === "") return "—";
-    if (Array.isArray(v)) return v.length ? v.map((id) => labelOf(String(id)) ?? String(id)).join(", ") : "—";
+    if (Array.isArray(v)) {
+      if (!v.length) return "—";
+      // medications are objects; every other list is option ids
+      if (typeof v[0] === "object" && v[0] !== null) return (v as Medication[]).map(medicationLine).join("; ");
+      return v.map((id) => labelOf(String(id)) ?? String(id)).join(", ");
+    }
     if (typeof v === "number") return String(v).replace(".", ",");
     return String(v);
   };

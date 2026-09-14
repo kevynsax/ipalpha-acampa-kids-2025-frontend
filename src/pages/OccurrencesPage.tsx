@@ -11,6 +11,8 @@ import { useCollection } from "../store";
 interface OccurrencesPageProps {
   token: string;
   user: LoggedUser;
+  /** admin or ORGANIZER: every occurrence, campers optional */
+  manager?: boolean;
 }
 
 type PersonKind = "camper" | "staff";
@@ -23,11 +25,11 @@ const normalize = (value: string) =>
 
 const dateTime = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
-export default function OccurrencesPage({ token, user }: OccurrencesPageProps) {
+export default function OccurrencesPage({ token, user, manager = false }: OccurrencesPageProps) {
   const occurrences = useCollection("occurrences");
   const campers = useCollection("campers");
   const staff = useCollection("staff");
-  const isAdmin = user.activeRole === "admin";
+  const isAdmin = manager || user.activeRole === "admin";
   const [creating, setCreating] = useState(false);
   const [camperIds, setCamperIds] = useState<string[]>([]);
   const [staffIds, setStaffIds] = useState<string[]>([]);
@@ -87,7 +89,7 @@ export default function OccurrencesPage({ token, user }: OccurrencesPageProps) {
         )}
       </header>
       <p className="admin-intro">
-        Registre com clareza o que aconteceu e quem estava envolvido. Fotos podem ser inseridas diretamente na descrição.
+        Registre com clareza o que aconteceu e quem estava envolvido.
       </p>
       {!isAdmin && <p className="occurrence-access">🔒 A equipe médica vê e cria apenas ocorrências relacionadas a pelo menos um acampante.</p>}
       {saved && <p className="message message--ok">✅ Ocorrência registrada.</p>}
@@ -116,7 +118,7 @@ export default function OccurrencesPage({ token, user }: OccurrencesPageProps) {
           </div>
           <div className="cat-field">
             <span className="cat-field__label">Descrição do que aconteceu</span>
-            <p className="cat-hint">Inclua fatos, horário, providências tomadas e informações importantes. Use o botão de imagem ou cole/arraste uma foto.</p>
+            <p className="cat-hint">Inclua fatos, horário e providências tomadas. Fotos: 🖼️ ou cole / arraste.</p>
             <RichTextEditor token={token} value={description} onChange={setDescription} disabled={busy} placeholder="Descreva a ocorrência…" tall aiContext="occurrence" />
           </div>
           <div className="cat-form__actions">

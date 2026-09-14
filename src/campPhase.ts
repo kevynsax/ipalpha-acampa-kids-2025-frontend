@@ -32,19 +32,37 @@ export interface CampTiming {
   firstDate: string | null;
   /** whole days from today until the first event (negative once it started) */
   daysToGo: number | null;
-  /** true on the camp days themselves: from the first event's day through the last event's day (the scoreboard is only shown then) */
+  /** true while the camp is happening: from the first event's day until the END of the last event (its start when it has no end) — the scoreboard / give-away are only shown then */
   during: boolean;
+  /** epoch ms at which the camp is over (null without a programme) — mirrors the server's `campPeriod().endsAt` */
+  endsAt: number | null;
 }
 
-export function campTiming(firstDate: string | null, now = new Date(), synced = true, lastDate: string | null = firstDate): CampTiming {
-  if (!firstDate) return { phase: "unknown", synced, firstDate: null, daysToGo: null, during: false };
+/** "YYYY-MM-DD" + "HH:mm" → local epoch ms */
+function at(date: string, time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return dayStart(date) + (h * 60 + m) * 60_000;
+}
+
+export interface LastEvent {
+  date: string;
+  startTime: string;
+  endTime: string | null;
+}
+
+/** `last`: the programme's last event — the camp ends at its `endTime`, or its `startTime` when it has none. */
+export function campTiming(firstDate: string | null, now = new Date(), synced = true, last: LastEvent | null = null): CampTiming {
+  if (!firstDate) return { phase: "unknown", synced, firstDate: null, daysToGo: null, during: false, endsAt: null };
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const daysToGo = Math.round((dayStart(firstDate) - today) / DAY_MS);
-  const during = daysToGo <= 0 && today <= dayStart(lastDate ?? firstDate);
-  return { phase: daysToGo > PREP_DAYS ? "before" : "camp", synced, firstDate, daysToGo, during };
+  const endsAt = last ? at(last.date, last.endTime ?? last.startTime) : dayStart(firstDate) + DAY_MS;
+  const during = daysToGo <= 0 && now.getTime() < endsAt;
+  return { phase: daysToGo > PREP_DAYS ? "before" : "camp", synced, firstDate, daysToGo, during, endsAt };
 }
 
-/** Live camp timing from the programme in the store (re-checked every hour so midnight flips it). */
+const MAX_TIMEOUT = 2 ** 31 - 1;
+
+/** Live camp timing from the programme in the store (re-checked every hour so midnight flips it, and at the instant the camp ends). */
 export function useCampTiming(): CampTiming {
   const events = useCollection("events");
   const [tick, setTick] = useState(0);
@@ -52,9 +70,17 @@ export function useCampTiming(): CampTiming {
     const t = setInterval(() => setTick((n) => n + 1), 3600_000);
     return () => clearInterval(t);
   }, []);
-  return useMemo(() => {
-    const dates = events && events.length ? events.map((e) => e.date).sort() : [];
-    return campTiming(dates[0] ?? null, new Date(), events !== null, dates[dates.length - 1] ?? null);
+  const timing = useMemo(() => {
+    const sorted = events && events.length ? events.slice().sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)) : [];
+    const last = sorted[sorted.length - 1];
+    return campTiming(sorted[0]?.date ?? null, new Date(), events !== null, last ? { date: last.date, startTime: last.startTime, endTime: last.endTime } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, tick]);
+  // wake up right after the camp ends so `during` flips without waiting for the hourly tick
+  useEffect(() => {
+    if (!timing.during || timing.endsAt === null) return;
+    const t = setTimeout(() => setTick((n) => n + 1), Math.min(timing.endsAt - Date.now() + 700, MAX_TIMEOUT));
+    return () => clearTimeout(t);
+  }, [timing.during, timing.endsAt]);
+  return timing;
 }

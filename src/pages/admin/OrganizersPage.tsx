@@ -10,10 +10,11 @@ interface OrganizersPageProps {
 }
 
 /**
- * Admin-only: team members who ORGANIZE the programme, like the admin — they
- * create / edit / delete events and roles and assign anyone; for that they
- * see the whole team (health included) and the full schedule. They cannot
- * add / edit / remove staff nor export the list. No time window.
+ * Admin-only: team members who are ORGANIZERS — the admin's tabs and
+ * settings (campers, staff, rooms, programme, check-ins, occurrences,
+ * documents…), except this page, Categorias, Notificações and Sobre. No time
+ * window. The GAME organizers (Settings → Jogos) are listed here read-only:
+ * they only edit the programme and the scoreboard.
  */
 export default function OrganizersPage({ token }: OrganizersPageProps) {
   const settings = useCollection("settings");
@@ -22,7 +23,7 @@ export default function OrganizersPage({ token }: OrganizersPageProps) {
   const [ids, setIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** the game organizers (Settings → Placar) organize the programme too — shown here read-only so the admin sees the whole picture */
+  /** the game organizers (Settings → Jogos) organize the programme too — shown here read-only so the admin sees the whole picture */
   const gameOrganizers = useMemo(() => {
     const byId = new Map(staff.map((s) => [s.id, s]));
     return (settings?.gameOrganizers?.staffIds ?? []).map((id) => byId.get(id)).filter((s): s is NonNullable<typeof s> => !!s);
@@ -65,14 +66,14 @@ export default function OrganizersPage({ token }: OrganizersPageProps) {
         </h1>
       </header>
       <p className="admin-intro">
-        Pessoas da equipe que ajudam a <strong>organizar a programação</strong>, como o admin: criam e alteram eventos e funções e escalam
-        qualquer pessoa. Para isso, elas veem <strong>toda a equipe</strong> (incluindo dados de saúde) e a programação completa.
+        Pessoas da equipe com <strong>acesso de administração</strong>: acampantes, equipe, quartos, programação, check-ins, ocorrências e
+        configurações. Veem <strong>tudo</strong>, incluindo dados de saúde.
       </p>
 
       {error && <p className="message message--error">{error}</p>}
 
       <section className="cat-form">
-        <StaffListEditor title="Quem organiza" value={ids} onChange={(nextIds) => void saveIds(nextIds)} disabled={busy} pickerTitle="Adicionar organizador" empty="Ninguém escolhido ainda. Só o admin altera a programação." />
+        <StaffListEditor title="Quem organiza" value={ids} onChange={(nextIds) => void saveIds(nextIds)} disabled={busy} pickerTitle="Adicionar organizador" empty="Ninguém escolhido ainda. Só o admin administra o app." />
       </section>
 
       <section className="cat-form">
@@ -81,10 +82,10 @@ export default function OrganizersPage({ token }: OrganizersPageProps) {
             🏆 Organizadores dos jogos <span className="cat-tab__count">{gameOrganizers.length}</span>
           </h2>
           <button type="button" className="button button--secondary list-head__add" onClick={() => navigate("/game-organizers")}>
-            Editar em Placar ›
+            Editar em Jogos ›
           </button>
         </div>
-        <p className="cat-hint">Também organizam a programação, com os mesmos poderes — e ainda lançam pontos no Placar. A lista é editada em Configurações → Placar.</p>
+        <p className="cat-hint">Editam a programação e lançam pontos no Placar — sem as outras permissões de organizador.</p>
         {gameOrganizers.length === 0 ? (
           <p className="opt-empty">Ninguém ainda.</p>
         ) : (
@@ -99,7 +100,7 @@ export default function OrganizersPage({ token }: OrganizersPageProps) {
       </section>
 
       <p className="footer-note">
-        🔒 Organizadores não cadastram, editam nem excluem pessoas da equipe, e não baixam a lista em Excel — só consultam, filtram e escalam.
+        🔒 Organizadores não mexem nesta lista nem em Categorias, Notificações e Sobre — só o admin.
       </p>
     </div>
   );

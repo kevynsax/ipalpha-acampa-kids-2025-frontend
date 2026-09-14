@@ -251,7 +251,7 @@ export default function CategoriesPage({ token }: CategoriesPageProps) {
                     disabled={busy}
                     onClick={() => navigate(`/categories/${selected.id}/edit`)}
                   >
-                    ✏️
+                    <span className="pencil" aria-hidden="true">✏️</span>
                   </button>
                   <button
                     type="button"

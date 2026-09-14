@@ -103,7 +103,7 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
         <div className="detail-h2-row">
           <h3 className="detail-h2">⚠️ Pontos de atenção</h3>
           <button type="button" className="button button--edit" onClick={() => setEditing(true)}>
-            ✏️ Editar
+            <span className="pencil" aria-hidden="true">✏️</span> Editar
           </button>
         </div>
         <div className="detail-card">
@@ -117,7 +117,7 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
             </dd>
           </dl>
           <HealthAlerts person={k} labelOf={labelOf} boxed />
-          {!k.allergies.length && !k.drugAllergies.length && !k.healthIssues.length && !k.medicines && !k.foodRestrictions && !k.healthNotes && (
+          {!k.allergies.length && !k.drugAllergies.length && !k.healthIssues.length && !k.medications.length && !k.foodRestrictions && !k.healthNotes && (
             <p className="cat-hint">Nenhuma alergia, condição ou medicação informada.</p>
           )}
           <p className="detail-note">📝 {k.generalNotes || <em className="staff-card__missing">sem observações</em>}</p>

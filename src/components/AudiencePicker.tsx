@@ -41,9 +41,9 @@ export default function AudiencePicker({ value, onChange, disabled }: AudiencePi
 export type PrepAudience = "parent" | "caretaker" | "helper";
 
 export const PREP_AUDIENCE_META: Record<PrepAudience, { label: string; emoji: string; hint: string }> = {
-  parent: { label: "Pais", emoji: "👨‍👩‍👧", hint: "os responsáveis pelas crianças" },
-  caretaker: DOC_AUDIENCE_META.caretaker,
-  helper: DOC_AUDIENCE_META.helper,
+  parent: { label: "Pais", emoji: "👨‍👩‍👧", hint: "ou responsáveis pelas crianças" },
+  caretaker: { ...DOC_AUDIENCE_META.caretaker, hint: "quem cuida de crianças" },
+  helper: { ...DOC_AUDIENCE_META.helper, hint: "os auxiliares de quarto" },
 };
 const PREP_ORDER: PrepAudience[] = ["parent", "caretaker", "helper"];
 

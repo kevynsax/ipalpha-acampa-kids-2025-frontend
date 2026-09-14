@@ -1,9 +1,8 @@
 import { useCollection } from "../../store";
 import AccessWindowCard from "./AccessWindowCard";
 import CheckinReminderCard from "./CheckinReminderCard";
-import CheckinTestTools from "./CheckinTestTools";
+import ForeignLookupsCard from "./ForeignLookupsCard";
 import KidsRoomsDraftCard from "./KidsRoomsDraftCard";
-import ScoreDraftCard from "./ScoreDraftCard";
 
 interface GeneralSettingsPageProps {
   token: string;
@@ -16,9 +15,8 @@ interface GeneralSettingsPageProps {
  *      it the server sends them nothing and the app shows no data;
  *   2. the ACCESS window of the parents (same idea; the welcome SMS goes out when it opens);
  *   3. the check-in reminder date (SMS to the whole team; also on Notificações);
- *   4. the "kids' rooms still a draft" switch (hides kids from caretakers, mutes room SMS);
- *   5. the "scoreboard draft" switch (opens the Placar and accepts points outside the camp days);
- *   6. the check-in rehearsal tools (also on the Check-in settings page).
+ *   4. the "kids' rooms still a draft" switch (hides kids from caretakers, mutes room SMS) — also on Testes.
+ * The scoreboard rehearsal, the check-in test tools and the SMS redirect live on Testes.
  */
 export default function GeneralSettingsPage({ token }: GeneralSettingsPageProps) {
   const settings = useCollection("settings");
@@ -44,9 +42,7 @@ export default function GeneralSettingsPage({ token }: GeneralSettingsPageProps)
 
       <KidsRoomsDraftCard token={token} />
 
-      <ScoreDraftCard token={token} />
-
-      <CheckinTestTools token={token} />
+      <ForeignLookupsCard token={token} />
     </div>
   );
 }

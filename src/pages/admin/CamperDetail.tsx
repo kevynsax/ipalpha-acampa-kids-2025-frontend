@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { ROOM_ROLE_META } from "../../api/staff";
+import AssignLeaderDialog from "./AssignLeaderDialog";
 import ChangeRoomDialog from "./ChangeRoomDialog";
 import CamperHistoryDialog from "./CamperHistoryDialog";
+import CamperFieldDialog, { type CamperQuickField } from "./CamperFieldDialog";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import HealthAlerts from "../../components/HealthAlerts";
 import CamperCard from "../../components/CamperCard";
 import KidIcon from "../../components/KidIcon";
 import PlayScene from "../../components/PlayScene";
-import { kidSexOf } from "../../icons";
+import { ICONS, kidSexOf } from "../../icons";
 import { GROUP_META, bedroomLabel } from "../../api/bedrooms";
 import { ageOf, type Camper } from "../../api/campers";
 import ParentIcon from "../../components/ParentIcon";
@@ -17,6 +19,7 @@ import WhatsAppButton from "../../components/WhatsAppButton";
 import { loadAuth } from "../../auth/store";
 import { formatBrazilPhoneClient } from "../../phoneFormat";
 import { staffGreeting, whatsappLink } from "../../whatsapp";
+import { useCollectionOrEmpty } from "../../store";
 import { useCamperDetail, useLabelOf } from "../../store/derive";
 import type { DetailNav } from "./DetailStack";
 
@@ -24,6 +27,16 @@ interface CamperDetailProps {
   token: string;
   camperId: string;
   nav: DetailNav;
+  /**
+   * Emergency QR lookup: the kid may be OUTSIDE the viewer's realtime store.
+   * When set, this record is shown instead of looking the id up locally
+   * (room / caretaker / roommates still join from the store when present).
+   */
+  camperOverride?: Camper;
+  /** room from the lookup response (out-of-scope kids aren't in the bedrooms store) */
+  bedroomOverride?: { id: string; name: string; group: "girls" | "boys" | "staff" } | null;
+  /** caretaker from the lookup response (name only) */
+  caretakerOverride?: { id: string; name: string } | null;
   /** absent = read-only (medical team, or opened from another page): no pencil, no room change */
   onEdit?: (camper: Camper) => void;
   onOpenStaff?: (staffId: string) => void;
@@ -38,29 +51,51 @@ function fmtDate(iso: string | null): string | null {
 }
 
 /** One kid: full registration info, the room + caretakers, and roommates. */
-export default function CamperDetail({ token, camperId, nav, onEdit, onOpenStaff, onOpenCamper, onOpenBedroom }: CamperDetailProps) {
+export default function CamperDetail({ token, camperId, nav, camperOverride, bedroomOverride, caretakerOverride, onEdit, onOpenStaff, onOpenCamper, onOpenBedroom }: CamperDetailProps) {
   const [moveOpen, setMoveOpen] = useState(false);
+  const [leaderOpen, setLeaderOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [fieldOpen, setFieldOpen] = useState<CamperQuickField | null>(null);
   // joined locally from the store — works offline and updates live
   const data = useCamperDetail(camperId);
-  const error = data === undefined ? "Acampante não encontrado." : null;
+  const bedrooms = useCollectionOrEmpty("bedrooms");
+  const staff = useCollectionOrEmpty("staff");
   const labelOf = useLabelOf();
   const myName = loadAuth()?.user.name ?? "";
   const { setTitle } = nav;
-  useEffect(() => {
-    if (data) setTitle(data.camper.name.split(" ")[0]);
-  }, [data, setTitle]);
 
-  if (!data) {
+  // emergency lookup: the kid may not be in the local store at all
+  const resolved = camperOverride
+    ? (() => {
+        const roomFromStore = camperOverride.bedroom ? bedrooms.find((b) => b.id === camperOverride.bedroom) : null;
+        const room = bedroomOverride ?? (roomFromStore ? { id: roomFromStore.id, name: roomFromStore.name, group: roomFromStore.group } : null);
+        const caretakerFromStore = camperOverride.caretakerId ? (staff.find((s) => s.id === camperOverride.caretakerId) ?? null) : null;
+        const caretaker = caretakerOverride ?? caretakerFromStore;
+        return {
+          camper: camperOverride,
+          bedroom: room,
+          caretaker,
+          caretakers: camperOverride.bedroom ? staff.filter((s) => s.bedroom === camperOverride.bedroom) : [],
+          // roommates stay empty on an out-of-scope lookup — we only fetched this one kid
+          roommates: data?.camper.id === camperOverride.id ? data.roommates : [],
+        };
+      })()
+    : data;
+
+  useEffect(() => {
+    if (resolved) setTitle(resolved.camper.name.split(" ")[0]);
+  }, [resolved, setTitle]);
+
+  if (!resolved) {
     return (
       <div className="admin-page">
         <Breadcrumbs items={nav.crumbs} />
-        {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">Sincronizando… 🏕️</p>}
+        {data === undefined && !camperOverride ? <p className="message message--error">Acampante não encontrado.</p> : <p className="opt-empty">Sincronizando… 🏕️</p>}
       </div>
     );
   }
 
-  const { camper: k, bedroom, caretaker, caretakers, roommates } = data;
+  const { camper: k, bedroom, caretaker, caretakers, roommates } = resolved;
   const age = ageOf(k.birthDate);
   const sex = k.sex === "F" ? "girl" : k.sex === "M" ? "boy" : kidSexOf(bedroom?.group);
 
@@ -75,11 +110,13 @@ export default function CamperDetail({ token, camperId, nav, onEdit, onOpenStaff
         </h1>
         {onEdit && (
           <>
-            <button type="button" className="icon-btn icon-btn--lg" title="Histórico de alterações feitas pelos pais" aria-label="Histórico de alterações" onClick={() => setHistoryOpen(true)}>
-              🕓
-            </button>
+            {k.parentEditedAt && (
+              <button type="button" className="icon-btn icon-btn--lg" title="Histórico de alterações feitas pelos pais" aria-label="Histórico de alterações" onClick={() => setHistoryOpen(true)}>
+                🕓
+              </button>
+            )}
             <button type="button" className="icon-btn icon-btn--lg" title="Editar" aria-label="Editar" onClick={() => onEdit(k)}>
-              ✏️
+              <span className="pencil" aria-hidden="true">✏️</span>
             </button>
           </>
         )}
@@ -91,18 +128,21 @@ export default function CamperDetail({ token, camperId, nav, onEdit, onOpenStaff
           <dd>
             {caretaker ? (
               onOpenStaff ? (
-                <button type="button" className="link-chip" title="Ver líder" onClick={() => onOpenStaff(caretaker.id)}>
-                  {ROOM_ROLE_META.caretaker.emoji} {caretaker.name} ›
+                <button type="button" className="link-btn" title="Ver líder" onClick={() => onOpenStaff(caretaker.id)}>
+                  {caretaker.name}
                 </button>
               ) : (
-                <>
-                  {ROOM_ROLE_META.caretaker.emoji} {caretaker.name}
-                </>
+                caretaker.name
               )
             ) : k.caretakerId ? (
               "—"
             ) : (
               <span className="orphan-tag">⚠️ Sem líder</span>
+            )}
+            {onEdit && (
+              <button type="button" className="icon-btn icon-btn--bare" title={caretaker ? "Trocar líder" : "Escolher líder"} aria-label={caretaker ? "Trocar líder" : "Escolher líder"} onClick={() => setLeaderOpen(true)}>
+                <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
+              </button>
             )}
           </dd>
           <dt>Nascimento</dt>
@@ -110,13 +150,20 @@ export default function CamperDetail({ token, camperId, nav, onEdit, onOpenStaff
           <dt>Peso</dt>
           <dd>{k.weightKg != null ? `${String(k.weightKg).replace(".", ",")} kg` : "—"}</dd>
           <dt>Time</dt>
-          <dd>{labelOf(k.team) ?? "—"}</dd>
+          <dd>
+            {labelOf(k.team) ?? "—"}
+            {onEdit && (
+              <button type="button" className="icon-btn icon-btn--bare" title="Trocar de time" aria-label="Trocar de time" onClick={() => setFieldOpen("team")}>
+                <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
+              </button>
+            )}
+          </dd>
           <dt>Quarto</dt>
           <dd>
             {bedroom ? (
               onOpenBedroom ? (
-                <button type="button" className="link-chip" title="Ver quarto" onClick={() => onOpenBedroom(bedroom.id)}>
-                  🛏️ {bedroomLabel(bedroom)} ›
+                <button type="button" className="link-btn" title="Ver quarto" onClick={() => onOpenBedroom(bedroom.id)}>
+                  {bedroomLabel(bedroom)}
                 </button>
               ) : (
                 bedroomLabel(bedroom)
@@ -124,20 +171,22 @@ export default function CamperDetail({ token, camperId, nav, onEdit, onOpenStaff
             ) : (
               "—"
             )}
+            {onEdit && (
+              <button type="button" className="icon-btn icon-btn--bare" title="Trocar de quarto / líder" aria-label="Trocar de quarto ou líder" onClick={() => setMoveOpen(true)}>
+                <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
+              </button>
+            )}
             {labelOf(k.bed) && <span className="staff-tag">Cama {labelOf(k.bed)!.toLowerCase()}</span>}
           </dd>
           <dt>Transporte</dt>
-          <dd>{labelOf(k.transportation) ?? "—"}</dd>
-          {onEdit && (
-            <>
-              <dt></dt>
-              <dd>
-                <button type="button" className="button button--secondary button--sm" onClick={() => setMoveOpen(true)}>
-                  🔄 Trocar de quarto / líder
-                </button>
-              </dd>
-            </>
-          )}
+          <dd>
+            {labelOf(k.transportation) ?? "—"}
+            {onEdit && (
+              <button type="button" className="icon-btn icon-btn--bare" title="Trocar o transporte" aria-label="Trocar o transporte" onClick={() => setFieldOpen("transportation")}>
+                <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
+              </button>
+            )}
+          </dd>
           {k.bedroomPreference && (
             <>
               <dt>Quer ficar com</dt>
@@ -256,6 +305,8 @@ export default function CamperDetail({ token, camperId, nav, onEdit, onOpenStaff
       )}
 
       {onEdit && <ChangeRoomDialog token={token} open={moveOpen} camper={k} onClose={() => setMoveOpen(false)} />}
+      {onEdit && <AssignLeaderDialog token={token} open={leaderOpen} camper={k} onClose={() => setLeaderOpen(false)} />}
+      {onEdit && fieldOpen && <CamperFieldDialog token={token} open camper={k} field={fieldOpen} onClose={() => setFieldOpen(null)} />}
       {onEdit && <CamperHistoryDialog token={token} open={historyOpen} camperId={k.id} camperName={k.name} onClose={() => setHistoryOpen(false)} />}
       <PlayScene sex={sex} />
     </div>

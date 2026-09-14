@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import QrScanner from "qr-scanner";
 import Dialog from "./Dialog";
+import { QrGlyph } from "./Glyph";
 
 interface QrScannerDialogProps {
   open: boolean;
@@ -96,8 +97,8 @@ export default function QrScannerDialog({ open, busy = false, onScan, onClose }:
       <div className="qr-scanner">
         <header className="qr-scanner__head">
           <div>
-            <h2 className="cat-form__title">📷 Ler pulseira ou crachá</h2>
-            <p className="cat-hint">Aponte a câmera para o QR code. O check-in será feito automaticamente.</p>
+            <h2 className="cat-form__title"><QrGlyph /> Ler pulseira ou crachá</h2>
+            <p className="cat-hint">Aponte a câmera para o QR code.</p>
           </div>
           <button type="button" className="qr-scanner__close" aria-label="Fechar câmera" title="Fechar" disabled={busy} onClick={onClose}>
             ✕

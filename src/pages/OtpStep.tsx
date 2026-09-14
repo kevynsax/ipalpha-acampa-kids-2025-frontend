@@ -9,7 +9,7 @@ interface OtpStepProps {
   phoneE164: string;
   phoneMasked: string;
   expiresAt: string;
-  delivery: "sms" | "mock";
+  delivery: "sms" | "mock" | "redirect";
   onExpiryChange: (iso: string) => void;
   onVerified: (info: { token: string; tokenExpiresAt: string; user: LoggedUser }) => void;
   onBack: () => void;
@@ -146,7 +146,15 @@ export default function OtpStep({
 
       <h1 className="camping-panel__title">Digite o código</h1>
       <p className="panel-text">
-        Enviamos um SMS para <strong>{phoneMasked}</strong>
+        {delivery === "redirect" ? (
+          <>
+            🧪 Modo de teste: o código de <strong>{phoneMasked}</strong> foi enviado para o <strong>celular de teste</strong> da organização.
+          </>
+        ) : (
+          <>
+            Enviamos um SMS para <strong>{phoneMasked}</strong>
+          </>
+        )}
         {delivery === "mock" && (
           <span className="mock-note"> (modo dev: o código aparece no console do servidor)</span>
         )}

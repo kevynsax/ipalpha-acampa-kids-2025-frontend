@@ -11,8 +11,8 @@ export interface ConfirmOptions {
   cancelLabel?: string;
   /** red button for destructive actions */
   danger?: boolean;
-  /** emoji shown next to the title */
-  emoji?: string;
+  /** emoji (or a glyph) shown next to the title */
+  emoji?: ReactNode;
 }
 
 type Ask = (opts: ConfirmOptions) => Promise<boolean>;
@@ -63,7 +63,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             }}
           >
             <h2 className="cat-form__title">
-              {opts.emoji && <span aria-hidden="true">{opts.emoji} </span>}
+              {opts.emoji && <span className="confirm__emoji" aria-hidden="true">{opts.emoji} </span>}
               {opts.title}
             </h2>
             {opts.message && <div className="confirm__message">{opts.message}</div>}

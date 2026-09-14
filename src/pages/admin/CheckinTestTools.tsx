@@ -9,8 +9,7 @@ interface CheckinTestToolsProps {
 }
 
 /**
- * Rehearsal tools for the check-in team, shared by Configurações → Geral and
- * Configurações → Check-in:
+ * Rehearsal tools for the check-in team, on Configurações → Testes:
  *
  *   - test mode: the KIDS' church + bus roll calls open for the helpers even
  *     outside the check-in window (the team's own self check-in keeps its
@@ -29,6 +28,7 @@ export default function CheckinTestTools({ token }: CheckinTestToolsProps) {
   const testMode = !!settings?.checkinTestMode;
   const kidsChecked = campers?.filter((k) => k.checkin || k.busCheckin).length ?? 0;
   const staffChecked = staff?.filter((s) => s.checkin).length ?? 0;
+  const vestsOut = staff?.filter((s) => s.vest?.delivered).length ?? 0;
 
   async function toggleTest(value: boolean) {
     if (busy) return;
@@ -49,7 +49,7 @@ export default function CheckinTestTools({ token }: CheckinTestToolsProps) {
     const ok = await confirm({
       emoji: "🧹",
       title: "Zerar todos os check-ins?",
-      message: `Isso apaga o check-in de ${kidsChecked} criança(s) e ${staffChecked} pessoa(s) da equipe, além do histórico. Não pode ser desfeito.`,
+      message: `Isso apaga o check-in de ${kidsChecked} criança(s), ${staffChecked} pessoa(s) da equipe e ${vestsOut} colete(s), além do histórico. Não pode ser desfeito.`,
       confirmLabel: "Zerar check-ins",
       danger: true,
     });
@@ -74,16 +74,15 @@ export default function CheckinTestTools({ token }: CheckinTestToolsProps) {
         <Toggle checked={testMode} disabled={!settings || busy !== null} label={testMode ? "Modo de teste ligado" : "Modo de teste desligado"} onChange={(v) => void toggleTest(v)} />
       </div>
       <p className="cat-hint">
-        Para a equipe do check-in ensaiar antes do dia da saída. O modo de teste libera o check-in da <strong>igreja</strong> e do{" "}
-        <strong>ônibus</strong> para os ajudantes mesmo fora da janela de horário — o check-in da própria equipe (chegada na igreja)
-        continua só no dia da saída.
+        Para a equipe do check-in ensaiar antes do dia da saída: libera <strong>igreja</strong>, <strong>ônibus</strong> e <strong>coletes</strong> fora da
+        janela.
       </p>
       {error && <p className="message message--error">{error}</p>}
       {done && <p className="message message--ok">✅ {done}</p>}
       {testMode && <p className="cat-hint cat-hint--error">⚠️ Igreja e ônibus liberados agora. Desligue antes do dia da saída!</p>}
       <div className="settings-tools">
         <button type="button" className="button button--danger" disabled={busy !== null} onClick={() => void reset()}>
-          {busy === "reset" ? "Zerando…" : `🧹 Zerar check-ins (${kidsChecked} crianças · ${staffChecked} equipe)`}
+          {busy === "reset" ? "Zerando…" : `🧹 Zerar check-ins (${kidsChecked} crianças · ${staffChecked} equipe · ${vestsOut} coletes)`}
         </button>
       </div>
     </section>

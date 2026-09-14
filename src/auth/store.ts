@@ -41,7 +41,7 @@ const OTP_STORAGE_KEY = "acampa.otp";
 export interface PendingOtp {
   phoneE164: string;
   expiresAt: string; // ISO — when the SMS code stops being valid
-  delivery: "sms" | "mock";
+  delivery: "sms" | "mock" | "redirect";
 }
 
 /** Remembers the SMS that was sent so leaving the browser and coming back keeps the real expiry. */
@@ -92,7 +92,7 @@ export interface OtpRequestResult {
   phone: string;
   expiresAt: string;
   expireMinutes: number;
-  delivery: "sms" | "mock";
+  delivery: "sms" | "mock" | "redirect";
 }
 
 export async function requestOtp(phoneE164: string): Promise<OtpRequestResult> {

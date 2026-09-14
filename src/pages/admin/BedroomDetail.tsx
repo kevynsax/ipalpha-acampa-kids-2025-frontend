@@ -54,7 +54,7 @@ export default function BedroomDetail({ bedroomId, nav, onEdit, onOpenStaff, onO
         </h1>
         {onEdit && (
           <button type="button" className="icon-btn icon-btn--lg" title="Editar quarto" aria-label="Editar quarto" onClick={() => onEdit(b)}>
-            ✏️
+            <span className="pencil" aria-hidden="true">✏️</span>
           </button>
         )}
       </header>

@@ -48,7 +48,8 @@ export interface Camper {
   healthIssues: string[];
   /** neurodivergent (TEA, TDAH…) — only admins and the medical team receive it (false for everyone else) */
   neurodivergent: boolean;
-  medicines: string;
+  /** medicines the kid takes, each with its schedule (drives the medical checklist) */
+  medications: Medication[];
   foodRestrictions: string;
   healthNotes: string;
   generalNotes: string;
@@ -66,10 +67,36 @@ export interface Camper {
   /** set once the kid boarded the bus (roll call inside the vehicle) */
   busCheckin: CamperCheckin | null;
   createdAt: string;
+  /** ISO — when a parent last edited the "Pontos de atenção"; null until they do (drives the 🕓 history button) */
+  parentEditedAt: string | null;
   updatedAt: string;
 }
 
 export type CamperSex = "F" | "M";
+
+/**
+ * One medicine: fixed "HH:MM" `times` (the medical team ticks each one) or
+ * `asNeeded` (no fixed time). Neither = schedule not informed yet.
+ */
+export interface Medication {
+  name: string;
+  dose: string;
+  times: string[];
+  asNeeded: boolean;
+  notes: string;
+}
+
+export const blankMedication = (): Medication => ({ name: "", dose: "", times: [], asNeeded: false, notes: "" });
+
+/** "Ritalina 10mg · 08:30, 12:30 · junto com o café" — one line per medicine */
+export function medicationLine(m: Medication): string {
+  const when = m.asNeeded ? "quando necessário" : m.times.length ? m.times.join(", ") : "horário a confirmar";
+  return [[m.name, m.dose].filter(Boolean).join(" "), when, m.notes].filter(Boolean).join(" · ");
+}
+
+export function medicationsText(list: Medication[]): string {
+  return list.map(medicationLine).join("\n");
+}
 
 export interface CamperCheckin {
   at: string;
@@ -78,7 +105,7 @@ export interface CamperCheckin {
   byRole: string;
 }
 
-export type CamperInput = Omit<Camper, "id" | "checkin" | "busCheckin" | "createdAt" | "updatedAt">;
+export type CamperInput = Omit<Camper, "id" | "checkin" | "busCheckin" | "parentEditedAt" | "createdAt" | "updatedAt">;
 
 export interface CamperDetail {
   camper: Camper;
@@ -91,6 +118,28 @@ export interface CamperDetail {
 }
 
 const json = (token: string) => ({ ...bearer(token), "content-type": "application/json" });
+
+/** Result of GET /api/campers/lookup/:id — emergency QR scan of any kid. */
+export interface CamperLookupResult {
+  camper: Camper;
+  /** present on out-of-scope scans so the UI can show the room without the bedrooms collection */
+  bedroom?: { id: string; name: string; group: "girls" | "boys" | "staff" } | null;
+  /** present on out-of-scope scans so the UI can show the líder without the staff collection */
+  caretaker?: { id: string; name: string } | null;
+  /** true when the kid was already in the scanner's normal scope */
+  belonged: boolean;
+  foreignLookupCount: number;
+  foreignLookupBlocked: boolean;
+}
+
+/**
+ * Emergency QR lookup — the only intentional HTTP GET for a kid outside the
+ * realtime snapshot. Logs the scan server-side; out-of-scope scans tick the
+ * staff member's counter (≥3 SMS to admins, ≥5 blocks).
+ */
+export async function lookupCamper(token: string, id: string): Promise<CamperLookupResult> {
+  return api<CamperLookupResult>(`/api/campers/lookup/${encodeURIComponent(id)}`, { headers: bearer(token) });
+}
 
 export async function createCamper(token: string, input: CamperInput): Promise<Camper> {
   const res = await command<{ camper: Camper }>("/api/campers", { method: "POST", headers: json(token), body: JSON.stringify(input) }, ["campers", "bedrooms"]);
@@ -112,14 +161,14 @@ export async function deleteCamper(token: string, id: string): Promise<void> {
 }
 
 /** The fields a PARENT may edit on their own kid ("Pontos de atenção"). Everything but `generalNotes` is medical. */
-export type ParentEditableField = "allergies" | "drugAllergies" | "healthIssues" | "medicines" | "foodRestrictions" | "healthNotes" | "weightKg" | "insurance" | "insuranceCard" | "generalNotes";
+export type ParentEditableField = "allergies" | "drugAllergies" | "healthIssues" | "medications" | "foodRestrictions" | "healthNotes" | "weightKg" | "insurance" | "insuranceCard" | "generalNotes";
 export type ParentPatch = Partial<Pick<Camper, ParentEditableField>>;
 
 export const PARENT_FIELD_LABEL: Record<ParentEditableField, string> = {
   allergies: "Alergias",
   drugAllergies: "Alergia a medicamentos",
   healthIssues: "Condição de saúde",
-  medicines: "Medicação",
+  medications: "Medicação",
   foodRestrictions: "Alimentação",
   healthNotes: "Observações médicas",
   weightKg: "Peso",
@@ -166,6 +215,21 @@ export async function checkinCamper(token: string, id: string, kind: CheckinKind
 export async function undoCheckinCamper(token: string, id: string, kind: CheckinKind = "church"): Promise<Camper> {
   const res = await command<{ camper: Camper }>(checkinPath(id, kind), { method: "DELETE", headers: bearer(token) }, ["campers"]);
   return res.camper;
+}
+
+/**
+ * "YYYY-MM-DD" of the kid's birthday that falls inside the camp (first → last
+ * event day, inclusive), or null. Mirrors the server's `birthdayDuringCamp`.
+ */
+export function birthdayDuringCamp(birthDate: string | null, from: string | null, until: string | null): string | null {
+  if (!birthDate || !from || !until) return null;
+  const md = birthDate.slice(5, 10);
+  if (md.length !== 5) return null;
+  for (const y of new Set([from.slice(0, 4), until.slice(0, 4)])) {
+    const day = `${y}-${md}`;
+    if (day >= from && day <= until) return day;
+  }
+  return null;
 }
 
 /** age in whole years at `at` (defaults to today) */

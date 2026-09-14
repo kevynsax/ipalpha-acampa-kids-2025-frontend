@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { UndoGlyph } from "../components/Glyph";
 import { checkinStaff, undoCheckinStaff, type Staff } from "../api/staff";
 import { useConfirm } from "../components/ConfirmDialog";
 import Breadcrumbs from "../components/Breadcrumbs";
@@ -38,7 +39,7 @@ export default function StaffCheckinPage({ token, checkinHomePath }: StaffChecki
 
   async function toggle(s: Staff) {
     if (pending.has(s.id)) return;
-    if (s.checkin && !(await confirm({ emoji: "↩️", title: `Desfazer o check-in de ${s.name.split(" ")[0]}?`, confirmLabel: "Desfazer", danger: true }))) return;
+    if (s.checkin && !(await confirm({ emoji: <UndoGlyph />, title: `Desfazer o check-in de ${s.name.split(" ")[0]}?`, confirmLabel: "Desfazer", danger: true }))) return;
     setPending((p) => new Set(p).add(s.id));
     setError(null);
     try {

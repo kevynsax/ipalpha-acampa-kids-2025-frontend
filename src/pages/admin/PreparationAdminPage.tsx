@@ -28,7 +28,6 @@ const EMOJI_SUGGESTIONS = ["📌", "🎒", "👕", "🧢", "🧴", "💊", "⛪"
  */
 export default function PreparationAdminPage({ token }: PreparationAdminPageProps) {
   const sections = useCollection("preparation");
-  const roles = useCollectionOrEmpty("roles");
   const { segments, navigate } = useRoute();
   const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
@@ -60,7 +59,7 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
     navigate("/preparation", { replace: true });
   }
   async function handleDelete(s: PrepSection) {
-    if (!(await confirm({ emoji: "🗑️", title: `Excluir a seção "${s.title}"?`, message: "Isso não pode ser desfeito.", confirmLabel: "Excluir", danger: true }))) return;
+    if (!(await confirm({ emoji: "🗑️", title: `Excluir a comunicação "${s.title}"?`, message: "Isso não pode ser desfeito.", confirmLabel: "Excluir", danger: true }))) return;
     await withBusy(() => deletePrepSection(token, s.id)).catch(() => {});
     navigate("/preparation", { replace: true });
   }
@@ -83,7 +82,6 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
   }
 
   const editing = mode.kind === "edit" ? sections.find((s) => s.id === mode.id) : undefined;
-  const rolesWithPrep = roles.filter((r) => r.preparation).length;
   const cancel = () => goBack("/preparation");
 
   return (
@@ -92,7 +90,7 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
         <h1 className="admin-title">🎒 Preparação</h1>
         {mode.kind === "list" && (
           <button type="button" className="button button--primary admin-head__new" disabled={busy} onClick={() => navigate("/preparation/new")}>
-            + Seção
+            + Comunicação
           </button>
         )}
       </header>
@@ -100,14 +98,13 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
       {mode.kind === "list" && (
         <>
           <p className="admin-intro">
-            O que a equipe e os pais precisam saber, levar e vestir <strong>antes</strong> do acampamento. Cada seção é publicada para os pais, os líderes e/ou os auxiliares.
+            O que a equipe e os pais precisam saber, levar e vestir <strong>antes</strong> do acampamento.
           </p>
           <p className="cat-hint">
-            🎯 A preparação <strong>por função</strong> (ex.: “Inspeção: roupa verde estilo exército com boné”) é escrita na própria função, em{" "}
+            🎯 A preparação <strong>por função</strong> (ex.: “Inspeção: roupa verde estilo exército com boné”) é escrita na própria função da programação.{" "}
             <button type="button" className="link-btn" onClick={() => navigate("/schedule/roles")}>
-              Programação → Funções
+              Ver Programação → Funções
             </button>
-            . {rolesWithPrep > 0 ? `${rolesWithPrep} função${rolesWithPrep > 1 ? "ões têm" : " tem"} preparação escrita.` : "Nenhuma função tem preparação escrita ainda."}
           </p>
         </>
       )}
@@ -115,12 +112,12 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
       {error && <p className="message message--error">{error}</p>}
 
       {mode.kind === "new" && <SectionForm token={token} busy={busy} onSubmit={handleCreate} onCancel={cancel} />}
-      {mode.kind === "edit" && !editing && <p className="opt-empty">Seção não encontrada.</p>}
+      {mode.kind === "edit" && !editing && <p className="opt-empty">Comunicação não encontrada.</p>}
       {mode.kind === "edit" && editing && (
         <>
           <SectionForm key={editing.id} token={token} section={editing} busy={busy} onSubmit={(i) => handleEdit(editing, i)} onCancel={cancel} />
           <button type="button" className="link-danger" disabled={busy} onClick={() => handleDelete(editing)}>
-            🗑️ Excluir seção "{editing.title}"
+            🗑️ Excluir comunicação "{editing.title}"
           </button>
         </>
       )}
@@ -128,9 +125,9 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
       {mode.kind === "list" && sections.length === 0 && (
         <div className="admin-empty">
           <span className="admin-empty__emoji">🎒</span>
-          <p>Nenhuma seção ainda. Comece com “O que levar”, “Chegada na igreja” ou “Uniforme da equipe”.</p>
+          <p>Nenhuma comunicação ainda. Comece com “O que levar”, “Chegada na igreja” ou “Uniforme da equipe”.</p>
           <button type="button" className="button button--primary" onClick={() => navigate("/preparation/new")}>
-            + Criar seção
+            + Criar comunicação
           </button>
         </div>
       )}
@@ -151,7 +148,7 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
                     ↓
                   </button>
                   <button type="button" className="icon-btn" title="Editar" aria-label="Editar" disabled={busy} onClick={() => navigate(`/preparation/${s.id}/edit`)}>
-                    ✏️
+                    <span className="pencil" aria-hidden="true">✏️</span>
                   </button>
                 </div>
               </header>
@@ -188,7 +185,7 @@ function SectionForm({ token, section, busy, onSubmit, onCancel }: SectionFormPr
         if (valid && !busy) void onSubmit({ title: title.trim(), emoji: emoji.trim() || "📌", audiences, content }).catch(() => {});
       }}
     >
-      <h2 className="cat-form__title">{section ? "✏️ Editar seção" : "✨ Nova seção"}</h2>
+      <h2 className="cat-form__title">{section ? "✏️ Editar comunicação" : "✨ Nova comunicação"}</h2>
       <div className="cat-form__row">
         <div className="cat-field cat-field--emoji">
           <span className="cat-field__label">Ícone</span>
@@ -205,7 +202,7 @@ function SectionForm({ token, section, busy, onSubmit, onCancel }: SectionFormPr
       <PrepAudiencePicker value={audiences} onChange={setAudiences} disabled={busy} />
       <div className="cat-field">
         <span className="cat-field__label">📝 Conteúdo</span>
-        <p className="cat-hint">Texto, listas, links e fotos (🖼️ ou cole / arraste uma imagem). As fotos são reduzidas automaticamente.</p>
+        <p className="cat-hint">Texto, listas, links e fotos (🖼️ ou cole / arraste uma imagem).</p>
         <RichTextEditor token={token} value={content} onChange={setContent} disabled={busy} placeholder="ex.: Leve roupa de banho, toalha, protetor solar…" aiContext="preparation" aiTitle={title} onAiApplied={ai.onAiApplied} />
       </div>
       <div className="cat-form__actions">
@@ -213,7 +210,7 @@ function SectionForm({ token, section, busy, onSubmit, onCancel }: SectionFormPr
           Cancelar
         </button>
         <button type="submit" className="button button--primary" disabled={!valid || busy}>
-          {busy ? "Salvando…" : section ? "Salvar" : "Criar seção 🎉"}
+          {busy ? "Salvando…" : section ? "Salvar" : "Criar comunicação 🎉"}
         </button>
       </div>
     </form>

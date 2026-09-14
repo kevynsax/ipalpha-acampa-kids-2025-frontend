@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { GROUP_META, bedroomLabel } from "../../api/bedrooms";
 import { moveCamper, type Camper } from "../../api/campers";
 import { ROOM_ROLE_META } from "../../api/staff";
 import { BedroomSelect } from "../../components/CategoryFields";
 import Dialog from "../../components/Dialog";
+import { SwapGlyph } from "../../components/Glyph";
 import { useCollectionOrEmpty } from "../../store";
 
 interface ChangeRoomDialogProps {
@@ -38,10 +38,10 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
 
   const room = bedroom ? bedrooms.find((b) => b.id === bedroom) : null;
   const caretakers = useMemo(
-    () => (bedroom ? staff.filter((s) => s.active && s.bedroom === bedroom && s.roomRole === "caretaker").sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) : []),
+    () => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "caretaker").sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) : []),
     [staff, bedroom],
   );
-  const helpers = useMemo(() => (bedroom ? staff.filter((s) => s.active && s.bedroom === bedroom && s.roomRole === "helper") : []), [staff, bedroom]);
+  const helpers = useMemo(() => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "helper") : []), [staff, bedroom]);
 
   // one caretaker → no question asked; none → orphan; the current one stays selected when still valid
   useEffect(() => {
@@ -50,6 +50,8 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
   }, [caretakers, caretakerId]);
 
   const changed = bedroom !== k.bedroom || caretakerId !== k.caretakerId;
+  const sex = k.sex ?? (room?.group === "girls" ? "F" : room?.group === "boys" ? "M" : null);
+  const article = sex === "F" ? "da" : sex === "M" ? "do" : "do(a)";
   const needsPick = caretakers.length > 1 && !caretakerId;
 
   async function submit() {
@@ -67,16 +69,20 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
 
   return (
     <Dialog open={open} onClose={onClose} title="Trocar de quarto" width={560}>
-      <div className="cat-form">
-        <h2 className="cat-form__title">🔄 {k.name.split(" ")[0]}: quarto e líder</h2>
+      <div className="cat-form cat-form--plain">
+        <h2 className="cat-form__title change-room__title">
+          <SwapGlyph /> Trocar de quarto
+        </h2>
 
         <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} current={k.bedroom} groups={["girls", "boys"]} disabled={busy} />
 
         {bedroom && (
-          <fieldset className="cat-fieldset">
-            <legend className="cat-field__label">
-              {ROOM_ROLE_META.caretaker.emoji} Quem cuida de {k.name.split(" ")[0]} no quarto {room ? bedroomLabel(room) : ""}?
-            </legend>
+          <fieldset className="cat-fieldset change-room__caretaker">
+            {caretakers.length !== 1 && (
+              <legend className="cat-field__label">
+                {ROOM_ROLE_META.caretaker.emoji} Quem vai cuidar {article} {k.name.split(" ")[0]}?
+              </legend>
+            )}
             {caretakers.length === 0 && (
               <p className="message message--warn">
                 ⚠️ Nenhum líder neste quarto{helpers.length ? ` (só auxiliares: ${helpers.map((h) => h.name.split(" ")[0]).join(", ")})` : ""}. A criança ficará <strong>sem líder</strong>.
@@ -84,7 +90,7 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
             )}
             {caretakers.length === 1 && (
               <p className="cat-hint">
-                Único líder do quarto: <strong>{caretakers[0].name}</strong>.
+                Quem vai cuidar {article} {k.name.split(" ")[0]} agora vai ser {sex === "F" ? "a" : "o"} <strong>{caretakers[0].name}</strong>.
               </p>
             )}
             {caretakers.length > 1 && (
@@ -105,7 +111,6 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
           </fieldset>
         )}
         {!bedroom && <p className="cat-hint">Sem quarto a criança fica sem líder.</p>}
-        {room && <p className="cat-hint">{GROUP_META[room.group].emoji} {GROUP_META[room.group].label} · quarto {room.name}</p>}
 
         {error && <p className="message message--error">{error}</p>}
 

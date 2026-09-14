@@ -12,15 +12,15 @@ export interface HelperAccess {
   bus: boolean;
   /** the vehicle (transportation option id) the admin linked this bus helper to; null when not a bus helper / window closed */
   busVehicle: string | null;
-  /** programme organizer (no window): edits the schedule, sees the whole team — game organizers count too */
+  /** ORGANIZER (no window): the admin's tabs and settings (minus organizers / categories / notifications / about), on top of their own team tabs */
   organizer: boolean;
-  /** game organizer (no window): organizer + writes the scoreboard (Placar) */
+  /** game organizer (no window): edits the programme, sees the whole team and writes the scoreboard (Placar) */
   gameOrganizer: boolean;
   /** score helper (no window): bulk QR scan by event only; no per-team points, no zero, deletes only own scans */
   scoreHelper: boolean;
   /** medical team (no window): every camper, bedroom and vehicle, read-only, the whole time */
   medical: boolean;
-  /** vest (colete) helper (no window): hands out / takes back the team vests; sees everyone as name + phone */
+  /** vest (colete) helper — until VEST_GRACE_DAYS after the camp: hands out / takes back the team vests; sees everyone as name + phone */
   vest: boolean;
 }
 
@@ -30,8 +30,8 @@ type Lists = Pick<Settings, "checkinWindow" | "checkinHelpers" | "busHelpers" | 
 
 /**
  * Is the logged-in team member a check-in helper (church and/or bus) inside
- * the admin's check-in window, a programme organizer and/or on the medical
- * team? Reads the
+ * the admin's check-in window, an organizer, a game organizer and/or on the
+ * medical team? Reads the
  * settings (any role may), then re-evaluates on its own at the next window
  * edge and asks the server for a fresh snapshot there — so the roll-call tab
  * appears / disappears and the kids arrive / vanish without a reload. The
@@ -42,7 +42,10 @@ type Lists = Pick<Settings, "checkinWindow" | "checkinHelpers" | "busHelpers" | 
  * localStorage on a phone that happens to be offline at that moment — the
  * server's next snapshot would do the same, but may be late.
  */
-export function useCheckinHelper(phone: string, enabled: boolean): HelperAccess {
+/** the vest helpers keep their tab this long after the camp ends (mirrors the server's VEST_GRACE_DAYS) */
+export const VEST_GRACE_DAYS = 7;
+
+export function useCheckinHelper(phone: string, enabled: boolean, campEndsAt: number | null = null): HelperAccess {
   const staff = useCollection("staff");
   const lists = useCollection("settings") as Lists | null;
   const [, tick] = useState(0);
@@ -59,9 +62,10 @@ export function useCheckinHelper(phone: string, enabled: boolean): HelperAccess 
   const bus = busVehicle !== null;
   const gameOrganizer = listed("gameOrganizers");
   const scoreHelper = listed("scoreHelpers");
-  const organizer = gameOrganizer || listed("organizers");
+  const organizer = listed("organizers");
   const medical = listed("medicalStaff");
-  const vest = listed("vestHelpers");
+  const vestOpen = campEndsAt === null || now < campEndsAt + VEST_GRACE_DAYS * 24 * 60 * 60 * 1000;
+  const vest = listed("vestHelpers") && vestOpen;
   const anyOpen = church || bus;
   const myBedroom = me?.bedroom ?? null;
 
@@ -81,12 +85,12 @@ export function useCheckinHelper(phone: string, enabled: boolean): HelperAccess 
   // (unless they are on the medical team — their access has no window)
   const wasOpen = useRef(false);
   useEffect(() => {
-    if (wasOpen.current && !anyOpen && !medical && !scoreHelper) {
+    if (wasOpen.current && !anyOpen && !medical && !scoreHelper && !organizer) {
       patchCollection("campers", (list) => list.filter((k) => myBedroom !== null && k.bedroom === myBedroom));
       patchCollection("bedrooms", (list) => list.filter((b) => b.id === myBedroom));
     }
     wasOpen.current = anyOpen;
-  }, [anyOpen, medical, scoreHelper, myBedroom]);
+  }, [anyOpen, medical, scoreHelper, organizer, myBedroom]);
 
   return enabled ? { church, bus, busVehicle, organizer, gameOrganizer, scoreHelper, medical, vest } : NONE;
 }

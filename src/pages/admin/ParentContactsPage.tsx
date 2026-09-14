@@ -120,7 +120,7 @@ export default function ParentContactsPage({ token }: ParentContactsPageProps) {
         <h1 className="admin-title">📞 Important contacts</h1>
       </header>
       <p className="admin-intro">
-        Escolha quem os pais poderão procurar e dê um <strong>título claro</strong> para o assunto de cada contato. Os pais veem o nome, o celular e um botão de WhatsApp de cada pessoa.
+        Quem os pais podem procurar, com um <strong>título claro</strong> para o assunto. Os pais veem nome e celular de cada pessoa.
       </p>
       {settings && <ParentWindowNote window={settings.parentWindow} />}
 
@@ -187,7 +187,7 @@ export default function ParentContactsPage({ token }: ParentContactsPageProps) {
                   <div className="contact-item__actions" aria-label={`Ações de ${contact.title}`}>
                     <button type="button" className="icon-btn" title="Mover para cima" disabled={busy || index === 0} onClick={() => void move(index, -1)}>▲</button>
                     <button type="button" className="icon-btn" title="Mover para baixo" disabled={busy || index === contacts.length - 1} onClick={() => void move(index, 1)}>▼</button>
-                    <button type="button" className="icon-btn" title="Editar" disabled={busy} onClick={() => edit(contact)}>✏️</button>
+                    <button type="button" className="icon-btn" title="Editar" disabled={busy} onClick={() => edit(contact)}><span className="pencil" aria-hidden="true">✏️</span></button>
                     <button type="button" className="icon-btn icon-btn--danger" title="Remover" disabled={busy} onClick={() => void remove(contact.id)}>🗑️</button>
                   </div>
                 </li>

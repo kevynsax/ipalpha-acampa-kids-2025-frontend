@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { UndoGlyph } from "../components/Glyph";
 import { bedroomLabel, type Bedroom } from "../api/bedrooms";
 import { ageOf, checkinCamper, undoCheckinCamper, type Camper } from "../api/campers";
 import { useConfirm } from "../components/ConfirmDialog";
@@ -80,7 +81,7 @@ export default function CheckinPage({ token, canOpenStaff, adminMerged = false }
   }
 
   async function handleUndo(k: Camper) {
-    if (!(await confirm({ emoji: "↩️", title: `Desfazer o check-in de ${k.name}?`, message: "A criança voltará para a lista de pendentes.", confirmLabel: "Desfazer", danger: true }))) return;
+    if (!(await confirm({ emoji: <UndoGlyph />, title: `Desfazer o check-in de ${k.name}?`, message: "A criança voltará para a lista de pendentes.", confirmLabel: "Desfazer", danger: true }))) return;
     setBusy(true);
     setError(null);
     try {
@@ -199,7 +200,7 @@ export default function CheckinPage({ token, canOpenStaff, adminMerged = false }
               </div>
               {done && (
                 <button type="button" className="icon-btn icon-btn--lg" title="Desfazer check-in" aria-label={`Desfazer check-in de ${k.name}`} disabled={busy} onClick={() => handleUndo(k)}>
-                  ↩️
+                  <UndoGlyph />
                 </button>
               )}
             </li>

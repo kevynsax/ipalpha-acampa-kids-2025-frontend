@@ -30,14 +30,14 @@ const fmt = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit",
 const META = {
   staffAccessWindow: {
     title: "🕒 Janela de acesso da equipe",
-    hint: "Nesse período a equipe (geral) tem acesso ao sistema, e só nesse período as notificações por SMS são enviadas para eles.",
+    hint: "Nesse período a equipe tem acesso ao app e recebe os SMS.",
     who: "a equipe",
     toggle: "enrolments" as const,
     toggleLabel: "Boas-vindas e novas responsabilidades",
   },
   parentAccessWindow: {
     title: "👨‍👩‍👧 Janela de acesso dos pais",
-    hint: "Nesse período os pais conseguem entrar no app. Os contatos da equipe eles só veem do check-in até o fim do último evento da programação, independente desta janela.",
+    hint: "Nesse período os pais conseguem entrar no app. Os contatos da equipe eles só veem a partir do horário do check-in até o fim do acampamento.",
     who: "os pais",
     toggle: "parentWelcome" as const,
     toggleLabel: "Boas-vindas aos pais",

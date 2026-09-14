@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import { GROUP_META, bedroomLabel, type Bedroom } from "./api/bedrooms";
-import { ageOf, type Camper } from "./api/campers";
+import { ageOf, medicationsText, type Camper } from "./api/campers";
 import type { Staff } from "./api/staff";
 import { formatBrazilPhoneClient } from "./phoneFormat";
 
@@ -67,7 +67,7 @@ export function camperRow(k: Camper, roomById: Map<string, Bedroom>, labelOf: La
     "Alergia a medicamentos": labels(labelOf, k.drugAllergies),
     "Condições de saúde": labels(labelOf, k.healthIssues),
     Neurodivergente: k.neurodivergent ? "Sim" : "Não",
-    Medicamentos: k.medicines,
+    Medicamentos: medicationsText(k.medications),
     "Restrições alimentares": k.foodRestrictions,
     "Observações médicas": k.healthNotes,
     "Observações gerais": k.generalNotes,
@@ -114,6 +114,8 @@ export function staffRow(s: Staff, roomById: Map<string, Bedroom>, labelOf: Labe
     "Colete devolvido": s.vest?.returned ? "Sim" : "Não",
     "Colete devolvido em": s.vest?.returned ? brDateTime(s.vest.returned.at) : "",
     "Colete devolvido por": s.vest?.returned?.byName ?? "",
+    "Leituras fora do escopo": s.foreignLookupCount ?? 0,
+    "Crianças lidas fora do escopo": (s.foreignLookupNames ?? []).join("; "),
   };
 }
 
@@ -211,7 +213,7 @@ function roomPersonRow(p: Camper | Staff, labelOf: LabelOf): Row {
     Alergias: labels(labelOf, p.allergies),
     "Alergia a medicamentos": labels(labelOf, p.drugAllergies),
     "Condições de saúde": labels(labelOf, p.healthIssues),
-    Medicamentos: p.medicines,
+    Medicamentos: kid ? medicationsText(kid.medications) : (p as Staff).medicines,
     "Restrições alimentares": p.foodRestrictions,
     "Observações médicas": p.healthNotes,
     "Observações gerais": kid?.generalNotes ?? "",
@@ -260,7 +262,7 @@ const blankCamper: Camper = {
   drugAllergies: [],
   healthIssues: [],
   neurodivergent: false,
-  medicines: "",
+  medications: [],
   foodRestrictions: "",
   healthNotes: "",
   generalNotes: "",
@@ -274,6 +276,7 @@ const blankCamper: Camper = {
   guardianEmail: "",
   checkin: null,
   busCheckin: null,
+  parentEditedAt: null,
   createdAt: "",
   updatedAt: "",
 };
@@ -298,4 +301,6 @@ const blankStaff: Staff = {
   createdAt: "",
   updatedAt: "",
   prepDone: [],
+  foreignLookupCount: 0,
+  foreignLookupNames: [],
 };

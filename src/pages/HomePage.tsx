@@ -1,5 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { GROUP_META } from "../api/bedrooms";
+import { birthdayDuringCamp, type Camper } from "../api/campers";
 import { ROOM_ROLE_META } from "../api/staff";
 import CamperCard from "../components/CamperCard";
 import GroupIcon from "../components/GroupIcon";
@@ -17,6 +18,76 @@ import CamperDetail from "./admin/CamperDetail";
 interface HomePageProps {
   user: LoggedUser;
   token: string;
+}
+
+/** "2026-09-12" → "sáb 12/09" (weekday in pt-BR) */
+function shortDay(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const wd = new Intl.DateTimeFormat("pt-BR", { weekday: "short" }).format(new Date(y, m - 1, d)).replace(".", "");
+  return `${wd} ${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
+}
+
+/** "YYYY-MM-DD" of today on the device clock */
+function todayIso(): string {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+}
+
+interface RoomBirthday {
+  kid: Camper;
+  /** "YYYY-MM-DD" of the birthday inside the camp */
+  day: string;
+  /** age the kid turns that day */
+  age: number | null;
+}
+
+/**
+ * The kids of the room whose birthday falls on a camp day (first → last event
+ * day), sorted by day. Empty without a programme.
+ */
+function useRoomBirthdays(kids: Camper[]): RoomBirthday[] {
+  const events = useCollection("events");
+  return useMemo(() => {
+    if (!events?.length) return [];
+    const dates = events.map((e) => e.date).sort();
+    const from = dates[0];
+    const until = dates[dates.length - 1];
+    return kids
+      .flatMap((kid) => {
+        const day = birthdayDuringCamp(kid.birthDate, from, until);
+        if (!day) return [];
+        const age = kid.birthDate ? Number(day.slice(0, 4)) - Number(kid.birthDate.slice(0, 4)) : null;
+        return [{ kid, day, age }];
+      })
+      .sort((a, b) => a.day.localeCompare(b.day));
+  }, [events, kids]);
+}
+
+/** 🎂 banner: every kid of the room whose birthday is on a camp day (today highlighted) */
+function BirthdayBanner({ birthdays, onOpen }: { birthdays: RoomBirthday[]; onOpen: (id: string) => void }) {
+  if (birthdays.length === 0) return null;
+  const today = todayIso();
+  return (
+    <section className="birthday-banner" aria-label="Aniversários no acampamento">
+      <span className="birthday-banner__emoji" aria-hidden="true">🎂</span>
+      <div className="birthday-banner__body">
+        <h2 className="birthday-banner__title">Aniversário no acampamento!</h2>
+        <ul className="birthday-banner__list">
+          {birthdays.map(({ kid, day, age }) => {
+            const isToday = day === today;
+            return (
+              <li key={kid.id} className={isToday ? "birthday-banner__item--today" : undefined}>
+                <button type="button" className="link-btn" title="Ver criança" onClick={() => onOpen(kid.id)}>
+                  {kid.name}
+                </button>{" "}
+                {isToday ? "faz" : "faz aniversário"} {age !== null && `${age} anos`} {isToday ? <strong>hoje</strong> : `· ${shortDay(day)}`}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
+  );
 }
 
 /**
@@ -40,6 +111,9 @@ export default function HomePage({ user, token }: HomePageProps) {
   const first = user.name.split(" ")[0];
   const access = settings?.staffAccessWindow;
   const fmt = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  /** the room's kids the server sent me (mine + the others during the camp) */
+  const roomKids = useMemo(() => (data ? [...data.myKids, ...data.campers] : []), [data]);
+  const birthdays = useRoomBirthdays(roomKids);
 
   // ordinary team member outside the access window: the server sends no staff record at all
   if (data === undefined && access && !access.open) {
@@ -110,9 +184,12 @@ export default function HomePage({ user, token }: HomePageProps) {
         </h1>
       </header>
       <p className="admin-intro">
-        Olá, {first}! Este é o seu quarto ({m.label}).{" "}
+        Olá, {first}! Este é o seu quarto.{" "}
         {isStaffRoom ? "Aqui ficam só pessoas da equipe." : caretaker ? "Você é líder de crianças deste quarto." : "Você é auxiliar neste quarto."}
       </p>
+
+      {/* a kid of the room has their birthday on a camp day */}
+      {!isStaffRoom && <BirthdayBanner birthdays={birthdays} onOpen={openCamper} />}
 
       {/* departure day only: "Cheguei na igreja!" */}
       <SelfCheckinCard token={token} user={user} />
@@ -141,7 +218,7 @@ export default function HomePage({ user, token }: HomePageProps) {
           <h2 className="detail-h2">
             <KidIcon sex={sex} group size={26} /> Minhas crianças <span className="cat-tab__count">{myKids.length}</span>
           </h2>
-          <p className="admin-intro">Você é o líder delas. Toque para ver saúde, alimentação e observações.</p>
+          <p className="admin-intro">Você é o líder delas.</p>
           {myKids.length === 0 ? (
             <p className="opt-empty">Nenhuma criança sob sua responsabilidade ainda.</p>
           ) : (

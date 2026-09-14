@@ -81,7 +81,7 @@ export default function StaffForm({ member, categories, bedrooms, busy, onSubmit
   }
 
   return (
-    <form className="cat-form" onSubmit={handleSubmit}>
+    <form className="cat-form cat-form--plain" onSubmit={handleSubmit}>
       <h2 className="cat-form__title">{editing ? "✏️ Editar membro da equipe" : "✨ Novo membro da equipe"}</h2>
 
       <label className="cat-field">
@@ -100,13 +100,14 @@ export default function StaffForm({ member, categories, bedrooms, busy, onSubmit
       <div className="cat-form__row staff-form__row">
         <div className="cat-field cat-field--grow">
           <span className="cat-field__label">Celular</span>
-          <PhoneInput value={phone} onChange={setPhone} disabled={busy} />
+          <PhoneInput value={phone} onChange={setPhone} disabled={busy || !!member?.admin} />
           {phone && !phoneE164 && <p className="cat-hint cat-hint--error">Informe um celular válido com DDD.</p>}
+          {member?.admin && <p className="cat-hint">🔑 Celular de admin — é o login, não muda por aqui.</p>}
         </div>
 
         <div className="cat-field">
           <span className="cat-field__label">Status</span>
-          <Toggle checked={active} onChange={setActive} disabled={busy} label={active ? "Ativo" : "Inativo"} />
+          <Toggle checked={active} onChange={setActive} disabled={busy || !!member?.admin} label={active ? "Ativo" : "Inativo"} />
         </div>
       </div>
 

@@ -20,6 +20,7 @@ import { useRoute } from "../../router";
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import { useLabelOf } from "../../store/derive";
 import { downloadBedroomsXlsx } from "../../export";
+import { DownloadGlyph } from "../../components/Glyph";
 
 interface BedroomsPageProps {
   token: string;
@@ -126,7 +127,7 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
               title="Baixar todos os quartos em Excel (uma aba por quarto)"
               onClick={() => downloadBedroomsXlsx(bedrooms, campers, staff, labelOf)}
             >
-              ⬇️ Excel
+              <DownloadGlyph /> Download
             </button>
             <button
               type="button"

@@ -41,7 +41,7 @@ export default function CheckinQrDialog({ kids, active }: CheckinQrDialogProps) 
     <Dialog open={open} onClose={() => setDismissed(true)} title="Check-in: mostre o QR code" width={480}>
       <div className="cat-form qr-dialog">
         <h2 className="cat-form__title">✅ Hora do check-in!</h2>
-        <p className="cat-hint">Mostre {pending.length === 1 ? "este QR code" : "estes QR codes"} para a equipe na entrada. Assim o check-in é rapidinho. 🏕️</p>
+        <p className="cat-hint">Mostre {pending.length === 1 ? "este QR code" : "estes QR codes"} para a equipe na entrada. 🏕️</p>
         <div className="qr-dialog__codes">
           {pending.map((k) => (
             <CamperQr key={k.id} camperId={k.id} name={k.name} size={pending.length > 1 ? 180 : 240} />

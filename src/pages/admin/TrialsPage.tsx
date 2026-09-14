@@ -1,0 +1,46 @@
+import { useCollection } from "../../store";
+import CheckinTestTools from "./CheckinTestTools";
+import KidsRoomsDraftCard from "./KidsRoomsDraftCard";
+import ScoreDraftCard from "./ScoreDraftCard";
+import SmsRedirectCard from "./SmsRedirectCard";
+
+interface TrialsPageProps {
+  token: string;
+  /** the real admin: may set the SMS redirect (organizers only get the rehearsal switches) */
+  isAdmin: boolean;
+}
+
+/**
+ * Settings → Testes: everything used to REHEARSE before the camp, in one
+ * place — the kids' rooms draft (also on Geral), the scoreboard rehearsal,
+ * the check-in test mode + reset, and the SMS redirect (admin only).
+ * Every switch here must be OFF when the camp starts.
+ */
+export default function TrialsPage({ token, isAdmin }: TrialsPageProps) {
+  const settings = useCollection("settings");
+
+  if (!settings) {
+    return (
+      <div className="admin-page">
+        <p className="opt-empty">Carregando configurações… ⚙️</p>
+      </div>
+    );
+  }
+
+  const anyOn = settings.kidsRoomsDraft || settings.scoreDraft || settings.checkinTestMode || settings.smsRedirect.enabled;
+
+  return (
+    <div className="admin-page">
+      <header className="admin-head">
+        <h1 className="admin-title">🚧 Testes</h1>
+      </header>
+      <p className="admin-intro">Para ensaiar antes do acampamento. Tudo aqui deve estar desligado quando o acampamento começar.</p>
+      {anyOn && <p className="message message--warn">⚠️ Há um teste ligado. Confira antes do dia da saída.</p>}
+
+      {isAdmin && <SmsRedirectCard token={token} />}
+      <KidsRoomsDraftCard token={token} />
+      <ScoreDraftCard token={token} />
+      <CheckinTestTools token={token} />
+    </div>
+  );
+}

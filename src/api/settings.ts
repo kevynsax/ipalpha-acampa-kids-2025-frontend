@@ -2,10 +2,14 @@ import { api, command } from "./client";
 import { bearer } from "../auth/store";
 
 /** Where the team must be to check themselves in on departure day. */
+/** One meeting point for the team's self check-in (the church, the camp site…); the nearest one within its radius wins. */
 export interface CheckinLocation {
+  id: string;
+  /** shown to the team: "Igreja", "Acampamento"… */
+  name: string;
   lat: number;
   lng: number;
-  /** metres around the point that still count as "at the church" */
+  /** metres around the point that still count as "arrived" */
   radiusM: number;
 }
 
@@ -35,6 +39,8 @@ export interface NotificationSettings {
   busCheckin: boolean;
   /** when the PARENTS' access window opens each parent gets, once ever, the welcome SMS with the app link */
   parentWelcome: boolean;
+  /** a kid's birthday falls on a camp day → at 07:45 that day the whole team of the kid's room is texted */
+  birthdays: boolean;
 }
 
 /** One-shot reminder to the whole team to do their check-in. */
@@ -77,7 +83,8 @@ export interface ParentContact {
 }
 
 export interface Settings {
-  checkinLocation: CheckinLocation;
+  /** at least one meeting point (Settings → Check-in) */
+  checkinLocations: CheckinLocation[];
   /** read-only: when PARENTS see the team's contacts — from the kids' check-in start to the end of the last event */
   parentWindow: CheckinWindow;
   notifications: NotificationSettings;
@@ -86,9 +93,9 @@ export interface Settings {
   checkinHelpers: StaffList;
   /** bus helpers: each linked to ONE vehicle; inside the window they receive the kids of that vehicle, names only (`Camper.redacted`) */
   busHelpers: BusHelperList;
-  /** programme organizers (no window): write the schedule, see the whole team; never write staff */
+  /** ORGANIZERS (no window): the admin's access, minus the organizers list, categories, notifications and about */
   organizers: StaffList;
-  /** game organizers (no window): everything an organizer may do + the scoreboard (Placar) */
+  /** game organizers (Settings → Jogos, no window): edit the programme + write the scoreboard (Placar) */
   gameOrganizers: StaffList;
   /** score helpers (no window): bulk QR scan by event only; no per-team points, no zero, delete only their own scans */
   scoreHelpers: StaffList;
@@ -110,20 +117,46 @@ export interface Settings {
   scoreDraft: boolean;
   /** the "do your check-in" SMS to the whole team, scheduled for one instant */
   checkinReminder: CheckinReminder;
+  /** Settings → Testes: while on, every SMS for the team / the parents (login code + notifications) goes to the test phones instead */
+  smsRedirect: SmsRedirect;
   /** false when the server has no SMS provider configured (texts are only logged) */
   smsEnabled: boolean;
+  /**
+   * Staff who scanned ≥3 kids outside their scope (emergency QR). Empty when
+   * nobody reached the threshold — the Geral card stays hidden then.
+   */
+  foreignLookupOffenders?: ForeignLookupOffender[];
   updatedAt: string | null;
+}
+
+/** One staff member past the out-of-scope emergency-QR alert threshold. */
+export interface ForeignLookupOffender {
+  staffId: string;
+  name: string;
+  count: number;
+  names: string[];
+  blocked: boolean;
+}
+
+export interface SmsRedirect {
+  enabled: boolean;
+  /** E.164 — catches everything meant for the team; null = the team's texts are dropped while enabled */
+  staffPhone: string | null;
+  /** E.164 — catches everything meant for the parents; null = the parents' texts are dropped while enabled */
+  parentPhone: string | null;
 }
 
 /** Igreja Presbiteriana em Alphaville (same default as the backend). */
 export const DEFAULT_CHECKIN_LOCATION: CheckinLocation = {
+  id: "church",
+  name: "Igreja",
   lat: -23.48053637134259,
   lng: -46.83077891444747,
   radiusM: 300,
 };
 
 export interface SettingsPatch {
-  checkinLocation?: CheckinLocation;
+  checkinLocations?: CheckinLocation[];
   /** partial: only the keys sent are changed */
   notifications?: Partial<NotificationSettings>;
   checkinWindow?: { from: string | null; until: string | null };
@@ -141,6 +174,8 @@ export interface SettingsPatch {
   kidsRoomsDraft?: boolean;
   scoreDraft?: boolean;
   checkinReminder?: { at: string | null };
+  /** partial: only the keys sent are changed (admin only) */
+  smsRedirect?: Partial<SmsRedirect>;
 }
 
 export interface WelcomePreview {
@@ -156,6 +191,11 @@ export async function welcomePreview(token: string): Promise<WelcomePreview> {
 /** Clears every check-in (kids' church + bus, team) and the audit log — for rehearsing the process. */
 export async function resetCheckins(token: string): Promise<{ campers: number; staff: number; vests: number }> {
   return command<{ campers: number; staff: number; vests: number }>("/api/settings/checkin/reset", { method: "POST", headers: bearer(token) }, ["campers", "staff"]);
+}
+
+/** Zeroes every staff member's out-of-scope emergency-QR counter (and unblocks anyone at ≥5). */
+export async function resetForeignLookups(token: string): Promise<{ staff: number }> {
+  return command<{ staff: number; settings: Settings }>("/api/settings/foreign-lookups/reset", { method: "POST", headers: bearer(token) }, ["staff", "settings"]);
 }
 
 /** Writes go through REST; the canonical value arrives in the `settings` WebSocket collection. */

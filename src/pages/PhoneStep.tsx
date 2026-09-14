@@ -8,7 +8,7 @@ import { isCompleteMobile, toE164 } from "../phone";
 interface PhoneStepProps {
   phone: string; // masked
   onPhoneChange: (masked: string) => void;
-  onSent: (info: { phoneE164: string; expiresAt: string; delivery: "sms" | "mock" }) => void;
+  onSent: (info: { phoneE164: string; expiresAt: string; delivery: "sms" | "mock" | "redirect" }) => void;
 }
 
 /** Step 1 — Brazilian cell phone entry (rendered inside the green panel). */

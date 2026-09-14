@@ -9,7 +9,7 @@ interface ScoreDraftCardProps {
 }
 
 /**
- * Settings → Geral: "scoreboard rehearsal". The Placar tab normally only
+ * Settings → Testes: "scoreboard rehearsal". The Placar tab normally only
  * exists on the camp days (first → last programme day) and the server refuses
  * points outside them. With this on, the tab opens for everyone and points
  * may be launched any day — so the organizers and score helpers can test the
@@ -38,15 +38,12 @@ export default function ScoreDraftCard({ token }: ScoreDraftCardProps) {
   return (
     <section className="cat-form">
       <div className="cat-form__head">
-        <h2 className="cat-form__title">🏆 Placar em rascunho</h2>
-        <Toggle checked={draft} disabled={!settings || busy} label={draft ? "Rascunho ligado" : "Rascunho desligado"} onChange={(v) => void toggle(v)} />
+        <h2 className="cat-form__title">🏆 Placar em teste</h2>
+        <Toggle checked={draft} disabled={!settings || busy} label={draft ? "Teste ligado" : "Teste desligado"} onChange={(v) => void toggle(v)} />
       </div>
       <p className="cat-hint">
-        O <strong>Placar</strong> só aparece e recebe pontos <strong>nos dias do acampamento</strong> (do primeiro ao último dia da programação). Ligue o
-        rascunho para a organização dos jogos e os ajudantes do placar <strong>ensaiarem antes</strong> — a aba abre para toda a equipe e os pontos (inclusive
-        a leitura de crachás) passam a valer em qualquer dia.
-        <br />
-        Fora dos dias do acampamento e com o rascunho desligado, ninguém consegue lançar pontos e a aba não abre.
+        O <strong>Placar</strong> só aparece e recebe pontos <strong>nos dias do acampamento</strong>. Ligue o teste para a organização dos jogos e os ajudantes do placar{" "}
+        <strong>ensaiarem antes</strong> — só eles (e o admin / organizadores) veem a aba.
       </p>
       {error && <p className="message message--error">{error}</p>}
       {draft && !during && <p className="cat-hint cat-hint--error">⚠️ Placar liberado fora do acampamento. Zere os times e desligue antes do primeiro dia!</p>}

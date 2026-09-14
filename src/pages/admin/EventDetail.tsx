@@ -76,7 +76,7 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
           <span aria-hidden="true">{e.emoji}</span> {e.title}
         </h1>
         <button type="button" className="icon-btn icon-btn--lg" title="Editar evento" aria-label="Editar evento" onClick={onEdit}>
-          ✏️
+          <span className="pencil" aria-hidden="true">✏️</span>
         </button>
       </header>
 

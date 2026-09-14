@@ -50,7 +50,7 @@ export default function MoveStaffDialog({ token, open, member: s, onClose }: Mov
   /** people to swap with: anyone of the TARGET room; to assign: anyone of MY room */
   const candidates = useMemo(() => {
     const room = kids === "swap" ? bedroom : s.bedroom;
-    return room ? staff.filter((x) => x.active && x.id !== s.id && x.bedroom === room).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) : [];
+    return room ? staff.filter((x) => x.id !== s.id && x.bedroom === room).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) : [];
   }, [staff, kids, bedroom, s.bedroom, s.id]);
   const kidsOf = (id: string) => campers.filter((k) => k.caretakerId === id).length;
 

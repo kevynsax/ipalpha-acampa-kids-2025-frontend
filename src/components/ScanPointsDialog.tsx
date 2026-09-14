@@ -5,6 +5,7 @@ import { formatEventDate, type CampEvent } from "../api/schedule";
 import { camperIdFromQr } from "../print/camperLabels";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import Dialog from "./Dialog";
+import { QrGlyph } from "./Glyph";
 
 interface ScanPointsDialogProps {
   token: string;
@@ -232,7 +233,7 @@ export default function ScanPointsDialog({ token, onClose }: ScanPointsDialogPro
       <div className="qr-scanner scan-points">
         <header className="qr-scanner__head">
           <div>
-            <h2 className="cat-form__title">📷 Pontos por QR code</h2>
+            <h2 className="cat-form__title"><QrGlyph /> Pontos por QR code</h2>
             <p className="cat-hint">
               Cada crachá lido dá {pointsValid ? points : "—"} ponto{points !== 1 ? "s" : ""} ao time da criança. Uma vez por criança neste evento, em qualquer aparelho.
             </p>

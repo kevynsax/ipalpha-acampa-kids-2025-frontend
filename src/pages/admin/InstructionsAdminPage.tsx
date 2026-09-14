@@ -101,7 +101,7 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
                 <span aria-hidden="true">{current.emoji}</span> {current.title}
               </h1>
               <button type="button" className="icon-btn icon-btn--lg" title="Editar" aria-label="Editar" disabled={busy} onClick={() => navigate(`/instructions-admin/${current.id}/edit`)}>
-                ✏️
+                <span className="pencil" aria-hidden="true">✏️</span>
               </button>
             </header>
             {error && <p className="message message--error">{error}</p>}
@@ -151,8 +151,7 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
         </button>
       </header>
       <p className="admin-intro">
-        Documentos gerais do acampamento, para toda a equipe ler: regras, plano de emergência, rotina do dia… Cada um abre inteiro na
-        aba <em>Instruções</em> do celular da equipe.
+        Documentos gerais do acampamento, para toda a equipe ler: regras, plano de emergência, rotina do dia…
       </p>
 
       {error && <p className="message message--error">{error}</p>}
@@ -197,7 +196,7 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
                   ↓
                 </button>
                 <button type="button" className="icon-btn" title="Editar" aria-label="Editar" disabled={busy} onClick={() => navigate(`/instructions-admin/${d.id}/edit`)}>
-                  ✏️
+                  <span className="pencil" aria-hidden="true">✏️</span>
                 </button>
               </div>
             </li>
@@ -249,7 +248,7 @@ function DocForm({ token, doc, busy, onSubmit, onCancel }: DocFormProps) {
       <AudiencePicker value={audience} onChange={setAudience} disabled={busy} />
       <div className="cat-field">
         <span className="cat-field__label">📝 Documento</span>
-        <p className="cat-hint">Texto, títulos, listas, links e fotos (🖼️ ou cole / arraste uma imagem). As fotos são reduzidas automaticamente.</p>
+        <p className="cat-hint">Texto, títulos, listas, links e fotos (🖼️ ou cole / arraste uma imagem).</p>
         <RichTextEditor token={token} value={content} onChange={setContent} disabled={busy} placeholder="Escreva o documento aqui…" tall aiContext="instruction" aiTitle={title} onAiApplied={ai.onAiApplied} />
       </div>
       <div className="cat-form__actions">

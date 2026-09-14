@@ -1,15 +1,14 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { addScore, deleteScore, resetScore, type ScoreEntry } from "../api/scores";
+import { addScore, resetScore } from "../api/scores";
 import { contrastText, type Team } from "../api/teams";
-import { useConfirm } from "../components/ConfirmDialog";
 import Dialog from "../components/Dialog";
 import ScanPointsDialog from "../components/ScanPointsDialog";
 import { useCollection, useCollectionOrEmpty } from "../store";
+import { QrGlyph } from "../components/Glyph";
 
 interface ScoreboardPageProps {
   token: string;
   /** the logged-in user's id — a score helper may delete only their own lines */
-  userId: string;
   /** admin / game organizer: may give, take, zero and delete any line */
   canEdit: boolean;
   /** score helper (or anyone who canEdit): may scan QR codes in bulk (points by event) and delete their own scan lines — nothing else */
@@ -24,13 +23,11 @@ type Pending = { team: Team; sign: 1 | -1 } | { team: Team; sign: 0 };
  * an optional note of why — zero a team, or delete a wrong line. Score
  * helpers only scan QR codes in bulk (the 📷 FAB) and undo their own scans.
  */
-export default function ScoreboardPage({ token, userId, canEdit, canScan }: ScoreboardPageProps) {
+export default function ScoreboardPage({ token, canEdit, canScan }: ScoreboardPageProps) {
   const teams = useCollection("teams");
   const scores = useCollectionOrEmpty("scores");
-  const confirm = useConfirm();
   const [pending, setPending] = useState<Pending | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [historyTeam, setHistoryTeam] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,9 +37,7 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan }: Scor
     return m;
   }, [scores]);
   const ranked = useMemo(() => (teams ?? []).slice().sort((a, b) => (totals.get(b.id) ?? 0) - (totals.get(a.id) ?? 0) || a.order - b.order), [teams, totals]);
-  const teamById = useMemo(() => new Map((teams ?? []).map((t) => [t.id, t])), [teams]);
   const top = ranked.length ? Math.max(1, ...ranked.map((t) => totals.get(t.id) ?? 0)) : 1;
-  const history = useMemo(() => (historyTeam ? scores.filter((e) => e.teamId === historyTeam) : scores), [scores, historyTeam]);
 
   async function withBusy(fn: () => Promise<void>) {
     if (busy) return;
@@ -67,12 +62,6 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan }: Scor
     });
   }
 
-  async function handleDelete(e: ScoreEntry) {
-    const team = teamById.get(e.teamId);
-    if (!(await confirm({ emoji: "🗑️", title: `Apagar este lançamento de ${team?.name ?? "time"}?`, message: `${fmtPoints(e.points)} · ${e.note || "sem observação"}. Os pontos são desfeitos.`, confirmLabel: "Apagar", danger: true }))) return;
-    await withBusy(() => deleteScore(token, e.id));
-  }
-
   if (!teams) {
     return (
       <div className="admin-page">
@@ -86,8 +75,8 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan }: Scor
       <header className="admin-head">
         <h1 className="admin-title">🏆 Placar</h1>
       </header>
-      {canEdit && <p className="admin-intro">Toque em ➕ / ➖ para lançar pontos (com o motivo, se quiser), em 🔄 para zerar o time ou em 📷 para dar pontos em massa lendo os crachás.</p>}
-      {!canEdit && canScan && <p className="admin-intro">Toque em 📷 para dar pontos em massa lendo os crachás das crianças no evento que está acontecendo.</p>}
+      {canEdit && <p className="admin-intro">➕ / ➖ lançam pontos, 🔄 zera o time, <QrGlyph /> dá pontos lendo os crachás.</p>}
+      {!canEdit && canScan && <p className="admin-intro">Toque em <QrGlyph /> para dar pontos em massa lendo os crachás das crianças no evento que está acontecendo.</p>}
 
       {error && <p className="message message--error">{error}</p>}
 
@@ -103,9 +92,7 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan }: Scor
                 {i === 0 && pts > 0 ? "🥇" : i === 1 && pts > 0 ? "🥈" : i === 2 && pts > 0 ? "🥉" : `${i + 1}º`}
               </span>
               <div className="score-card__body">
-                <button type="button" className="score-card__name" title="Ver histórico" onClick={() => setHistoryTeam(historyTeam === t.id ? null : t.id)}>
-                  {t.name}
-                </button>
+                <span className="score-card__name">{t.name}</span>
                 <span className="score-card__bar" aria-hidden="true">
                   <span className="score-card__fill" style={{ width: `${pct}%`, background: t.color }} />
                 </span>
@@ -131,58 +118,13 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan }: Scor
         })}
       </ol>
 
-      {/* ── ledger ── */}
-      <section className="detail-section">
-        <div className="detail-h2-row">
-          <h2 className="detail-h2">
-            📜 Histórico <span className="cat-tab__count">{history.length}</span>
-          </h2>
-          {historyTeam && (
-            <button type="button" className="button button--secondary admin-head__new" onClick={() => setHistoryTeam(null)}>
-              Todos os times
-            </button>
-          )}
-        </div>
-        {historyTeam && <p className="cat-hint">Mostrando só {teamById.get(historyTeam)?.name}. Toque no nome de um time para filtrar.</p>}
-        {history.length === 0 ? (
-          <p className="opt-empty">Nenhum ponto lançado ainda.</p>
-        ) : (
-          <ul className="score-log">
-            {history.map((e) => {
-              const team = teamById.get(e.teamId);
-              return (
-                <li key={e.id} className={`score-log__item score-log__item--${e.kind}`}>
-                  <span className="score-log__dot" style={{ background: team?.color ?? "#999" }} aria-hidden="true" />
-                  <span className="score-log__body">
-                    <span className="score-log__line">
-                      <strong>{team?.name ?? "Time removido"}</strong> <span className={`score-log__pts score-log__pts--${e.kind}`}>{e.kind === "reset" ? "zerado" : fmtPoints(e.points)}</span>
-                    </span>
-                    {e.note && <span className="score-log__note">{e.note}</span>}
-                    <span className="score-log__meta">
-                      {fmtStamp(e.createdAt)} · {e.by.name.split(" ")[0]}
-                      {e.camperName && <> · 📷 {e.camperName}</>}
-                    </span>
-                  </span>
-                  {(canEdit || (canScan && !!e.camperId && e.by.id === userId)) && (
-                    <button type="button" className="icon-btn icon-btn--danger" title="Apagar lançamento" aria-label="Apagar lançamento" disabled={busy} onClick={() => void handleDelete(e)}>
-                      🗑️
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
       {pending && <PointsDialog pending={pending} current={totals.get(pending.team.id) ?? 0} busy={busy} onSubmit={submitPoints} onClose={() => setPending(null)} />}
 
       {canScan && teams.length > 0 && (
-        <button type="button" className="fab" title="Dar pontos em massa lendo os crachás" aria-label="Dar pontos em massa lendo os crachás" onClick={() => setScanning(true)}>
+        <button type="button" className="fab fab--icon" title="Dar pontos em massa lendo os crachás" aria-label="Dar pontos em massa lendo os crachás" onClick={() => setScanning(true)}>
           <span className="fab__icon" aria-hidden="true">
-            📷
+            <QrGlyph size="1.5em" />
           </span>
-          <span className="fab__label">Ler crachás</span>
         </button>
       )}
       {scanning && <ScanPointsDialog token={token} onClose={() => setScanning(false)} />}
@@ -214,7 +156,7 @@ function PointsDialog({ pending, current, busy, onSubmit, onClose }: { pending: 
         </h2>
         {reset ? (
           <p className="cat-hint">
-            O time tem <strong>{current}</strong> ponto{current !== 1 ? "s" : ""}. Zerar lança <strong>{fmtPoints(-current)}</strong> no histórico — nada é apagado.
+            Zerar não apaga o histórico.
           </p>
         ) : (
           <div className="cat-field">
@@ -250,6 +192,3 @@ function fmtPoints(n: number): string {
   return n > 0 ? `+${n}` : `${n}`;
 }
 
-function fmtStamp(iso: string): string {
-  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
-}

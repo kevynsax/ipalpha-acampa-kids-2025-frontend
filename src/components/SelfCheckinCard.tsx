@@ -62,6 +62,7 @@ function remember(date: string) {
 export default function SelfCheckinCard({ token, user }: SelfCheckinCardProps) {
   const staff = useCollection("staff");
   const events = useCollectionOrEmpty("events");
+  const settings = useCollection("settings");
   const me = useMemo(() => staff?.find((s) => s.phone === user.phone) ?? null, [staff, user.phone]);
   /** first event of the programme = departure (events come sorted by date/time, but sort defensively) */
   const first = useMemo(() => [...events].sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))[0] ?? null, [events]);
@@ -181,8 +182,25 @@ export default function SelfCheckinCard({ token, user }: SelfCheckinCardProps) {
     );
   }
 
-  const distance = pos && status ? distanceMeters(pos, status.location) : null;
+  /** the nearest meeting point (the church, the camp site…) and how far it is */
+  const nearest =
+    pos && status && status.locations.length > 0
+      ? status.locations.map((l) => ({ spot: l, distance: distanceMeters(pos, l) })).sort((a, b) => a.distance - b.distance)[0]
+      : null;
+  const distance = nearest?.distance ?? null;
   const blocked = status && !status.allowed ? status.reason : null;
+  /**
+   * Which spot to name on the button: inside the admin's check-in window
+   * (the church roll call is happening) it is the FIRST spot — the church;
+   * after it closes (whoever drives straight to the camp) it is the nearest
+   * one the GPS found, or the last spot as a hint before the GPS is read.
+   */
+  const spots = status?.locations ?? [];
+  const windowOpen = !!settings?.checkinWindow.open;
+  const target = spots.length === 0 ? null : windowOpen ? spots[0] : (nearest?.spot ?? spots[spots.length - 1]);
+  const spotName = target?.name ?? "igreja";
+  /** "na Igreja" / "no Acampamento" — a plain "em" avoids guessing the gender */
+  const at = (name: string) => `em ${name}`;
 
   const card = (
     <section className={`selfcheck${popup ? " selfcheck--popup" : ""}`} aria-live="polite">
@@ -194,20 +212,22 @@ export default function SelfCheckinCard({ token, user }: SelfCheckinCardProps) {
       <span className="selfcheck__badge" aria-hidden="true">⛪</span>
       <div className="selfcheck__body">
         <h2 className="selfcheck__title">O acampamento é Hoje!!!</h2>
-        <p className="selfcheck__text">Ao chegar na igreja, confirme sua presença aqui</p>
+        <p className="selfcheck__text">
+          Ao chegar {spots.length > 1 && !windowOpen ? `em ${spots.map((l) => l.name).join(" ou ")}` : at(spotName)}, confirme sua presença aqui
+        </p>
 
         {blocked && <p className="message message--error">{blocked.message}</p>}
         {error && <p className="message message--error">{error}</p>}
         {distance !== null && !error && (
           <p className="cat-hint">
-            📡 Você está a cerca de <strong>{formatDistance(distance)}</strong> do ponto de encontro
+            📡 Você está a cerca de <strong>{formatDistance(distance)}</strong> de <strong>{nearest!.spot.name}</strong>
             {pos && pos.accuracyM > 0 ? ` (precisão do GPS: ±${pos.accuracyM} m)` : ""}.
           </p>
         )}
 
         <div className="selfcheck__actions">
           <button type="button" className="button button--primary selfcheck__cta" disabled={busy || !!blocked} onClick={handleCheckin}>
-            {phase === "locating" ? "📡 Lendo o GPS…" : phase === "sending" ? "Confirmando…" : "Cheguei na igreja! ✋"}
+            {phase === "locating" ? "📡 Lendo o GPS…" : phase === "sending" ? "Confirmando…" : `Cheguei ${at(spotName)}! ✋`}
           </button>
         </div>
         <p className="selfcheck__location-note">Precisamos da sua localização para saber que você já chegou.</p>

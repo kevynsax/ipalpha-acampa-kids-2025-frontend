@@ -15,8 +15,11 @@ import { loadAuth } from "../../auth/store";
 import { staffGreeting, whatsappLink } from "../../whatsapp";
 import { ROOM_ROLE_META } from "../../api/staff";
 
+import Breadcrumbs from "../../components/Breadcrumbs";
 import CamperForm from "./CamperForm";
 import DetailStack from "./DetailStack";
+import GiveawayPage from "../GiveawayPage";
+import { DownloadGlyph } from "../../components/Glyph";
 
 interface CampersPageProps {
   token: string;
@@ -24,12 +27,13 @@ interface CampersPageProps {
   readOnly?: boolean;
 }
 
-/** URL → what to show:  /campers · /campers/new · /campers/:id · /campers/:id/edit */
-type Mode = { kind: "view" } | { kind: "create" } | { kind: "edit"; id: string } | { kind: "detail"; id: string };
+/** URL → what to show:  /campers · /campers/new · /campers/giveaway · /campers/:id · /campers/:id/edit */
+type Mode = { kind: "view" } | { kind: "create" } | { kind: "giveaway" } | { kind: "edit"; id: string } | { kind: "detail"; id: string };
 function modeOf(segments: string[]): Mode {
   const [, id, action] = segments;
   if (!id) return { kind: "view" };
   if (id === "new") return { kind: "create" };
+  if (id === "giveaway") return { kind: "giveaway" };
   if (action === "edit") return { kind: "edit", id };
   return { kind: "detail", id };
 }
@@ -46,7 +50,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
   const { segments, navigate } = useRoute();
   const rawMode = modeOf(segments);
   // read-only viewers can't reach the forms even by URL
-  const mode: Mode = readOnly && (rawMode.kind === "create" || rawMode.kind === "edit") ? { kind: "view" } : rawMode;
+  const mode: Mode = readOnly && (rawMode.kind === "create" || rawMode.kind === "edit" || rawMode.kind === "giveaway") ? { kind: "view" } : rawMode;
   const confirm = useConfirm();
   const [wing, setWing] = useState<Wing>("all");
   const [team, setTeam] = useState<string>("");
@@ -145,6 +149,10 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
     );
   }
 
+  if (mode.kind === "giveaway") {
+    return <GiveawayPage who="campers" crumbs={[{ label: "Acampantes", onClick: () => navigate("/campers") }, { label: "Sorteio" }]} />;
+  }
+
   if (mode.kind === "detail") {
     return (
       <DetailStack
@@ -160,10 +168,22 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
 
   return (
     <div className="admin-page">
+      {mode.kind === "create" && <Breadcrumbs items={[{ label: "Acampantes", onClick: () => navigate("/campers") }, { label: "Novo" }]} />}
+      {mode.kind === "edit" && editing && (
+        <Breadcrumbs items={[{ label: "Acampantes", onClick: () => navigate("/campers") }, { label: editing.name.split(" ")[0], onClick: () => navigate(`/campers/${editing.id}`) }, { label: "Editar" }]} />
+      )}
       <header className="admin-head">
-        <h1 className="admin-title">Acampantes</h1>
+        <h1 className="admin-title">{mode.kind === "create" ? "✨ Novo acampante" : mode.kind === "edit" ? "✏️ Editar acampante" : "Acampantes"}</h1>
         {mode.kind === "view" && !readOnly && (
           <div className="admin-head__actions">
+            <button
+              type="button"
+              className="button button--secondary admin-head__new"
+              title="Sorteio"
+              onClick={() => navigate("/campers/giveaway")}
+            >
+              <img className="admin-head__action-icon" src={ICONS.giveaway} alt="" aria-hidden="true" /> Sorteio
+            </button>
             <button
               type="button"
               className="button button--secondary admin-head__new"
@@ -171,7 +191,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
               title="Baixar todos os acampantes em Excel"
               onClick={() => downloadCampersXlsx(campers, bedrooms, labelOf, staff)}
             >
-              ⬇️ Excel
+              <DownloadGlyph /> Download
             </button>
             <button
               type="button"
@@ -196,7 +216,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
       )}
 
       {mode.kind === "create" && (
-        <CamperForm categories={categories} bedrooms={bedrooms} busy={busy} onSubmit={handleCreate} onCancel={() => navigate("/campers")} />
+        <CamperForm categories={categories} busy={busy} onSubmit={handleCreate} onCancel={() => navigate("/campers")} />
       )}
       {mode.kind === "edit" && !editing && <p className="opt-empty">Acampante não encontrado.</p>}
       {mode.kind === "edit" && editing && (
@@ -205,7 +225,6 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
             key={editing.id}
             camper={editing}
             categories={categories}
-            bedrooms={bedrooms}
             busy={busy}
             onSubmit={handleEdit}
             onCancel={() => navigate(`/campers/${editing.id}`)}

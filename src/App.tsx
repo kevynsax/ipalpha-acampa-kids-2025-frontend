@@ -16,7 +16,7 @@ type Step = "phone" | "otp" | "done";
 interface OtpContext {
   phoneE164: string;
   expiresAt: string;
-  delivery: "sms" | "mock";
+  delivery: "sms" | "mock" | "redirect";
 }
 
 export default function App() {

@@ -2,16 +2,18 @@ import { useEffect, useState } from "react";
 import { updateSettings } from "../../api/settings";
 import { useCollection } from "../../store";
 import StaffListEditor from "./StaffListEditor";
+import { QrGlyph } from "../../components/Glyph";
 
 interface GameOrganizersPageProps {
   token: string;
 }
 
 /**
- * Admin-only: the GAME organizers — team members who run the games and keep
- * the scoreboard (Placar): give / take points from any team, zero a team.
- * They get everything a programme organizer has too (schedule, roles, the
- * whole team), so they can help there as well. No time window.
+ * Settings → Jogos (admin or organizer): the GAME organizers — team members
+ * who run the games and keep the scoreboard (Placar): give / take points from
+ * any team, zero a team. They also edit the programme (events, roles, the
+ * roster) and see the whole team for that, but have none of the other
+ * organizer (admin-like) rights. No time window.
  *
  * Plus the SCORE helpers: people who ONLY do the bulk QR scan tied to a
  * programme event ("everyone in costume earns a point for their team").
@@ -60,18 +62,18 @@ export default function GameOrganizersPage({ token }: GameOrganizersPageProps) {
   return (
     <div className="admin-page">
       <header className="admin-head">
-        <h1 className="admin-title">🏆 Placar</h1>
+        <h1 className="admin-title">🏆 Jogos</h1>
       </header>
       <p className="admin-intro">
-        Pessoas da equipe que <strong>organizam as gincanas</strong> e mantêm o <strong>Placar</strong>: dão e tiram pontos de qualquer time
-        (com uma observação opcional do motivo) e podem zerar um time. Não há período: valem o tempo todo.
+        Pessoas da equipe que <strong>organizam as gincanas</strong>: editam a <strong>programação</strong> e mantêm o <strong>Placar</strong> (dão, tiram e
+        zeram pontos de qualquer time).
       </p>
 
       {error && <p className="message message--error">{error}</p>}
 
       <section className="cat-form">
         <StaffListEditor
-          title="Quem cuida do placar"
+          title="Organizadores dos jogos"
           value={ids}
           onChange={(nextIds) => void saveList("gameOrganizers", nextIds)}
           disabled={busy}
@@ -80,15 +82,8 @@ export default function GameOrganizersPage({ token }: GameOrganizersPageProps) {
         />
       </section>
 
-      <p className="footer-note">
-        🎯 Quem está nesta lista também é <strong>organizador da programação</strong> (Configurações → Organizadores): edita eventos, funções e a escala,
-        e vê toda a equipe. Ao entrar na lista a pessoa recebe um SMS avisando (Notificações → Boas-vindas e novas responsabilidades).
-      </p>
-
       <p className="admin-intro">
-        <strong>Ajudantes do placar</strong>: pessoas que só <strong>leem crachás</strong> — dão pontos em massa lendo o QR code das crianças na porta,
-        sempre ligados a um evento da programação (ex.: quem veio fantasiado ganha ponto para o time). Não lançam pontos por time, não zeram times nem
-        mexem na programação. Sem período: valem o tempo todo.
+        <strong>Ajudantes do placar</strong>: só <strong>leem crachás</strong> — dão pontos em massa às crianças de um evento (ex.: quem veio fantasiado).
       </p>
 
       <section className="cat-form">
@@ -103,7 +98,7 @@ export default function GameOrganizersPage({ token }: GameOrganizersPageProps) {
       </section>
 
       <p className="footer-note">
-        📷 O ajudante ganha a aba <strong>Placar</strong> só com o botão de leitura em massa e vê das crianças apenas <strong>nome e time</strong>. Apaga só as
+        <QrGlyph /> O ajudante ganha a aba <strong>Placar</strong> só com o botão de leitura em massa e vê das crianças apenas <strong>nome e time</strong>. Apaga só as
         próprias leituras. Ao entrar na lista a pessoa recebe um SMS avisando.
       </p>
     </div>

@@ -244,8 +244,7 @@ the admin knows when the list is visible.
 ## Parents' area 👨‍👩‍👧
 
 A parent logs in with the phone registered as the kid's guardian
-(`Camper.guardianPhone`; `bun run seed:parents` on the backend creates the
-accounts). Same header; two tabs:
+(`Camper.guardianPhone`). Same header; two tabs:
 
 - **Início** (`pages/parent/ParentHomePage`, `store/derive.ts#useParentHome`):
   the **important contacts** (title, name, phone, WhatsApp) on top, then one

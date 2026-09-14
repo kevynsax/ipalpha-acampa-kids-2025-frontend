@@ -167,8 +167,7 @@ export default function CategoryOptions({
       )}
 
       <p className="cat-hint">
-        💡 Dica: em vez de excluir uma opção que já foi usada, <strong>oculte</strong> (👁️) — ela some dos
-        formulários mas os cadastros antigos continuam válidos.
+        💡 Em vez de excluir uma opção já usada, <strong>oculte</strong> (👁️): os cadastros antigos continuam válidos.
       </p>
     </div>
   );

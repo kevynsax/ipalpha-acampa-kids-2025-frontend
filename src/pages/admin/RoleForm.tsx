@@ -86,7 +86,7 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
       <div className="cat-field">
         <span className="cat-field__label">📝 Instruções para a equipe</span>
         <p className="cat-hint">
-          O que a pessoa nesta função precisa fazer. Isso aparece na tela do voluntário quando ele estiver escalado.
+          O que a pessoa nesta função precisa fazer.
         </p>
         <RichTextEditor
           token={token}
@@ -103,8 +103,7 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
       <div className="cat-field">
         <span className="cat-field__label">🎒 Preparação (antes do acampamento)</span>
         <p className="cat-hint">
-          O que quem faz esta função precisa <strong>levar, vestir ou preparar</strong> antes de sair de casa — ex.: “roupa verde estilo
-          exército com boné”. Aparece na aba Preparação de cada escalado, com foto se você quiser.
+          O que quem faz esta função precisa <strong>levar, vestir ou preparar</strong> — ex.: “roupa verde estilo exército com boné”.
         </p>
         <RichTextEditor
           token={token}
@@ -121,8 +120,7 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
       <div className="cat-field">
         <Toggle checked={forEveryone} onChange={setForEveryone} disabled={busy} label={forEveryone ? "👥 Vale para toda a equipe" : "Vale para toda a equipe?"} />
         <p className="cat-hint">
-          Funções padrão (ex.: “cuidar das crianças”) se aplicam a <strong>todos</strong> os voluntários ativos do evento,
-          sem precisar escalar um por um. Quem tiver outra função no mesmo evento fica com ela.
+          Funções padrão (ex.: “cuidar das crianças”) valem para <strong>todos</strong> os voluntários do evento, sem escalar um por um.
         </p>
       </div>
 

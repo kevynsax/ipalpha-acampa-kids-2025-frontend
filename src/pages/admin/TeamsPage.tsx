@@ -94,8 +94,7 @@ export default function TeamsPage({ token }: TeamsPageProps) {
         </button>
       </header>
       <p className="admin-intro">
-        Os times do acampamento: <strong>nome, cor e coringa</strong>. Crianças e equipe são vinculadas a um time na ficha; o <strong>Placar</strong>{" "}
-        soma os pontos de cada time nas gincanas.
+        Os times do acampamento: <strong>nome, cor e coringa</strong>.
       </p>
 
       {error && <p className="message message--error">{error}</p>}
@@ -132,7 +131,7 @@ export default function TeamsPage({ token }: TeamsPageProps) {
                     ↓
                   </button>
                   <button type="button" className="icon-btn" title="Editar" aria-label={`Editar ${t.name}`} disabled={busy} onClick={() => setEditing(t)}>
-                    ✏️
+                    <span className="pencil" aria-hidden="true">✏️</span>
                   </button>
                   <button type="button" className="icon-btn icon-btn--danger" title="Excluir" aria-label={`Excluir ${t.name}`} disabled={busy} onClick={() => void handleDelete(t)}>
                     🗑️
@@ -144,7 +143,7 @@ export default function TeamsPage({ token }: TeamsPageProps) {
         </ul>
       )}
 
-      <p className="footer-note">🔒 Quem lança pontos no Placar é definido em Configurações → Placar.</p>
+      <p className="footer-note">🔒 Quem lança pontos no Placar é definido em Configurações → Jogos.</p>
 
       {editing && <TeamDialog team={editing === "new" ? undefined : editing} staff={staff} busy={busy} onSave={handleSave} onClose={() => setEditing(null)} />}
     </div>

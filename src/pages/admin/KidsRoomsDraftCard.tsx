@@ -8,7 +8,7 @@ interface KidsRoomsDraftCardProps {
 }
 
 /**
- * Settings → Geral: "kids' rooms not defined yet". While on, room caretakers
+ * Settings → Geral and → Testes: "kids' rooms not defined yet". While on, room caretakers
  * don't see the kids of their room and no room-change SMS goes out (kids
  * moving rooms, or the person's own room changing).
  */
@@ -40,10 +40,9 @@ export default function KidsRoomsDraftCard({ token }: KidsRoomsDraftCardProps) {
       <p className="cat-hint">
         Ligue enquanto a organização ainda está montando os quartos.
         <br />
-        Nesse período <strong>ninguém da equipe vê o próprio quarto nem as crianças dele</strong> (a Preparação vira a tela inicial) e{" "}
-        <strong>nenhum SMS</strong> é enviado sobre troca de quartos de acampantes ou staff.
+        Nesse período <strong>ninguém da equipe vê o próprio quarto nem as crianças que estão no seu quarto</strong>.
         <br />
-        Desligue quando todos os quartos já tiverem definidos — aí todo mundo passa a ver as crianças do seu quarto e os avisos voltam.
+        Desligue quando todos os quartos já tiverem definidos.
       </p>
       {error && <p className="message message--error">{error}</p>}
       {draft && <p className="cat-hint cat-hint--error">⚠️ A equipe não está vendo os quartos. Desligue quando os quartos estiverem definidos.</p>}

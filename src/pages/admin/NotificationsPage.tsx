@@ -13,6 +13,7 @@ interface NotificationsPageProps {
 
 /** the exact bus check-in SMS (mirrors backend composeBusCheckinSms) — shown to the admin so they know what parents get */
 const BUS_SMS_EXAMPLE = "AcampaKids: Marcela, a Ana está a caminho de um fim de semana incrível para aprender sobre Jesus! Aproveite o fim de semana livre: vamos cuidar muito bem dela.";
+const BIRTHDAY_SMS_EXAMPLE = "AcampaKids: João, hoje é aniversário da Ana (8 anos), do quarto 103! 🎂 Vamos fazer o dia dela especial.";
 const PARENT_WELCOME_EXAMPLE = "AcampaKids: Marcela, a Ana está inscrita no Acampa Kids! Acompanhe tudo pelo app. Entre com o celular (11) 99999-9999 em <link do app>";
 
 /** every toggle except `checkinReminder`, which has its own card (needs a date) */
@@ -92,10 +93,22 @@ const OPTIONS: { key: Exclude<keyof NotificationSettings, "checkinReminder">; em
     text: "Quando um pai ou mãe altera os dados médicos da criança (alergias, medicação, convênio…), a equipe médica, os administradores e o líder do quarto recebem um SMS. Se mudar só as observações, apenas o líder do quarto é avisado.",
   },
   {
+    key: "birthdays",
+    emoji: "🎂",
+    title: "Aniversário de criança no acampamento",
+    text: (
+      <>
+        Quando uma criança faz aniversário num dia do acampamento, toda a equipe do quarto dela recebe um SMS às <strong>07:45</strong> desse dia:
+        <br />
+        <code className="sms-example">{BIRTHDAY_SMS_EXAMPLE}</code>
+      </>
+    ),
+  },
+  {
     key: "occurrences",
     emoji: "🚨",
     title: "Ocorrência registrada",
-    text: "Quando uma ocorrência é registrada (pela organização ou pela equipe médica), todos os administradores recebem um SMS — exceto quem registrou.",
+    text: "Quando uma ocorrência é registrada (pela organização ou pela equipe médica), o admin recebe um SMS — a não ser que tenha sido ele quem registrou.",
   },
 ];
 
@@ -158,7 +171,7 @@ export default function NotificationsPage({ token }: NotificationsPageProps) {
         <h1 className="admin-title">📲 Notificações por SMS</h1>
       </header>
       <p className="admin-intro">
-        A equipe recebe um <strong>SMS curto</strong> avisando que algo mudou e pedindo para abrir o app.
+        A equipe recebe um <strong>SMS curto</strong> avisando que algo mudou.
       </p>
 
       {settings && !settings.smsEnabled && (
@@ -172,10 +185,17 @@ export default function NotificationsPage({ token }: NotificationsPageProps) {
           <a href="#/general" onClick={(e) => { e.preventDefault(); navigate("/general"); }}>Ajustar período de acesso</a>
         </p>
       )}
+      {settings?.smsRedirect.enabled && (
+        <p className="message message--error">
+          📵 <strong>Redirecionamento de SMS ligado</strong>: nenhum aviso (nem código de login) chega à equipe ou aos pais — tudo vai para os celulares de
+          teste. <strong>Desligue antes do acampamento começar.</strong>{" "}
+          <a href="#/trials" onClick={(e) => { e.preventDefault(); navigate("/trials"); }}>Ajustar em Testes</a>
+        </p>
+      )}
       {settings?.kidsRoomsDraft && (
         <p className="message message--warn">
           Os quartos das crianças estão em rascunho: os avisos de quarto (crianças e equipe) estão pausados.{" "}
-          <a href="#/general" onClick={(e) => { e.preventDefault(); navigate("/general"); }}>Ajustar em Geral</a>
+          <a href="#/trials" onClick={(e) => { e.preventDefault(); navigate("/trials"); }}>Ajustar em Testes</a>
         </p>
       )}
       {error && <p className="message message--error">{error}</p>}

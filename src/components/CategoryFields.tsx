@@ -39,6 +39,31 @@ export function CategorySelect({ label, category: cat, value, onChange, disabled
   );
 }
 
+/** Single-choice category → one row of chips acting as radios (tap the selected one again to clear). */
+export function CategoryRadio({ label, category: cat, value, onChange, disabled }: SingleProps) {
+  const options = pickable(cat, value);
+  return (
+    <fieldset className="cat-fieldset" role="radiogroup">
+      <legend className="cat-field__label">
+        {cat?.emoji ?? "🏷️"} {label}
+      </legend>
+      {!cat && <p className="cat-hint">Categoria não cadastrada.</p>}
+      {cat && options.length === 0 && <p className="cat-hint">Nenhuma opção cadastrada.</p>}
+      <div className="chip-group">
+        {options.map((o) => {
+          const on = value === o.id;
+          return (
+            <button key={o.id} type="button" role="radio" aria-checked={on} className={`chip-toggle chip-toggle--small ${on ? "chip-toggle--on" : ""}`} disabled={disabled} onClick={() => onChange(on ? null : o.id)}>
+              {o.label}
+              {!o.active ? " (inativo)" : ""}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
 interface TeamProps {
   value: string | null;
   onChange: (v: string | null) => void;

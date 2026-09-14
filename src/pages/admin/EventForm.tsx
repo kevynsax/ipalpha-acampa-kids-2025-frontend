@@ -126,7 +126,7 @@ export default function EventForm({ token, event, roles, defaultDate, busy, onSu
 
       <fieldset className="cat-fieldset">
         <legend className="cat-field__label">🎯 Funções neste evento</legend>
-        <p className="cat-hint">Quais funções a equipe precisa cumprir neste evento. Quem faz cada uma é definido na escala.</p>
+        <p className="cat-hint">Quais funções a equipe precisa cumprir neste evento.</p>
 
         {chosen.length === 0 && <p className="opt-empty">Nenhuma função ainda — escolha abaixo ou crie uma nova.</p>}
         <ul className="slot-list">

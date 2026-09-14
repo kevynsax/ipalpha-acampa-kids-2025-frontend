@@ -83,8 +83,7 @@ export default function CheckinReminderCard({ token, embedded }: CheckinReminder
         <Toggle checked={on} disabled={!settings || busy !== null} label={on ? "Ligado" : "Desligado"} onChange={(v) => void run("toggle", { notifications: { checkinReminder: v } })} />
       </div>
       <p className="cat-hint">
-        Na data e hora abaixo <strong>toda a equipe</strong> (ativa, com celular e ainda sem check-in) recebe um SMS lembrando de fazer o check-in.
-        Sem data, nada é enviado.
+        Na data e hora abaixo <strong>toda a equipe</strong> recebe um SMS lembrando de fazer o self check-in.
       </p>
       <form
         className="cat-form__row staff-form__row"

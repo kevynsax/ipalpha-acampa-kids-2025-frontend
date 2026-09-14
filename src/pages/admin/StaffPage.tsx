@@ -19,8 +19,11 @@ import { useRoute } from "../../router";
 import HealthAlerts from "../../components/HealthAlerts";
 import HealthFilter, { matchesHealth, hasHealth, type HealthKey } from "../../components/HealthFilter";
 import { downloadStaffXlsx } from "../../export";
+import { ICONS } from "../../icons";
 
 import StaffForm from "./StaffForm";
+import GiveawayPage from "../GiveawayPage";
+import { DownloadGlyph } from "../../components/Glyph";
 
 interface StaffPageProps {
   token: string;
@@ -28,16 +31,16 @@ interface StaffPageProps {
   readOnly?: boolean;
 }
 
-/** URL → what to show:  /staff · /staff/new · /staff/:id · /staff/:id/edit */
-type Mode = { kind: "view" } | { kind: "create" } | { kind: "edit"; id: string } | { kind: "detail"; id: string };
+/** URL → what to show:  /staff · /staff/new · /staff/giveaway · /staff/:id · /staff/:id/edit */
+type Mode = { kind: "view" } | { kind: "create" } | { kind: "giveaway" } | { kind: "edit"; id: string } | { kind: "detail"; id: string };
 function modeOf(segments: string[]): Mode {
   const [, id, action] = segments;
   if (!id) return { kind: "view" };
   if (id === "new") return { kind: "create" };
+  if (id === "giveaway") return { kind: "giveaway" };
   if (action === "edit") return { kind: "edit", id };
   return { kind: "detail", id };
 }
-type Filter = "active" | "inactive" | "all";
 
 /** The camp staff (equipe) list + create/edit form (admin); read-only for programme organizers. */
 export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
@@ -49,9 +52,8 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
   const { segments, navigate } = useRoute();
   /** read-only: the create / edit URLs fall back to the list */
   const rawMode = modeOf(segments);
-  const mode: Mode = readOnly && (rawMode.kind === "create" || rawMode.kind === "edit") ? { kind: "view" } : rawMode;
+  const mode: Mode = readOnly && (rawMode.kind === "create" || rawMode.kind === "edit" || rawMode.kind === "giveaway") ? { kind: "view" } : rawMode;
   const confirm = useConfirm();
-  const [filter, setFilter] = useState<Filter>("active");
   const [search, setSearch] = useState("");
   const [health, setHealth] = useState<Set<HealthKey>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -100,8 +102,6 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
     if (!staff) return [];
     const q = normalize(search);
     return sortByName(staff).filter((s) => {
-      if (filter === "active" && !s.active) return false;
-      if (filter === "inactive" && s.active) return false;
       if (!matchesHealth(s, health)) return false;
       if (!q) return true;
       const hay = normalize(
@@ -109,22 +109,15 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
       );
       return hay.includes(q);
     });
-  }, [staff, filter, search, health, labelOf, bedroomOf]);
+  }, [staff, search, health, labelOf, bedroomOf]);
 
   const healthCounts = useMemo(() => {
     const c: Partial<Record<HealthKey, number>> = {};
     for (const key of ["healthIssues", "allergies", "drugAllergies", "medicines", "foodRestrictions"] as const) c[key] = 0;
     for (const s of staff ?? []) {
-      if (filter === "active" && !s.active) continue;
-      if (filter === "inactive" && s.active) continue;
       for (const key of ["healthIssues", "allergies", "drugAllergies", "medicines", "foodRestrictions"] as const) if (hasHealth(s, key)) c[key]!++;
     }
     return c;
-  }, [staff, filter]);
-
-  const counts = useMemo(() => {
-    const active = staff?.filter((s) => s.active).length ?? 0;
-    return { active, inactive: (staff?.length ?? 0) - active, all: staff?.length ?? 0 };
   }, [staff]);
 
   // ── render ─────────────────────────────────────────────────────────────
@@ -135,6 +128,10 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
         {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>}
       </div>
     );
+  }
+
+  if (mode.kind === "giveaway") {
+    return <GiveawayPage who="staff" crumbs={[{ label: "Equipe", onClick: () => navigate("/staff") }, { label: "Sorteio" }]} />;
   }
 
   if (mode.kind === "detail") {
@@ -159,11 +156,19 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
             <button
               type="button"
               className="button button--secondary admin-head__new"
+              title="Sorteio"
+              onClick={() => navigate("/staff/giveaway")}
+            >
+              <img className="admin-head__action-icon" src={ICONS.giveaway} alt="" aria-hidden="true" /> Sorteio
+            </button>
+            <button
+              type="button"
+              className="button button--secondary admin-head__new"
               disabled={busy || staff.length === 0}
               title="Baixar toda a equipe em Excel"
               onClick={() => downloadStaffXlsx(staff, bedrooms, labelOf)}
             >
-              ⬇️ Excel
+              <DownloadGlyph /> Download
             </button>
             <button
               type="button"
@@ -200,14 +205,18 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
             onSubmit={handleEdit}
             onCancel={() => navigate(`/staff/${editing.id}`)}
           />
-          <button
-            type="button"
-            className="link-danger"
-            disabled={busy}
-            onClick={() => handleDelete(editing)}
-          >
-            🗑️ Excluir {editing.name} da equipe
-          </button>
+          {editing.admin ? (
+            <p className="cat-hint">🔑 {editing.name} é admin: não pode ser excluído da equipe.</p>
+          ) : (
+            <button
+              type="button"
+              className="link-danger"
+              disabled={busy}
+              onClick={() => handleDelete(editing)}
+            >
+              🗑️ Excluir {editing.name} da equipe
+            </button>
+          )}
         </>
       )}
 
@@ -221,27 +230,6 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            <div className="staff-toolbar__filters" role="tablist" aria-label="Filtro">
-              {(
-                [
-                  ["active", "Ativos"],
-                  ["inactive", "Inativos"],
-                  ["all", "Todos"],
-                ] as [Filter, string][]
-              ).map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  role="tab"
-                  aria-selected={filter === key}
-                  className={`cat-tab ${filter === key ? "cat-tab--active" : ""}`}
-                  onClick={() => setFilter(key)}
-                >
-                  {label}
-                  <span className="cat-tab__count">{counts[key]}</span>
-                </button>
-              ))}
-            </div>
           <HealthFilter value={health} onChange={setHealth} counts={healthCounts} />
           </div>
 
@@ -286,6 +274,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
                   >
                     <h3 className="staff-card__name">
                       {s.name}
+                      {s.admin && <span className="staff-card__inactive" title="Admin do app">admin</span>}
                       {!s.active && <span className="staff-card__inactive">inativo</span>}
                     </h3>
                     {!s.redacted && (
@@ -312,7 +301,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
                     disabled={busy}
                     onClick={() => navigate(`/staff/${s.id}/edit`)}
                   >
-                    ✏️
+                    <span className="pencil" aria-hidden="true">✏️</span>
                   </button>
                 </li>
               );

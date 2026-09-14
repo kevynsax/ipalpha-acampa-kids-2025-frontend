@@ -49,7 +49,7 @@ export default function RoleDetail({ token, roleId, nav, onEdit, onOpenStaff, on
           <span aria-hidden="true">{r.emoji}</span> {r.name}
         </h1>
         <button type="button" className="icon-btn icon-btn--lg" title="Editar função" aria-label="Editar função" onClick={() => onEdit(r)}>
-          ✏️
+          <span className="pencil" aria-hidden="true">✏️</span>
         </button>
       </header>
 
@@ -78,7 +78,7 @@ export default function RoleDetail({ token, roleId, nav, onEdit, onOpenStaff, on
         )}
         {r.forEveryone && (
           <p className="cat-hint">
-            Função padrão: vale para <strong>todos</strong> os voluntários ativos nos eventos abaixo, exceto quem tiver outra função no mesmo evento.
+            Função padrão: vale para <strong>todos</strong> os voluntários ativos nos eventos abaixo, exceto quem tiver outra função no evento.
           </p>
         )}
       </section>
