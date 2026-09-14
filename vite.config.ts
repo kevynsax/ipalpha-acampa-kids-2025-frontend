@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import basicSsl from "@vitejs/plugin-basic-ssl";
 import packageJson from "./package.json";
 
 export default defineConfig({
@@ -9,6 +10,10 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    // `npm run dev:lan` — HTTPS + LAN: the camera (QR scan) only opens in a secure
+    // context, so testing on a phone needs https://<mac-ip>:5173 (accept the
+    // self-signed certificate once on the phone).
+    ...(process.env.DEV_LAN ? [basicSsl()] : []),
     // Installable PWA. The service worker precaches the whole build (JS, CSS,
     // every image) so the app opens with zero network — the data itself lives
     // in localStorage (see src/store) and is fed by the WebSocket.
@@ -54,6 +59,17 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
+          // the photo album's thumbnails (immutable like the files): cached on
+          // first sight so the Fotos grid still renders with no connectivity
+          {
+            urlPattern: ({ url }) => /\/api\/gallery\/[a-f0-9]+\/thumb$/.test(url.pathname),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "acampa-thumbs",
+              expiration: { maxEntries: 600, maxAgeSeconds: 60 * 24 * 3600 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
         ],
       },
       devOptions: {
@@ -63,5 +79,12 @@ export default defineConfig({
   ],
   server: {
     port: 5173,
+    host: process.env.DEV_LAN ? true : undefined,
+    // the app talks to its own origin; in dev that is proxied to the backend
+    // (REST + the realtime websocket), so a phone on the LAN never needs to
+    // reach localhost:3000 nor pass CORS.
+    proxy: {
+      "/api": { target: "http://localhost:3000", changeOrigin: true, ws: true },
+    },
   },
 });

@@ -5,6 +5,7 @@ import AiTitleButton from "../../components/AiTitleButton";
 import type { ScheduleRole, ScheduleRoleInput } from "../../api/schedule";
 import RichTextEditor from "../../components/RichTextEditor";
 import Toggle from "../../components/Toggle";
+import { AiGlyph } from "../../components/Glyph";
 
 const EMOJI_SUGGESTIONS = ["🎯", "🧒", "🏊", "🔍", "📻", "🧹", "🏆", "📋", "😈", "🎨", "🃏", "🚩", "🚶", "🪑", "🏖️", "⛑️", "🎤", "📸"];
 
@@ -58,8 +59,8 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
   }
 
   return (
-    <form className={embedded ? "cat-form cat-form--embedded" : "cat-form"} onSubmit={handleSubmit}>
-      <h2 className="cat-form__title">{editing ? "✏️ Editar função" : "✨ Nova função"}</h2>
+    <form className={embedded ? "cat-form cat-form--embedded" : "cat-form cat-form--plain"} onSubmit={handleSubmit}>
+      {embedded && <h2 className="cat-form__title change-room__title">Nova função</h2>}
 
       <div className="cat-form__row">
         <div className="cat-field cat-field--emoji">
@@ -67,7 +68,7 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
           <EmojiPicker value={emoji} onChange={ai.pickEmoji} suggestions={EMOJI_SUGGESTIONS} disabled={busy} />
         </div>
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Nome{ai.suggesting && <span className="cat-field__ai"> ✨ sugerindo…</span>}</span>
+          <span className="cat-field__label">Nome{ai.suggesting && <span className="cat-field__ai"> <AiGlyph /> sugerindo…</span>}</span>
           <span className="cat-input-wrap">
             <input
               className="cat-input"
@@ -83,11 +84,9 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
         </label>
       </div>
 
-      <div className="cat-field">
-        <span className="cat-field__label">📝 Instruções para a equipe</span>
-        <p className="cat-hint">
-          O que a pessoa nesta função precisa fazer.
-        </p>
+      <section className="form-box form-box--plain" aria-labelledby="role-instructions-title">
+        <h3 id="role-instructions-title" className="form-box__title">📝 Instruções para a equipe</h3>
+        <p className="cat-hint">O que a pessoa nesta função precisa fazer.</p>
         <RichTextEditor
           token={token}
           aiContext="role_instructions"
@@ -98,10 +97,10 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
           disabled={busy}
           placeholder="ex.: Fique dentro da área da piscina durante todo o turno…"
         />
-      </div>
+      </section>
 
-      <div className="cat-field">
-        <span className="cat-field__label">🎒 Preparação (antes do acampamento)</span>
+      <section className="form-box form-box--plain" aria-labelledby="role-prep-title">
+        <h3 id="role-prep-title" className="form-box__title">🎒 Preparação (antes do acampamento)</h3>
         <p className="cat-hint">
           O que quem faz esta função precisa <strong>levar, vestir ou preparar</strong> — ex.: “roupa verde estilo exército com boné”.
         </p>
@@ -115,18 +114,24 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
           disabled={busy}
           placeholder="ex.: Leve uma camiseta verde e um boné — quanto mais parecido com o exército, melhor! 🥣"
         />
-      </div>
+      </section>
 
-      <div className="cat-field">
-        <Toggle checked={forEveryone} onChange={setForEveryone} disabled={busy} label={forEveryone ? "👥 Vale para toda a equipe" : "Vale para toda a equipe?"} />
+      <section className="form-box form-box--plain" aria-labelledby="role-options-title">
+        <h3 id="role-options-title" className="form-box__title">⚙️ Como a função é escalada</h3>
+      <div className="cat-field opt-field">
+        <div className="opt-field__head">
+          <Toggle checked={forEveryone} onChange={setForEveryone} disabled={busy} label="👥 Vale para toda a equipe" />
+        </div>
         <p className="cat-hint">
           Funções padrão (ex.: “cuidar das crianças”) valem para <strong>todos</strong> os voluntários do evento, sem escalar um por um.
         </p>
       </div>
 
       {!forEveryone && (
-        <div className="cat-field">
-          <Toggle checked={hasDetail} onChange={setHasDetail} disabled={busy} label={hasDetail ? "🏷️ Tem um detalhe por pessoa" : "Tem um detalhe por pessoa?"} />
+        <div className="cat-field opt-field">
+          <div className="opt-field__head">
+            <Toggle checked={hasDetail} onChange={setHasDetail} disabled={busy} label="🏷️ Tem um detalhe por pessoa" />
+          </div>
           <p className="cat-hint">
             Quando cada escalado precisa de uma informação própria — o time que acompanha, o número da base, o turno.
           </p>
@@ -145,6 +150,7 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
           )}
         </div>
       )}
+      </section>
 
       {error && <p className="message message--error">{error}</p>}
 

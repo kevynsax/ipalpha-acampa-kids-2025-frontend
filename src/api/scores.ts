@@ -24,6 +24,8 @@ export interface ScoreEntry {
 export interface ScanScoreResult {
   score: ScoreEntry;
   team: { id: string; name: string; color: string };
+  /** the kid had no church check-in yet: the system checked them in with this scan */
+  checkedIn: boolean;
 }
 
 const json = (token: string) => ({ ...bearer(token), "content-type": "application/json" });

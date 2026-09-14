@@ -5,7 +5,11 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { aiEdit, aiTranscribe, listAiModels, stripCodeFences, type AiContext, type AiMessage, type AiModel } from "../api/ai";
 import { absolutizeFileUrls, relativizeFileUrls, shrinkImage } from "../api/files";
+import { pendingImages, resolveGeneratedImages } from "../aiImages";
+import { sanitizeForEditor } from "../html";
 import AiVendorLogo from "./AiVendorLogo";
+import AiDiffDialog from "./AiDiffDialog";
+import { AiGlyph } from "./Glyph";
 
 interface AiAssistantPanelProps {
   open: boolean;
@@ -30,6 +34,14 @@ interface ChatItem extends AiMessage {
   lookups?: string[];
   /** assistant only: live reasoning (model chatter before/during lookups); hidden once answered */
   thought?: string[];
+  /** assistant only: new document HTML the model produced (absent = it only answered) */
+  doc?: string;
+  /** assistant only: the document block is streaming right now */
+  writing?: boolean;
+  /** assistant only: illustrations being rendered for this reply ("1 de 2") */
+  drawing?: { done: number; total: number; what: string };
+  /** assistant only: pictures the model asked for that could not be drawn */
+  imageErrors?: string[];
   /** assistant only: what the reply targeted */
   target?: { from: number; to: number } | "document";
   /** assistant only: editor HTML before the reply was applied (for "Reverter") */
@@ -202,7 +214,7 @@ async function toDataUrl(file: File): Promise<string> {
 }
 
 const QUICK = [
-  { label: "✨ Melhorar", prompt: "Melhore a escrita: deixe o texto mais claro e simpático, mantendo o sentido." },
+  { label: "Melhorar", prompt: "Melhore a escrita: deixe o texto mais claro e simpático, mantendo o sentido." },
   { label: "✂️ Resumir", prompt: "Resuma o texto mantendo as informações essenciais." },
   { label: "📝 Corrigir", prompt: "Corrija ortografia e gramática sem mudar o estilo." },
 ];
@@ -244,6 +256,8 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
   /** resolves with the clip once MediaRecorder flushes its last chunk */
   const stopPromise = useRef<Promise<Blob | null> | null>(null);
   const [hasSelection, setHasSelection] = useState(false);
+  /** chat item whose change is being reviewed in the diff dialog */
+  const [reviewing, setReviewing] = useState<number | null>(null);
   const [loadingModels, setLoadingModels] = useState(false);
   const [modelMenu, setModelMenu] = useState(false);
   const modelRef = useRef<HTMLDivElement>(null);
@@ -274,6 +288,7 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
   useEffect(() => {
     if (model) localStorage.setItem(MODEL_KEY, model);
   }, [model]);
+
 
   useEffect(() => {
     if (!modelMenu) return;
@@ -349,7 +364,8 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
   const patch = (id: number, p: Partial<ChatItem>) => setItems((list) => list.map((x) => (x.id === id ? { ...x, ...p } : x)));
 
   function applyReply(target: ChatItem["target"], html: string) {
-    const clean = absolutizeFileUrls(stripCodeFences(html));
+    // a placeholder that was never rendered must not reach the document (the server drops srcless images)
+    const clean = sanitizeForEditor(absolutizeFileUrls(stripCodeFences(html)));
     if (!clean) return;
     if (target && target !== "document") {
       const max = editor.state.doc.content.size;
@@ -435,7 +451,7 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
     const target: ChatItem["target"] = sel ? { from: sel.from, to: sel.to } : "document";
     const before = relativizeFileUrls(editor.getHTML());
     const history: AiMessage[] = items.filter((i) => !i.error && !i.pending).map(({ role, content }) => ({ role, content }));
-    const suffix = sel ? "\n(no trecho selecionado)" : "";
+    const suffix = sel ? "\n(sobre o trecho selecionado)" : "";
     const userId = nextId.current++;
     const userItem: ChatItem = {
       id: userId,
@@ -467,12 +483,29 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
       const full = await aiEdit(
         token,
         { model, context, title, html: editor.isEmpty ? "" : before, selection: sel?.html ?? null, messages: [...history, { role: "user", content }], images: pics.map((p) => p.url) },
-        (p) => patch(replyId, { content: p.text, lookups: p.lookups, thought: p.thought }),
+        (p) => patch(replyId, { content: p.reply, doc: p.doc ?? undefined, writing: p.docPending || !!p.doc, lookups: p.lookups, thought: p.thought }),
         ctrl.signal,
       );
-      applyReply(target, full.text);
-      patch(replyId, { content: full.text, lookups: full.lookups, thought: undefined, pending: false, applied: true });
-      onApplied?.(relativizeFileUrls(editor.getHTML()));
+      // the model decides: no document block = it just answered, nothing is touched
+      if (full.doc) {
+        let doc = stripCodeFences(full.doc);
+        let imageErrors: string[] | undefined;
+        // the model may have asked the app to DRAW pictures (<img data-gen="…">): render them before applying
+        if (pendingImages(doc).length) {
+          patch(replyId, { content: full.reply, doc, writing: false, lookups: full.lookups, pending: true, drawing: { done: 0, total: pendingImages(doc).length, what: "" } });
+          const drawn = await resolveGeneratedImages(token, doc, {
+            signal: ctrl.signal,
+            onProgress: (done, total, what) => patch(replyId, { drawing: { done, total, what } }),
+          });
+          doc = drawn.html;
+          imageErrors = drawn.failed.length ? drawn.failed : undefined;
+        }
+        applyReply(target, doc);
+        patch(replyId, { content: full.reply, doc, writing: false, drawing: undefined, imageErrors, lookups: full.lookups, thought: undefined, pending: false, applied: true });
+        onApplied?.(relativizeFileUrls(editor.getHTML()));
+      } else {
+        patch(replyId, { content: full.reply, doc: undefined, writing: false, lookups: full.lookups, thought: undefined, pending: false, before: undefined });
+      }
     } catch (err) {
       if ((err as Error)?.name === "AbortError") patch(replyId, { pending: false, error: "Cancelado." });
       else patch(replyId, { pending: false, error: err instanceof Error ? err.message : "O assistente não respondeu." });
@@ -487,12 +520,13 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
 
   function revert(item: ChatItem) {
     if (item.before === undefined) return;
-    editor.chain().focus().setContent(absolutizeFileUrls(item.before) || "", { emitUpdate: true }).run();
+    editor.chain().focus().setContent(sanitizeForEditor(absolutizeFileUrls(item.before)) || "", { emitUpdate: true }).run();
     patch(item.id, { applied: false });
   }
 
   function reapply(item: ChatItem) {
-    applyReply(item.target, item.content);
+    if (!item.doc) return;
+    applyReply(item.target, item.doc);
     patch(item.id, { applied: true });
   }
 
@@ -500,10 +534,21 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
 
   const current = models.find((m) => m.id === model);
 
+  const review = items.find((i) => i.id === reviewing);
+
   return (
     <aside className="ai-panel" role="complementary" aria-label="Assistente de IA">
+      {review?.before !== undefined && (
+        <AiDiffDialog
+          open
+          onClose={() => setReviewing(null)}
+          before={absolutizeFileUrls(review.before)}
+          after={editor.getHTML()}
+          onRevert={() => revert(review)}
+        />
+      )}
       <header className="ai-panel__head">
-        <span className="ai-panel__title">✨ Assistente</span>
+        <span className="ai-panel__title"><AiGlyph /> Assistente</span>
         <div className="ai-model" ref={modelRef}>
           <button
             type="button"
@@ -552,8 +597,8 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
         {!enabled && <p className="ai-panel__hint ai-panel__hint--warn">⚠️ Assistente de IA não configurado no servidor.</p>}
         {enabled && !items.length && (
           <div className="ai-panel__hint">
-            <p>Diga o que quer fazer com o texto do editor. A resposta é aplicada direto no documento — dá para reverter.</p>
-            <p>Selecione um trecho no editor para mexer só nele.</p>
+            <p>Converse normalmente: pergunte sobre o documento ou sobre o acampamento e ele responde aqui; peça uma mudança (“resuma”, “acrescente…”) e ele altera o texto e conta o que fez — dá para reverter.</p>
+            <p>Selecione um trecho no editor para tratar só dele.</p>
           </div>
         )}
         {items.map((it) => (
@@ -593,30 +638,52 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
                       <i />
                     </span>
                     <span className="ai-pulse">
-                      {it.content ? "Escrevendo…" : it.lookups?.length ? "Consultando…" : "Pensando…"}
-                      {it.target && it.target !== "document" ? " (no trecho selecionado)" : ""}
+                      {it.drawing
+                        ? `🎨 Desenhando ${Math.min(it.drawing.done + 1, it.drawing.total)} de ${it.drawing.total}…`
+                        : it.writing
+                          ? "Escrevendo o documento…"
+                          : it.content
+                            ? "Respondendo…"
+                            : it.lookups?.length
+                              ? "Consultando…"
+                              : "Pensando…"}
+                      {it.writing && it.target && it.target !== "document" ? " (no trecho selecionado)" : ""}
                     </span>
-                    {it.content.length > 0 && <span className="ai-msg__count">{it.content.length}</span>}
+                    {(it.doc?.length ?? it.content.length) > 0 && <span className="ai-msg__count">{it.doc?.length ?? it.content.length}</span>}
                   </p>
                 )}
                 {it.error && <p className="ai-msg__status">⚠️ {it.error}</p>}
                 {!it.pending && !it.error && (
                   <>
-                    <p className="ai-msg__status">
-                      {it.applied ? "✅ Aplicado " : "↩️ Revertido "}
-                      {it.target === "document" ? "no documento" : "no trecho selecionado"}
-                    </p>
-                    <div className="ai-msg__actions">
-                      {it.applied ? (
-                        <button type="button" className="ai-msg__btn" onClick={() => revert(it)} disabled={busy}>
-                          ↶ Reverter
-                        </button>
-                      ) : (
-                        <button type="button" className="ai-msg__btn" onClick={() => reapply(it)} disabled={busy}>
-                          ↷ Aplicar de novo
-                        </button>
-                      )}
-                    </div>
+                    <p className="ai-msg__answer">{it.content || (it.doc ? "Pronto." : "Sem resposta.")}</p>
+                    {!!it.lookups?.length && <p className="ai-msg__lookups">🔎 Consultou {it.lookups.join(", ")}</p>}
+                    {!!it.imageErrors?.length && (
+                      <p className="ai-msg__status">⚠️ Não consegui desenhar {it.imageErrors.length === 1 ? "uma imagem" : `${it.imageErrors.length} imagens`}.</p>
+                    )}
+                    {it.doc && (
+                      <>
+                        <p className="ai-msg__status">
+                          {it.applied ? "✅ Aplicado " : "↩️ Revertido "}
+                          {it.target === "document" ? "no documento" : "no trecho selecionado"}
+                        </p>
+                        <div className="ai-msg__actions">
+                          {it.before !== undefined && it.applied && (
+                            <button type="button" className="ai-msg__btn ai-msg__btn--review" onClick={() => setReviewing(it.id)} disabled={busy}>
+                              👁 Ver o que mudou
+                            </button>
+                          )}
+                          {it.applied ? (
+                            <button type="button" className="ai-msg__btn" onClick={() => revert(it)} disabled={busy}>
+                              ↶ Reverter
+                            </button>
+                          ) : (
+                            <button type="button" className="ai-msg__btn" onClick={() => reapply(it)} disabled={busy}>
+                              ↷ Aplicar de novo
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
               </>
@@ -680,7 +747,7 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
           className="ai-panel__input"
           rows={3}
           value={draft}
-          placeholder={hasSelection ? "O que fazer com o trecho selecionado?" : "ex.: deixe mais curto — dá para colar texto ou imagens"}
+          placeholder={hasSelection ? "Pergunte ou peça uma mudança no trecho selecionado" : "Pergunte algo ou peça uma mudança — dá para colar texto ou imagens"}
           disabled={busy || !enabled}
           onChange={(e) => setDraft(e.target.value)}
           onPaste={(e) => {

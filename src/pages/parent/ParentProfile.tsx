@@ -2,6 +2,8 @@ import ParentIcon from "../../components/ParentIcon";
 import { formatBrazilPhoneClient } from "../../phoneFormat";
 import { roleMeta, type LoggedUser } from "../../roles";
 import { useParentHome } from "../../store/derive";
+import { speakDateTime } from "../../dates";
+import PageFooter from "../../components/PageFooter";
 
 interface ParentProfileProps {
   user: LoggedUser;
@@ -16,7 +18,7 @@ interface ParentProfileProps {
 export default function ParentProfile({ user, tokenExpiresAt }: ParentProfileProps) {
   const meta = roleMeta(user.activeRole);
   const data = useParentHome();
-  const formatted = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(tokenExpiresAt));
+  const formatted = speakDateTime(tokenExpiresAt);
 
   return (
     <div className="admin-page">
@@ -82,7 +84,7 @@ export default function ParentProfile({ user, tokenExpiresAt }: ParentProfilePro
         </section>
       ))}
 
-      <p className="footer-note">🔑 Sua sessão fica aberta até {formatted} (24h).</p>
+      <PageFooter>🔑 Sua sessão fica aberta até {formatted} (24h).</PageFooter>
     </div>
   );
 }

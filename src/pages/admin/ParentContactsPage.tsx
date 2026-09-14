@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { updateSettings, type ParentContact } from "../../api/settings";
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import StaffPicker from "./StaffPicker";
+import { speakWhen } from "../../dates";
+import PageFooter from "../../components/PageFooter";
 
 interface ParentContactsPageProps {
   token: string;
@@ -20,11 +22,10 @@ function contactId(): string {
     : `contact-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-const fmt = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
 /** When the parents actually see these contacts: only during the camp (check-in start → end of the last event). */
 function ParentWindowNote({ window: w }: { window: { from: string | null; until: string | null; open: boolean } }) {
-  const range = w.from && w.until ? `de ${fmt.format(new Date(w.from))} até ${fmt.format(new Date(w.until))}` : null;
+  const range = w.from && w.until ? `de ${speakWhen(w.from)} até ${speakWhen(w.until)}` : null;
   return (
     <p className={`message ${w.open ? "message--ok" : "message--warn"}`}>
       {w.open ? "🟢" : "🕒"} Os pais só veem estes contatos <strong>durante o acampamento</strong> — do início do check-in das crianças até o fim do último evento da programação
@@ -197,7 +198,7 @@ export default function ParentContactsPage({ token }: ParentContactsPageProps) {
         )}
       </section>
 
-      <p className="footer-note">O telefone vem do cadastro da equipe. Quem entra nesta lista passa a ter acesso ao app fora da janela da equipe (como os organizadores).</p>
+      <PageFooter>O telefone vem do cadastro da equipe. Quem entra nesta lista passa a ter acesso ao app fora da janela da equipe (como os organizadores).</PageFooter>
 
       <StaffPicker
         open={pickerOpen}

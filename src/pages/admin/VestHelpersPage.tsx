@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { updateSettings } from "../../api/settings";
 import { useCollection } from "../../store";
 import StaffListEditor from "./StaffListEditor";
+import PageFooter from "../../components/PageFooter";
 
 interface VestHelpersPageProps {
   token: string;
@@ -70,10 +71,10 @@ export default function VestHelpersPage({ token }: VestHelpersPageProps) {
         />
       </section>
 
-      <p className="footer-note">
+      <PageFooter>
         🔒 Quem cuida dos coletes vê da equipe apenas <strong>nome e celular</strong>: nada de quarto, time, saúde ou check-in. Ao entrar na
         lista a pessoa recebe um SMS avisando (Notificações → Boas-vindas e novas responsabilidades).
-      </p>
+      </PageFooter>
     </div>
   );
 }

@@ -7,8 +7,10 @@ import { useAiAutoFill } from "../../hooks/useAiAutoFill";
 import AiTitleButton from "../../components/AiTitleButton";
 import RichHtml from "../../components/RichHtml";
 import RichTextEditor from "../../components/RichTextEditor";
+import Breadcrumbs from "../../components/Breadcrumbs";
 import { goBack, useRoute } from "../../router";
 import { useCollection, useCollectionOrEmpty } from "../../store";
+import { AiGlyph } from "../../components/Glyph";
 
 interface PreparationAdminPageProps {
   token: string;
@@ -86,11 +88,26 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
 
   return (
     <div className="admin-page">
+      {mode.kind !== "list" && (
+        <Breadcrumbs items={[{ label: "Preparação", onClick: () => navigate("/preparation") }, ...(editing ? [{ label: editing.title }] : []), { label: mode.kind === "new" ? "Nova comunicação" : "Editar" }]} />
+      )}
       <header className="admin-head">
-        <h1 className="admin-title">🎒 Preparação</h1>
+        <h1 className="admin-title">{mode.kind === "new" ? "🎒 Nova comunicação" : mode.kind === "edit" ? "✏️ Editar comunicação" : "🎒 Preparação"}</h1>
         {mode.kind === "list" && (
           <button type="button" className="button button--primary admin-head__new" disabled={busy} onClick={() => navigate("/preparation/new")}>
             + Comunicação
+          </button>
+        )}
+        {mode.kind === "edit" && editing && (
+          <button
+            type="button"
+            className="icon-btn icon-btn--lg icon-btn--danger"
+            title={`Excluir comunicação "${editing.title}"`}
+            aria-label={`Excluir comunicação "${editing.title}"`}
+            disabled={busy}
+            onClick={() => handleDelete(editing)}
+          >
+            🗑️
           </button>
         )}
       </header>
@@ -114,12 +131,7 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
       {mode.kind === "new" && <SectionForm token={token} busy={busy} onSubmit={handleCreate} onCancel={cancel} />}
       {mode.kind === "edit" && !editing && <p className="opt-empty">Comunicação não encontrada.</p>}
       {mode.kind === "edit" && editing && (
-        <>
-          <SectionForm key={editing.id} token={token} section={editing} busy={busy} onSubmit={(i) => handleEdit(editing, i)} onCancel={cancel} />
-          <button type="button" className="link-danger" disabled={busy} onClick={() => handleDelete(editing)}>
-            🗑️ Excluir comunicação "{editing.title}"
-          </button>
-        </>
+        <SectionForm key={editing.id} token={token} section={editing} busy={busy} onSubmit={(i) => handleEdit(editing, i)} onCancel={cancel} />
       )}
 
       {mode.kind === "list" && sections.length === 0 && (
@@ -179,20 +191,19 @@ function SectionForm({ token, section, busy, onSubmit, onCancel }: SectionFormPr
 
   return (
     <form
-      className="cat-form"
+      className="cat-form cat-form--plain"
       onSubmit={(e) => {
         e.preventDefault();
         if (valid && !busy) void onSubmit({ title: title.trim(), emoji: emoji.trim() || "📌", audiences, content }).catch(() => {});
       }}
     >
-      <h2 className="cat-form__title">{section ? "✏️ Editar comunicação" : "✨ Nova comunicação"}</h2>
       <div className="cat-form__row">
         <div className="cat-field cat-field--emoji">
           <span className="cat-field__label">Ícone</span>
           <EmojiPicker value={emoji} onChange={ai.pickEmoji} suggestions={EMOJI_SUGGESTIONS} disabled={busy} />
         </div>
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Título{ai.suggesting && <span className="cat-field__ai"> ✨ sugerindo…</span>}</span>
+          <span className="cat-field__label">Título{ai.suggesting && <span className="cat-field__ai"> <AiGlyph /> sugerindo…</span>}</span>
           <span className="cat-input-wrap">
             <input className="cat-input" placeholder="ex.: O que levar na mala" value={title} maxLength={80} autoFocus disabled={busy} onChange={(e) => setTitle(e.target.value)} />
             <AiTitleButton html={content} busy={ai.suggesting} disabled={busy} onClick={() => void ai.regenerateTitle(content)} />

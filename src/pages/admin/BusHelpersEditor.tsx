@@ -1,10 +1,17 @@
 import { useMemo, useState } from "react";
-import { CAMPER_CATEGORY_KEYS } from "../../api/campers";
+import type { Transport } from "../../api/transports";
 import type { BusHelper } from "../../api/settings";
 import type { Staff } from "../../api/staff";
 import Dialog from "../../components/Dialog";
+import BusLogo from "../../components/BusLogo";
+import CarLogo from "../../components/CarLogo";
 import { useCollectionOrEmpty } from "../../store";
 import StaffPicker from "./StaffPicker";
+
+/** The vehicle's coloured mark: the bus logo in its colour, or a car emoji. */
+function vehicleMark(v: Transport, size = 22) {
+  return v.kind === "bus" ? <BusLogo color={v.color ?? "#0f9a8a"} number={v.number} size={size} /> : <CarLogo size={size} />;
+}
 
 interface BusHelpersEditorProps {
   value: BusHelper[];
@@ -24,12 +31,11 @@ type Adding = { step: "vehicle" } | { step: "person"; vehicleId: string } | null
  */
 export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpersEditorProps) {
   const staff = useCollectionOrEmpty("staff");
-  const categories = useCollectionOrEmpty("categories");
+  const transports = useCollectionOrEmpty("transports");
   const [adding, setAdding] = useState<Adding>(null);
 
-  const transport = categories.find((c) => c.key === CAMPER_CATEGORY_KEYS.transportation);
-  const emoji = transport?.emoji ?? "🚌";
-  const vehicles = useMemo(() => (transport?.options ?? []).filter((o) => o.active).slice().sort((a, b) => a.order - b.order), [transport]);
+  const emoji = "🚌";
+  const vehicles = useMemo(() => transports.slice().sort((a, b) => a.order - b.order), [transports]);
   const staffById = useMemo(() => new Map(staff.map((s) => [s.id, s])), [staff]);
   const placed = new Set(value.map((h) => h.staffId));
 
@@ -61,7 +67,7 @@ export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpe
       </p>
 
       {vehicles.length === 0 ? (
-        <p className="opt-empty">Nenhum transporte cadastrado. Crie os veículos em Categorias → Transporte.</p>
+        <p className="opt-empty">Nenhum transporte cadastrado. Crie os veículos em Configurações → Transporte.</p>
       ) : shown.length === 0 ? (
         <p className="opt-empty">Ninguém na porta de nenhum veículo. Só o admin faz a chamada no ônibus.</p>
       ) : (
@@ -75,7 +81,7 @@ export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpe
               <li key={v.id} className="bus-helpers__vehicle">
                 <header className="list-head">
                   <h3 className="bus-helpers__vehicle-name">
-                    {emoji} {v.label} <span className="cat-tab__count">{people.length}</span>
+                    {vehicleMark(v)} {v.label} <span className="cat-tab__count">{people.length}</span>
                   </h3>
                   {addButton(v.id, "➕ Adicionar")}
                 </header>
@@ -111,7 +117,7 @@ export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpe
                 <li key={v.id}>
                   <button type="button" role="option" aria-selected={false} className="picker__item" onClick={() => setAdding({ step: "person", vehicleId: v.id })}>
                     <span className="picker__name">
-                      {emoji} {v.label}
+                      {vehicleMark(v)} {v.label}
                     </span>
                     <span className="cat-tab__count">{n}</span>
                   </button>

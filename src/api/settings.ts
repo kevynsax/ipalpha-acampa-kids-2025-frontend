@@ -41,6 +41,8 @@ export interface NotificationSettings {
   parentWelcome: boolean;
   /** a kid's birthday falls on a camp day → at 07:45 that day the whole team of the kid's room is texted */
   birthdays: boolean;
+  /** the photographer published photos → the whole team and every responsible receive an SMS */
+  photoPublishes: boolean;
 }
 
 /** One-shot reminder to the whole team to do their check-in. */
@@ -89,6 +91,8 @@ export interface Settings {
   parentWindow: CheckinWindow;
   notifications: NotificationSettings;
   checkinWindow: CheckinWindow;
+  /** separate window for boarding the return bus to church */
+  busReturnWindow: CheckinWindow;
   /** church check-in helpers: inside the window they receive every camper (health included) */
   checkinHelpers: StaffList;
   /** bus helpers: each linked to ONE vehicle; inside the window they receive the kids of that vehicle, names only (`Camper.redacted`) */
@@ -103,6 +107,8 @@ export interface Settings {
   medicalStaff: StaffList;
   /** vest (colete) helpers (no window): hand out / take back the team vests; see everyone as name + phone only */
   vestHelpers: StaffList;
+  /** photographers (no window): upload the camp's photos and decide when each one is published */
+  photographers: StaffList;
   /** ordered staff contacts that will be shared with parents */
   parentContacts: ParentContact[];
   /** when ORDINARY team members (on no list) may use the app; both ends null = always */
@@ -115,6 +121,8 @@ export interface Settings {
   kidsRoomsDraft: boolean;
   /** scoreboard rehearsal: the Placar tab opens and accepts points regardless of the camp days; off + outside the camp = no tab, no writes */
   scoreDraft: boolean;
+  /** the photo album is visible to the camp; while false only the photographers (and the admin) see it */
+  galleryPublished: boolean;
   /** the "do your check-in" SMS to the whole team, scheduled for one instant */
   checkinReminder: CheckinReminder;
   /** Settings → Testes: while on, every SMS for the team / the parents (login code + notifications) goes to the test phones instead */
@@ -160,6 +168,7 @@ export interface SettingsPatch {
   /** partial: only the keys sent are changed */
   notifications?: Partial<NotificationSettings>;
   checkinWindow?: { from: string | null; until: string | null };
+  busReturnWindow?: { from: string | null; until: string | null };
   checkinHelpers?: StaffList;
   busHelpers?: BusHelperList;
   organizers?: StaffList;
@@ -167,12 +176,14 @@ export interface SettingsPatch {
   scoreHelpers?: StaffList;
   medicalStaff?: StaffList;
   vestHelpers?: StaffList;
+  photographers?: StaffList;
   parentContacts?: ParentContact[];
   staffAccessWindow?: { from: string | null; until: string | null };
   parentAccessWindow?: { from: string | null; until: string | null };
   checkinTestMode?: boolean;
   kidsRoomsDraft?: boolean;
   scoreDraft?: boolean;
+  galleryPublished?: boolean;
   checkinReminder?: { at: string | null };
   /** partial: only the keys sent are changed (admin only) */
   smsRedirect?: Partial<SmsRedirect>;
@@ -188,7 +199,7 @@ export async function welcomePreview(token: string): Promise<WelcomePreview> {
   return api<WelcomePreview>("/api/settings/welcome-preview", { headers: bearer(token) });
 }
 
-/** Clears every check-in (kids' church + bus, team) and the audit log — for rehearsing the process. */
+/** Clears every check-in (kids' church + both bus trips, team) and the audit log — for rehearsing the process. */
 export async function resetCheckins(token: string): Promise<{ campers: number; staff: number; vests: number }> {
   return command<{ campers: number; staff: number; vests: number }>("/api/settings/checkin/reset", { method: "POST", headers: bearer(token) }, ["campers", "staff"]);
 }

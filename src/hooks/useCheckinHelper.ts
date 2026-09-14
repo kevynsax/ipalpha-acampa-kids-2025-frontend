@@ -10,8 +10,11 @@ export interface HelperAccess {
   church: boolean;
   /** bus roll-call helper, and the check-in window is open right now */
   bus: boolean;
-  /** the vehicle (transportation option id) the admin linked this bus helper to; null when not a bus helper / window closed */
+  /** the vehicle (transportation option id) the admin linked this bus helper to; null when not a bus helper / both windows closed */
   busVehicle: string | null;
+  /** which trip windows are open for this helper */
+  busOutbound: boolean;
+  busReturn: boolean;
   /** ORGANIZER (no window): the admin's tabs and settings (minus organizers / categories / notifications / about), on top of their own team tabs */
   organizer: boolean;
   /** game organizer (no window): edits the programme, sees the whole team and writes the scoreboard (Placar) */
@@ -22,11 +25,13 @@ export interface HelperAccess {
   medical: boolean;
   /** vest (colete) helper — until VEST_GRACE_DAYS after the camp: hands out / takes back the team vests; sees everyone as name + phone */
   vest: boolean;
+  /** photographer (no window): uploads, edits and publishes the camp's photos */
+  photographer: boolean;
 }
 
-const NONE: HelperAccess = { church: false, bus: false, busVehicle: null, organizer: false, gameOrganizer: false, scoreHelper: false, medical: false, vest: false };
+const NONE: HelperAccess = { church: false, bus: false, busVehicle: null, busOutbound: false, busReturn: false, organizer: false, gameOrganizer: false, scoreHelper: false, medical: false, vest: false, photographer: false };
 
-type Lists = Pick<Settings, "checkinWindow" | "checkinHelpers" | "busHelpers" | "organizers" | "gameOrganizers" | "scoreHelpers" | "medicalStaff" | "vestHelpers"> & Partial<Pick<Settings, "checkinTestMode">>;
+type Lists = Pick<Settings, "checkinWindow" | "busReturnWindow" | "checkinHelpers" | "busHelpers" | "organizers" | "gameOrganizers" | "scoreHelpers" | "medicalStaff" | "vestHelpers" | "photographers"> & Partial<Pick<Settings, "checkinTestMode">>;
 
 /**
  * Is the logged-in team member a check-in helper (church and/or bus) inside
@@ -54,11 +59,16 @@ export function useCheckinHelper(phone: string, enabled: boolean, campEndsAt: nu
   const now = Date.now();
   const from = lists?.checkinWindow.from ? new Date(lists.checkinWindow.from).getTime() : null;
   const until = lists?.checkinWindow.until ? new Date(lists.checkinWindow.until).getTime() : null;
-  const windowOpen = !!lists?.checkinTestMode || (from !== null && until !== null && from <= now && now < until);
-  const listed = (l: "checkinHelpers" | "organizers" | "gameOrganizers" | "scoreHelpers" | "medicalStaff" | "vestHelpers") => !!me && !!lists && !!lists[l] && lists[l].staffIds.includes(me.id);
-  const church = windowOpen && listed("checkinHelpers");
+  const returnFrom = lists?.busReturnWindow?.from ? new Date(lists.busReturnWindow.from).getTime() : null;
+  const returnUntil = lists?.busReturnWindow?.until ? new Date(lists.busReturnWindow.until).getTime() : null;
+  const departureOpen = !!lists?.checkinTestMode || (from !== null && until !== null && from <= now && now < until);
+  const returnOpen = !!lists?.checkinTestMode || (returnFrom !== null && returnUntil !== null && returnFrom <= now && now < returnUntil);
+  const listed = (l: "checkinHelpers" | "organizers" | "gameOrganizers" | "scoreHelpers" | "medicalStaff" | "vestHelpers" | "photographers") => !!me && !!lists && !!lists[l] && lists[l].staffIds.includes(me.id);
+  const church = departureOpen && listed("checkinHelpers");
   const linkedVehicle = me && lists ? (lists.busHelpers.helpers.find((h) => h.staffId === me.id)?.vehicleId ?? null) : null;
-  const busVehicle = windowOpen ? linkedVehicle : null;
+  const busOutbound = departureOpen && linkedVehicle !== null;
+  const busReturn = returnOpen && linkedVehicle !== null;
+  const busVehicle = busOutbound || busReturn ? linkedVehicle : null;
   const bus = busVehicle !== null;
   const gameOrganizer = listed("gameOrganizers");
   const scoreHelper = listed("scoreHelpers");
@@ -66,12 +76,13 @@ export function useCheckinHelper(phone: string, enabled: boolean, campEndsAt: nu
   const medical = listed("medicalStaff");
   const vestOpen = campEndsAt === null || now < campEndsAt + VEST_GRACE_DAYS * 24 * 60 * 60 * 1000;
   const vest = listed("vestHelpers") && vestOpen;
+  const photographer = listed("photographers");
   const anyOpen = church || bus;
   const myBedroom = me?.bedroom ?? null;
 
   // wake up at the next window edge (only matters if the person is on some helper list)
   const onSomeList = listed("checkinHelpers") || linkedVehicle !== null;
-  const edge = onSomeList ? ([from, until].filter((t): t is number => t !== null && t > now).sort((a, b) => a - b)[0] ?? null) : null;
+  const edge = onSomeList ? ([from, until, returnFrom, returnUntil].filter((t): t is number => t !== null && t > now).sort((a, b) => a - b)[0] ?? null) : null;
   useEffect(() => {
     if (edge === null) return;
     const t = setTimeout(() => {
@@ -92,5 +103,5 @@ export function useCheckinHelper(phone: string, enabled: boolean, campEndsAt: nu
     wasOpen.current = anyOpen;
   }, [anyOpen, medical, scoreHelper, organizer, myBedroom]);
 
-  return enabled ? { church, bus, busVehicle, organizer, gameOrganizer, scoreHelper, medical, vest } : NONE;
+  return enabled ? { church, bus, busVehicle, busOutbound, busReturn, organizer, gameOrganizer, scoreHelper, medical, vest, photographer } : NONE;
 }

@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { bedroomLabel } from "../api/bedrooms";
+import { type BedroomGroup } from "../api/bedrooms";
 import Breadcrumbs, { type Crumb } from "../components/Breadcrumbs";
 import GiveawayDrawDialog from "../components/GiveawayDrawDialog";
+import GroupIcon from "../components/GroupIcon";
 import StaffIcon from "../components/StaffIcon";
 import { ICONS } from "../icons";
 import { useCollection } from "../store";
@@ -23,7 +24,9 @@ function drawIndex(n: number): number {
 interface Row {
   id: string;
   name: string;
+  /** just the room name ("209") — the wing is shown as an icon beside it */
   room: string;
+  group: BedroomGroup | null;
   /** kids only: first name of the líder responsible for the child */
   leader?: string;
 }
@@ -49,7 +52,7 @@ export default function GiveawayPage({ who, crumbs }: GiveawayPageProps) {
     const byId = new Map((bedrooms ?? []).map((b) => [b.id, b]));
     return (id: string | null) => {
       const b = id ? byId.get(id) : null;
-      return b ? bedroomLabel(b) : "—";
+      return { room: b ? b.name : "—", group: b ? b.group : null };
     };
   }, [bedrooms]);
 
@@ -60,12 +63,12 @@ export default function GiveawayPage({ who, crumbs }: GiveawayPageProps) {
       return (campers ?? [])
         .filter((c) => !!c.checkin)
         .sort((a, b) => collator.compare(a.name, b.name))
-        .map((c) => ({ id: c.id, name: c.name, room: roomOf(c.bedroom), leader: staffById.get(c.caretakerId ?? "")?.name.split(" ")[0] }));
+        .map((c) => ({ id: c.id, name: c.name, ...roomOf(c.bedroom), leader: staffById.get(c.caretakerId ?? "")?.name.split(" ")[0] }));
     }
     return (staff ?? [])
       .filter((s) => s.active && !!s.checkin)
       .sort((a, b) => collator.compare(a.name, b.name))
-      .map((s) => ({ id: s.id, name: s.name, room: roomOf(s.bedroom) }));
+      .map((s) => ({ id: s.id, name: s.name, ...roomOf(s.bedroom) }));
   }, [who, campers, staff, roomOf]);
 
   const synced = who === "campers" ? campers !== null : staff !== null;
@@ -111,7 +114,9 @@ export default function GiveawayPage({ who, crumbs }: GiveawayPageProps) {
                   <StaffIcon size={16} /> {r.leader}
                 </span>
               )}
-              <span className="opt-item__badge">🛏️ {r.room}</span>
+              <span className="opt-item__badge opt-item__badge--icon">
+                {r.group ? <GroupIcon group={r.group} face size={16} /> : "🛏️"} {r.room}
+              </span>
             </li>
           ))}
         </ol>

@@ -27,14 +27,11 @@ export function UndoGlyph({ size = "1.1em", className }: GlyphProps) {
   );
 }
 
-/** two arrows swapping places (→ over ←) — used on "Trocar" (move to another room / hand over to another leader) instead of the 🔄 emoji */
-export function SwapGlyph({ size = "1.1em", className }: GlyphProps) {
+/** a four-point spark (Google-style "AI" mark) — every AI action / status, instead of the ✨ emoji (no longer used anywhere, so the spark always means AI) */
+export function AiGlyph({ size = "1.1em", className }: GlyphProps) {
   return (
-    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 8h15" />
-      <path d="m15 4 4 4-4 4" />
-      <path d="M20 16H5" />
-      <path d="m9 12-4 4 4 4" />
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2c.4 5.6 4.4 9.6 10 10-5.6.4-9.6 4.4-10 10-.4-5.6-4.4-9.6-10-10 5.6-.4 9.6-4.4 10-10z" />
     </svg>
   );
 }
@@ -55,6 +52,28 @@ export function DownloadGlyph({ size = "1.1em", className }: GlyphProps) {
       <path d="M12 4v11" />
       <path d="M7 10l5 5 5-5" />
       <path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2" />
+    </svg>
+  );
+}
+
+/** four arrows pushing into the corners — "open this in full screen" */
+export function ExpandGlyph({ size = "1.1em", className }: GlyphProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 3H3v6" />
+      <path d="M3 3l7 7" />
+      <path d="M15 21h6v-6" />
+      <path d="M21 21l-7-7" />
+    </svg>
+  );
+}
+
+/** a magnifying glass — sits inside the search fields of the Acampantes / Equipe lists */
+export function SearchGlyph({ size = "1.1em", className }: GlyphProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="M15.5 15.5 21 21" />
     </svg>
   );
 }

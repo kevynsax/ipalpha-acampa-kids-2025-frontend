@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { aiUsage, type AiVendor, type AiVendorUsage } from "../../api/ai";
 import AiVendorLogo from "../../components/AiVendorLogo";
+import { AiGlyph } from "../../components/Glyph";
+import { speakStamp } from "../../dates";
 
 interface AboutPageProps {
   token: string;
@@ -15,7 +17,6 @@ const VENDOR_NAMES: Record<string, string> = {
 };
 
 const num = new Intl.NumberFormat("pt-BR");
-const when = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
 /** Admin-only "Sobre": app version and how much each AI company has been used. */
 export default function AboutPage({ token }: AboutPageProps) {
@@ -60,7 +61,7 @@ export default function AboutPage({ token }: AboutPageProps) {
       </section>
 
       <section className="cat-form">
-        <h2 className="cat-form__title">✨ Uso de IA por empresa</h2>
+        <h2 className="cat-form__title"><AiGlyph /> Uso de IA por empresa</h2>
         <p className="cat-hint">Assistente do editor e sugestões de título/emoji, somados desde o início.</p>
         {error && <p className="message message--error">{error}</p>}
         {!error && !vendors && <p className="opt-empty">Carregando…</p>}
@@ -87,7 +88,7 @@ export default function AboutPage({ token }: AboutPageProps) {
                     <span>
                       <b>{num.format(tokens)}</b> tokens ({num.format(v.promptTokens)} entrada · {num.format(v.completionTokens)} saída)
                     </span>
-                    {v.lastAt && <span>último uso {when.format(new Date(v.lastAt))}</span>}
+                    {v.lastAt && <span>último uso {speakStamp(v.lastAt)}</span>}
                   </div>
                   <ul className="about-vendor__models">
                     {v.models.map((m) => (

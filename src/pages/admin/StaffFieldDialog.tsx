@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { STAFF_CATEGORY_KEYS, updateStaff, type Staff } from "../../api/staff";
-import { CategorySelect, TeamSelect } from "../../components/CategoryFields";
+import { updateStaff, type Staff } from "../../api/staff";
+import { TeamSelect, TransportSelect } from "../../components/CategoryFields";
 import Dialog from "../../components/Dialog";
 import { ICONS } from "../../icons";
-import { useCollectionOrEmpty } from "../../store";
 
 export type StaffQuickField = "team" | "transportation";
 
@@ -22,7 +21,6 @@ interface StaffFieldDialogProps {
 
 /** Admin: change ONE quick field of a team member (team or transportation) from the detail page. */
 export default function StaffFieldDialog({ token, open, member: s, field, onClose }: StaffFieldDialogProps) {
-  const categories = useCollectionOrEmpty("categories");
   const [value, setValue] = useState<string | null>(s[field]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,13 +51,13 @@ export default function StaffFieldDialog({ token, open, member: s, field, onClos
     <Dialog open={open} onClose={onClose} title={META[field].title} width={480}>
       <div className="cat-form cat-form--plain">
         <h2 className="cat-form__title change-room__title">
-          <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" /> {META[field].title}
+          <img className="pencil-icon" src={field === "transportation" ? ICONS.transport : ICONS.pencil} alt="" aria-hidden="true" /> {META[field].title}
         </h2>
 
         {field === "team" ? (
           <TeamSelect value={value} onChange={setValue} disabled={busy} />
         ) : (
-          <CategorySelect label="Transporte" category={categories.find((c) => c.key === STAFF_CATEGORY_KEYS.transportation)} value={value} onChange={setValue} disabled={busy} />
+          <TransportSelect value={value} onChange={setValue} disabled={busy} audience="staff" />
         )}
 
         {error && <p className="message message--error">{error}</p>}

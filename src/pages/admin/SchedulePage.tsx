@@ -5,7 +5,6 @@ import {
   createRole,
   deleteEvent,
   deleteRole,
-  formatEventDate,
   updateEvent,
   updateRole,
   type CampEvent,
@@ -13,10 +12,12 @@ import {
   type ScheduleRole,
   type ScheduleRoleInput,
 } from "../../api/schedule";
+import { speakDay } from "../../dates";
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import DetailStack, { detailUrl, rememberTitle, viaCrumbs, type DetailRef } from "./DetailStack";
 import EventDetail from "./EventDetail";
 import { goBack, useRoute } from "../../router";
+import Breadcrumbs from "../../components/Breadcrumbs";
 import EventForm from "./EventForm";
 import RoleForm from "./RoleForm";
 import RichHtml from "../../components/RichHtml";
@@ -110,7 +111,7 @@ export default function SchedulePage({ token }: SchedulePageProps) {
   }
 
   async function handleDeleteEvent(e: CampEvent) {
-    if (!(await confirm({ emoji: "🗑️", title: `Excluir "${e.title}"?`, message: `${formatEventDate(e.date, { day: "2-digit", month: "2-digit" })} ${e.startTime} · Isso não pode ser desfeito.`, confirmLabel: "Excluir", danger: true }))) return;
+    if (!(await confirm({ emoji: "🗑️", title: `Excluir "${e.title}"?`, message: `${speakDay(e.date, "compact")} ${e.startTime} · Isso não pode ser desfeito.`, confirmLabel: "Excluir", danger: true }))) return;
     try {
       await withBusy(() => deleteEvent(token, e.id));
       navigate("/schedule", { replace: true });
@@ -181,6 +182,7 @@ export default function SchedulePage({ token }: SchedulePageProps) {
         onEdit={() => navigate(`/schedule/events/${ev.id}/edit`)}
         onOpenStaff={(id) => navigate(detailUrl({ kind: "staff", id }, chain))}
         onOpenRole={(id) => navigate(detailUrl({ kind: "role", id }, chain))}
+        onEditRole={(id) => navigate(`/schedule/roles/${id}/edit`)}
       />
     );
   }
@@ -204,8 +206,20 @@ export default function SchedulePage({ token }: SchedulePageProps) {
 
   return (
     <div className="admin-page">
+      {inForm && (
+        <Breadcrumbs
+          items={[
+            { label: "Programação", onClick: () => navigate(sub === "roles" ? "/schedule/roles" : "/schedule") },
+            ...(mode.kind === "edit-event" && editingEvent ? [{ label: editingEvent.title, onClick: () => navigate(`/schedule/events/${editingEvent.id}`) }] : []),
+            ...(mode.kind === "edit-role" && editingRole ? [{ label: editingRole.name, onClick: () => navigate(`/schedule/roles/${editingRole.id}`) }] : []),
+            { label: mode.kind === "create-event" ? "Novo evento" : mode.kind === "create-role" ? "Nova função" : "Editar" },
+          ]}
+        />
+      )}
       <header className="admin-head">
-        <h1 className="admin-title">Programação</h1>
+        <h1 className="admin-title">
+          {mode.kind === "create-event" ? "📅 Novo evento" : mode.kind === "edit-event" ? "✏️ Editar evento" : mode.kind === "create-role" ? "🎯 Nova função" : mode.kind === "edit-role" ? "✏️ Editar função" : "Programação"}
+        </h1>
         {!inForm && (
           <button
             type="button"
@@ -214,6 +228,34 @@ export default function SchedulePage({ token }: SchedulePageProps) {
             onClick={() => navigate(sub === "events" ? "/schedule/events/new" : "/schedule/roles/new")}
           >
             {sub === "events" ? "+ Evento" : "+ Função"}
+          </button>
+        )}
+        {mode.kind === "edit-event" && editingEvent && (
+          <button
+            type="button"
+            className="icon-btn icon-btn--lg icon-btn--danger"
+            title={`Excluir evento "${editingEvent.title}"`}
+            aria-label={`Excluir evento "${editingEvent.title}"`}
+            disabled={busy}
+            onClick={() => handleDeleteEvent(editingEvent)}
+          >
+            🗑️
+          </button>
+        )}
+        {mode.kind === "edit-role" && editingRole && (
+          <button
+            type="button"
+            className="icon-btn icon-btn--lg icon-btn--danger"
+            title={
+              (usageByRole.get(editingRole.id) ?? 0) > 0
+                ? `Remova esta função dos ${usageByRole.get(editingRole.id)} evento(s) antes de excluir`
+                : `Excluir função "${editingRole.name}"`
+            }
+            aria-label={`Excluir função "${editingRole.name}"`}
+            disabled={busy || (usageByRole.get(editingRole.id) ?? 0) > 0}
+            onClick={() => handleDeleteRole(editingRole)}
+          >
+            🗑️
           </button>
         )}
       </header>
@@ -249,29 +291,12 @@ export default function SchedulePage({ token }: SchedulePageProps) {
       )}
       {mode.kind === "edit-event" && !editingEvent && <p className="opt-empty">Evento não encontrado.</p>}
       {mode.kind === "edit-event" && editingEvent && (
-        <>
-          <EventForm key={editingEvent.id} token={token} event={editingEvent} roles={roles} busy={busy} onSubmit={handleEditEvent} onCancel={cancel} onCreateRole={createRoleInline} />
-          <button type="button" className="link-danger" disabled={busy} onClick={() => handleDeleteEvent(editingEvent)}>
-            🗑️ Excluir evento "{editingEvent.title}"
-          </button>
-        </>
+        <EventForm key={editingEvent.id} token={token} event={editingEvent} roles={roles} busy={busy} onSubmit={handleEditEvent} onCancel={cancel} onCreateRole={createRoleInline} />
       )}
       {mode.kind === "create-role" && <RoleForm token={token} busy={busy} onSubmit={handleCreateRole} onCancel={cancel} />}
       {mode.kind === "edit-role" && !editingRole && <p className="opt-empty">Função não encontrada.</p>}
       {mode.kind === "edit-role" && editingRole && (
-        <>
-          <RoleForm key={editingRole.id} token={token} role={editingRole} busy={busy} onSubmit={handleEditRole} onCancel={cancel} />
-          <button
-            type="button"
-            className="link-danger"
-            disabled={busy || (usageByRole.get(editingRole.id) ?? 0) > 0}
-            title={(usageByRole.get(editingRole.id) ?? 0) > 0 ? "Remova esta função dos eventos antes de excluir" : undefined}
-            onClick={() => handleDeleteRole(editingRole)}
-          >
-            🗑️ Excluir função "{editingRole.name}"
-            {(usageByRole.get(editingRole.id) ?? 0) > 0 && ` (usada em ${usageByRole.get(editingRole.id)} evento(s))`}
-          </button>
-        </>
+        <RoleForm key={editingRole.id} token={token} role={editingRole} busy={busy} onSubmit={handleEditRole} onCancel={cancel} />
       )}
 
       {/* ── events timeline ── */}
@@ -289,9 +314,9 @@ export default function SchedulePage({ token }: SchedulePageProps) {
         days.map((d) => (
           <section key={d} className="day-group">
             <header className="room-group__head">
-              <h2 className="room-group__title room-group__title--green">📆 {formatEventDate(d)}</h2>
+              <h2 className="room-group__title room-group__title--green">📆 {speakDay(d)}</h2>
               <span className="room-group__stats" />
-              <button type="button" className="icon-btn" title={`Novo evento em ${formatEventDate(d, { day: "2-digit", month: "2-digit" })}`} disabled={busy} onClick={() => navigate("/schedule/events/new", { query: { date: d } })}>
+              <button type="button" className="icon-btn" title={`Novo evento em ${speakDay(d, "compact")}`} disabled={busy} onClick={() => navigate("/schedule/events/new", { query: { date: d } })}>
                 +
               </button>
             </header>

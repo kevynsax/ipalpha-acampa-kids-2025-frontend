@@ -5,6 +5,7 @@ import type { Category, CategoryAudience } from "../api/categories";
 import type { CampEvent, RoleDetail, ScheduleRole } from "../api/schedule";
 import { compareRoomStaff, type Staff, type StaffDetail, type StaffScheduleItem } from "../api/staff";
 import type { Team } from "../api/teams";
+import type { Transport } from "../api/transports";
 import { useCollection, useCollectionOrEmpty } from "./index";
 
 /**
@@ -257,16 +258,27 @@ export function useCategories(audience?: CategoryAudience): Category[] {
 }
 
 /** option id → label across every category. */
-/** id (a category option OR a team) → label. Teams are looked up like options so `labelOf(x.team)` keeps working everywhere. */
+/** id (a category option, a team OR a transport) → label. Teams and transports are looked up like options so `labelOf(x.team)` / `labelOf(x.transportation)` keep working everywhere. */
 export function useLabelOf(): (id: string | null | undefined) => string | null {
   const all = useCollectionOrEmpty("categories");
   const teams = useCollectionOrEmpty("teams");
+  const transports = useCollectionOrEmpty("transports");
   return useMemo(() => {
     const map = new Map<string, string>();
     for (const c of all) for (const o of c.options) map.set(o.id, o.label);
     for (const t of teams) map.set(t.id, t.name);
+    for (const t of transports) map.set(t.id, t.label);
     return (id: string | null | undefined) => (id ? (map.get(id) ?? null) : null);
-  }, [all, teams]);
+  }, [all, teams, transports]);
+}
+
+/** transport id → Transport (null when unknown) */
+export function useTransportOf(): (id: string | null | undefined) => Transport | null {
+  const transports = useCollectionOrEmpty("transports");
+  return useMemo(() => {
+    const map = new Map(transports.map((t) => [t.id, t]));
+    return (id: string | null | undefined) => (id ? (map.get(id) ?? null) : null);
+  }, [transports]);
 }
 
 /** team id → Team (null when unknown) */

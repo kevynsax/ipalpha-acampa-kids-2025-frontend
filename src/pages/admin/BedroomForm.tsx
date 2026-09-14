@@ -68,9 +68,7 @@ export default function BedroomForm({ bedroom, defaultGroup, busy, onSubmit, onC
   }
 
   return (
-    <form className="cat-form" onSubmit={handleSubmit}>
-      <h2 className="cat-form__title">{editing ? "✏️ Editar quarto" : "✨ Novo quarto"}</h2>
-
+    <form className="cat-form cat-form--plain" onSubmit={handleSubmit}>
       <div className="cat-form__row staff-form__row">
         <label className="cat-field" style={{ width: 140 }}>
           <span className="cat-field__label">Número</span>

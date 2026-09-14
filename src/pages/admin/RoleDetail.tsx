@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { formatEventDate, type RoleEventUsage, type ScheduleRole } from "../../api/schedule";
+import { type RoleEventUsage, type ScheduleRole } from "../../api/schedule";
+import { speakDay } from "../../dates";
 import { useRoleDetail } from "../../store/derive";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import RichHtml from "../../components/RichHtml";
@@ -95,7 +96,7 @@ export default function RoleDetail({ token, roleId, nav, onEdit, onOpenStaff, on
         {usage.length === 0 && <p className="opt-empty">Esta função ainda não está em nenhum evento.</p>}
         {days.map((d) => (
           <div key={d} className="detail-day">
-            <h3 className="detail-h3">{formatEventDate(d)}</h3>
+            <h3 className="detail-h3">{speakDay(d)}</h3>
             <ul className="escala-list">
               {usage
                 .filter((e) => e.date === d)

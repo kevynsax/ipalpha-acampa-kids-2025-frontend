@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { CAMPER_CATEGORY_KEYS, updateCamper, type Camper } from "../../api/campers";
-import { CategorySelect, TeamSelect } from "../../components/CategoryFields";
+import { updateCamper, type Camper } from "../../api/campers";
+import { TeamSelect, TransportSelect } from "../../components/CategoryFields";
 import Dialog from "../../components/Dialog";
 import { ICONS } from "../../icons";
-import { useCollectionOrEmpty } from "../../store";
 
 export type CamperQuickField = "team" | "transportation";
 
@@ -22,7 +21,6 @@ interface CamperFieldDialogProps {
 
 /** Admin: change ONE quick field of a kid (team or transportation) from the detail page. */
 export default function CamperFieldDialog({ token, open, camper: k, field, onClose }: CamperFieldDialogProps) {
-  const categories = useCollectionOrEmpty("categories");
   const [value, setValue] = useState<string | null>(k[field]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,13 +51,13 @@ export default function CamperFieldDialog({ token, open, camper: k, field, onClo
     <Dialog open={open} onClose={onClose} title={META[field].title} width={480}>
       <div className="cat-form cat-form--plain">
         <h2 className="cat-form__title change-room__title">
-          <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" /> {META[field].title}
+          <img className="pencil-icon" src={field === "transportation" ? ICONS.transport : ICONS.pencil} alt="" aria-hidden="true" /> {META[field].title}
         </h2>
 
         {field === "team" ? (
           <TeamSelect value={value} onChange={setValue} disabled={busy} />
         ) : (
-          <CategorySelect label="Transporte" category={categories.find((c) => c.key === CAMPER_CATEGORY_KEYS.transportation)} value={value} onChange={setValue} disabled={busy} />
+          <TransportSelect value={value} onChange={setValue} disabled={busy} />
         )}
 
         {error && <p className="message message--error">{error}</p>}

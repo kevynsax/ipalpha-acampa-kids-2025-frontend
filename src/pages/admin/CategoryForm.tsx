@@ -69,8 +69,8 @@ export default function CategoryForm({ category, busy, onSubmit, onCancel }: Cat
   }
 
   return (
-    <form className="cat-form" onSubmit={handleSubmit}>
-      <h2 className="cat-form__title">{editing ? "✏️ Editar categoria" : "✨ Nova categoria"}</h2>
+    <form className="cat-form cat-form--plain" onSubmit={handleSubmit}>
+      <h2 className="cat-form__title change-room__title">{editing ? "✏️ Editar categoria" : "Nova categoria"}</h2>
 
       <div className="cat-form__row">
         <div className="cat-field cat-field--emoji">

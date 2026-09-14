@@ -6,15 +6,17 @@ import CamperDetail from "../pages/admin/CamperDetail";
 import Dialog from "./Dialog";
 import QrScannerDialog from "./QrScannerDialog";
 import { QrGlyph } from "./Glyph";
+import { ICONS } from "../icons";
 
 interface EmergencyScanFabProps {
   token: string;
 }
 
 /**
- * App-wide FAB: any team member / admin can scan a kid's badge for an
- * emergency (lost child, needs help…). Hidden on the Placar tab so it never
- * fights the score-helper's own "Ler crachás" FAB. The server is the source
+ * App-wide FAB (kid + "Ler crachá" + QR): any team member / admin can scan
+ * a kid's badge for an emergency (lost child, needs help…). Hidden on the
+ * pages that carry their own yellow ScanFab (bulk points, church / bus
+ * check-in) so the two never fight. The server is the source
  * of truth for scope + counters; out-of-scope kids come back with a warning.
  */
 export default function EmergencyScanFab({ token }: EmergencyScanFabProps) {
@@ -25,7 +27,11 @@ export default function EmergencyScanFab({ token }: EmergencyScanFabProps) {
     camper: Camper;
     belonged: boolean;
     foreignLookupCount: number;
-    bedroom?: { id: string; name: string; group: "girls" | "boys" | "staff" } | null;
+    bedroom?: {
+      id: string;
+      name: string;
+      group: "girls" | "boys" | "staff";
+    } | null;
     caretaker?: { id: string; name: string } | null;
   } | null>(null);
 
@@ -68,16 +74,18 @@ export default function EmergencyScanFab({ token }: EmergencyScanFabProps) {
     <>
       <button
         type="button"
-        className="fab fab--emergency fab--icon"
-        title="Ler crachá de qualquer criança (emergência)"
-        aria-label="Ler crachá de qualquer criança"
+        className="fab fab--emergency"
+        title="Ler o crachá de qualquer criança (emergência)"
+        aria-label="Ler o crachá de qualquer criança"
         onClick={() => {
           setError(null);
           setScannerOpen(true);
         }}
       >
+        <img className="fab__kid" src={ICONS.camper} alt="" aria-hidden="true" />
+        <span className="fab__label">Ler crachá</span>
         <span className="fab__icon" aria-hidden="true">
-          <QrGlyph size="1.5em" />
+          <QrGlyph size="1.4em" />
         </span>
       </button>
 
@@ -85,55 +93,63 @@ export default function EmergencyScanFab({ token }: EmergencyScanFabProps) {
 
       {error && (
         <Dialog open onClose={() => setError(null)} title="Não deu para ler" width={420}>
-          <p className="message message--error">{error}</p>
-          <div className="cat-form__actions">
-            <button type="button" className="button button--secondary" onClick={() => setError(null)}>
-              Fechar
-            </button>
-            <button
-              type="button"
-              className="button button--primary"
-              onClick={() => {
-                setError(null);
-                setScannerOpen(true);
-              }}
-            >
-              Tentar de novo
-            </button>
+          <div className="cat-form cat-form--plain">
+            <h2 className="cat-form__title">Não deu para ler</h2>
+            <p className="message message--error">{error}</p>
+            <div className="cat-form__actions">
+              <button type="button" className="button button--secondary" onClick={() => setError(null)}>
+                Fechar
+              </button>
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => {
+                  setError(null);
+                  setScannerOpen(true);
+                }}
+              >
+                Tentar de novo
+              </button>
+            </div>
           </div>
         </Dialog>
       )}
 
       {result && (
         <Dialog open onClose={closeResult} title={result.camper.name.split(" ")[0]} width={720}>
-          {!result.belonged && (
-            <p className="message message--warn">
-              ⚠️ Esta criança <strong>não é do seu quarto</strong>. Use só em emergência
-              {result.foreignLookupCount > 0 ? ` (leitura fora do escopo nº ${result.foreignLookupCount})` : ""}.
-            </p>
-          )}
-          <CamperDetail
-            token={token}
-            camperId={result.camper.id}
-            camperOverride={result.camper}
-            bedroomOverride={result.bedroom}
-            caretakerOverride={result.caretaker}
-            nav={{ crumbs: [{ label: "Busca", onClick: closeResult }, { label: "Criança" }], setTitle: () => undefined }}
-          />
-          <div className="cat-form__actions">
-            <button type="button" className="button button--secondary" onClick={closeResult}>
-              Fechar
-            </button>
-            <button
-              type="button"
-              className="button button--primary"
-              onClick={() => {
-                setResult(null);
-                setScannerOpen(true);
+          <div className="cat-form cat-form--plain lookup-result">
+            {!result.belonged && (
+              <p className="message message--warn">
+                ⚠️ Esta criança <strong>não é do seu quarto</strong>. Use só em emergência
+                {result.foreignLookupCount > 0 ? ` (leitura fora do escopo nº ${result.foreignLookupCount})` : ""}.
+              </p>
+            )}
+            <CamperDetail
+              token={token}
+              camperId={result.camper.id}
+              camperOverride={result.camper}
+              bedroomOverride={result.bedroom}
+              caretakerOverride={result.caretaker}
+              nav={{
+                crumbs: [{ label: "Busca", onClick: closeResult }, { label: "Criança" }],
+                setTitle: () => undefined,
               }}
-            >
-              Ler outro
-            </button>
+            />
+            <div className="cat-form__actions">
+              <button type="button" className="button button--secondary" onClick={closeResult}>
+                Fechar
+              </button>
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => {
+                  setResult(null);
+                  setScannerOpen(true);
+                }}
+              >
+                Ler outro
+              </button>
+            </div>
           </div>
         </Dialog>
       )}

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { formatEventDate } from "../api/schedule";
+import { speakDay } from "../dates";
 import Breadcrumbs from "../components/Breadcrumbs";
 import RichHtml from "../components/RichHtml";
 import type { LoggedUser } from "../roles";
@@ -34,7 +34,7 @@ function clock(): { date: string; time: string } {
   return { date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, time: `${pad(d.getHours())}:${pad(d.getMinutes())}` };
 }
 
-const shortDate = (iso: string) => formatEventDate(iso, { weekday: "short" }).replace(".", "");
+const shortDate = (iso: string) => speakDay(iso, "weekday");
 
 function eventIsNow(e: { date: string; startTime: string; endTime: string | null }, now: { date: string; time: string }): boolean {
   return e.date === now.date && e.startTime <= now.time && now.time < (e.endTime ?? "23:59");
@@ -144,7 +144,7 @@ export default function InstructionsPage({ user }: InstructionsPageProps) {
                 <div className={`instruction-event${d.event.now ? " instruction-event--now" : ""}`}>
                   {d.event.now && <span className="instruction-event__now">agora</span>}
                   <strong>{d.event.emoji} {d.event.title}</strong>
-                  <span>{formatEventDate(d.event.date)} · {d.event.startTime}{d.event.endTime ? `–${d.event.endTime}` : ""}</span>
+                  <span>{speakDay(d.event.date)} · {d.event.startTime}{d.event.endTime ? `–${d.event.endTime}` : ""}</span>
                 </div>
               )}
               {d.html ? <RichHtml html={d.html} /> : <p className="opt-empty">Este documento ainda está vazio.</p>}

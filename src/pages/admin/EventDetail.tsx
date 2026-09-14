@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { formatEventDate, unassignStaff, type CampEvent, type ScheduleRole } from "../../api/schedule";
+import { unassignStaff, type CampEvent, type ScheduleRole } from "../../api/schedule";
+import { speakDay } from "../../dates";
 import type { Staff } from "../../api/staff";
 import Breadcrumbs, { type Crumb } from "../../components/Breadcrumbs";
 import { useConfirm } from "../../components/ConfirmDialog";
-import InstructionsDialog from "../../components/InstructionsDialog";
+import RichTextBox from "../../components/RichTextBox";
 import AssignRoleDialog from "./AssignRoleDialog";
 
 interface EventDetailProps {
@@ -15,16 +16,17 @@ interface EventDetailProps {
   onEdit: () => void;
   onOpenStaff: (staffId: string) => void;
   onOpenRole: (roleId: string) => void;
+  /** open the função editor (the ✏️ on its instructions / preparation) */
+  onEditRole: (roleId: string) => void;
 }
 
 /**
  * One event: when, notes and every role with the people doing it. The escala
- * is edited right here — "+" on a role picks someone, "×" on a person removes
- * them. Default ("toda a equipe") roles only show a count: everyone not
+ * is edited right here — "Adicionar +" on a role picks someone, "×" on a person
+ * removes them. Default ("toda a equipe") roles only show a count: everyone not
  * listed above is doing them.
  */
-export default function EventDetail({ token, event: e, roles, staff, crumbs, onEdit, onOpenStaff, onOpenRole }: EventDetailProps) {
-  const [instructionsFor, setInstructionsFor] = useState<ScheduleRole | null>(null);
+export default function EventDetail({ token, event: e, roles, staff, crumbs, onEdit, onOpenStaff, onOpenRole, onEditRole }: EventDetailProps) {
   /** role we're adding someone to */
   const [addTo, setAddTo] = useState<ScheduleRole | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -37,6 +39,9 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
   const eventRoles = e.roles.map((id) => roleById.get(id)).filter((r): r is ScheduleRole => !!r);
   const specific = eventRoles.filter((r) => !r.forEveryone);
   const defaults = eventRoles.filter((r) => r.forEveryone);
+
+  /** "em 🏊 Piscina · sábado 14:00" — shown under the title in the full-screen view */
+  const eventContext = `em ${e.emoji} ${e.title} · ${speakDay(e.date, "weekday")} ${e.startTime}`;
 
   const assignedIds = new Set(e.assignments.map((a) => a.staffId));
   /** how many fall under the default roles: active staff without a specific role here */
@@ -84,7 +89,7 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
         <dl className="detail-grid">
           <dt>Quando</dt>
           <dd>
-            {formatEventDate(e.date)} · {e.startTime}
+            {speakDay(e.date)} · {e.startTime}
             {e.endTime && `–${e.endTime}`}
           </dd>
           {e.notes && (
@@ -97,9 +102,21 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
       </section>
 
       <section className="detail-section">
-        <h2 className="detail-h2">
-          🎯 Funções <span className="cat-tab__count">{eventRoles.length}</span>
-        </h2>
+        <div className="detail-h2-row">
+          <h2 className="detail-h2">
+            🎯 Funções <span className="cat-tab__count">{eventRoles.length}</span>
+          </h2>
+          {/* top-right of the section: vincula uma nova função a este evento */}
+          <button
+            type="button"
+            className="icon-btn event-role__add"
+            title="Adicionar função neste evento"
+            aria-label="Adicionar função neste evento"
+            onClick={onEdit}
+          >
+            +
+          </button>
+        </div>
 
         {error && <p className="message message--error">{error}</p>}
 
@@ -123,49 +140,35 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
                   <span aria-hidden="true">{r.emoji}</span> {r.name} ›
                 </button>
                 <span className="cat-tab__count">{people.length}</span>
-                {r.instructions && (
-                  <button type="button" className="link-btn" onClick={() => setInstructionsFor(r)}>
-                    📝 instruções
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="icon-btn event-role__add"
-                  title={`Escalar alguém como ${r.name}`}
-                  aria-label={`Escalar alguém como ${r.name}`}
-                  disabled={!!busy}
-                  onClick={() => setAddTo(r)}
-                >
-                  +
+              </div>
+              <div className="staff-card__tags">
+                {people.map((a) => {
+                  const s = staffById.get(a.staffId);
+                  return (
+                    <span key={a.staffId} className={`staff-tag staff-tag--soft staff-tag--person ${busy === a.staffId ? "staff-tag--busy" : ""}`}>
+                      <button type="button" className="staff-tag__open" title={`Ver ${s?.name ?? ""}`} onClick={() => onOpenStaff(a.staffId)}>
+                        {s?.name ?? "?"}
+                        {a.detail && <span className="staff-tag__n">{a.detail}</span>}
+                      </button>
+                      <button
+                        type="button"
+                        className="staff-tag__x"
+                        title={`Tirar ${s?.name ?? ""} de ${r.name}`}
+                        aria-label={`Tirar ${s?.name ?? ""} de ${r.name}`}
+                        disabled={!!busy}
+                        onClick={() => handleRemove(a.staffId, r)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
+                {/* always closes the row of people */}
+                <button type="button" className="add-person-btn" title={`Escalar alguém como ${r.name}`} disabled={!!busy} onClick={() => setAddTo(r)}>
+                  {people.length === 0 ? "Adicionar pessoa" : "Adicionar"} <span aria-hidden="true">+</span>
                 </button>
               </div>
-              {people.length === 0 ? (
-                <p className="assign-role__empty">ninguém escalado</p>
-              ) : (
-                <div className="staff-card__tags">
-                  {people.map((a) => {
-                    const s = staffById.get(a.staffId);
-                    return (
-                      <span key={a.staffId} className={`staff-tag staff-tag--soft staff-tag--person ${busy === a.staffId ? "staff-tag--busy" : ""}`}>
-                        <button type="button" className="staff-tag__open" title={`Ver ${s?.name ?? ""}`} onClick={() => onOpenStaff(a.staffId)}>
-                          {s?.name ?? "?"}
-                          {a.detail && <span className="staff-tag__n">{a.detail}</span>}
-                        </button>
-                        <button
-                          type="button"
-                          className="staff-tag__x"
-                          title={`Tirar ${s?.name ?? ""} de ${r.name}`}
-                          aria-label={`Tirar ${s?.name ?? ""} de ${r.name}`}
-                          disabled={!!busy}
-                          onClick={() => handleRemove(a.staffId, r)}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
+              <RoleDocs role={r} context={eventContext} onEditRole={onEditRole} />
             </div>
           );
         })}
@@ -178,20 +181,15 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
                 <span aria-hidden="true">{r.emoji}</span> {r.name} ›
               </button>
               <span className="cat-tab__count">{everyoneCount}</span>
-              {r.instructions && (
-                <button type="button" className="link-btn" onClick={() => setInstructionsFor(r)}>
-                  📝 instruções
-                </button>
-              )}
             </div>
             <p className="cat-hint">
               👥 Todos os <strong>{everyoneCount}</strong> voluntários ativos que não têm função específica acima.
             </p>
+            <RoleDocs role={r} context={eventContext} onEditRole={onEditRole} />
           </div>
         ))}
       </section>
 
-      <InstructionsDialog role={instructionsFor} onClose={() => setInstructionsFor(null)} />
       <AssignRoleDialog
         key={addTo?.id ?? "none"}
         token={token}
@@ -199,6 +197,36 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
         entry={{ eventId: e.id, roleId: addTo?.id ?? "" }}
         onClose={() => setAddTo(null)}
         onAssigned={() => {}}
+      />
+    </div>
+  );
+}
+
+/**
+ * What the team has to do in this função: what to bring/prepare beforehand and
+ * the instructions for the day. Both are clamped to a scrollable box with a ⤢
+ * to read the whole thing full screen.
+ */
+function RoleDocs({ role: r, context, onEditRole }: { role: ScheduleRole; context: string; onEditRole: (roleId: string) => void }) {
+  const title = `${r.emoji} ${r.name}`;
+  const edit = () => onEditRole(r.id);
+  return (
+    <div className="event-role__docs">
+      <RichTextBox
+        label="🎒 Preparação (antes do acampamento)"
+        html={r.preparation}
+        title={title}
+        context={context}
+        emptyHint="Nada a preparar para esta função."
+        onEdit={edit}
+      />
+      <RichTextBox
+        label="📝 Instruções para a equipe"
+        html={r.instructions}
+        title={title}
+        context={context}
+        emptyHint="Sem instruções ainda."
+        onEdit={edit}
       />
     </div>
   );

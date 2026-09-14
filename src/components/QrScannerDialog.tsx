@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import QrScanner from "qr-scanner";
 import Dialog from "./Dialog";
+import { keepOverlayInPlace, visibleScanRegion } from "./scanOverlay";
 import { QrGlyph } from "./Glyph";
 
 interface QrScannerDialogProps {
@@ -8,10 +9,14 @@ interface QrScannerDialogProps {
   busy?: boolean;
   onScan: (value: string) => void;
   onClose: () => void;
+  title?: string;
+  hint?: string;
+  /** shown under the camera (e.g. a running count) */
+  children?: ReactNode;
 }
 
-/** Phone-camera QR reader. The camera only runs while the dialog is open. */
-export default function QrScannerDialog({ open, busy = false, onScan, onClose }: QrScannerDialogProps) {
+/** Phone-camera QR reader. The camera only runs while the dialog is open; full screen on phones. */
+export default function QrScannerDialog({ open, busy = false, onScan, onClose, title = "Ler pulseira ou crachá", hint = "Aponte a câmera para o QR code.", children }: QrScannerDialogProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const scannerRef = useRef<QrScanner | null>(null);
   const onScanRef = useRef(onScan);
@@ -53,6 +58,7 @@ export default function QrScannerDialog({ open, busy = false, onScan, onClose }:
       {
         preferredCamera: "environment",
         maxScansPerSecond: 10,
+        calculateScanRegion: visibleScanRegion,
         highlightScanRegion: true,
         highlightCodeOutline: true,
         returnDetailedScanResult: true,
@@ -60,6 +66,7 @@ export default function QrScannerDialog({ open, busy = false, onScan, onClose }:
       },
     );
     scannerRef.current = scanner;
+    const stopOverlay = keepOverlayInPlace(scanner, video);
 
     void scanner
       .start()
@@ -76,6 +83,7 @@ export default function QrScannerDialog({ open, busy = false, onScan, onClose }:
 
     return () => {
       disposed = true;
+      stopOverlay();
       scanner.destroy();
       if (scannerRef.current === scanner) scannerRef.current = null;
     };
@@ -93,12 +101,12 @@ export default function QrScannerDialog({ open, busy = false, onScan, onClose }:
   }
 
   return (
-    <Dialog open={open} onClose={() => !busy && onClose()} title="Ler QR code" width={560}>
+    <Dialog open={open} onClose={() => !busy && onClose()} title={title} width={560} fullscreenOnMobile>
       <div className="qr-scanner">
         <header className="qr-scanner__head">
           <div>
-            <h2 className="cat-form__title"><QrGlyph /> Ler pulseira ou crachá</h2>
-            <p className="cat-hint">Aponte a câmera para o QR code.</p>
+            <h2 className="cat-form__title"><QrGlyph /> {title}</h2>
+            <p className="cat-hint">{hint}</p>
           </div>
           <button type="button" className="qr-scanner__close" aria-label="Fechar câmera" title="Fechar" disabled={busy} onClick={onClose}>
             ✕
@@ -116,6 +124,7 @@ export default function QrScannerDialog({ open, busy = false, onScan, onClose }:
         </div>
 
         {error && <p className="message message--error">{error}</p>}
+        {children}
 
         <div className="qr-scanner__actions">
           {hasFlash && (

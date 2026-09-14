@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { formatEventDate, type CampEvent, type ScheduleRole } from "../api/schedule";
+import { type CampEvent, type ScheduleRole } from "../api/schedule";
+import { speakDay } from "../dates";
 import InstructionsDialog from "../components/InstructionsDialog";
 import type { LoggedUser } from "../roles";
 import { useRoute } from "../router";
@@ -162,7 +163,7 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
       {days.map((d) => (
         <section key={d} className="day-group">
           <header className="room-group__head">
-            <h2 className="room-group__title room-group__title--green">📆 {formatEventDate(d)}</h2>
+            <h2 className="room-group__title room-group__title--green">📆 {speakDay(d)}</h2>
             {d === now.date && <span className="room-group__stats">hoje</span>}
           </header>
           <ol className="timeline">
@@ -207,7 +208,7 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
 
       <InstructionsDialog
         role={instructionsFor?.role ?? null}
-        context={instructionsFor ? `em ${instructionsFor.event.emoji} ${instructionsFor.event.title} · ${formatEventDate(instructionsFor.event.date, { weekday: "short" }).replace(".", "")} ${instructionsFor.event.startTime}` : undefined}
+        context={instructionsFor ? `em ${instructionsFor.event.emoji} ${instructionsFor.event.title} · ${speakDay(instructionsFor.event.date, "weekday")} ${instructionsFor.event.startTime}` : undefined}
         onClose={() => setInstructionsFor(null)}
       />
     </div>

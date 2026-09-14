@@ -1,9 +1,9 @@
+import RoomRoleIcon from "../../components/RoomRoleIcon";
 import { useEffect, useMemo, useState } from "react";
 import { moveCamper, type Camper } from "../../api/campers";
-import { ROOM_ROLE_META } from "../../api/staff";
 import { BedroomSelect } from "../../components/CategoryFields";
 import Dialog from "../../components/Dialog";
-import { SwapGlyph } from "../../components/Glyph";
+import { ICONS } from "../../icons";
 import { useCollectionOrEmpty } from "../../store";
 
 interface ChangeRoomDialogProps {
@@ -71,7 +71,7 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
     <Dialog open={open} onClose={onClose} title="Trocar de quarto" width={560}>
       <div className="cat-form cat-form--plain">
         <h2 className="cat-form__title change-room__title">
-          <SwapGlyph /> Trocar de quarto
+          <img className="admin-title__icon" src={ICONS.swap} alt="" aria-hidden="true" /> Trocar de quarto
         </h2>
 
         <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} current={k.bedroom} groups={["girls", "boys"]} disabled={busy} />
@@ -80,7 +80,7 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
           <fieldset className="cat-fieldset change-room__caretaker">
             {caretakers.length !== 1 && (
               <legend className="cat-field__label">
-                {ROOM_ROLE_META.caretaker.emoji} Quem vai cuidar {article} {k.name.split(" ")[0]}?
+                <RoomRoleIcon role="caretaker" /> Quem vai cuidar {article} {k.name.split(" ")[0]}?
               </legend>
             )}
             {caretakers.length === 0 && (
@@ -100,7 +100,7 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
                   return (
                     <button key={s.id} type="button" className={`big-option ${on ? "big-option--on" : ""}`} aria-pressed={on} disabled={busy} onClick={() => setCaretakerId(s.id)}>
                       <span className="big-option__emoji" aria-hidden="true">
-                        {ROOM_ROLE_META.caretaker.emoji}
+                        <RoomRoleIcon role="caretaker" size={32} />
                       </span>
                       <span className="big-option__label">{s.name}</span>
                     </button>

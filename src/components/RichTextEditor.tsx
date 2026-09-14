@@ -1,16 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { EditorContent, useEditor } from "@tiptap/react";
-import { Extension, Mark, mergeAttributes } from "@tiptap/core";
+import { Extension, Mark, Node, mergeAttributes } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details";
-import { absolutizeFileUrls, fileUrl, relativizeFileUrls, uploadImage } from "../api/files";
+import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
+import { absolutizeFileUrls, fileUrl, relativizeFileUrls, uploadImage, type UploadedFile } from "../api/files";
+import { sanitizeForEditor } from "../html";
 import AiAssistantPanel from "./AiAssistantPanel";
+import AiImageDialog from "./AiImageDialog";
+import HtmlSourceEditor from "./HtmlSourceEditor";
 import type { AiContext } from "../api/ai";
+import { AiGlyph } from "./Glyph";
 
 interface RichTextEditorProps {
   /** HTML */
@@ -50,6 +55,29 @@ declare module "@tiptap/core" {
     chip: { toggleChip: () => ReturnType };
   }
 }
+
+/**
+ * `<figure><img><figcaption>` — a picture with a caption. The image keeps the
+ * normal Image node; the caption is editable text.
+ */
+const Figure = Node.create({
+  name: "figure",
+  group: "block",
+  // the caption is optional: a picture inserted without one stays a plain figure
+  content: "image figcaption?",
+  draggable: true,
+  isolating: true,
+  parseHTML: () => [{ tag: "figure" }],
+  renderHTML: ({ HTMLAttributes }) => ["figure", mergeAttributes(HTMLAttributes), 0],
+});
+
+const Figcaption = Node.create({
+  name: "figcaption",
+  content: "inline*",
+  marks: "bold italic strike link chip",
+  parseHTML: () => [{ tag: "figcaption" }],
+  renderHTML: ({ HTMLAttributes }) => ["figcaption", mergeAttributes(HTMLAttributes), 0],
+});
 
 /**
  * Mirrors RichHtml.tagCallouts inside the editor: a blockquote starting with
@@ -94,6 +122,8 @@ export default function RichTextEditor({ value, onChange, placeholder, disabled,
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const [drawOpen, setDrawOpen] = useState(false);
   // kept in a ref so the paste/drop handlers (set up once) always see the latest token
   const tokenRef = useRef(token);
   tokenRef.current = token;
@@ -107,6 +137,13 @@ export default function RichTextEditor({ value, onChange, placeholder, disabled,
         link: { openOnClick: false, autolink: true, defaultProtocol: "https" },
       }),
       Image.configure({ inline: false, allowBase64: false }),
+      Figure,
+      Figcaption,
+      // small data tables (horários por dia, quarto por monitor…)
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
       // open/closed state is saved with the document ("open" attribute)
       Details.configure({ persist: true, openClassName: "is-open" }),
       DetailsSummary,
@@ -116,7 +153,7 @@ export default function RichTextEditor({ value, onChange, placeholder, disabled,
       Placeholder.configure({ placeholder: placeholder ?? "Escreva as instruções…" }),
     ],
     // the server stores "/api/files/<id>"; the editor needs absolute urls to render them
-    content: absolutizeFileUrls(value),
+    content: sanitizeForEditor(absolutizeFileUrls(value)),
     editable: !disabled,
     onUpdate: ({ editor }) => onChange(editor.isEmpty ? "" : relativizeFileUrls(editor.getHTML())),
     editorProps: {
@@ -171,6 +208,17 @@ export default function RichTextEditor({ value, onChange, placeholder, disabled,
     }
   }
 
+  /** a generated (or uploaded) picture goes in as <figure> when it has a caption */
+  function insertPicture(file: UploadedFile, caption: string) {
+    if (!editor) return;
+    const src = fileUrl(file.url);
+    const alt = (caption || file.name).replace(/"/g, "&quot;");
+    const html = caption
+      ? `<figure><img src="${src}" alt="${alt}"><figcaption>${caption.replace(/[<>&]/g, (ch) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[ch] ?? ch)}</figcaption></figure>`
+      : `<img src="${src}" alt="${alt}">`;
+    editor.chain().focus().insertContent(html).run();
+  }
+
   if (!editor) return null;
 
   function setLink() {
@@ -185,7 +233,7 @@ export default function RichTextEditor({ value, onChange, placeholder, disabled,
     editor.chain().focus().extendMarkRange("link").setLink({ href: url.trim() }).run();
   }
 
-  const btn = (label: string, title: string, active: boolean, run: () => void, extra = "", isDisabled = false) => (
+  const btn = (label: React.ReactNode, title: string, active: boolean, run: () => void, extra = "", isDisabled = false) => (
     <button
       type="button"
       className={`rte__btn ${extra} ${active ? "rte__btn--active" : ""}`}
@@ -222,21 +270,41 @@ export default function RichTextEditor({ value, onChange, placeholder, disabled,
         )}
         {btn("🏷️", "Etiqueta (pílula colorida)", editor.isActive("chip"), () => c().toggleChip().run())}
         <span className="rte__sep" />
+        {btn("</>", "Editar o HTML do documento", sourceOpen, () => setSourceOpen((v) => !v), "rte__btn--code")}
         {btn("🔗", "Link", editor.isActive("link"), setLink)}
+        {btn("⌸", editor.isActive("table") ? "Remover tabela" : "Tabela (3 colunas no máximo, para dados curtos)", editor.isActive("table"), () =>
+          editor.isActive("table") ? c().deleteTable().run() : c().insertTable({ rows: 3, cols: 2, withHeaderRow: true }).run(),
+        )}
         {token &&
           btn(uploading ? "⏳" : "🖼️", uploading ? "Enviando imagem…" : "Imagem (ou cole / arraste uma foto)", false, () => fileInput.current?.click(), "", uploading)}
+        {token && btn("🎨", "Desenhar uma imagem com IA", drawOpen, () => setDrawOpen(true))}
         <span className="rte__sep" />
         {btn("↶", "Desfazer", false, () => c().undo().run())}
         {btn("↷", "Refazer", false, () => c().redo().run())}
         {token && (
           <>
             <span className="rte__spacer" />
-            {btn("✨ IA", aiOpen ? "Fechar assistente de IA" : "Assistente de IA", aiOpen, () => setAiOpen((v) => !v), "rte__btn--ai")}
+            {btn(<><AiGlyph /> IA</>, aiOpen ? "Fechar assistente de IA" : "Assistente de IA", aiOpen, () => setAiOpen((v) => !v), "rte__btn--ai")}
           </>
         )}
       </div>
-      <EditorContent editor={editor} className="rte__content" />
+      {sourceOpen ? (
+        <HtmlSourceEditor
+          value={relativizeFileUrls(editor.getHTML())}
+          disabled={disabled}
+          onCancel={() => setSourceOpen(false)}
+          onApply={(html) => {
+            editor.chain().focus().setContent(sanitizeForEditor(absolutizeFileUrls(html)), { emitUpdate: true }).run();
+            setSourceOpen(false);
+          }}
+        />
+      ) : (
+        <EditorContent editor={editor} className="rte__content" />
+      )}
       {uploadError && <p className="rte__error">⚠️ {uploadError}</p>}
+      {token && (
+        <AiImageDialog open={drawOpen} onClose={() => setDrawOpen(false)} token={token} suggestion={aiTitle} onInsert={insertPicture} />
+      )}
       {token && (
         <input
           ref={fileInput}
@@ -260,12 +328,12 @@ export default function RichTextEditor({ value, onChange, placeholder, disabled,
   return (
     <>
       <div className="rte rte--placeholder" aria-hidden="true">
-        <p>✨ Editando com o assistente…</p>
+        <p><AiGlyph /> Editando com o assistente…</p>
       </div>
       {createPortal(
         <div className="ai-workspace" role="dialog" aria-modal="true" aria-label="Editor com assistente de IA">
           <header className="ai-workspace__head">
-            <span className="ai-workspace__title">✨ {aiTitle?.trim() || "Editor com assistente"}</span>
+            <span className="ai-workspace__title"><AiGlyph /> {aiTitle?.trim() || "Editor com assistente"}</span>
             <button type="button" className="button button--secondary ai-workspace__done" onClick={() => setAiOpen(false)}>
               Concluir
             </button>

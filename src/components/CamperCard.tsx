@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { ageOf, type Camper } from "../api/campers";
 import HealthAlerts from "./HealthAlerts";
+import TeamTag from "./TeamTag";
+import TransportTag from "./TransportTag";
 
 interface CamperCardProps {
   camper: Camper;
@@ -18,12 +20,7 @@ interface CamperCardProps {
 export default function CamperCard({ camper: k, labelOf, hideBedroom, bedroomLabel, onOpen, corner }: CamperCardProps) {
   const age = ageOf(k.birthDate);
 
-  const tags = [
-    !hideBedroom && bedroomLabel,
-    labelOf(k.bed) && `Cama ${labelOf(k.bed)!.toLowerCase()}`,
-    labelOf(k.team),
-    labelOf(k.transportation),
-  ].filter(Boolean) as string[];
+  const showBedroom = !hideBedroom && bedroomLabel;
 
 
   const body = (
@@ -33,18 +30,15 @@ export default function CamperCard({ camper: k, labelOf, hideBedroom, bedroomLab
           {k.name}
           {age !== null && <span className="kid-card__age">{age} anos</span>}
         </h4>
-        {tags.length > 0 && (
+        {(showBedroom || k.team || k.transportation) && (
           <div className="staff-card__tags">
-            {tags.map((t) => (
-              <span key={t} className="staff-tag">
-                {t}
-              </span>
-            ))}
+            {showBedroom && <span className="staff-tag">{bedroomLabel}</span>}
+            <TeamTag teamId={k.team} />
+            <TransportTag transportId={k.transportation} short />
           </div>
         )}
         <HealthAlerts person={k} labelOf={labelOf} />
       </div>
-      {onOpen && <span className="kid-card__chevron" aria-hidden="true">›</span>}
     </>
   );
 

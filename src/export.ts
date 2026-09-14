@@ -3,6 +3,7 @@ import { GROUP_META, bedroomLabel, type Bedroom } from "./api/bedrooms";
 import { ageOf, medicationsText, type Camper } from "./api/campers";
 import type { Staff } from "./api/staff";
 import { formatBrazilPhoneClient } from "./phoneFormat";
+import { speakBirth, speakDateTime } from "./dates";
 
 /**
  * Excel downloads: campers, staff, and bedrooms (one tab per room).
@@ -18,21 +19,13 @@ function labels(labelOf: LabelOf, ids: string[]): string {
   return ids.map((id) => labelOf(id) ?? id).join("; ");
 }
 
-/** "YYYY-MM-DD" → "DD/MM/YYYY" */
-function brDate(iso: string | null): string {
-  if (!iso) return "";
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
+const brDate = (iso: string | null) => speakBirth(iso) ?? "";
 
 function phone(p: string | null): string {
   return p ? formatBrazilPhoneClient(p) : "";
 }
 
-/** ISO instant → "12/09/2026 07:42" (local time) */
-function brDateTime(iso: string): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(iso));
-}
+const brDateTime = speakDateTime;
 
 /** Who recorded a check-in: the admin doing the roll call, or the person themself from their phone (self check-in). */
 function checkinBy(c: { byName: string; byRole: string } | null): string {
@@ -80,12 +73,51 @@ export function camperRow(k: Camper, roomById: Map<string, Bedroom>, labelOf: La
     "CPF do responsável": k.guardianCpf,
     "E-mail do responsável": k.guardianEmail,
     "QR token": k.qrToken,
-    "Check-in igreja": k.checkin ? "Sim" : "Não",
-    "Check-in igreja em": k.checkin ? brDateTime(k.checkin.at) : "",
-    "Check-in igreja por": k.checkin?.byName ?? "",
-    "Check-in ônibus": k.busCheckin ? "Sim" : "Não",
-    "Check-in ônibus em": k.busCheckin ? brDateTime(k.busCheckin.at) : "",
-    "Check-in ônibus por": k.busCheckin?.byName ?? "",
+    "Check-in": k.checkin ? "Sim" : "Não",
+    "Check-in em": k.checkin ? brDateTime(k.checkin.at) : "",
+    "Check-in por": k.checkin ? `${k.checkin.byName}${k.checkin.note ? ` (${k.checkin.note})` : ""}` : "",
+    "Check-in ônibus ida": k.busCheckin ? "Sim" : "Não",
+    "Check-in ônibus ida em": k.busCheckin ? brDateTime(k.busCheckin.at) : "",
+    "Check-in ônibus ida por": k.busCheckin?.byName ?? "",
+    "Check-in ônibus volta": k.busReturnCheckin ? "Sim" : "Não",
+    "Check-in ônibus volta em": k.busReturnCheckin ? brDateTime(k.busReturnCheckin.at) : "",
+    "Check-in ônibus volta por": k.busReturnCheckin?.byName ?? "",
+  };
+}
+
+/**
+ * The medical team's sheet: identification, where the kid sleeps and who
+ * looks after them, the whole health block, who to call, and whether the kid
+ * actually went to the camp ("Foi para o acampamento" = the church check-in).
+ * No documents, school, church, invitations, QR token or bus roll calls.
+ */
+export function medicalCamperRow(k: Camper, roomById: Map<string, Bedroom>, labelOf: LabelOf, staffName?: Map<string, string>): Row {
+  const room = k.bedroom ? roomById.get(k.bedroom) : null;
+  const age = ageOf(k.birthDate);
+  return {
+    Nome: k.name,
+    "Foi para o acampamento": k.checkin ? "Sim" : "Não",
+    "Data de nascimento": brDate(k.birthDate),
+    Idade: age ?? "",
+    Sexo: k.sex === "F" ? "Feminino" : k.sex === "M" ? "Masculino" : "",
+    "Peso (kg)": k.weightKg ?? "",
+    Ala: room ? GROUP_META[room.group].label : "",
+    Quarto: room?.name ?? "",
+    "Tio do quarto": k.caretakerId ? (staffName?.get(k.caretakerId) ?? "") : "",
+    Equipe: labelOf(k.team) ?? "",
+    Alergias: labels(labelOf, k.allergies),
+    "Alergia a medicamentos": labels(labelOf, k.drugAllergies),
+    "Condições de saúde": labels(labelOf, k.healthIssues),
+    Neurodivergente: k.neurodivergent ? "Sim" : "Não",
+    Medicamentos: medicationsText(k.medications),
+    "Restrições alimentares": k.foodRestrictions,
+    "Observações médicas": k.healthNotes,
+    "Observações gerais": k.generalNotes,
+    Convênio: k.insurance,
+    "Carteirinha do convênio": k.insuranceCard,
+    "Contato de emergência": k.emergencyContact,
+    Responsável: k.guardianName,
+    "Celular do responsável": phone(k.guardianPhone),
   };
 }
 
@@ -139,6 +171,17 @@ export function downloadCampersXlsx(campers: Camper[], bedrooms: Bedroom[], labe
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, sheet(rows, headers), "Acampantes");
   saveWorkbook(wb, "acampantes");
+}
+
+/** The medical team's download: every camper, health-relevant columns only (see medicalCamperRow). */
+export function downloadMedicalCampersXlsx(campers: Camper[], bedrooms: Bedroom[], labelOf: LabelOf, staff: Staff[] = []) {
+  const roomById = new Map(bedrooms.map((b) => [b.id, b]));
+  const staffName = new Map(staff.map((s) => [s.id, s.name]));
+  const rows = campers.slice().sort(byName).map((k) => medicalCamperRow(k, roomById, labelOf, staffName));
+  const headers = Object.keys(medicalCamperRow(blankCamper, roomById, labelOf));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, sheet(rows, headers), "Acampantes");
+  saveWorkbook(wb, "acampantes-saude");
 }
 
 export function downloadStaffXlsx(staff: Staff[], bedrooms: Bedroom[], labelOf: LabelOf) {
@@ -276,6 +319,7 @@ const blankCamper: Camper = {
   guardianEmail: "",
   checkin: null,
   busCheckin: null,
+  busReturnCheckin: null,
   parentEditedAt: null,
   createdAt: "",
   updatedAt: "",

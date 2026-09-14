@@ -10,6 +10,8 @@ import RichHtml from "../../components/RichHtml";
 import RichTextEditor from "../../components/RichTextEditor";
 import { goBack, useRoute } from "../../router";
 import { useCollection } from "../../store";
+import { AiGlyph } from "../../components/Glyph";
+import { speakDateTime } from "../../dates";
 
 interface InstructionsAdminPageProps {
   token: string;
@@ -17,7 +19,6 @@ interface InstructionsAdminPageProps {
 
 const EMOJI_SUGGESTIONS = ["📖", "📋", "🚨", "🕐", "🍽️", "🏊", "🛏️", "💊", "🙏", "🎯", "📱", "🚌", "⛪", "🌧️", "🔥", "🧭", "🎒", "📸"];
 
-const fmtDate = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
 /**
  * ⚙️ → Instruções: general documents for the whole camp ("Regras do
@@ -106,7 +107,7 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
             </header>
             {error && <p className="message message--error">{error}</p>}
             {current.content ? <RichHtml html={current.content} /> : <p className="opt-empty">Documento vazio — toque em ✏️ para escrever.</p>}
-            <p className="footer-note">Última alteração: {fmtDate.format(new Date(current.updatedAt))}</p>
+            <p className="footer-note">Última alteração: {speakDateTime(current.updatedAt)}</p>
           </article>
         )}
       </div>
@@ -125,17 +126,25 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
             { label: mode.kind === "new" ? "Novo documento" : "Editar" },
           ]}
         />
+        <header className="admin-head">
+          <h1 className="admin-title">{mode.kind === "new" ? "📖 Novo documento" : "✏️ Editar documento"}</h1>
+          {mode.kind === "edit" && current && (
+            <button
+              type="button"
+              className="icon-btn icon-btn--lg icon-btn--danger"
+              title={`Excluir "${current.title}"`}
+              aria-label={`Excluir "${current.title}"`}
+              disabled={busy}
+              onClick={() => handleDelete(current)}
+            >
+              🗑️
+            </button>
+          )}
+        </header>
         {error && <p className="message message--error">{error}</p>}
         {mode.kind === "edit" && !current && <p className="opt-empty">Documento não encontrado.</p>}
         {(mode.kind === "new" || current) && (
-          <>
-            <DocForm key={current?.id ?? "new"} token={token} doc={current} busy={busy} onSubmit={(i) => (current ? handleEdit(current, i) : handleCreate(i))} onCancel={() => goBack(back)} />
-            {current && (
-              <button type="button" className="link-danger" disabled={busy} onClick={() => handleDelete(current)}>
-                🗑️ Excluir "{current.title}"
-              </button>
-            )}
-          </>
+          <DocForm key={current?.id ?? "new"} token={token} doc={current} busy={busy} onSubmit={(i) => (current ? handleEdit(current, i) : handleCreate(i))} onCancel={() => goBack(back)} />
         )}
       </div>
     );
@@ -185,7 +194,7 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
                   <span aria-hidden="true">{d.emoji}</span> {d.title} <AudienceTag audience={d.audience} />
                 </h3>
                 <p className="staff-card__meta">
-                  {d.content ? `Atualizado ${fmtDate.format(new Date(d.updatedAt))}` : <span className="staff-card__missing">sem conteúdo</span>}
+                  {d.content ? `Atualizado ${speakDateTime(d.updatedAt)}` : <span className="staff-card__missing">sem conteúdo</span>}
                 </p>
               </div>
               <div className="opt-item__actions">
@@ -225,20 +234,19 @@ function DocForm({ token, doc, busy, onSubmit, onCancel }: DocFormProps) {
 
   return (
     <form
-      className="cat-form instruction-form"
+      className="cat-form cat-form--plain instruction-form"
       onSubmit={(e) => {
         e.preventDefault();
         if (valid && !busy) void onSubmit({ title: title.trim(), emoji: emoji.trim() || "📖", audience, content }).catch(() => {});
       }}
     >
-      <h2 className="cat-form__title">{doc ? "✏️ Editar documento" : "✨ Novo documento"}</h2>
       <div className="cat-form__row">
         <div className="cat-field cat-field--emoji">
           <span className="cat-field__label">Ícone</span>
           <EmojiPicker value={emoji} onChange={ai.pickEmoji} suggestions={EMOJI_SUGGESTIONS} disabled={busy} />
         </div>
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Título{ai.suggesting && <span className="cat-field__ai"> ✨ sugerindo…</span>}</span>
+          <span className="cat-field__label">Título{ai.suggesting && <span className="cat-field__ai"> <AiGlyph /> sugerindo…</span>}</span>
           <span className="cat-input-wrap">
             <input className="cat-input" placeholder="ex.: Regras do acampamento" value={title} maxLength={120} autoFocus={!doc} disabled={busy} onChange={(e) => setTitle(e.target.value)} />
             <AiTitleButton html={content} busy={ai.suggesting} disabled={busy} onClick={() => void ai.regenerateTitle(content)} />

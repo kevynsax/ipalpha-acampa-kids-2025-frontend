@@ -3,6 +3,8 @@ import { CAMPER_CATEGORY_KEYS, parentUpdateCamper, type Camper, type Medication,
 import { CategoryChips } from "../../components/CategoryFields";
 import MedicationsEditor from "../../components/MedicationsEditor";
 import Dialog from "../../components/Dialog";
+import AiNotesField from "../../components/AiNotesField";
+import { useAiNotesSorter } from "../../hooks/useAiNotesSorter";
 import { useCategories } from "../../store/derive";
 
 interface AttentionEditDialogProps {
@@ -55,8 +57,31 @@ export default function AttentionEditDialog({ token, open, camper: k, onClose }:
   const changed = Object.keys(patch).length > 0;
   const medicalChange = Object.keys(patch).some((f) => f !== "generalNotes");
 
+  // ✨ sort the observations: on paste / blur the model spreads the text over the medical fields above
+  const ai = useAiNotesSorter({
+    token,
+    subject: "parent",
+    initialNotes: k.generalNotes,
+    busy,
+    getCurrent: () => ({ allergies, drugAllergies, healthIssues, medications: cleanMeds, foodRestrictions, healthNotes, weightKg: weightOk ? weightKg : null, insurance, insuranceCard }),
+    apply: (f) => {
+      if (f.allergies.length) setAllergies(f.allergies);
+      if (f.drugAllergies.length) setDrugAllergies(f.drugAllergies);
+      if (f.healthIssues.length) setHealthIssues(f.healthIssues);
+      if (f.medications.length) setMedications(f.medications);
+      if (f.foodRestrictions) setFoodRestrictions(f.foodRestrictions);
+      if (f.healthNotes) setHealthNotes(f.healthNotes);
+      if (f.weightKg != null) setWeight(String(f.weightKg).replace(".", ","));
+      if (f.insurance) setInsurance(f.insurance);
+      if (f.insuranceCard) setInsuranceCard(f.insuranceCard);
+      setGeneralNotes(f.generalNotes);
+    },
+  });
+
   async function submit() {
-    if (!changed || !weightOk || busy) return;
+    if (!changed || !weightOk || busy || ai.holding) return;
+    // the sorter had its 8 seconds: whatever it hasn't finished is dropped and the dialog saves as it is
+    ai.cancel();
     setBusy(true);
     setError(null);
     try {
@@ -107,11 +132,11 @@ export default function AttentionEditDialog({ token, open, camper: k, onClose }:
           {text("Carteirinha", insuranceCard, setInsuranceCard)}
         </div>
 
-        {text("📝 Observações", generalNotes, setGeneralNotes, "ex.: tem dificuldade em dormir sozinha", 3)}
+        <AiNotesField label="📝 Observações" value={generalNotes} onChange={setGeneralNotes} placeholder="ex.: tem dificuldade em dormir sozinha" disabled={busy} sorter={ai} />
 
         {changed && (
           <p className="cat-hint">
-            {medicalChange ? "🩺 A equipe médica, a organização e o líder do quarto serão avisados." : "🧑‍🍼 O líder do quarto será avisado."}
+            {medicalChange ? "🩺 A equipe médica, a organização e o líder do quarto serão avisados." : "O líder do quarto será avisado."}
           </p>
         )}
         {error && <p className="message message--error">{error}</p>}
@@ -120,8 +145,8 @@ export default function AttentionEditDialog({ token, open, camper: k, onClose }:
           <button type="button" className="button button--secondary" onClick={onClose} disabled={busy}>
             Cancelar
           </button>
-          <button type="button" className="button button--primary" disabled={busy || !changed || !weightOk} onClick={submit}>
-            {busy ? "Salvando…" : "Salvar"}
+          <button type="button" className="button button--primary" disabled={busy || !changed || !weightOk || ai.holding} title={ai.holding ? "Aguardando a IA organizar as observações…" : undefined} onClick={submit}>
+            {busy ? "Salvando…" : ai.holding ? "Organizando…" : "Salvar"}
           </button>
         </div>
       </div>

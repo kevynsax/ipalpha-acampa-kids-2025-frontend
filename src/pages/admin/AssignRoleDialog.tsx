@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { assignStaff, formatEventDate, type CampEvent, type ScheduleRole } from "../../api/schedule";
+import { assignStaff, type CampEvent, type ScheduleRole } from "../../api/schedule";
+import { speakDay } from "../../dates";
 import type { Staff } from "../../api/staff";
 import Dialog from "../../components/Dialog";
+import { ICONS } from "../../icons";
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import StaffPicker, { type Occupation } from "./StaffPicker";
 
@@ -145,7 +147,15 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
   return (
     <Dialog open={open} onClose={() => !busy && onClose()} title={swapping ? "Trocar função" : "Vincular função"} width={560}>
       <form className="cat-form cat-form--embedded" onSubmit={handleSubmit}>
-        <h2 className="cat-form__title">{swapping ? "🔁 Trocar função?" : `🎯 Vincular função — ${first}`}</h2>
+        <h2 className="cat-form__title">
+          {swapping ? (
+            <>
+              <img className="admin-title__icon" src={ICONS.swap} alt="" aria-hidden="true" /> Trocar função?
+            </>
+          ) : (
+            `🎯 Vincular função — ${first}`
+          )}
+        </h2>
 
         {/* ── person entry: choose event, then role ── */}
         {fromPerson && !swapping && (
@@ -162,7 +172,7 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
             >
               <option value="">{events ? "Escolha o evento" : "Carregando…"}</option>
               {days.map((d) => (
-                <optgroup key={d} label={formatEventDate(d)}>
+                <optgroup key={d} label={speakDay(d)}>
                   {events!
                     .filter((e) => e.date === d && e.roles.length > 0)
                     .map((e) => (

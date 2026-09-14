@@ -13,15 +13,19 @@ import { ICONS, kidSexOf } from "../../icons";
 import { GROUP_META, bedroomLabel } from "../../api/bedrooms";
 import { ageOf, type Camper } from "../../api/campers";
 import ParentIcon from "../../components/ParentIcon";
+import GuardianWhatsApp from "../../components/GuardianWhatsApp";
 import StaffIcon from "../../components/StaffIcon";
 import StaffMiniCard from "../../components/StaffMiniCard";
+import TeamTag from "../../components/TeamTag";
 import WhatsAppButton from "../../components/WhatsAppButton";
 import { loadAuth } from "../../auth/store";
 import { formatBrazilPhoneClient } from "../../phoneFormat";
 import { staffGreeting, whatsappLink } from "../../whatsapp";
 import { useCollectionOrEmpty } from "../../store";
 import { useCamperDetail, useLabelOf } from "../../store/derive";
+import TransportTag from "../../components/TransportTag";
 import type { DetailNav } from "./DetailStack";
+import { speakBirth } from "../../dates";
 
 interface CamperDetailProps {
   token: string;
@@ -44,11 +48,6 @@ interface CamperDetailProps {
   onOpenBedroom?: (bedroomId: string) => void;
 }
 
-function fmtDate(iso: string | null): string | null {
-  if (!iso) return null;
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
 
 /** One kid: full registration info, the room + caretakers, and roommates. */
 export default function CamperDetail({ token, camperId, nav, camperOverride, bedroomOverride, caretakerOverride, onEdit, onOpenStaff, onOpenCamper, onOpenBedroom }: CamperDetailProps) {
@@ -146,12 +145,12 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
             )}
           </dd>
           <dt>Nascimento</dt>
-          <dd>{fmtDate(k.birthDate) ?? "—"}</dd>
+          <dd>{speakBirth(k.birthDate) ?? "—"}</dd>
           <dt>Peso</dt>
           <dd>{k.weightKg != null ? `${String(k.weightKg).replace(".", ",")} kg` : "—"}</dd>
           <dt>Time</dt>
           <dd>
-            {labelOf(k.team) ?? "—"}
+            <TeamTag teamId={k.team} fallback="—" />
             {onEdit && (
               <button type="button" className="icon-btn icon-btn--bare" title="Trocar de time" aria-label="Trocar de time" onClick={() => setFieldOpen("team")}>
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
@@ -180,7 +179,7 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
           </dd>
           <dt>Transporte</dt>
           <dd>
-            {labelOf(k.transportation) ?? "—"}
+            {k.transportation ? <TransportTag transportId={k.transportation} /> : "—"}
             {onEdit && (
               <button type="button" className="icon-btn icon-btn--bare" title="Trocar o transporte" aria-label="Trocar o transporte" onClick={() => setFieldOpen("transportation")}>
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
@@ -222,7 +221,9 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
         {k.generalNotes && <p className="detail-note">📝 {k.generalNotes}</p>}
       </section>
 
-      {!k.contactsHidden && (
+      {/* a CARE record (room team) carries the guardian's name + phone only; the rest is admin / medical / check-in.
+          An out-of-scope emergency lookup comes without any guardian data — no section then. */}
+      {!k.redacted && (!k.contactsHidden || k.guardianName || k.guardianPhone) && (
         <section className="detail-section">
           <h2 className="detail-h2">
             <ParentIcon size={24} /> Pai ou Responsável
@@ -246,27 +247,31 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
                   <em className="staff-card__missing">não informado</em>
                 )}
               </dd>
-              {k.guardianEmail && (
+              {!k.contactsHidden && (
                 <>
-                  <dt>E-mail</dt>
+                  {k.guardianEmail && (
+                    <>
+                      <dt>E-mail</dt>
+                      <dd>
+                        <a href={`mailto:${k.guardianEmail}`}>{k.guardianEmail}</a>
+                      </dd>
+                    </>
+                  )}
+                  {k.guardianCpf && (
+                    <>
+                      <dt>CPF</dt>
+                      <dd>{k.guardianCpf}</dd>
+                    </>
+                  )}
+                  <dt>Emergência</dt>
+                  <dd>{k.emergencyContact || "—"}</dd>
+                  <dt>Convênio</dt>
                   <dd>
-                    <a href={`mailto:${k.guardianEmail}`}>{k.guardianEmail}</a>
+                    {k.insurance || "—"}
+                    {k.insuranceCard && <span className="cat-hint">· {k.insuranceCard}</span>}
                   </dd>
                 </>
               )}
-              {k.guardianCpf && (
-                <>
-                  <dt>CPF</dt>
-                  <dd>{k.guardianCpf}</dd>
-                </>
-              )}
-              <dt>Emergência</dt>
-              <dd>{k.emergencyContact || "—"}</dd>
-              <dt>Convênio</dt>
-              <dd>
-                {k.insurance || "—"}
-                {k.insuranceCard && <span className="cat-hint">· {k.insuranceCard}</span>}
-              </dd>
             </dl>
           </div>
         </section>
@@ -297,7 +302,7 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
           ) : (
             <ul className="kid-list">
               {roommates.map((r) => (
-                <CamperCard key={r.id} camper={r} labelOf={labelOf} hideBedroom onOpen={onOpenCamper} />
+                <CamperCard key={r.id} camper={r} labelOf={labelOf} hideBedroom onOpen={onOpenCamper} corner={<GuardianWhatsApp camper={r} />} />
               ))}
             </ul>
           )}

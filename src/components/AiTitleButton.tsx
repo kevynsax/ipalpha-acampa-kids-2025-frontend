@@ -1,3 +1,5 @@
+import { AiGlyph } from "./Glyph";
+
 interface AiTitleButtonProps {
   /** editor HTML the title should describe; the button is hidden while it is empty */
   html: string;
@@ -7,7 +9,7 @@ interface AiTitleButtonProps {
 }
 
 /**
- * ✨ button docked in the right corner of a title input. Wrap the input in
+ * AI-spark button docked in the right corner of a title input. Wrap the input in
  * `.cat-input-wrap` and put this right after it.
  */
 export default function AiTitleButton({ html, busy, disabled, onClick }: AiTitleButtonProps) {
@@ -22,7 +24,7 @@ export default function AiTitleButton({ html, busy, disabled, onClick }: AiTitle
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
     >
-      {busy ? "⏳" : "✨"}
+      {busy ? "⏳" : <AiGlyph />}
     </button>
   );
 }

@@ -1,5 +1,10 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { UndoGlyph } from "../components/Glyph";
+import QrScannerDialog from "../components/QrScannerDialog";
+import TeamTag from "../components/TeamTag";
+import TransportTag from "../components/TransportTag";
+import ScanFab from "../components/ScanFab";
+import { camperIdFromQr } from "../print/camperLabels";
 import { bedroomLabel, type Bedroom } from "../api/bedrooms";
 import { ageOf, checkinCamper, undoCheckinCamper, type Camper } from "../api/campers";
 import { useConfirm } from "../components/ConfirmDialog";
@@ -14,6 +19,7 @@ import { useCollection, useCollectionOrEmpty } from "../store";
 import { useLabelOf } from "../store/derive";
 import { useRoute } from "../router";
 import TransportReport from "./TransportReport";
+import { speakTime } from "../dates";
 
 interface CheckinPageProps {
   token: string;
@@ -21,6 +27,8 @@ interface CheckinPageProps {
   canOpenStaff?: boolean;
   /** the admin route is nested below the merged Check-in landing page */
   adminMerged?: boolean;
+  /** the logged-in person — signs WhatsApp greetings in the per-vehicle report */
+  myName?: string;
 }
 
 type Filter = "pending" | "done" | "all";
@@ -29,10 +37,14 @@ type Filter = "pending" | "done" | "all";
  * Arrival day: search the kid by name, open the check-in dialog, have the
  * parent confirm each piece of health/contact info, then "Confirmar chegada".
  */
-export default function CheckinPage({ token, canOpenStaff, adminMerged = false }: CheckinPageProps) {
+export default function CheckinPage({ token, canOpenStaff, adminMerged = false, myName = "" }: CheckinPageProps) {
   const campers = useCollection("campers");
   const bedrooms = useCollectionOrEmpty("bedrooms");
+  const transports = useCollectionOrEmpty("transports");
   const labelOf = useLabelOf();
+  // the church roll call is only for kids coming by bus — the ones handed over to us there
+  const busIds = useMemo(() => new Set(transports.filter((t) => t.kind === "bus").map((t) => t.id)), [transports]);
+  const onBus = (k: Camper) => !!k.transportation && busIds.has(k.transportation);
   const { segments, navigate } = useRoute();
   /** #/checkin/report for helpers; #/checkin/church/report for admins */
   const reportOpen = segments[adminMerged ? 2 : 1] === "report";
@@ -43,6 +55,10 @@ export default function CheckinPage({ token, canOpenStaff, adminMerged = false }
   const [openId, setOpenId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // the door works by QR: the camera is the first thing you see; close it to search by name
+  const [scannerOpen, setScannerOpen] = useState(true);
+  /** the open check-in came from a scan: once done, go back to the camera for the next kid */
+  const fromScan = useRef(false);
 
   const roomById = useMemo(() => new Map(bedrooms.map((b) => [b.id, b])), [bedrooms]);
 
@@ -50,19 +66,20 @@ export default function CheckinPage({ token, canOpenStaff, adminMerged = false }
     if (!campers) return [];
     const q = normalize(search);
     return campers
-      .slice()
+      .filter(onBus)
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }))
       .filter((k) => {
         if (filter === "pending" && k.checkin) return false;
         if (filter === "done" && !k.checkin) return false;
         return !q || normalize(k.name).includes(q);
       });
-  }, [campers, search, filter]);
+  }, [campers, search, filter, busIds]);
 
   const counts = useMemo(() => {
-    const done = campers?.filter((k) => k.checkin).length ?? 0;
-    return { done, pending: (campers?.length ?? 0) - done, all: campers?.length ?? 0 };
-  }, [campers]);
+    const bus = campers?.filter(onBus) ?? [];
+    const done = bus.filter((k) => k.checkin).length;
+    return { done, pending: bus.length - done, all: bus.length };
+  }, [campers, busIds]);
 
   const open = openId ? campers?.find((k) => k.id === openId) ?? null : null;
   const openRoom = open?.bedroom ? roomById.get(open.bedroom) ?? null : null;
@@ -73,10 +90,32 @@ export default function CheckinPage({ token, canOpenStaff, adminMerged = false }
     try {
       await checkinCamper(token, k.id);
       setOpenId(null);
+      if (fromScan.current) setScannerOpen(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Algo deu errado.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  function openByName(k: Camper) {
+    fromScan.current = false;
+    setOpenId(k.id);
+  }
+
+  /** QR on the wristband / badge: jumps straight to the kid's check-in dialog (the parent still confirms every item there) */
+  function scanQr(raw: string) {
+    if (!campers) return;
+    setError(null);
+    const id = camperIdFromQr(raw);
+    const camper = id ? campers.find((k) => k.id === id) : null;
+    setScannerOpen(false);
+    if (!id) setError("Este QR code não é de uma pulseira ou crachá do Acampa Kids.");
+    else if (!camper) setError("Esta criança não está na lista do check-in.");
+    else if (!onBus(camper)) setError(`${camper.name} não vem de ônibus — o check-in da igreja é só para quem vem de ônibus.`);
+    else {
+      fromScan.current = true;
+      setOpenId(camper.id);
     }
   }
 
@@ -96,9 +135,12 @@ export default function CheckinPage({ token, canOpenStaff, adminMerged = false }
   if (reportOpen && canOpenStaff) {
     return (
       <TransportReport
+        token={token}
         onBack={() => navigate(basePath)}
         onHome={adminMerged ? () => navigate("/checkin") : undefined}
         onOpenStaff={(id) => navigate(`/staff/${id}`)}
+        onOpenCamper={(id) => navigate(`/campers/${id}`)}
+        myName={myName}
       />
     );
   }
@@ -139,7 +181,6 @@ export default function CheckinPage({ token, canOpenStaff, adminMerged = false }
           placeholder="Buscar pelo nome da criança…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          autoFocus
         />
         <div className="staff-toolbar__filters" role="tablist" aria-label="Filtro">
           {(
@@ -179,11 +220,11 @@ export default function CheckinPage({ token, canOpenStaff, adminMerged = false }
                 role="button"
                 tabIndex={0}
                 title={done ? `${k.name} já chegou` : `Fazer check-in de ${k.name}`}
-                onClick={() => setOpenId(k.id)}
+                onClick={() => openByName(k)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    setOpenId(k.id);
+                    openByName(k);
                   }
                 }}
               >
@@ -194,8 +235,19 @@ export default function CheckinPage({ token, canOpenStaff, adminMerged = false }
                 </h3>
                 <p className="staff-card__meta">
                   {room ? bedroomLabel(room) : <span className="staff-card__missing">sem quarto</span>}
-                  {labelOf(k.team) && ` · ${labelOf(k.team)}`}
-                  {done && k.checkin && <span className="checkin-card__when"> · chegou às {fmtTime(k.checkin.at)}</span>}
+                  {k.team && (
+                    <>
+                      {" · "}
+                      <TeamTag teamId={k.team} className="staff-tag--inline" />
+                    </>
+                  )}
+                  {done && k.checkin && (
+                    <span className="checkin-card__when" title={k.checkin.note}>
+                      {" "}
+                      · chegou às {speakTime(k.checkin.at)}
+                      {k.checkin.note && " · 🤖 pelo sistema"}
+                    </span>
+                  )}
                 </p>
               </div>
               {done && (
@@ -222,6 +274,13 @@ export default function CheckinPage({ token, canOpenStaff, adminMerged = false }
           />
         )}
       </Dialog>
+
+      <ScanFab label="Ler a pulseira ou o crachá" onClick={() => setScannerOpen(true)} />
+      <QrScannerDialog open={scannerOpen} onScan={scanQr} onClose={() => setScannerOpen(false)} hint="Leia a pulseira ou o crachá para abrir o check-in da criança.">
+        <p className="scan-points__summary" aria-live="polite">
+          <strong>{counts.done}</strong> de <strong>{counts.all}</strong> {counts.all === 1 ? "criança chegou" : "crianças chegaram"}
+        </p>
+      </QrScannerDialog>
     </div>
   );
 }
@@ -287,14 +346,14 @@ function CheckinDialog({ camper: k, bedroom, sex, labelOf, busy, onConfirm, onCa
       </h2>
 
       {already && k.checkin && (
-        <p className="message message--ok">✅ Já fez check-in às {fmtTime(k.checkin.at)} com {k.checkin.byName.split(" ")[0]}.</p>
+        <p className="message message--ok">
+          ✅ Já fez check-in às {speakTime(k.checkin.at)} com {k.checkin.byName.split(" ")[0]}.{k.checkin.note && ` 🤖 ${k.checkin.note}.`}
+        </p>
       )}
 
       {/* where the kid goes: team + bedroom as compact tags */}
       <div className="staff-card__tags">
-        <span className="staff-tag" title="Time">
-          🏳️ {labelOf(k.team) ?? <em className="staff-card__missing">sem time</em>}
-        </span>
+        <TeamTag teamId={k.team} fallback="sem time" />
         {bedroom ? (
           <span className="staff-tag" title="Quarto">
             🛏️ {bedroomLabel(bedroom)}
@@ -311,7 +370,7 @@ function CheckinDialog({ camper: k, bedroom, sex, labelOf, busy, onConfirm, onCa
         <dt>Peso</dt>
         <dd>{k.weightKg != null ? `${String(k.weightKg).replace(".", ",")} kg` : "—"}</dd>
         <dt>Transporte</dt>
-        <dd>{labelOf(k.transportation) ?? "—"}</dd>
+        <dd>{k.transportation ? <TransportTag transportId={k.transportation} /> : "—"}</dd>
         {k.bedroomPreference && (
           <>
             <dt>Quer ficar com</dt>
@@ -357,9 +416,6 @@ function CheckinDialog({ camper: k, bedroom, sex, labelOf, busy, onConfirm, onCa
   );
 }
 
-function fmtTime(iso: string): string {
-  return new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
-}
 
 function normalize(s: string): string {
   return s

@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
-import { UndoGlyph } from "../components/Glyph";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CheckGlyph, UndoGlyph } from "../components/Glyph";
 import { checkinStaff, undoCheckinStaff, type Staff } from "../api/staff";
 import { useConfirm } from "../components/ConfirmDialog";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { roleMeta } from "../roles";
 import { useRoute } from "../router";
-import { useCollection } from "../store";
+import { useCollection, useCollectionOrEmpty } from "../store";
 
 interface StaffCheckinPageProps {
   token: string;
@@ -13,40 +13,74 @@ interface StaffCheckinPageProps {
   checkinHomePath?: string;
 }
 
+/** a tick stays "armed" this long before it is stamped — a second tap in the meantime undoes it */
+const TICK_DELAY_MS = 3000;
+/** matches the `bus-row--leaving` animation */
+const LEAVE_MS = 650;
+
 /** Departure day roll call for the team: name + one tap to mark as arrived. */
 export default function StaffCheckinPage({ token, checkinHomePath }: StaffCheckinPageProps) {
   const staff = useCollection("staff");
+  const transports = useCollectionOrEmpty("transports");
+  const busIds = useMemo(() => new Set(transports.filter((t) => t.kind === "bus").map((t) => t.id)), [transports]);
+  const onBus = (s: Staff) => !!s.transportation && busIds.has(s.transportation);
   const { navigate } = useRoute();
   const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [pending, setPending] = useState<Set<string>>(new Set());
+  /** ticked, waiting for the delay before the check-in is stamped */
+  const [armed, setArmed] = useState<Set<string>>(new Set());
+  /** fading out of the "still to arrive" group */
+  const [leaving, setLeaving] = useState<Set<string>>(new Set());
+  const timers = useRef<Map<string, number>>(new Map());
   const [error, setError] = useState<string | null>(null);
 
   const people = useMemo(() => {
     if (!staff) return [];
     const q = normalize(search);
     return staff
-      .filter((s) => s.active)
+      .filter((s) => s.active && onBus(s))
       .filter((s) => !q || normalize(s.name).includes(q))
-      // who still has to arrive first, then the ones already here — alphabetical within each
-      .sort((a, b) => Number(!!a.checkin) - Number(!!b.checkin) || a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
-  }, [staff, search]);
+      // who still has to arrive first, then the ones already here — alphabetical within each;
+      // a row fading out keeps its place until the animation is over
+      .sort((a, b) => Number(!!a.checkin && !leaving.has(a.id)) - Number(!!b.checkin && !leaving.has(b.id)) || a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+  }, [staff, search, leaving, busIds]);
 
   const counts = useMemo(() => {
-    const active = staff?.filter((s) => s.active) ?? [];
+    const active = staff?.filter((s) => s.active && onBus(s)) ?? [];
     return { total: active.length, arrived: active.filter((s) => s.checkin).length };
-  }, [staff]);
+  }, [staff, busIds]);
 
-  async function toggle(s: Staff) {
-    if (pending.has(s.id)) return;
-    if (s.checkin && !(await confirm({ emoji: <UndoGlyph />, title: `Desfazer o check-in de ${s.name.split(" ")[0]}?`, confirmLabel: "Desfazer", danger: true }))) return;
+  const disarm = useCallback((id: string) => {
+    const t = timers.current.get(id);
+    if (t !== undefined) window.clearTimeout(t);
+    timers.current.delete(id);
+    setArmed((a) => {
+      if (!a.has(id)) return a;
+      const n = new Set(a);
+      n.delete(id);
+      return n;
+    });
+  }, []);
+
+  // unmount drops every tick still waiting
+  useEffect(() => {
+    return () => {
+      for (const id of Array.from(timers.current.keys())) disarm(id);
+    };
+  }, [disarm]);
+
+  async function run(s: Staff, undo: boolean) {
+    if (pending.has(s.id)) return false;
     setPending((p) => new Set(p).add(s.id));
     setError(null);
     try {
-      if (s.checkin) await undoCheckinStaff(token, s.id);
+      if (undo) await undoCheckinStaff(token, s.id);
       else await checkinStaff(token, s.id);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Algo deu errado.");
+      return false;
     } finally {
       setPending((p) => {
         const n = new Set(p);
@@ -54,6 +88,52 @@ export default function StaffCheckinPage({ token, checkinHomePath }: StaffChecki
         return n;
       });
     }
+  }
+
+  /** fade the row out of the "to arrive" group while the check-in is stamped; it shows up again among the arrived */
+  function leave(s: Staff) {
+    setLeaving((l) => new Set(l).add(s.id));
+    const started = Date.now();
+    void run(s, false).then((ok) => {
+      const wait = ok ? Math.max(0, LEAVE_MS - (Date.now() - started)) : 0;
+      window.setTimeout(() => {
+        setLeaving((l) => {
+          const n = new Set(l);
+          n.delete(s.id);
+          return n;
+        });
+        setArmed((a) => {
+          const n = new Set(a);
+          n.delete(s.id);
+          return n;
+        });
+      }, wait);
+    });
+  }
+
+  /** tick: arm for 3 s, then fade the row out and stamp it; a second tap before that undoes the tick */
+  function tick(s: Staff) {
+    if (leaving.has(s.id)) return;
+    if (armed.has(s.id)) {
+      disarm(s.id);
+      return;
+    }
+    setArmed((a) => new Set(a).add(s.id));
+    const t = window.setTimeout(() => {
+      timers.current.delete(s.id);
+      leave(s);
+    }, TICK_DELAY_MS);
+    timers.current.set(s.id, t);
+  }
+
+  async function toggle(s: Staff) {
+    if (pending.has(s.id) || leaving.has(s.id)) return;
+    if (!s.checkin) {
+      tick(s);
+      return;
+    }
+    if (!(await confirm({ emoji: <UndoGlyph />, title: `Desfazer o check-in de ${s.name.split(" ")[0]}?`, confirmLabel: "Desfazer", danger: true }))) return;
+    void run(s, true);
   }
 
   if (!staff) {
@@ -96,16 +176,29 @@ export default function StaffCheckinPage({ token, checkinHomePath }: StaffChecki
 
       <ul className="bus-list">
         {people.map((s) => {
-          const on = !!s.checkin;
-          const busy = pending.has(s.id);
+          const going = leaving.has(s.id);
+          const on = !!s.checkin || armed.has(s.id) || going;
+          const busy = pending.has(s.id) && !going;
+          const first = s.name.split(" ")[0];
+          const label = s.checkin ? `Desfazer o check-in de ${first}` : on ? `Desfazer: ${first}` : `${first} chegou`;
           return (
-            <li key={s.id}>
-              <button type="button" className={`bus-row ${on ? "bus-row--on" : ""}`} disabled={busy} aria-pressed={on} onClick={() => toggle(s)}>
+            <li key={s.id} className={going ? "bus-item--leaving" : undefined}>
+              <button
+                type="button"
+                className={`bus-row bus-row--roll ${on ? "bus-row--on" : ""}`}
+                disabled={busy}
+                aria-pressed={on}
+                aria-label={label}
+                title={label}
+                onClick={() => void toggle(s)}
+              >
                 <span className={`bus-row__check ${on ? "bus-row__check--on" : ""}`} aria-hidden="true">
-                  {on ? "✓" : ""}
+                  {on && <CheckGlyph size="1.2em" />}
                 </span>
                 <span className="bus-row__body">
-                  <span className="bus-row__name">{s.name}</span>
+                  <span className="bus-row__name">
+                    <span className={`strike ${on ? "strike--on" : ""}`}>{s.name}</span>
+                  </span>
                 </span>
               </button>
             </li>

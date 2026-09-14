@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import type { Bedroom } from "../api/bedrooms";
 import type { Camper } from "../api/campers";
 import type { Category } from "../api/categories";
+import type { Transport } from "../api/transports";
 import type { Instruction } from "../api/instructions";
 import type { Occurrence } from "../api/occurrences";
 import type { PrepSection } from "../api/preparation";
@@ -10,6 +11,7 @@ import type { Staff } from "../api/staff";
 import type { Settings } from "../api/settings";
 import type { Team } from "../api/teams";
 import type { ScoreEntry } from "../api/scores";
+import type { GalleryPhoto } from "../api/gallery";
 
 /**
  * Local-first data store.
@@ -27,6 +29,7 @@ export interface Collections {
   staff: Staff[];
   bedrooms: Bedroom[];
   categories: Category[];
+  transports: Transport[];
   teams: Team[];
   scores: ScoreEntry[];
   roles: ScheduleRole[];
@@ -34,11 +37,12 @@ export interface Collections {
   preparation: PrepSection[];
   instructions: Instruction[];
   occurrences: Occurrence[];
+  gallery: GalleryPhoto[];
   settings: Settings;
 }
 export type CollectionName = keyof Collections;
 type ListCollectionName = Exclude<CollectionName, "settings">;
-export const COLLECTION_NAMES: CollectionName[] = ["campers", "staff", "bedrooms", "categories", "teams", "scores", "roles", "events", "preparation", "instructions", "occurrences", "settings"];
+export const COLLECTION_NAMES: CollectionName[] = ["campers", "staff", "bedrooms", "categories", "transports", "teams", "scores", "roles", "events", "preparation", "instructions", "occurrences", "gallery", "settings"];
 
 export type ConnectionState = "connecting" | "online" | "offline";
 

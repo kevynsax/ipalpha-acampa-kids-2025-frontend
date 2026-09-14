@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import Dialog from "./Dialog";
+import GroupIcon from "./GroupIcon";
 import { ICONS } from "../icons";
+import type { BedroomGroup } from "../api/bedrooms";
 
 export interface DrawEntry {
   id: string;
   name: string;
+  /** room name only ("209") — the wing comes from `group` as an icon */
   room: string;
+  group?: BedroomGroup | null;
 }
 
 interface GiveawayDrawDialogProps {
@@ -110,7 +114,9 @@ export default function GiveawayDrawDialog({ open, onClose, entries, onRedraw, w
           {!rolling && person && (
             <>
               <strong className="draw__name">{person.name}</strong>
-              <span className="draw__room">🛏️ {person.room}</span>
+              <span className="draw__room">
+                {person.group ? <GroupIcon group={person.group} face size={18} /> : "🛏️"} {person.room}
+              </span>
             </>
           )}
         </div>

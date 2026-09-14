@@ -4,7 +4,6 @@ import type { Staff } from "./staff";
 
 /** Category keys that feed each camper field (must match the backend). */
 export const CAMPER_CATEGORY_KEYS = {
-  transportation: "transporte",
   bed: "cama",
   allergies: "alergias",
   drugAllergies: "alergia-medicamentos",
@@ -37,6 +36,7 @@ export interface Camper {
   /** id in the registration system */
   externalId: string;
   team: string | null;
+  /** Transport id (see api/transports.ts) — bus / car, not a category option */
   transportation: string | null;
   /** category option id (cima / baixo) */
   bed: string | null;
@@ -64,8 +64,10 @@ export interface Camper {
   guardianEmail: string;
   /** set once the kid arrived at the church and the parent confirmed the registration data */
   checkin: CamperCheckin | null;
-  /** set once the kid boarded the bus (roll call inside the vehicle) */
+  /** set once the kid boarded the bus going to camp */
   busCheckin: CamperCheckin | null;
+  /** set once the kid boarded the bus returning to church */
+  busReturnCheckin: CamperCheckin | null;
   createdAt: string;
   /** ISO — when a parent last edited the "Pontos de atenção"; null until they do (drives the 🕓 history button) */
   parentEditedAt: string | null;
@@ -103,9 +105,11 @@ export interface CamperCheckin {
   byUserId: string;
   byName: string;
   byRole: string;
+  /** set when nobody did it by hand — e.g. the system checked the kid in when their wristband scored points */
+  note?: string;
 }
 
-export type CamperInput = Omit<Camper, "id" | "checkin" | "busCheckin" | "parentEditedAt" | "createdAt" | "updatedAt">;
+export type CamperInput = Omit<Camper, "id" | "checkin" | "busCheckin" | "busReturnCheckin" | "parentEditedAt" | "createdAt" | "updatedAt">;
 
 export interface CamperDetail {
   camper: Camper;
@@ -203,8 +207,9 @@ export async function listCamperChanges(token: string, id: string): Promise<Camp
   return res.changes;
 }
 
-export type CheckinKind = "church" | "bus";
-const checkinPath = (id: string, kind: CheckinKind) => `/api/campers/${id}/checkin${kind === "bus" ? "/bus" : ""}`;
+export type CheckinKind = "church" | "bus" | "bus_return";
+const checkinPath = (id: string, kind: CheckinKind) =>
+  `/api/campers/${id}/checkin${kind === "bus" ? "/bus" : kind === "bus_return" ? "/bus-return" : ""}`;
 
 /** The kid arrived (church: parent confirmed the data at the gate; bus: boarded). */
 export async function checkinCamper(token: string, id: string, kind: CheckinKind = "church"): Promise<Camper> {

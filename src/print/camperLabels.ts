@@ -35,12 +35,16 @@ export function camperUrl(id: string): string {
   return `${location.origin}${location.pathname}#/campers/${id}`;
 }
 
-/** The camper id out of a scanned QR — accepts only this app's camper-detail URL (as printed on the badge and bracelet), else null. */
+/**
+ * The camper id out of a scanned QR — accepts the app's camper-detail URL
+ * (`…#/campers/:id`, as printed on the badge and bracelet) from ANY host:
+ * labels printed on localhost / another domain still work, and the server
+ * validates the id anyway. Anything else → null.
+ */
 export function camperIdFromQr(raw: string): string | null {
   const value = raw.trim();
   try {
     const url = new URL(value, location.href);
-    if (url.origin !== location.origin || url.pathname !== location.pathname) return null;
     const match = url.hash.match(/^#\/campers\/([^/?#]+)\/?(?:\?.*)?$/);
     return match ? decodeURIComponent(match[1]) : null;
   } catch {

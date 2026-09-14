@@ -5,6 +5,7 @@ import { contrastText, createTeam, deleteTeam, reorderTeams, updateTeam, type Te
 import type { Staff } from "../../api/staff";
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import StaffPicker from "./StaffPicker";
+import PageFooter from "../../components/PageFooter";
 
 interface TeamsPageProps {
   token: string;
@@ -143,18 +144,31 @@ export default function TeamsPage({ token }: TeamsPageProps) {
         </ul>
       )}
 
-      <p className="footer-note">🔒 Quem lança pontos no Placar é definido em Configurações → Jogos.</p>
+      <PageFooter>🔒 Quem lança pontos no Placar é definido em Configurações → Jogos.</PageFooter>
 
       {editing && <TeamDialog team={editing === "new" ? undefined : editing} staff={staff} busy={busy} onSave={handleSave} onClose={() => setEditing(null)} />}
     </div>
   );
 }
 
-const PRESETS = ["#e63946", "#f4a261", "#e9c46a", "#2a9d8f", "#264653", "#8e44ad", "#3498db", "#27ae60", "#d35400", "#ff69b4", "#7f8c8d", "#111111"];
+/** High-saturation colours kids can shout by name without mixing them up. */
+const PRESETS: { name: string; hex: string }[] = [
+  { name: "Vermelho", hex: "#e30613" },
+  { name: "Laranja", hex: "#ff6600" },
+  { name: "Amarelo", hex: "#ffcc00" },
+  { name: "Lima", hex: "#a8e10c" },
+  { name: "Verde", hex: "#00a651" },
+  { name: "Ciano", hex: "#00c2e0" },
+  { name: "Azul", hex: "#0057b8" },
+  { name: "Roxo", hex: "#6b2d8b" },
+  { name: "Rosa", hex: "#ff1493" },
+  { name: "Marrom", hex: "#8b4513" },
+  { name: "Preto", hex: "#1a1a1a" },
+];
 
 function TeamDialog({ team, staff, busy, onSave, onClose }: { team?: Team; staff: Staff[]; busy: boolean; onSave: (input: TeamInput) => Promise<void>; onClose: () => void }) {
   const [name, setName] = useState(team?.name ?? "");
-  const [color, setColor] = useState(team?.color ?? PRESETS[0]);
+  const [color, setColor] = useState(team?.color ?? PRESETS[0].hex);
   const [jokerStaffId, setJoker] = useState<string | null>(team?.jokerStaffId ?? null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const joker = jokerStaffId ? staff.find((s) => s.id === jokerStaffId) : null;
@@ -188,15 +202,15 @@ function TeamDialog({ team, staff, busy, onSave, onClose }: { team?: Team; staff
             <div className="color-picker__presets" role="radiogroup" aria-label="Cores sugeridas">
               {PRESETS.map((c) => (
                 <button
-                  key={c}
+                  key={c.hex}
                   type="button"
                   role="radio"
-                  aria-checked={c === color.toLowerCase()}
-                  className={`color-picker__swatch ${c === color.toLowerCase() ? "color-picker__swatch--on" : ""}`}
-                  style={{ background: c }}
-                  title={c}
+                  aria-checked={c.hex === color.toLowerCase()}
+                  className={`color-picker__swatch ${c.hex === color.toLowerCase() ? "color-picker__swatch--on" : ""}`}
+                  style={{ background: c.hex }}
+                  title={c.name}
                   disabled={busy}
-                  onClick={() => setColor(c)}
+                  onClick={() => setColor(c.hex)}
                 />
               ))}
             </div>

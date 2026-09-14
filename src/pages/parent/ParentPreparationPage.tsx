@@ -1,4 +1,4 @@
-import { formatEventDate } from "../../api/schedule";
+import { speakDay } from "../../dates";
 import RichHtml from "../../components/RichHtml";
 import { useCampTiming } from "../../campPhase";
 import type { LoggedUser } from "../../roles";
@@ -48,7 +48,7 @@ export default function ParentPreparationPage({ user }: ParentPreparationPagePro
           <span className="prep-countdown__emoji" aria-hidden="true">{countdown.emoji}</span>
           <div className="prep-countdown__text">
             <strong>{countdown.text}</strong>
-            {timing.firstDate && <span>Começa {formatEventDate(timing.firstDate, { weekday: "long", day: "numeric", month: "long" }).toLowerCase()}</span>}
+            {timing.firstDate && <span>Começa {speakDay(timing.firstDate).toLowerCase()}</span>}
           </div>
         </div>
       )}

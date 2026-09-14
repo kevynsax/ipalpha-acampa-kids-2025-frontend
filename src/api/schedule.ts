@@ -62,12 +62,8 @@ export interface CampEventInput {
   roles: string[];
 }
 
-/** "2026-09-12" → "Sábado, 12 de setembro" (date-only, no timezone shift) */
-export function formatEventDate(iso: string, opts: Intl.DateTimeFormatOptions = { weekday: "long", day: "numeric", month: "long" }): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  const s = new Intl.DateTimeFormat("pt-BR", opts).format(new Date(y, m - 1, d));
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
+/** Programme day → spoken pt-BR (`speakDay`). Prefer importing from `../dates` in new code. */
+export { speakDay as formatEventDate } from "../dates";
 
 const json = (token: string) => ({ ...bearer(token), "content-type": "application/json" });
 

@@ -5,6 +5,7 @@ import { useConfirm } from "../../components/ConfirmDialog";
 import SpotMap from "../../components/SpotMap";
 import BusHelpersEditor from "./BusHelpersEditor";
 import StaffListEditor from "./StaffListEditor";
+import { speakWhen } from "../../dates";
 
 interface CheckinSettingsPageProps {
   token: string;
@@ -53,7 +54,6 @@ function fromLocalInput(v: string): string | null {
 
 /** compare instants at minute precision (datetime-local can't carry seconds) */
 const sameMinute = (a: string | null, b: string | null) => (a ? Math.floor(new Date(a).getTime() / 60_000) : null) === (b ? Math.floor(new Date(b).getTime() / 60_000) : null);
-const fmt = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 /**
  * Admin-only: everything about departure-day check-in, on one page.
  *
@@ -78,6 +78,8 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
   // section drafts
   const [from, setFrom] = useState("");
   const [until, setUntil] = useState("");
+  const [returnFrom, setReturnFrom] = useState("");
+  const [returnUntil, setReturnUntil] = useState("");
   const [church, setChurch] = useState<string[]>([]);
   const [bus, setBus] = useState<BusHelper[]>([]);
   const [spots, setSpots] = useState<SpotDraft[]>([]);
@@ -88,6 +90,8 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
   function fill(s: Settings) {
     setFrom(toLocalInput(s.checkinWindow.from));
     setUntil(toLocalInput(s.checkinWindow.until));
+    setReturnFrom(toLocalInput(s.busReturnWindow?.from ?? null));
+    setReturnUntil(toLocalInput(s.busReturnWindow?.until ?? null));
     setChurch(s.checkinHelpers.staffIds);
     setBus(s.busHelpers.helpers);
     setSpots(s.checkinLocations.map(toDraft));
@@ -165,6 +169,14 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
   const openNow = windowComplete && orderOk && new Date(fromIso!).getTime() <= now && now < new Date(untilIso!).getTime();
   const testMode = !!settings?.checkinTestMode;
 
+  // ── return bus window ──
+  const returnFromIso = fromLocalInput(returnFrom);
+  const returnUntilIso = fromLocalInput(returnUntil);
+  const returnOrderOk = !returnFromIso || !returnUntilIso || new Date(returnFromIso) < new Date(returnUntilIso);
+  const returnComplete = !!returnFromIso && !!returnUntilIso;
+  const returnDirty = !!settings && (!sameMinute(returnFromIso, settings.busReturnWindow?.from ?? null) || !sameMinute(returnUntilIso, settings.busReturnWindow?.until ?? null));
+  const returnOpenNow = returnComplete && returnOrderOk && new Date(returnFromIso!).getTime() <= now && now < new Date(returnUntilIso!).getTime();
+
   // ── meeting points ──
   const parsedSpots = spots.map(parseSpot);
   const spotsValid = spots.length > 0 && parsedSpots.every((p) => p !== null);
@@ -181,7 +193,7 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
     patchSpot(id, { lat: m[1].replace(",", "."), lng: m[2].replace(",", ".") });
   }
 
-  const kidsChecked = campers?.filter((k) => k.checkin || k.busCheckin).length ?? 0;
+  const kidsChecked = campers?.filter((k) => k.checkin || k.busCheckin || k.busReturnCheckin).length ?? 0;
   const staffChecked = staff?.filter((s) => s.checkin).length ?? 0;
   async function reset() {
     if (busy) return;
@@ -243,10 +255,10 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
         ) : windowComplete ? (
           <p className="cat-hint">
             {openNow
-              ? `🟢 Aberta agora — fecha ${fmt.format(new Date(untilIso!))}`
+              ? `🟢 Aberta agora — fecha ${speakWhen(untilIso!)}`
               : new Date(fromIso!).getTime() > now
-                ? `🕒 Abre ${fmt.format(new Date(fromIso!))} até ${fmt.format(new Date(untilIso!))}`
-                : `⚫ Fechada — era ${fmt.format(new Date(fromIso!))} até ${fmt.format(new Date(untilIso!))}`}
+                ? `🕒 Abre ${speakWhen(fromIso!)} até ${speakWhen(untilIso!)}`
+                : `⚫ Fechada — era ${speakWhen(fromIso!)} até ${speakWhen(untilIso!)}`}
             .
           </p>
         ) : null}
@@ -254,6 +266,45 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
         <div className="cat-form__actions">
           <button type="submit" className="button button--primary" disabled={!orderOk || !windowDirty || !!busy}>
             {busy === "window" ? "Salvando…" : "Salvar horário ⏰"}
+          </button>
+        </div>
+      </form>
+
+      {/* ── return trip window ── */}
+      <form
+        className="cat-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (returnOrderOk) void save("return-window", { busReturnWindow: { from: returnFromIso, until: returnUntilIso } });
+        }}
+      >
+        <h2 className="cat-form__title">🚌 Janela da volta para a igreja</h2>
+        <p className="cat-hint">Horário em que os ajudantes fazem a chamada no ônibus antes de sair do acampamento.</p>
+        <div className="cat-form__row staff-form__row">
+          <label className="cat-field cat-field--grow">
+            <span className="cat-field__label">Abre em</span>
+            <input className="cat-input" type="datetime-local" value={returnFrom} disabled={!!busy} onChange={(e) => setReturnFrom(e.target.value)} />
+          </label>
+          <label className="cat-field cat-field--grow">
+            <span className="cat-field__label">Fecha em</span>
+            <input className="cat-input" type="datetime-local" value={returnUntil} disabled={!!busy} onChange={(e) => setReturnUntil(e.target.value)} />
+          </label>
+        </div>
+        {!returnOrderOk ? (
+          <p className="cat-hint cat-hint--error">O fim da janela precisa ser depois do início.</p>
+        ) : returnComplete ? (
+          <p className="cat-hint">
+            {returnOpenNow
+              ? `🟢 Aberta agora — fecha ${speakWhen(returnUntilIso!)}`
+              : new Date(returnFromIso!).getTime() > now
+                ? `🕒 Abre ${speakWhen(returnFromIso!)} até ${speakWhen(returnUntilIso!)}`
+                : `⚫ Fechada — era ${speakWhen(returnFromIso!)} até ${speakWhen(returnUntilIso!)}`}.
+          </p>
+        ) : null}
+        {ok("return-window", returnOpenNow ? "Janela da volta salva — está aberta agora." : "Janela da volta salva.")}
+        <div className="cat-form__actions">
+          <button type="submit" className="button button--primary" disabled={!returnOrderOk || !returnDirty || !!busy}>
+            {busy === "return-window" ? "Salvando…" : "Salvar volta 🚌"}
           </button>
         </div>
       </form>
@@ -381,7 +432,7 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
       {kidsChecked + staffChecked > 0 && (
       <section className="cat-form">
         <h2 className="cat-form__title">🧹 Zerar check-ins</h2>
-        <p className="cat-hint">Apaga o check-in de todas as crianças (igreja e ônibus) e da equipe, os coletes e o histórico — para recomeçar depois de um ensaio.</p>
+        <p className="cat-hint">Apaga o check-in de todas as crianças (igreja, ida e volta), da equipe, os coletes e o histórico.</p>
         {ok("reset", "Check-ins zerados.")}
         <div className="settings-tools">
           <button type="button" className="button button--danger" disabled={!!busy} onClick={() => void reset()}>

@@ -1,5 +1,5 @@
 import { useConfirm } from "../../components/ConfirmDialog";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ICONS } from "../../icons";
 import { GROUP_META, bedroomLabel } from "../../api/bedrooms";
 import { ageOf, createCamper, deleteCamper, updateCamper, type Camper, type CamperInput } from "../../api/campers";
@@ -8,8 +8,13 @@ import { useCollection, useCollectionOrEmpty } from "../../store";
 import { useCategories, useLabelOf } from "../../store/derive";
 import HealthAlerts from "../../components/HealthAlerts";
 import HealthFilter, { CAMPER_HEALTH_KEYS, matchesHealth, hasHealth, type HealthKey } from "../../components/HealthFilter";
-import { downloadCampersXlsx } from "../../export";
+import { downloadCampersXlsx, downloadMedicalCampersXlsx } from "../../export";
 import PrintLabelsDialog from "../../components/PrintLabelsDialog";
+import GroupIcon from "../../components/GroupIcon";
+import TeamFilterDialog from "../../components/TeamFilterDialog";
+import RoomRoleIcon from "../../components/RoomRoleIcon";
+import TeamTag from "../../components/TeamTag";
+import TransportTag from "../../components/TransportTag";
 import WhatsAppButton from "../../components/WhatsAppButton";
 import { loadAuth } from "../../auth/store";
 import { staffGreeting, whatsappLink } from "../../whatsapp";
@@ -19,7 +24,7 @@ import Breadcrumbs from "../../components/Breadcrumbs";
 import CamperForm from "./CamperForm";
 import DetailStack from "./DetailStack";
 import GiveawayPage from "../GiveawayPage";
-import { DownloadGlyph } from "../../components/Glyph";
+import { DownloadGlyph, SearchGlyph } from "../../components/Glyph";
 
 interface CampersPageProps {
   token: string;
@@ -52,8 +57,17 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
   // read-only viewers can't reach the forms even by URL
   const mode: Mode = readOnly && (rawMode.kind === "create" || rawMode.kind === "edit" || rawMode.kind === "giveaway") ? { kind: "view" } : rawMode;
   const confirm = useConfirm();
+  // set by the open form; asks save/discard before a breadcrumb navigation leaves the form
+  const leaveGuardRef = useRef<(() => Promise<boolean>) | null>(null);
+  async function guardedNav(to: string) {
+    const guard = leaveGuardRef.current;
+    if (guard && !(await guard())) return;
+    navigate(to);
+  }
   const [wing, setWing] = useState<Wing>("all");
-  const [team, setTeam] = useState<string>("");
+  /** team ids to show — empty = every team (the medical team never filters by team / wing) */
+  const [teamFilter, setTeamFilter] = useState<Set<string>>(new Set());
+  const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [health, setHealth] = useState<Set<HealthKey>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -100,21 +114,23 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
   const visible = useMemo(() => {
     if (!campers) return [];
     const q = normalize(search);
-    // orphans (no caretaker) first: they need the admin's attention
-    const orphanFirst = (a: Camper, b: Camper) => Number(!!a.caretakerId) - Number(!!b.caretakerId);
+    // no leader / no room first: they need the admin's attention
+    const attentionFirst = (a: Camper, b: Camper) =>
+      Number(!!a.caretakerId && !!a.bedroom) - Number(!!b.caretakerId && !!b.bedroom);
     return sortByName(campers)
-      .sort(orphanFirst)
+      .sort(attentionFirst)
       .filter((k) => {
       const room = k.bedroom ? roomById.get(k.bedroom) : null;
       if (wing !== "all" && room?.group !== wing) return false;
-      if (team && k.team !== team) return false;
+      if (teamFilter.size > 0 && !(k.team && teamFilter.has(k.team))) return false;
       if (!matchesHealth(k, health)) return false;
       if (!q) return true;
       const hay = normalize([k.name, k.guardianName, labelOf(k.team), room?.name, labelOf(k.transportation), staffById.get(k.caretakerId ?? "")?.name].filter(Boolean).join(" "));
       return hay.includes(q);
     });
-  }, [campers, wing, team, search, health, labelOf, roomById, staffById]);
+  }, [campers, wing, teamFilter, search, health, labelOf, roomById, staffById]);
   const orphanCount = useMemo(() => (campers ?? []).filter((k) => !k.caretakerId).length, [campers]);
+  const noRoomCount = useMemo(() => (campers ?? []).filter((k) => !k.bedroom).length, [campers]);
 
   /** how many kids have each health thing (within the other filters, so the chips stay honest) */
   const healthCounts = useMemo(() => {
@@ -123,11 +139,20 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
     for (const k of campers ?? []) {
       const room = k.bedroom ? roomById.get(k.bedroom) : null;
       if (wing !== "all" && room?.group !== wing) continue;
-      if (team && k.team !== team) continue;
+      if (teamFilter.size > 0 && !(k.team && teamFilter.has(k.team))) continue;
       for (const key of CAMPER_HEALTH_KEYS) if (hasHealth(k, key)) c[key]!++;
     }
     return c;
-  }, [campers, wing, team, roomById]);
+  }, [campers, wing, teamFilter, roomById]);
+
+  /** kids per team (for the chips in the team dialog) */
+  const teamCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const k of campers ?? []) if (k.team) m.set(k.team, (m.get(k.team) ?? 0) + 1);
+    return m;
+  }, [campers]);
+  const teamById = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
+  const teamChipLabel = teamFilter.size === 0 ? "Todos os times" : [...teamFilter].map((id) => teamById.get(id)?.name).filter(Boolean).join(", ");
 
   const counts = useMemo(() => {
     const c = { all: campers?.length ?? 0, girls: 0, boys: 0 };
@@ -168,12 +193,12 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
 
   return (
     <div className="admin-page">
-      {mode.kind === "create" && <Breadcrumbs items={[{ label: "Acampantes", onClick: () => navigate("/campers") }, { label: "Novo" }]} />}
+      {mode.kind === "create" && <Breadcrumbs items={[{ label: "Acampantes", onClick: () => guardedNav("/campers") }, { label: "Novo" }]} />}
       {mode.kind === "edit" && editing && (
-        <Breadcrumbs items={[{ label: "Acampantes", onClick: () => navigate("/campers") }, { label: editing.name.split(" ")[0], onClick: () => navigate(`/campers/${editing.id}`) }, { label: "Editar" }]} />
+        <Breadcrumbs items={[{ label: "Acampantes", onClick: () => guardedNav("/campers") }, { label: editing.name.split(" ")[0], onClick: () => guardedNav(`/campers/${editing.id}`) }, { label: "Editar" }]} />
       )}
       <header className="admin-head">
-        <h1 className="admin-title">{mode.kind === "create" ? "✨ Novo acampante" : mode.kind === "edit" ? "✏️ Editar acampante" : "Acampantes"}</h1>
+        <h1 className="admin-title">{mode.kind === "create" ? "🧒 Novo acampante" : mode.kind === "edit" ? "✏️ Editar acampante" : "Acampantes"}</h1>
         {mode.kind === "view" && !readOnly && (
           <div className="admin-head__actions">
             <button
@@ -207,6 +232,32 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
             </button>
           </div>
         )}
+        {/* medical team: the health sheet of every camper (no documents / bus roll calls) */}
+        {mode.kind === "view" && readOnly && (
+          <div className="admin-head__actions">
+            <button
+              type="button"
+              className="button button--secondary admin-head__new"
+              disabled={campers.length === 0}
+              title="Baixar a planilha de saúde de todos os acampantes"
+              onClick={() => downloadMedicalCampersXlsx(campers, bedrooms, labelOf, staff)}
+            >
+              <DownloadGlyph /> Download
+            </button>
+          </div>
+        )}
+        {mode.kind === "edit" && editing && (
+          <button
+            type="button"
+            className="icon-btn icon-btn--lg icon-btn--danger"
+            title={`Excluir ${editing.name}`}
+            aria-label={`Excluir ${editing.name}`}
+            disabled={busy}
+            onClick={() => handleDelete(editing)}
+          >
+            🗑️
+          </button>
+        )}
       </header>
 
       {error && <p className="message message--error">{error}</p>}
@@ -216,60 +267,61 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
       )}
 
       {mode.kind === "create" && (
-        <CamperForm categories={categories} busy={busy} onSubmit={handleCreate} onCancel={() => navigate("/campers")} />
+        <CamperForm token={token} categories={categories} busy={busy} onSubmit={handleCreate} leaveGuardRef={leaveGuardRef} />
       )}
       {mode.kind === "edit" && !editing && <p className="opt-empty">Acampante não encontrado.</p>}
       {mode.kind === "edit" && editing && (
-        <>
-          <CamperForm
-            key={editing.id}
-            camper={editing}
-            categories={categories}
-            busy={busy}
-            onSubmit={handleEdit}
-            onCancel={() => navigate(`/campers/${editing.id}`)}
-          />
-          <button type="button" className="link-danger" disabled={busy} onClick={() => handleDelete(editing)}>
-            🗑️ Excluir {editing.name}
-          </button>
-        </>
+        <CamperForm
+          key={editing.id}
+          token={token}
+          camper={editing}
+          categories={categories}
+          busy={busy}
+          onSubmit={handleEdit}
+          leaveGuardRef={leaveGuardRef}
+        />
       )}
 
       {mode.kind === "view" && (
         <>
           <div className="staff-toolbar">
-            <input
-              className="cat-input staff-toolbar__search"
-              type="search"
-              placeholder="Buscar por nome, líder, time, quarto…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <div className="staff-toolbar__filters" role="tablist" aria-label="Ala">
+            <label className="staff-toolbar__search">
+              <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
+              <input className="cat-input" type="search" placeholder="Buscar por nome, líder, time, quarto…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar" />
+            </label>
+          </div>
+          {/* wing + team chips, in the same row as the health chips; the medical team gets health only */}
+          {!readOnly && (
+            <div className="health-filter" role="group" aria-label="Ala e time">
               {(
                 [
                   ["all", "Todos"],
-                  ["girls", `${GROUP_META.girls.emoji} Meninas`],
-                  ["boys", `${GROUP_META.boys.emoji} Meninos`],
+                  ["girls", "Meninas"],
+                  ["boys", "Meninos"],
                 ] as [Wing, string][]
               ).map(([key, label]) => (
-                <button key={key} type="button" role="tab" aria-selected={wing === key} className={`cat-tab ${wing === key ? "cat-tab--active" : ""}`} onClick={() => setWing(key)}>
+                <button key={key} type="button" className={`chip-toggle chip-toggle--small ${wing === key ? "chip-toggle--on" : ""}`} aria-pressed={wing === key} onClick={() => setWing(key)}>
+                  {key !== "all" && <GroupIcon group={key} face />}
                   {label}
                   <span className="cat-tab__count">{counts[key]}</span>
                 </button>
               ))}
+              {teams.length > 0 && (
+                <button
+                  type="button"
+                  className={`chip-toggle chip-toggle--small ${teamFilter.size > 0 ? "chip-toggle--on" : ""}`}
+                  aria-pressed={teamFilter.size > 0}
+                  title="Filtrar por time"
+                  onClick={() => setTeamDialogOpen(true)}
+                >
+                  🏳️ {teamChipLabel}
+                  {teamFilter.size > 0 && (
+                    <span className="cat-tab__count">{visible.length}</span>
+                  )}
+                </button>
+              )}
             </div>
-            {teams.length > 0 && (
-              <select className="cat-input staff-toolbar__select" value={team} onChange={(e) => setTeam(e.target.value)} aria-label="Filtrar por time">
-                <option value="">Todos os times</option>
-                {teams.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+          )}
           {/* medical team: the big picture at a glance (tap = filter) */}
           {readOnly && (
             <div className="stat-grid" role="group" aria-label="Resumo de saúde">
@@ -293,6 +345,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
             </div>
           )}
           <HealthFilter keys={CAMPER_HEALTH_KEYS} value={health} onChange={setHealth} counts={healthCounts} />
+          <TeamFilterDialog open={teamDialogOpen} teams={teams} value={teamFilter} counts={teamCounts} onChange={setTeamFilter} onClose={() => setTeamDialogOpen(false)} />
 
           {campers.length === 0 && (
             <div className="admin-empty">
@@ -310,6 +363,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
           <p className="admin-intro">
             {visible.length === campers.length ? `${campers.length} crianças` : `${visible.length} de ${campers.length} crianças`}
             {orphanCount > 0 && <span className="orphan-tag"> · ⚠️ {orphanCount} sem líder</span>}
+            {noRoomCount > 0 && <span className="orphan-tag"> · ⚠️ {noRoomCount} sem quarto</span>}
           </p>
 
           <ul className="staff-list">
@@ -318,10 +372,11 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
               const age = ageOf(k.birthDate);
               const caretaker = k.caretakerId ? staffById.get(k.caretakerId) : undefined;
               const orphan = !k.caretakerId;
-              const tags = [room && bedroomLabel(room), labelOf(k.bed) && `Cama ${labelOf(k.bed)!.toLowerCase()}`, labelOf(k.team), labelOf(k.transportation), caretaker && `${ROOM_ROLE_META.caretaker.emoji} ${caretaker.name.split(" ")[0]}`].filter(Boolean) as string[];
+              const noRoom = !k.bedroom;
+              const attention = orphan || noRoom;
 
               return (
-                <li key={k.id} className={`staff-card staff-card--clickable ${orphan ? "staff-card--orphan" : ""}`}>
+                <li key={k.id} className={`staff-card staff-card--clickable ${attention ? "staff-card--orphan" : ""}`}>
                   <div
                     className="staff-card__body"
                     role="link"
@@ -339,20 +394,32 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
                       {k.name}
                       {age !== null && <span className="kid-card__age">{age} anos</span>}
                     </h3>
-                    {orphan && <p className="staff-card__meta orphan-msg">⚠️ Esta criança está sem líder{!k.bedroom ? " e sem quarto" : ""}.</p>}
+                    {attention && (
+                      <p className="staff-card__meta orphan-msg">
+                        ⚠️ Esta criança está {orphan && noRoom ? "sem líder e sem quarto" : orphan ? "sem líder" : "sem quarto"}.
+                      </p>
+                    )}
                     {k.guardianName && (
                       <p className="staff-card__meta">
                         Resp.: {k.guardianName}
-                        {!k.bedroom && !orphan && <span className="staff-card__missing"> · sem quarto</span>}
                       </p>
                     )}
-                    {tags.length > 0 && (
+                    {(room || k.team || caretaker || k.transportation) && (
                       <div className="staff-card__tags">
-                        {tags.map((t) => (
-                          <span key={t} className="staff-tag">
-                            {t}
+                        {room && (
+                          <span className="staff-tag staff-tag--room" title={bedroomLabel(room)}>
+                            <GroupIcon group={room.group} face size={18} />
+                            <img className="audience-icon" src={ICONS.bunk} alt="" aria-hidden="true" style={{ width: 18, height: 18 }} />
+                            {room.name}
                           </span>
-                        ))}
+                        )}
+                        {caretaker && (
+                          <span className="staff-tag" title={ROOM_ROLE_META.caretaker.label}>
+                            <RoomRoleIcon role="caretaker" /> {caretaker.name.split(" ")[0]}
+                          </span>
+                        )}
+                        <TeamTag teamId={k.team} />
+                        <TransportTag transportId={k.transportation} short className="staff-tag--pill" />
                       </div>
                     )}
                     <HealthAlerts person={k} labelOf={labelOf} />

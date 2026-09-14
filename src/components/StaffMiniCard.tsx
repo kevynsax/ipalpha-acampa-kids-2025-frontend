@@ -1,16 +1,23 @@
 import { ROOM_ROLE_META, type Staff } from "../api/staff";
-import { formatBrazilPhoneClient } from "../phoneFormat";
+import { loadAuth } from "../auth/store";
+import { staffGreeting, whatsappLink } from "../whatsapp";
+import RoomRoleIcon from "./RoomRoleIcon";
+import TeamTag from "./TeamTag";
+import TransportTag from "./TransportTag";
+import WhatsAppButton from "./WhatsAppButton";
 
 interface StaffMiniCardProps {
   staff: Staff;
-  labelOf: (id: string | null | undefined) => string | null;
+  /** kept for call-site compatibility; the team is resolved from the store */
+  labelOf?: (id: string | null | undefined) => string | null;
   /** click → open the person */
   onOpen?: (staffId: string) => void;
 }
 
-/** Compact staff row (name, phone, team). The whole card is the link. */
-export default function StaffMiniCard({ staff: s, labelOf, onOpen }: StaffMiniCardProps) {
+/** Compact staff row (name, room role, team, WhatsApp). The body is the link. */
+export default function StaffMiniCard({ staff: s, onOpen }: StaffMiniCardProps) {
   const open = onOpen ? () => onOpen(s.id) : undefined;
+  const myName = loadAuth()?.user.name ?? "";
   return (
     <li className={`staff-card staff-card--compact ${open ? "staff-card--clickable" : ""} ${s.active ? "" : "staff-card--inactive"}`}>
       <div
@@ -35,18 +42,20 @@ export default function StaffMiniCard({ staff: s, labelOf, onOpen }: StaffMiniCa
           {!s.active && <span className="staff-card__inactive">inativo</span>}
           {s.bedroom && (
             <span className="staff-tag staff-tag--soft" title={ROOM_ROLE_META[s.roomRole].hint}>
-              {ROOM_ROLE_META[s.roomRole].emoji} {ROOM_ROLE_META[s.roomRole].label}
+              <RoomRoleIcon role={s.roomRole} /> {ROOM_ROLE_META[s.roomRole].label}
             </span>
           )}
+          <TeamTag teamId={s.team} />
+          <TransportTag transportId={s.transportation} size={18} short />
         </h3>
-        {/* a colleague in the same room comes name-only from the server (no phone, no team) */}
-        {!s.redacted && (
-          <p className="staff-card__meta">
-            {s.phone ? formatBrazilPhoneClient(s.phone) : <em className="staff-card__missing">sem celular</em>}
-            {labelOf(s.team) && <> · {labelOf(s.team)}</>}
-          </p>
-        )}
       </div>
+      {s.phone && (
+        <WhatsAppButton
+          className="wa-btn--sm"
+          href={whatsappLink(s.phone, staffGreeting({ toName: s.name, fromName: myName }))}
+          label={`Falar com ${s.name.split(" ")[0]} no WhatsApp`}
+        />
+      )}
       {open && <span className="kid-card__chevron" aria-hidden="true">›</span>}
     </li>
   );

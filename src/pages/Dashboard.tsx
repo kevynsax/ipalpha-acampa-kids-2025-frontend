@@ -12,6 +12,7 @@ import InstallBanner from "../components/InstallBanner";
 import BedroomsPage from "./admin/BedroomsPage";
 import CampersPage from "./admin/CampersPage";
 import CategoriesPage from "./admin/CategoriesPage";
+import TransportsPage from "./admin/TransportsPage";
 import CheckinSettingsPage from "./admin/CheckinSettingsPage";
 import GeneralSettingsPage from "./admin/GeneralSettingsPage";
 import AboutPage from "./admin/AboutPage";
@@ -27,6 +28,7 @@ import InstructionsPage from "./InstructionsPage";
 import InstructionsAdminPage from "./admin/InstructionsAdminPage";
 import StaffPage from "./admin/StaffPage";
 import BusCheckinPage from "./BusCheckinPage";
+import BusTripsPage from "./BusTripsPage";
 import CheckinPage from "./CheckinPage";
 import HomePage from "./HomePage";
 import MySchedulePage from "./MySchedulePage";
@@ -34,17 +36,23 @@ import OccurrencesPage from "./OccurrencesPage";
 import StaffCheckinPage from "./StaffCheckinPage";
 import VestPage from "./VestPage";
 import VestHelpersPage from "./admin/VestHelpersPage";
+import PhotographersPage from "./admin/PhotographersPage";
 import TeamsPage from "./admin/TeamsPage";
 import GameOrganizersPage from "./admin/GameOrganizersPage";
 import TrialsPage from "./admin/TrialsPage";
+import CleanupPage from "./admin/CleanupPage";
 import ScoreboardPage from "./ScoreboardPage";
+import GalleryPage from "./GalleryPage";
 import { useCheckinHelper, type HelperAccess } from "../hooks/useCheckinHelper";
 import { useParentWindow } from "../hooks/useParentWindow";
+import { useCampWindow } from "../hooks/useCampWindow";
 import { useCollection } from "../store";
 import ParentHomePage from "./parent/ParentHomePage";
 import ParentPreparationPage from "./parent/ParentPreparationPage";
 import ParentSchedulePage from "./parent/ParentSchedulePage";
 import ParentProfile from "./parent/ParentProfile";
+import { speakDateTime } from "../dates";
+import PageFooter, { PAGE_FOOTER_ID } from "../components/PageFooter";
 
 interface DashboardProps {
   user: LoggedUser;
@@ -57,7 +65,7 @@ interface DashboardProps {
 type View = TabKey | "profile" | SettingsKey;
 
 /** Admin settings live behind the ⚙️ button; each one is its own URL (#/categories, #/settings). */
-type SettingsKey = "general" | "trials" | "categories" | "teams" | "preparation" | "instructions-admin" | "checkin-settings" | "organizers" | "game-organizers" | "medical" | "vests-settings" | "contacts" | "notifications" | "about";
+type SettingsKey = "general" | "trials" | "categories" | "cleanup" | "transports" | "teams" | "preparation" | "instructions-admin" | "checkin-settings" | "organizers" | "game-organizers" | "medical" | "vests-settings" | "photographers" | "contacts" | "notifications" | "about";
 /** `adminOnly`: an ORGANIZER (Settings → Organizadores) gets every other page — these four stay with the real admin. */
 const SETTINGS: readonly { key: SettingsKey; label: string; emoji?: string; icon?: string; adminOnly?: boolean }[] = [
   { key: "general", label: "Geral", emoji: "⚙️" },
@@ -66,13 +74,16 @@ const SETTINGS: readonly { key: SettingsKey; label: string; emoji?: string; icon
   { key: "checkin-settings", label: "Check-in", emoji: "✅" },
   { key: "organizers", label: "Organizadores", icon: ICONS.organizer, adminOnly: true },
   { key: "game-organizers", label: "Jogos", emoji: "🏆" },
+  { key: "photographers", label: "Fotógrafos", icon: ICONS.camera },
   { key: "medical", label: "Equipe médica", icon: roleMeta("health_staff").icon },
   { key: "vests-settings", label: "Coletes", emoji: "🦺" },
   { key: "contacts", label: "Important contacts", emoji: "📞" },
-  { key: "notifications", label: "Notificações", emoji: "📲", adminOnly: true },
+  { key: "notifications", label: "Notificações", icon: ICONS.notifications, adminOnly: true },
+  { key: "transports", label: "Transporte", icon: ICONS.transport, adminOnly: true },
   { key: "teams", label: "Times", emoji: "🚩" },
   { key: "trials", label: "Testes", emoji: "🚧" },
   { key: "categories", label: "Categorias", emoji: "🗂️", adminOnly: true },
+  { key: "cleanup", label: "Limpeza", icon: ICONS.cleanup, adminOnly: true },
   { key: "about", label: "Sobre", emoji: "ℹ️", adminOnly: true },
 ] as const;
 
@@ -99,8 +110,10 @@ interface Tab {
  * "scoreboard draft" is on (read-only unless GAME organizer / score helper /
  * organizer / admin) — see hooks/useCheckinHelper and campPhase. The admin
  * (and organizers) open "Sorteio" from inside Acampantes / Equipe (not a tab).
+ * "Fotos" only shows up for the TEAM once the album is published (`galleryOpen`):
+ * before that there is nothing to see, so the tab would just be an empty page.
  */
-function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft: boolean, scoreOpen: boolean): Tab[] {
+function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft: boolean, scoreOpen: boolean, galleryOpen: boolean): Tab[] {
   /** the scoreboard only exists while the camp is happening (first day → end of the last event) or in draft (rehearsal) mode */
   const scoreboard: Tab[] = scoreOpen ? [{ key: "scoreboard", label: "Placar", emoji: "🏆" }] : [];
   const prep: Tab = { key: "prep", label: "Preparação", emoji: "🎒" };
@@ -115,6 +128,8 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
     { key: "checkin", label: "Check-in", emoji: "✅" },
     ...scoreboard,
     { key: "occurrences", label: "Ocorrências", emoji: "📋" },
+    // the photo album closes the tab row (admin / organizer view)
+    { key: "gallery", label: "Fotos", icon: ICONS.camera },
   ];
   /** an ORGANIZER: their own room / preparation / instructions followed by everything the admin has */
   const managerTabs: Tab[] = [...teamHome, { key: "instructions", label: "Instruções", emoji: "📖" }, ...adminTabs];
@@ -140,10 +155,13 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
         ...(helper.bus || helper.medical ? [{ key: "bus" as const, label: helper.bus ? "Check-in Ônibus" : "Ônibus", emoji: "🚌" }] : []),
         ...(helper.medical ? [{ key: "occurrences" as const, label: "Ocorrências", emoji: "📋" }] : []),
         ...(helper.vest ? [{ key: "vests" as const, label: "Coletes", emoji: "🦺" }] : []),
+        // the photo album is always the LAST tab — and only once it is published
+        // (the photographers see it from the start, to send and publish)
+        ...(galleryOpen ? [{ key: "gallery" as const, label: "Fotos", icon: ICONS.camera }] : []),
       ];
-    // parents: their kids (Início) + the programme from the check-in onwards
+    // parents: their kids (Início) + the programme from the check-in onwards — the photos close the tab row
     case "parent":
-      return [home, { key: "schedule", label: "Programação", emoji: "📅" }, prep];
+      return [home, { key: "schedule", label: "Programação", emoji: "📅" }, prep, { key: "gallery", label: "Fotos", icon: ICONS.camera }];
     default:
       return [];
   }
@@ -161,11 +179,14 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
   const isParent = user.activeRole === "parent";
   const helper = useCheckinHelper(user.phone, isTeam, endsAt);
   const parentAccess = useParentWindow(isParent);
+  useCampWindow(isTeam, user.phone, during);
   const settings = useCollection("settings");
   const roomsDraft = !!settings?.kidsRoomsDraft;
   /** the scoreboard opens for everyone on the camp days; the "Placar em teste" switch opens it any day, but only for the admin, organizers, game organizers and score helpers */
   const scoreOpen = during || (!!settings?.scoreDraft && (user.activeRole === "admin" || helper.organizer || helper.gameOrganizer || helper.scoreHelper));
-  const tabs = tabsFor(user.activeRole, phase, helper, roomsDraft, scoreOpen);
+  /** the album shows up for the team once it is published; whoever manages it (organizer / photographer) always has the tab */
+  const galleryOpen = !!settings?.galleryPublished || helper.organizer || helper.photographer;
+  const tabs = tabsFor(user.activeRole, phase, helper, roomsDraft, scoreOpen, galleryOpen);
   const { path, segments, navigate } = useRoute();
   useScrollTopOnRoute(path);
 
@@ -201,6 +222,12 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
   const profileOpen = view === "profile";
   /** admin settings (sidebar layout) — never for the team, even if a tab key happens to look alike */
   const settingsOpen = settingsAllowed && isSettingsKey(view);
+  /** pages that carry the yellow ScanFab (the scan IS the page's action): bulk points, church check-in, bus roll call (not the medical read-only view nor the per-vehicle report) */
+  const reportOpen = segments[segments.length - 1] === "report";
+  const hasOwnScanFab =
+    (view === "scoreboard" && segments[1] === "bulk") ||
+    (view === "checkin" && !reportOpen && (!settingsAllowed || segments[1] === "church" || (segments[1] === "bus" && segments.length === 3))) ||
+    (view === "bus" && helper.bus && (segments.length > 1 || !(helper.busOutbound && helper.busReturn)));
   /** a nested detail (e.g. função opened from a camper) can ask another tab to look active */
   const [tabOverride, setTabOverride] = useState<TabKey | null>(null);
   const shownTab: View = !profileOpen && !settingsOpen && tabOverride ? tabOverride : view;
@@ -329,35 +356,54 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
           {view === "bedrooms" && <BedroomsPage token={token} readOnly={!settingsAllowed} />}
           {view === "schedule" && (isParent ? <ParentSchedulePage /> : settingsAllowed || helper.gameOrganizer ? <SchedulePage token={token} /> : <MySchedulePage user={user} />)}
           {view === "categories" && <CategoriesPage token={token} />}
+          {view === "transports" && <TransportsPage token={token} />}
           {view === "general" && <GeneralSettingsPage token={token} />}
           {view === "trials" && <TrialsPage token={token} isAdmin={isAdmin} />}
+          {view === "cleanup" && <CleanupPage token={token} />}
           {view === "checkin-settings" && <CheckinSettingsPage token={token} />}
           {view === "organizers" && <OrganizersPage token={token} />}
           {view === "medical" && <MedicalStaffPage token={token} />}
           {view === "vests-settings" && <VestHelpersPage token={token} />}
+          {view === "photographers" && <PhotographersPage token={token} />}
           {view === "teams" && <TeamsPage token={token} />}
           {view === "game-organizers" && <GameOrganizersPage token={token} />}
-          {view === "scoreboard" && <ScoreboardPage token={token} canEdit={settingsAllowed || helper.gameOrganizer} canScan={settingsAllowed || helper.gameOrganizer || helper.scoreHelper} />}
+          {view === "scoreboard" && <ScoreboardPage token={token} userId={user.id} canEdit={settingsAllowed || helper.gameOrganizer} canScan={settingsAllowed || helper.gameOrganizer || helper.scoreHelper} />}
+          {view === "gallery" && <GalleryPage token={token} canManage={settingsAllowed || helper.photographer} />}
           {view === "contacts" && <ParentContactsPage token={token} />}
           {view === "notifications" && <NotificationsPage token={token} />}
           {view === "about" && <AboutPage token={token} />}
           {view === "checkin" && !settingsAllowed && <CheckinPage token={token} />}
           {view === "checkin" && settingsAllowed && segments.length === 1 && <AdminCheckinPage />}
-          {view === "checkin" && settingsAllowed && segments[1] === "church" && <CheckinPage token={token} canOpenStaff adminMerged />}
-          {view === "checkin" && settingsAllowed && segments[1] === "bus" && <BusCheckinPage token={token} basePath="/checkin/bus" checkinHomePath="/checkin" />}
+          {view === "checkin" && settingsAllowed && segments[1] === "church" && <CheckinPage token={token} canOpenStaff adminMerged myName={user.name} />}
+          {view === "checkin" && settingsAllowed && segments[1] === "bus" && segments.length === 2 && <BusTripsPage basePath="/checkin/bus" checkinHomePath="/checkin" />}
+          {view === "checkin" && settingsAllowed && segments[1] === "bus" && segments[2] === "outbound" && <BusCheckinPage token={token} trip="outbound" basePath="/checkin/bus/outbound" checkinHomePath="/checkin" />}
+          {view === "checkin" && settingsAllowed && segments[1] === "bus" && segments[2] === "return" && <BusCheckinPage token={token} trip="return" basePath="/checkin/bus/return" checkinHomePath="/checkin" />}
           {view === "checkin" && settingsAllowed && segments[1] === "staff" && <StaffCheckinPage token={token} checkinHomePath="/checkin" />}
           {view === "checkin" && settingsAllowed && segments[1] === "vests" && <VestPage token={token} myName={user.name} checkinHomePath="/checkin" />}
           {view === "vests" && <VestPage token={token} myName={user.name} />}
-          {view === "bus" && (
-            <BusCheckinPage token={token} onlyVehicleId={helper.busVehicle ?? undefined} readOnly={!helper.bus} />
+          {view === "bus" && segments.length === 1 && helper.bus && (
+            helper.busOutbound && helper.busReturn
+              ? <BusTripsPage outboundAvailable={helper.busOutbound} returnAvailable={helper.busReturn} />
+              : <BusCheckinPage token={token} trip={helper.busReturn ? "return" : "outbound"} onlyVehicleId={helper.busVehicle ?? undefined} otherTripAvailable={false} />
           )}
+          {view === "bus" && segments[1] === "outbound" && helper.busOutbound && <BusCheckinPage token={token} trip="outbound" onlyVehicleId={helper.busVehicle ?? undefined} otherTripAvailable={helper.busReturn} />}
+          {view === "bus" && segments[1] === "return" && helper.busReturn && <BusCheckinPage token={token} trip="return" onlyVehicleId={helper.busVehicle ?? undefined} otherTripAvailable={helper.busOutbound} />}
+          {view === "bus" && segments.length > 1 && helper.bus && ((segments[1] === "outbound" && !helper.busOutbound) || (segments[1] === "return" && !helper.busReturn)) && (
+            <BusTripsPage outboundAvailable={helper.busOutbound} returnAvailable={helper.busReturn} />
+          )}
+          {view === "bus" && segments.length === 1 && helper.medical && !helper.bus && <BusTripsPage />}
+          {view === "bus" && segments[1] === "outbound" && helper.medical && !helper.bus && <BusCheckinPage token={token} trip="outbound" readOnly />}
+          {view === "bus" && segments[1] === "return" && helper.medical && !helper.bus && <BusCheckinPage token={token} trip="return" readOnly />}
           {view === "staffcheckin" && <StaffCheckinPage token={token} />}
           {view === "profile" && (isParent ? <ParentProfile user={user} tokenExpiresAt={tokenExpiresAt} /> : <ProfileView user={user} tokenExpiresAt={tokenExpiresAt} />)}
         </TabOverrideContext.Provider>
       </main>
 
-      {/* emergency QR lookup — whole app except parents and the Placar tab (score helpers already have their own FAB there) */}
-      {!isParent && view !== "scoreboard" && !settingsOpen && <EmergencyScanFab token={token} />}
+      {/* every page's closing note lands here (see PageFooter) */}
+      <footer className="dash-foot" id={PAGE_FOOTER_ID} />
+
+      {/* "Ler crachá" QR lookup — the team, WHILE THE CAMP IS ON (first day → end of the last event), on every page except the settings and the pages whose own yellow ScanFab performs their action */}
+      {!isParent && during && !settingsOpen && !hasOwnScanFab && <EmergencyScanFab token={token} />}
     </div>
   );
 }
@@ -365,9 +411,7 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
 function ProfileView({ user, tokenExpiresAt }: { user: LoggedUser; tokenExpiresAt: string }) {
   const meta = roleMeta(user.activeRole);
   const otherRoles = user.roles.filter((r) => r !== user.activeRole);
-  const formatted = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
-    new Date(tokenExpiresAt),
-  );
+  const formatted = speakDateTime(tokenExpiresAt);
 
   return (
     <div className="screen screen--narrow">
@@ -410,7 +454,7 @@ function ProfileView({ user, tokenExpiresAt }: { user: LoggedUser; tokenExpiresA
         )}
       </div>
 
-      <p className="footer-note">🔑 Sua sessão fica aberta até {formatted} (24h).</p>
+      <PageFooter>🔑 Sua sessão fica aberta até {formatted} (24h).</PageFooter>
     </div>
   );
 }

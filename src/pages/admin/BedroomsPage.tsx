@@ -5,6 +5,7 @@ import CamperIcon from "../../components/CamperIcon";
 import {
   BEDROOM_GROUPS,
   GROUP_META,
+  bedroomLabel,
   createBedroom,
   deleteBedroom,
   updateBedroom,
@@ -14,6 +15,7 @@ import {
 } from "../../api/bedrooms";
 import GroupIcon from "../../components/GroupIcon";
 import StaffIcon from "../../components/StaffIcon";
+import Breadcrumbs from "../../components/Breadcrumbs";
 import BedroomForm from "./BedroomForm";
 import DetailStack from "./DetailStack";
 import { useRoute } from "../../router";
@@ -116,8 +118,12 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
 
   return (
     <div className="admin-page">
+      {mode.kind === "create" && <Breadcrumbs items={[{ label: "Quartos", onClick: () => navigate("/bedrooms") }, { label: "Novo" }]} />}
+      {mode.kind === "edit" && editing && (
+        <Breadcrumbs items={[{ label: "Quartos", onClick: () => navigate("/bedrooms") }, { label: bedroomLabel(editing), onClick: () => navigate(`/bedrooms/${editing.id}`) }, { label: "Editar" }]} />
+      )}
       <header className="admin-head">
-        <h1 className="admin-title">Quartos</h1>
+        <h1 className="admin-title">{mode.kind === "create" ? "🛏️ Novo quarto" : mode.kind === "edit" ? "✏️ Editar quarto" : "Quartos"}</h1>
         {mode.kind === "view" && !readOnly && (
           <div className="admin-head__actions">
             <button
@@ -139,6 +145,18 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
             </button>
           </div>
         )}
+        {mode.kind === "edit" && editing && (
+          <button
+            type="button"
+            className="icon-btn icon-btn--lg icon-btn--danger"
+            title={`Excluir quarto ${editing.name}`}
+            aria-label={`Excluir quarto ${editing.name}`}
+            disabled={busy}
+            onClick={() => handleDelete(editing)}
+          >
+            🗑️
+          </button>
+        )}
       </header>
 
       {error && <p className="message message--error">{error}</p>}
@@ -148,18 +166,13 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
       )}
       {mode.kind === "edit" && !editing && <p className="opt-empty">Quarto não encontrado.</p>}
       {mode.kind === "edit" && editing && (
-        <>
-          <BedroomForm
-            key={editing.id}
-            bedroom={editing}
-            busy={busy}
-            onSubmit={handleEdit}
-            onCancel={() => navigate(`/bedrooms/${editing.id}`)}
-          />
-          <button type="button" className="link-danger" disabled={busy} onClick={() => handleDelete(editing)}>
-            🗑️ Excluir quarto {editing.name}
-          </button>
-        </>
+        <BedroomForm
+          key={editing.id}
+          bedroom={editing}
+          busy={busy}
+          onSubmit={handleEdit}
+          onCancel={() => navigate(`/bedrooms/${editing.id}`)}
+        />
       )}
 
       {mode.kind === "view" && bedrooms.length === 0 && (
@@ -214,6 +227,7 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
                   <ul className="room-grid">
                     {rooms.map((b) => {
                       const pct = b.capacity ? Math.round((b.occupied / b.capacity) * 100) : 0;
+                      const free = Math.max(0, b.capacity - b.occupied);
                       return (
                         <li key={b.id}>
                           <button
@@ -225,42 +239,47 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
                           >
                             <span className="room-card__row">
                               <span className="room-card__name">{b.name}</span>
+                              <span className={`room-card__availability${free === 0 ? " room-card__availability--full" : ""}`}>
+                                {free === 0 ? "Lotado" : `${free} ${free === 1 ? "livre" : "livres"}`}
+                              </span>
+                            </span>
+
+                            <span className="room-card__occupancy-copy">
+                              <strong>{b.occupied}</strong> de {b.capacity} camas ocupadas
+                            </span>
+                            <span className="room-card__bar" aria-hidden="true">
+                              <span className="room-card__bar-fill" style={{ width: `${pct}%` }} />
+                            </span>
+
+                            <span className="room-card__details">
                               <span className="room-card__beds">
                                 {b.bunkBeds > 0 && (
                                   <span title={`${b.bunkBeds} beliche${b.bunkBeds > 1 ? "s" : ""}`}>
-                                    <BunkIcon size={15} /> {b.bunkBeds}
+                                    <BunkIcon size={16} /> {b.bunkBeds} {b.bunkBeds === 1 ? "beliche" : "beliches"}
                                   </span>
                                 )}
                                 {b.singleBeds > 0 && (
                                   <span title={`${b.singleBeds} cama${b.singleBeds > 1 ? "s" : ""} de solteiro`}>
-                                    🛏️ {b.singleBeds}
+                                    {b.singleBeds} {b.singleBeds === 1 ? "cama" : "camas"}
                                   </span>
                                 )}
                               </span>
+                              {(b.occupiedCampers > 0 || b.occupiedStaff > 0) && (
+                                <span className="room-card__who">
+                                  {b.occupiedCampers > 0 && (
+                                    <span title="crianças">
+                                      <CamperIcon size={15} /> {b.occupiedCampers}
+                                    </span>
+                                  )}
+                                  {b.occupiedStaff > 0 && (
+                                    <span title="equipe">
+                                      <StaffIcon size={15} /> {b.occupiedStaff}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
                             </span>
-                            <span className="room-card__occ">
-                              <span className="room-card__bar" aria-hidden="true">
-                                <span className="room-card__bar-fill" style={{ width: `${pct}%` }} />
-                              </span>
-                              <span className="room-card__count">
-                                {b.occupied}/{b.capacity}
-                              </span>
-                            </span>
-                            {(b.occupiedCampers > 0 || b.occupiedStaff > 0) && (
-                              <span className="room-card__who">
-                                {b.occupiedCampers > 0 && (
-                                  <span title="crianças">
-                                    <CamperIcon size={14} /> {b.occupiedCampers}
-                                  </span>
-                                )}
-                                {b.occupiedStaff > 0 && (
-                                  <span title="equipe">
-                                    <StaffIcon size={14} /> {b.occupiedStaff}
-                                  </span>
-                                )}
-                              </span>
-                            )}
-                            {b.notes && <span className="room-card__notes">{b.notes}</span>}
+                            {b.notes && <span className="room-card__notes" title={b.notes}>{b.notes}</span>}
                           </button>
                         </li>
                       );

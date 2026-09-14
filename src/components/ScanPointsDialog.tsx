@@ -1,15 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import QrScanner from "qr-scanner";
 import { repointEventScans, scanScore } from "../api/scores";
-import { formatEventDate, type CampEvent } from "../api/schedule";
+import { type CampEvent } from "../api/schedule";
+import { speakDay } from "../dates";
 import { camperIdFromQr } from "../print/camperLabels";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import Dialog from "./Dialog";
+import { keepOverlayInPlace, visibleScanRegion } from "./scanOverlay";
 import { QrGlyph } from "./Glyph";
 
 interface ScanPointsDialogProps {
   token: string;
   onClose: () => void;
+  /** event / points already chosen on the page that opened the scanner (Pontos em massa) */
+  initialEventId?: string;
+  initialPoints?: number;
+  /** the event / points chosen inside the scanner, so the page behind stays on the same round after closing */
+  onChange?: (state: { eventId: string; points: number }) => void;
 }
 
 type Flash = { kind: "ok"; text: string; color: string } | { kind: "error"; text: string };
@@ -25,7 +32,7 @@ function clock(): { date: string; time: string } {
 }
 
 /** the programme event happening right now (today, started, not yet ended — the next start counts as the end) */
-function currentEvent(events: CampEvent[]): CampEvent | null {
+export function currentEvent(events: CampEvent[]): CampEvent | null {
   const now = clock();
   const today = events.filter((e) => e.date === now.date).sort((a, b) => a.startTime.localeCompare(b.startTime));
   for (let k = 0; k < today.length; k++) {
@@ -34,6 +41,20 @@ function currentEvent(events: CampEvent[]): CampEvent | null {
     if (e.startTime <= now.time && now.time < end) return e;
   }
   return null;
+}
+
+/**
+ * Default event for giving points: the one happening now; when nothing is
+ * live (between events, late at night…), the last one that already
+ * started; before the programme begins, the first one.
+ */
+export function defaultEvent(events: CampEvent[]): CampEvent | null {
+  const live = currentEvent(events);
+  if (live) return live;
+  const now = clock();
+  const sorted = events.slice().sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+  const started = sorted.filter((e) => e.date < now.date || (e.date === now.date && e.startTime <= now.time));
+  return started[started.length - 1] ?? sorted[0] ?? null;
 }
 
 /** short beep via WebAudio — no asset needed; silently skipped when the browser refuses */
@@ -72,16 +93,16 @@ function beep(kind: "ok" | "error") {
  * re-points everyone already scanned. Green flash + chime on success, red
  * flash + buzz with the reason on failure.
  */
-export default function ScanPointsDialog({ token, onClose }: ScanPointsDialogProps) {
+export default function ScanPointsDialog({ token, onClose, initialEventId, initialPoints, onChange }: ScanPointsDialogProps) {
   const events = useCollection("events");
   const campers = useCollectionOrEmpty("campers");
   const scores = useCollectionOrEmpty("scores");
-  const teams = useCollectionOrEmpty("teams");
   const sorted = useMemo(() => (events ?? []).slice().sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)), [events]);
   const current = useMemo(() => currentEvent(sorted), [sorted]);
+  const initial = useMemo(() => defaultEvent(sorted), [sorted]);
 
-  const [eventId, setEventId] = useState<string>(current?.id ?? "");
-  const [points, setPoints] = useState(1);
+  const [eventId, setEventId] = useState<string>(initialEventId || initial?.id || "");
+  const [points, setPoints] = useState(initialPoints && initialPoints >= 1 ? initialPoints : 1);
   const [flash, setFlash] = useState<Flash | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [starting, setStarting] = useState(true);
@@ -91,21 +112,20 @@ export default function ScanPointsDialog({ token, onClose }: ScanPointsDialogPro
   const [repointError, setRepointError] = useState<string | null>(null);
 
   const event = sorted.find((e) => e.id === eventId) ?? null;
-  const teamById = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
   /** every scan already made for this event, on any device (newest first — the store is the truth) */
   const eventScans = useMemo(() => scores.filter((s) => s.eventId === eventId && s.camperId), [scores, eventId]);
   const scannedIds = useMemo(() => new Set(eventScans.map((s) => s.camperId as string)), [eventScans]);
   /** the value the event's scans currently carry (null: nobody scanned yet) */
   const eventPoints = eventScans[0]?.points ?? null;
 
-  // default to the event happening now once the programme arrives (the dialog may open before the first snapshot)
-  const defaulted = useRef(!!current);
+  // default to the event happening now (or the last one started) once the programme arrives (the dialog may open before the first snapshot)
+  const defaulted = useRef(!!initialEventId || !!initial);
   useEffect(() => {
-    if (!defaulted.current && current) {
+    if (!defaulted.current && initial) {
       defaulted.current = true;
-      setEventId((id) => id || current.id);
+      setEventId((id) => id || initial.id);
     }
-  }, [current]);
+  }, [initial]);
 
   // switching events: adopt the points that event already uses
   useEffect(() => {
@@ -113,6 +133,12 @@ export default function ScanPointsDialog({ token, onClose }: ScanPointsDialogPro
     if (eventPoints !== null) setPoints(eventPoints);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
+
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  useEffect(() => {
+    onChangeRef.current?.({ eventId, points });
+  }, [eventId, points]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const scannerRef = useRef<QrScanner | null>(null);
@@ -150,7 +176,7 @@ export default function ScanPointsDialog({ token, onClose }: ScanPointsDialogPro
       if (scannedIds.has(id)) throw new Error(`${known ? known.name.split(" ")[0] : "Esta criança"} já foi lido(a) neste evento.`);
       if (known && !known.team) throw new Error(`${known.name.split(" ")[0]} não está em nenhum time.`);
       const res = await scanScore(token, { camperId: id, eventId, points });
-      showFlash({ kind: "ok", text: `${res.score.camperName.split(" ")[0]} · +${points} para ${res.team.name}`, color: res.team.color });
+      showFlash({ kind: "ok", text: `${res.score.camperName.split(" ")[0]} · +${points} para ${res.team.name}${res.checkedIn ? " · ✅ check-in feito" : ""}`, color: res.team.color });
     } catch (e) {
       showFlash({ kind: "error", text: e instanceof Error ? e.message : "Não foi possível ler este QR code." });
     } finally {
@@ -168,12 +194,14 @@ export default function ScanPointsDialog({ token, onClose }: ScanPointsDialogPro
     const scanner = new QrScanner(video, (result) => void handleScanRef.current(result.data), {
       preferredCamera: "environment",
       maxScansPerSecond: 8,
+      calculateScanRegion: visibleScanRegion,
       highlightScanRegion: true,
       highlightCodeOutline: true,
       returnDetailedScanResult: true,
       onDecodeError: () => undefined,
     });
     scannerRef.current = scanner;
+    const stopOverlay = keepOverlayInPlace(scanner, video);
     void scanner
       .start()
       .then(async () => {
@@ -188,6 +216,7 @@ export default function ScanPointsDialog({ token, onClose }: ScanPointsDialogPro
       });
     return () => {
       disposed = true;
+      stopOverlay();
       scanner.destroy();
       if (scannerRef.current === scanner) scannerRef.current = null;
       if (flashTimer.current) window.clearTimeout(flashTimer.current);
@@ -222,20 +251,14 @@ export default function ScanPointsDialog({ token, onClose }: ScanPointsDialogPro
     }
   }
 
-  const perTeam = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const s of eventScans) m.set(s.teamId, (m.get(s.teamId) ?? 0) + 1);
-    return [...m.entries()].map(([teamId, n]) => ({ team: teamById.get(teamId), n }));
-  }, [eventScans, teamById]);
-
   return (
-    <Dialog open onClose={onClose} title="Lançar pontos em massa" width={560}>
+    <Dialog open onClose={onClose} title="Lançar pontos em massa" width={560} fullscreenOnMobile>
       <div className="qr-scanner scan-points">
         <header className="qr-scanner__head">
           <div>
             <h2 className="cat-form__title"><QrGlyph /> Pontos por QR code</h2>
             <p className="cat-hint">
-              Cada crachá lido dá {pointsValid ? points : "—"} ponto{points !== 1 ? "s" : ""} ao time da criança. Uma vez por criança neste evento, em qualquer aparelho.
+              Cada crachá lido dá {pointsValid ? points : "—"} ponto{points !== 1 ? "s" : ""} ao time da criança.
             </p>
           </div>
           <button type="button" className="qr-scanner__close" aria-label="Encerrar leitura" title="Encerrar" onClick={onClose}>
@@ -250,14 +273,14 @@ export default function ScanPointsDialog({ token, onClose }: ScanPointsDialogPro
               <option value="">{sorted.length ? "Escolha o evento…" : "Sem programação"}</option>
               {sorted.map((e) => (
                 <option key={e.id} value={e.id}>
-                  {e.emoji} {e.title} · {formatEventDate(e.date, { weekday: "short", day: "numeric" })} {e.startTime}
+                  {e.emoji} {e.title} · {speakDay(e.date, "short")} {e.startTime}
                   {e.id === current?.id ? " (agora)" : ""}
                 </option>
               ))}
             </select>
           </label>
           <label className="cat-field scan-points__points">
-            <span className="cat-field__label">Pontos por criança</span>
+            <span className="cat-field__label">Qtd.</span>
             <input
               className="cat-input"
               type="number"
@@ -306,36 +329,9 @@ export default function ScanPointsDialog({ token, onClose }: ScanPointsDialogPro
         {cameraError && <p className="message message--error">{cameraError}</p>}
 
         {event && (
-          <>
-            <div className="scan-points__summary" aria-live="polite">
-              <strong>{eventScans.length}</strong> {eventScans.length === 1 ? "criança lida" : "crianças lidas"} em {event.emoji} {event.title}
-              {perTeam.length > 0 && (
-                <span className="scan-points__teams">
-                  {perTeam.map(({ team, n }, i) => (
-                    <span key={team?.id ?? i} className="scan-points__team-chip" style={{ borderColor: team?.color }}>
-                      {team?.name ?? "Time removido"} · {n}
-                    </span>
-                  ))}
-                </span>
-              )}
-            </div>
-            {eventScans.length > 0 && (
-              <ul className="scan-points__list">
-                {eventScans.slice(0, 8).map((s) => {
-                  const team = teamById.get(s.teamId);
-                  return (
-                    <li key={s.id}>
-                      <span className="score-log__dot" style={{ background: team?.color ?? "#999" }} aria-hidden="true" /> {s.camperName}{" "}
-                      <small>
-                        · {team?.name ?? "Time removido"} · {s.by.name.split(" ")[0]}
-                      </small>
-                    </li>
-                  );
-                })}
-                {eventScans.length > 8 && <li className="cat-hint">… e mais {eventScans.length - 8}</li>}
-              </ul>
-            )}
-          </>
+          <p className="scan-points__summary" aria-live="polite">
+            <strong>{eventScans.length}</strong> {eventScans.length === 1 ? "criança ganhou" : "crianças ganharam"} pontos neste evento
+          </p>
         )}
 
         <div className="qr-scanner__actions">

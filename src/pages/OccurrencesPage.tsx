@@ -7,6 +7,7 @@ import RichHtml from "../components/RichHtml";
 import RichTextEditor from "../components/RichTextEditor";
 import type { LoggedUser } from "../roles";
 import { useCollection } from "../store";
+import { speakDateTime } from "../dates";
 
 interface OccurrencesPageProps {
   token: string;
@@ -23,7 +24,6 @@ const normalize = (value: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
-const dateTime = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
 export default function OccurrencesPage({ token, user, manager = false }: OccurrencesPageProps) {
   const occurrences = useCollection("occurrences");
@@ -230,7 +230,7 @@ function OccurrenceCard({ occurrence }: { occurrence: Occurrence }) {
   return (
     <article className="detail-card occurrence-card">
       <button type="button" className="occurrence-card__head" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-        <span className="occurrence-card__date">{dateTime.format(new Date(occurrence.createdAt))}</span>
+        <span className="occurrence-card__date">{speakDateTime(occurrence.createdAt)}</span>
         <span className="occurrence-card__summary">
           <strong>{names.length > 0 ? names.join(", ") : "Sem acampante relacionado"}</strong>
           <small>Registrado por {occurrence.createdBy.name}</small>

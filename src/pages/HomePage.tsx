@@ -4,6 +4,11 @@ import { birthdayDuringCamp, type Camper } from "../api/campers";
 import { ROOM_ROLE_META } from "../api/staff";
 import CamperCard from "../components/CamperCard";
 import GroupIcon from "../components/GroupIcon";
+import GuardianWhatsApp from "../components/GuardianWhatsApp";
+import TeamTag from "../components/TeamTag";
+import WhatsAppButton from "../components/WhatsAppButton";
+import { formatBrazilPhoneClient } from "../phoneFormat";
+import { staffGreeting, whatsappLink } from "../whatsapp";
 import KidIcon from "../components/KidIcon";
 import PlayScene from "../components/PlayScene";
 import SelfCheckinCard from "../components/SelfCheckinCard";
@@ -14,24 +19,13 @@ import { useCollection } from "../store";
 import { useLabelOf, useMyRoom } from "../store/derive";
 import { useRoute } from "../router";
 import CamperDetail from "./admin/CamperDetail";
+import { speakDaySlash, speakWhen, todayIso } from "../dates";
 
 interface HomePageProps {
   user: LoggedUser;
   token: string;
 }
 
-/** "2026-09-12" → "sáb 12/09" (weekday in pt-BR) */
-function shortDay(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  const wd = new Intl.DateTimeFormat("pt-BR", { weekday: "short" }).format(new Date(y, m - 1, d)).replace(".", "");
-  return `${wd} ${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
-}
-
-/** "YYYY-MM-DD" of today on the device clock */
-function todayIso(): string {
-  const n = new Date();
-  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
-}
 
 interface RoomBirthday {
   kid: Camper;
@@ -80,7 +74,7 @@ function BirthdayBanner({ birthdays, onOpen }: { birthdays: RoomBirthday[]; onOp
                 <button type="button" className="link-btn" title="Ver criança" onClick={() => onOpen(kid.id)}>
                   {kid.name}
                 </button>{" "}
-                {isToday ? "faz" : "faz aniversário"} {age !== null && `${age} anos`} {isToday ? <strong>hoje</strong> : `· ${shortDay(day)}`}
+                {isToday ? "faz" : "faz aniversário"} {age !== null && `${age} anos`} {isToday ? <strong>hoje</strong> : `· ${speakDaySlash(day)}`}
               </li>
             );
           })}
@@ -110,7 +104,6 @@ export default function HomePage({ user, token }: HomePageProps) {
   const openCamper = (id: string) => navigate(`/home/${id}`);
   const first = user.name.split(" ")[0];
   const access = settings?.staffAccessWindow;
-  const fmt = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   /** the room's kids the server sent me (mine + the others during the camp) */
   const roomKids = useMemo(() => (data ? [...data.myKids, ...data.campers] : []), [data]);
   const birthdays = useRoomBirthdays(roomKids);
@@ -123,7 +116,7 @@ export default function HomePage({ user, token }: HomePageProps) {
         <p className="opt-empty">
           O app ainda não está liberado para a equipe.
           <br />
-          {access.from && new Date(access.from).getTime() > Date.now() ? `Abre ${fmt.format(new Date(access.from))}.` : "O período de acesso já terminou."}
+          {access.from && new Date(access.from).getTime() > Date.now() ? `Abre ${speakWhen(access.from, { long: true })}.` : "O período de acesso já terminou."}
         </p>
       </div>
     );
@@ -194,7 +187,7 @@ export default function HomePage({ user, token }: HomePageProps) {
       {/* departure day only: "Cheguei na igreja!" */}
       <SelfCheckinCard token={token} user={user} />
 
-      {/* ── colleagues: name and room role only ── */}
+      {/* ── colleagues: name, room role and phone ── */}
       <section className="detail-section roommate-section">
         <div className="roommate-head">
           <h2 className="detail-h2">
@@ -215,8 +208,19 @@ export default function HomePage({ user, token }: HomePageProps) {
                 </span>
                 <span className="roommate-card__body">
                   <strong className="roommate-card__name">{r.name}</strong>
-                  <span className="roommate-card__role">{ROOM_ROLE_META[r.roomRole].label}</span>
+                  <span className="roommate-card__role">
+                    {ROOM_ROLE_META[r.roomRole].label}
+                    {r.phone && <> · {formatBrazilPhoneClient(r.phone)}</>}
+                  </span>
+                  <TeamTag teamId={r.team} className="staff-tag--inline roommate-card__team" />
                 </span>
+                {r.phone && (
+                  <WhatsAppButton
+                    className="wa-btn--sm roommate-card__wa"
+                    href={whatsappLink(r.phone, staffGreeting({ toName: r.name, fromName: user.name }))}
+                    label={`Falar com ${r.name.split(" ")[0]} no WhatsApp`}
+                  />
+                )}
               </li>
             ))}
           </ul>
@@ -235,7 +239,7 @@ export default function HomePage({ user, token }: HomePageProps) {
           ) : (
             <ul className="kid-list">
               {myKids.map((k) => (
-                <CamperCard key={k.id} camper={k} labelOf={labelOf} hideBedroom onOpen={openCamper} />
+                <CamperCard key={k.id} camper={k} labelOf={labelOf} hideBedroom onOpen={openCamper} corner={<GuardianWhatsApp camper={k} />} />
               ))}
             </ul>
           )}
@@ -256,7 +260,7 @@ export default function HomePage({ user, token }: HomePageProps) {
             ) : (
               <ul className="kid-list">
                 {campers.map((k) => (
-                  <CamperCard key={k.id} camper={k} labelOf={labelOf} hideBedroom onOpen={openCamper} />
+                  <CamperCard key={k.id} camper={k} labelOf={labelOf} hideBedroom onOpen={openCamper} corner={<GuardianWhatsApp camper={k} />} />
                 ))}
               </ul>
             ))}

@@ -6,10 +6,15 @@ import { ICONS } from "../icons";
 export const BEDROOM_GROUPS = ["girls", "boys", "staff"] as const;
 export type BedroomGroup = (typeof BEDROOM_GROUPS)[number];
 
-/** `icon` is a paper-cut image (same set as the login page); falls back to `emoji` when absent. */
-export const GROUP_META: Record<BedroomGroup, { label: string; emoji: string; icon?: string; color: string }> = {
-  girls: { label: "Meninas", emoji: "👧", icon: ICONS.girls, color: "pink" },
-  boys: { label: "Meninos", emoji: "👦", icon: ICONS.boys, color: "blue" },
+/**
+ * `icon` is a paper-cut image (same set as the login page); `face` is the
+ * head-only version for inline markers (chips, tabs). `emoji` is the plain-text
+ * fallback (native <select>/<optgroup>, exports) — never render it where an
+ * image can go.
+ */
+export const GROUP_META: Record<BedroomGroup, { label: string; emoji: string; icon?: string; face?: string; color: string }> = {
+  girls: { label: "Meninas", emoji: "👧", icon: ICONS.girls, face: ICONS.girlFace, color: "pink" },
+  boys: { label: "Meninos", emoji: "👦", icon: ICONS.boys, face: ICONS.boyFace, color: "blue" },
   staff: { label: "Equipe", emoji: "🎒", icon: roleMeta("staff").icon, color: "green" },
 };
 

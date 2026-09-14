@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { formatEventDate } from "../api/schedule";
+import { speakDay } from "../dates";
 import { setMyPrepDone } from "../api/staff";
 import RichHtml from "../components/RichHtml";
 import SelfCheckinCard from "../components/SelfCheckinCard";
@@ -157,7 +157,7 @@ export default function PreparationPage({ user, token }: PreparationPageProps) {
           <span className="prep-countdown__emoji" aria-hidden="true">{countdown.emoji}</span>
           <div className="prep-countdown__text">
             <strong>{countdown.text}</strong>
-            {timing.firstDate && <span>Começa {formatEventDate(timing.firstDate, { weekday: "long", day: "numeric", month: "long" }).toLowerCase()}</span>}
+            {timing.firstDate && <span>Começa {speakDay(timing.firstDate).toLowerCase()}</span>}
           </div>
           {canTick && total > 0 && (
             <div className="prep-progress" aria-label={`${doneCount} de ${total} itens feitos`}>

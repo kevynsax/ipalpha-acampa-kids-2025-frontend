@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { ApiError } from "./api/client";
 import CampingLayout from "./components/CampingLayout";
 import StaffAccessDialog from "./components/StaffAccessDialog";
@@ -91,7 +91,7 @@ export default function App() {
     );
   }
 
-  let content: JSX.Element;
+  let content: ReactElement;
   if (step === "otp" && otp) {
     content = (
       <OtpStep

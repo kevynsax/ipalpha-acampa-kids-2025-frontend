@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { bedroomLabel } from "../../api/bedrooms";
 import { ageOf, type Camper } from "../../api/campers";
-import { ROOM_ROLE_META, type Staff } from "../../api/staff";
+import type { Staff } from "../../api/staff";
 import CamperQr from "../../components/CamperQr";
 import HealthAlerts from "../../components/HealthAlerts";
 import KidIcon from "../../components/KidIcon";
 import PlayScene from "../../components/PlayScene";
 import StaffIcon from "../../components/StaffIcon";
+import RoomRoleIcon from "../../components/RoomRoleIcon";
+import TeamTag from "../../components/TeamTag";
 import WhatsAppButton from "../../components/WhatsAppButton";
 import type { ParentAccess } from "../../hooks/useParentWindow";
 import { kidSexOf } from "../../icons";
@@ -14,8 +16,10 @@ import { formatBrazilPhoneClient } from "../../phoneFormat";
 import type { LoggedUser } from "../../roles";
 import { useLabelOf, useParentHome, type MyKid } from "../../store/derive";
 import { staffGreeting, whatsappLink } from "../../whatsapp";
+import TransportTag from "../../components/TransportTag";
 import AttentionEditDialog from "./AttentionEditDialog";
 import CheckinQrDialog from "./CheckinQrDialog";
+import { speakBirth, speakWhen } from "../../dates";
 
 interface ParentHomePageProps {
   user: LoggedUser;
@@ -23,14 +27,9 @@ interface ParentHomePageProps {
   access: ParentAccess;
 }
 
-function fmtDate(iso: string | null): string | null {
-  if (!iso) return null;
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
 
 /** A team member as the parent sees them: name + phone + WhatsApp. */
-function ContactRow({ staff: s, title, from, about }: { staff: Staff; title?: string; from: string; about?: string }) {
+function ContactRow({ staff: s, title, from, about }: { staff: Staff; title?: ReactNode; from: string; about?: string }) {
   return (
     <li className="staff-card staff-card--compact parent-contact">
       <div className="staff-card__body">
@@ -66,18 +65,20 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
       <div className="detail-card">
         <dl className="detail-grid">
           <dt>Nascimento</dt>
-          <dd>{fmtDate(k.birthDate) ?? "—"}</dd>
+          <dd>{speakBirth(k.birthDate) ?? "—"}</dd>
           <dt>Time</dt>
-          <dd>{labelOf(k.team) ?? "—"}</dd>
+          <dd>
+            <TeamTag teamId={k.team} fallback="—" />
+          </dd>
           <dt>Quarto</dt>
           <dd>
             {bedroom ? bedroomLabel(bedroom) : "—"}
             {labelOf(k.bed) && <span className="staff-tag">Cama {labelOf(k.bed)!.toLowerCase()}</span>}
           </dd>
           <dt>Transporte</dt>
-          <dd>{labelOf(k.transportation) ?? "—"}</dd>
+          <dd>{k.transportation ? <TransportTag transportId={k.transportation} /> : "—"}</dd>
           <dt>Líder</dt>
-          <dd>{showTeam ? (caretaker ? `${ROOM_ROLE_META.caretaker.emoji} ${caretaker.name}` : "—") : <em className="staff-card__missing">disponível a partir do check-in</em>}</dd>
+          <dd>{showTeam ? (caretaker ? <><RoomRoleIcon role="caretaker" /> {caretaker.name}</> : "—") : <em className="staff-card__missing">disponível a partir do check-in</em>}</dd>
         </dl>
       </div>
 
@@ -90,7 +91,7 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
             <p className="opt-empty">A equipe do quarto ainda não foi definida.</p>
           ) : (
             <ul className="staff-list">
-              {caretaker && <ContactRow staff={caretaker} title={`${ROOM_ROLE_META.caretaker.emoji} Líder de ${first}`} from={user.name} about={k.name} />}
+              {caretaker && <ContactRow staff={caretaker} title={<><RoomRoleIcon role="caretaker" /> Líder de {first}</>} from={user.name} about={k.name} />}
               {roomStaff.map((s) => (
                 <ContactRow key={s.id} staff={s} title={`Equipe do quarto${bedroom ? ` ${bedroom.name}` : ""}`} from={user.name} about={k.name} />
               ))}
@@ -145,7 +146,6 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
 export default function ParentHomePage({ user, token, access }: ParentHomePageProps) {
   const data = useParentHome();
   const first = user.name.split(" ")[0];
-  const fmt = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
   if (data === null) {
     return (
@@ -176,9 +176,9 @@ export default function ParentHomePage({ user, token, access }: ParentHomePagePr
       <h1 className="admin-title">Olá, {first}! 👋</h1>
       <p className="admin-intro">
         {access.open
-          ? `O acampamento está rolando! Aqui estão os contatos da equipe e as informações das suas crianças${access.closesAt ? ` (disponíveis até ${fmt.format(new Date(access.closesAt))})` : ""}.`
+          ? `O acampamento está rolando! Aqui estão os contatos da equipe e as informações das suas crianças${access.closesAt ? ` (disponíveis até ${speakWhen(access.closesAt, { long: true })})` : ""}.`
           : access.opensAt && new Date(access.opensAt).getTime() > Date.now()
-            ? `Os contatos da equipe aparecem aqui a partir do check-in (${fmt.format(new Date(access.opensAt))}).`
+            ? `Os contatos da equipe aparecem aqui a partir do check-in (${speakWhen(access.opensAt, { long: true })}).`
             : "O acampamento terminou. Obrigado por confiar em nós! 💚"}
       </p>
 

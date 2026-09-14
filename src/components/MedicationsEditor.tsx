@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { blankMedication, type Medication } from "../api/campers";
 import Toggle from "./Toggle";
+import TimeInput from "./TimeInput";
 
 /** the camp's daily moments — one tap each; anything else goes in the custom time box */
 export const MEDICATION_PRESETS: { time: string; label: string; emoji: string }[] = [
@@ -89,19 +90,14 @@ function MedicationCard({ med: m, disabled, onChange, onRemove }: { med: Medicat
             </button>
           ))}
           <span className="meds__custom">
-            <input
-              className="cat-input meds__custom-input"
-              type="time"
+            <TimeInput
+              className="meds__custom-input"
               value={custom}
+              clearable
               disabled={disabled || m.asNeeded}
               aria-label="Outro horário"
-              onChange={(e) => setCustom(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addCustom();
-                }
-              }}
+              onChange={setCustom}
+              onEnter={addCustom}
             />
             <button type="button" className="icon-btn" title="Adicionar horário" aria-label="Adicionar horário" disabled={disabled || m.asNeeded || !custom} onClick={addCustom}>
               +

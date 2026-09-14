@@ -16,7 +16,7 @@ export const AUDIENCE_META: Record<CategoryAudience, { label: string; emoji: str
 };
 
 export const SELECTION_META: Record<CategorySelection, { label: string; hint: string; emoji: string }> = {
-  single: { label: "Escolhe um", hint: "ex.: time, transporte, cama", emoji: "☝️" },
+  single: { label: "Escolhe um", hint: "ex.: cama, condição de saúde", emoji: "☝️" },
   multiple: { label: "Escolhe vários", hint: "ex.: alergias, medicações", emoji: "🖐️" },
 };
 

@@ -6,7 +6,8 @@ import KidIcon, { AdultIcon } from "../../components/KidIcon";
 import { ICONS, adultSexOf, kidSexOf } from "../../icons";
 import { GROUP_META, bedroomLabel } from "../../api/bedrooms";
 import { useCampTiming } from "../../campPhase";
-import { formatEventDate, unassignStaff } from "../../api/schedule";
+import { unassignStaff } from "../../api/schedule";
+import { speakDay, speakStamp } from "../../dates";
 import AssignRoleDialog from "./AssignRoleDialog";
 import { useConfirm } from "../../components/ConfirmDialog";
 import {
@@ -17,22 +18,17 @@ import {
 import MoveStaffDialog from "./MoveStaffDialog";
 import StaffFieldDialog, { type StaffQuickField } from "./StaffFieldDialog";
 import CamperCard from "../../components/CamperCard";
+import GuardianWhatsApp from "../../components/GuardianWhatsApp";
+import RoomRoleIcon from "../../components/RoomRoleIcon";
+import TeamTag from "../../components/TeamTag";
 import WhatsAppButton from "../../components/WhatsAppButton";
 import { loadAuth } from "../../auth/store";
 import { useLabelOf, useStaffDetail } from "../../store/derive";
+import TransportTag from "../../components/TransportTag";
 import { formatBrazilPhoneClient } from "../../phoneFormat";
 import { staffGreeting, whatsappLink } from "../../whatsapp";
 import type { DetailNav } from "./DetailStack";
 
-/** ISO instant → "12/09 07:42" */
-function fmtStamp(iso: string): string {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(iso));
-}
 
 /**
  * Who stamped it, as the sentence reads: "por Ana" (recorded by Ana),
@@ -248,31 +244,28 @@ export default function StaffDetail({
       {/* ── info ── */}
       <section className="detail-card">
         <dl className="detail-grid">
-          {!s.redacted && (
-            <>
-              <dt>Celular</dt>
-              <dd>
-                {s.phone ? (
-                  <>
-                    {formatBrazilPhoneClient(s.phone)}
-                    <WhatsAppButton
-                      className="wa-btn--sm"
-                      href={whatsappLink(
-                        s.phone,
-                        staffGreeting({ toName: s.name, fromName: myName }),
-                      )}
-                      label={`Falar com ${s.name.split(" ")[0]} no WhatsApp`}
-                    />
-                  </>
-                ) : (
-                  <em className="staff-card__missing">sem celular</em>
-                )}
-              </dd>
-            </>
-          )}
+          {/* whoever may see this person may see their phone */}
+          <dt>Celular</dt>
+          <dd>
+            {s.phone ? (
+              <>
+                {formatBrazilPhoneClient(s.phone)}
+                <WhatsAppButton
+                  className="wa-btn--sm"
+                  href={whatsappLink(
+                    s.phone,
+                    staffGreeting({ toName: s.name, fromName: myName }),
+                  )}
+                  label={`Falar com ${s.name.split(" ")[0]} no WhatsApp`}
+                />
+              </>
+            ) : (
+              <em className="staff-card__missing">sem celular</em>
+            )}
+          </dd>
           <dt>Time</dt>
           <dd>
-            {labelOf(s.team) ?? "—"}
+            <TeamTag teamId={s.team} fallback="—" />
             {onEdit && (
               <button type="button" className="icon-btn icon-btn--bare" title="Trocar de time" aria-label="Trocar de time" onClick={() => setFieldOpen("team")}>
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
@@ -308,19 +301,18 @@ export default function StaffDetail({
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
               </button>
             )}
-            {!s.redacted && bedroom && bedroom.group !== "staff" && (
+            {bedroom && bedroom.group !== "staff" && (
               <span
                 className="staff-tag"
                 title={ROOM_ROLE_META[s.roomRole].hint}
               >
-                {ROOM_ROLE_META[s.roomRole].emoji}{" "}
-                {ROOM_ROLE_META[s.roomRole].label}
+                <RoomRoleIcon role={s.roomRole} /> {ROOM_ROLE_META[s.roomRole].label}
               </span>
             )}
           </dd>
           <dt>Transporte</dt>
           <dd>
-            {labelOf(s.transportation) ?? "—"}
+            {s.transportation ? <TransportTag transportId={s.transportation} /> : "—"}
             {onEdit && (
               <button type="button" className="icon-btn icon-btn--bare" title="Trocar o transporte" aria-label="Trocar o transporte" onClick={() => setFieldOpen("transportation")}>
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
@@ -332,7 +324,7 @@ export default function StaffDetail({
               <dt>Check-in</dt>
               <dd>
                 {s.checkin
-                  ? `✅ ${fmtStamp(s.checkin.at)} · ${stampBy(s.checkin, s.name)}`
+                  ? `✅ ${speakStamp(s.checkin.at)} · ${stampBy(s.checkin, s.name)}`
                   : "Ainda não chegou"}
               </dd>
               {s.vest?.delivered && (
@@ -366,11 +358,11 @@ export default function StaffDetail({
                     </button>
                     {vestOpen && (
                       <small className="vest-details">
-                        🦺 Entregue {fmtStamp(s.vest.delivered.at)} ·{" "}
+                        🦺 Entregue {speakStamp(s.vest.delivered.at)} ·{" "}
                         {stampBy(s.vest.delivered, s.name)}
                         {s.vest.returned && (
                           <>
-                            <br />✅ Devolvido {fmtStamp(s.vest.returned.at)} ·{" "}
+                            <br />✅ Devolvido {speakStamp(s.vest.returned.at)} ·{" "}
                             {stampBy(s.vest.returned, s.name, "para")}
                           </>
                         )}
@@ -433,10 +425,7 @@ export default function StaffDetail({
                   </span>
                   <span className="escala-item__time">
                     <span className="escala-item__date">
-                      {formatEventDate(x.date, { weekday: "short" }).replace(
-                        ".",
-                        "",
-                      )}
+                      {speakDay(x.date, "weekday")}
                     </span>
                     {x.startTime}
                   </span>
@@ -503,7 +492,7 @@ export default function StaffDetail({
         role={instructionsFor?.role ?? null}
         context={
           instructionsFor
-            ? `em ${instructionsFor.emoji} ${instructionsFor.title} · ${formatEventDate(instructionsFor.date, { weekday: "short" }).replace(".", "")} ${instructionsFor.startTime}`
+            ? `em ${instructionsFor.emoji} ${instructionsFor.title} · ${speakDay(instructionsFor.date, "weekday")} ${instructionsFor.startTime}`
             : undefined
         }
         onClose={() => setInstructionsFor(null)}
@@ -544,6 +533,7 @@ export default function StaffDetail({
                   labelOf={labelOf}
                   hideBedroom
                   onOpen={onOpenCamper}
+                  corner={<GuardianWhatsApp camper={k} />}
                 />
               ))}
             </ul>
@@ -601,6 +591,7 @@ export default function StaffDetail({
                   labelOf={labelOf}
                   hideBedroom
                   onOpen={onOpenCamper}
+                  corner={<GuardianWhatsApp camper={k} />}
                 />
               ))}
             </ul>

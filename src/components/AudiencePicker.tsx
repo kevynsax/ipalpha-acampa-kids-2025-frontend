@@ -1,4 +1,5 @@
-import { ROOM_ROLE_META } from "../api/staff";
+import { ROOM_ROLE_META, type RoomRole } from "../api/staff";
+import RoomRoleIcon from "./RoomRoleIcon";
 
 /** Who a general document (Instruções / Preparação) is for. */
 export type DocAudience = "all" | "caretaker" | "helper";
@@ -25,7 +26,7 @@ export default function AudiencePicker({ value, onChange, disabled }: AudiencePi
           const on = value === a;
           return (
             <button key={a} type="button" className={`big-option ${on ? "big-option--on" : ""}`} aria-pressed={on} disabled={disabled} onClick={() => onChange(a)}>
-              <span className="big-option__emoji" aria-hidden="true">{DOC_AUDIENCE_META[a].emoji}</span>
+              <span className="big-option__emoji" aria-hidden="true">{a === "all" ? DOC_AUDIENCE_META[a].emoji : <RoomRoleIcon role={a as RoomRole} size={32} />}</span>
               <span className="big-option__label">{DOC_AUDIENCE_META[a].label}</span>
               <span className="big-option__hint">{DOC_AUDIENCE_META[a].hint}</span>
             </button>

@@ -1,9 +1,9 @@
 import { api, command } from "./client";
 import { bearer } from "../auth/store";
+import { ICONS } from "../icons";
 
 /** Category keys that feed each staff field (must match the backend). */
 export const STAFF_CATEGORY_KEYS = {
-  transportation: "transporte",
   allergies: "alergias",
   drugAllergies: "alergia-medicamentos",
   healthIssues: "condicao-cronica",
@@ -18,6 +18,7 @@ export interface Staff {
   admin?: boolean;
   active: boolean;
   team: string | null;
+  /** Transport id (see api/transports.ts) — bus / car, not a category option */
   transportation: string | null;
   /** Bedroom id (see api/bedrooms.ts) — not a category option */
   bedroom: string | null;
@@ -43,8 +44,9 @@ export interface Staff {
   foreignLookupNames?: string[];
   /**
    * true when the server sent a reduced record: the viewer is a colleague in
-   * the same room (name only) or a vest helper (name + phone + vest) — not an
-   * admin nor the person themself (team, room, health and check-in are blank)
+   * the same room (name + phone + room role + team) or a vest helper (name +
+   * phone + vest) — not an admin nor the person themself (transport, health
+   * and check-in are blank)
    */
   redacted?: boolean;
   createdAt: string;
@@ -58,9 +60,10 @@ export interface VestStatus {
 }
 
 export type RoomRole = "caretaker" | "helper";
-export const ROOM_ROLE_META: Record<RoomRole, { label: string; emoji: string; hint: string }> = {
-  caretaker: { label: "Líder", emoji: "🧑‍🍼", hint: "cuida de crianças específicas do quarto" },
-  helper: { label: "Auxiliar", emoji: "🤝", hint: "ajuda no quarto, sem crianças próprias" },
+/** `icon` is the head-only paper-cut image (render it with <RoomRoleIcon>); `emoji` is the text fallback for native selects / exports. */
+export const ROOM_ROLE_META: Record<RoomRole, { label: string; emoji: string; icon?: string; hint: string }> = {
+  caretaker: { label: "Líder", emoji: "🧑‍🍼", icon: ICONS.leaderFace, hint: "cuida de crianças específicas do quarto" },
+  helper: { label: "Auxiliar", emoji: "🤝", icon: ICONS.helperFace, hint: "ajuda no quarto, sem crianças próprias" },
 };
 
 /** Room rosters: leaders first, then assistants; alphabetical inside each role. */

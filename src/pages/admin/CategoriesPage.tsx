@@ -196,7 +196,7 @@ export default function CategoriesPage({ token }: CategoriesPageProps) {
               <span className="admin-empty__emoji">🗂️</span>
               <p>
                 Cada categoria é uma <strong>lista fechada de opções</strong> que aparece nos formulários de
-                acampante e/ou equipe — time, cama, alergias, transporte…
+                acampante e/ou equipe — cama, alergias, condições de saúde…
               </p>
               <button type="button" className="button button--primary" onClick={() => navigate("/categories/new")}>
                 + Criar a primeira

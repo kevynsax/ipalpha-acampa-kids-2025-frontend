@@ -7,6 +7,7 @@ import { formatBrazilPhoneClient } from "../phoneFormat";
 import { useRoute } from "../router";
 import { useCollection } from "../store";
 import { staffGreeting, whatsappLink } from "../whatsapp";
+import { speakStamp } from "../dates";
 
 interface VestPageProps {
   token: string;
@@ -260,11 +261,13 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
       <li key={s.id} className={rowClass(s, step)}>
         <StepIcon step={step} />
         <span className="bus-row__body">
-          <span className="bus-row__name">{s.name}</span>
+          <span className="bus-row__name">
+            <span className={`strike ${step === "back" ? "strike--on" : ""}`}>{s.name}</span>
+          </span>
           <span className="bus-row__meta">
             {phoneOf(s)}
-            {step === "out" && s.vest.delivered && <> · entregue {fmtStamp(s.vest.delivered.at)}</>}
-            {step === "back" && s.vest.returned && <> · devolvido {fmtStamp(s.vest.returned.at)}</>}
+            {step === "out" && s.vest.delivered && <> · entregue {speakStamp(s.vest.delivered.at)}</>}
+            {step === "back" && s.vest.returned && <> · devolvido {speakStamp(s.vest.returned.at)}</>}
           </span>
         </span>
         <span className="vest-row__actions">
@@ -315,7 +318,9 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
           {on && <CheckGlyph size="1.2em" />}
         </button>
         <span className="bus-row__body">
-          <span className="bus-row__name">{s.name}</span>
+          <span className="bus-row__name">
+            <span className={`strike ${on ? "strike--on" : ""}`}>{s.name}</span>
+          </span>
           <span className="bus-row__meta">{phoneOf(s)}</span>
         </span>
         <span className={`vest-row__swap ${on ? "vest-row__swap--next" : ""}`}>
@@ -388,9 +393,6 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
   );
 }
 
-function fmtStamp(iso: string): string {
-  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
-}
 
 function normalize(s: string): string {
   return s

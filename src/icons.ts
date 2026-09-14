@@ -6,6 +6,8 @@ import iconBoy from "./assets/icons/boy.png";
 import iconMan from "./assets/icons/man.png";
 import iconWoman from "./assets/icons/woman.png";
 import iconGirls from "./assets/icons/girls.png";
+import iconGirlFace from "./assets/icons/girl-face.png";
+import iconBoyFace from "./assets/icons/boy-face.png";
 import iconBoys from "./assets/icons/boys.png";
 import iconOrganizer from "./assets/icons/organizer.png";
 import iconNoVest from "./assets/icons/no-vest.png";
@@ -15,7 +17,15 @@ import iconDraw from "./assets/icons/draw.png";
 import iconPencil from "./assets/icons/pencil.png";
 import iconGuardian from "./assets/icons/guardian.png";
 import iconLeader from "./assets/icons/leader.png";
+import iconLeaderFace from "./assets/icons/leader-face.png";
 import iconHelper from "./assets/icons/helper.png";
+import iconHelperFace from "./assets/icons/helper-face.png";
+import iconTransport from "./assets/icons/transport.png";
+import iconCamera from "./assets/icons/camera.png";
+import iconNoPhotos from "./assets/icons/no-photos.png";
+import iconNotifications from "./assets/icons/notifications.png";
+import iconCleanup from "./assets/icons/cleanup.png";
+import iconSwap from "./assets/icons/swap.png";
 
 export const ICONS = {
   camper: iconCamper,
@@ -24,6 +34,9 @@ export const ICONS = {
   boy: iconBoy,
   man: iconMan,
   woman: iconWoman,
+  /** head only — the girl with pigtails / the boy in the yellow cap: inline "Meninas" / "Meninos" markers (chips, tabs, labels) */
+  girlFace: iconGirlFace,
+  boyFace: iconBoyFace,
   /** groups of three — "the same room" */
   girls: iconGirls,
   boys: iconBoys,
@@ -43,8 +56,24 @@ export const ICONS = {
   guardian: iconGuardian,
   /** adult holding a guide flag — room leader */
   leader: iconLeader,
-  /** adult carrying folded blankets — room assistant */
+  /** head only — teal camp hat + the orange flag: the inline "Líder" marker (tags, pickers, labels) */
+  leaderFace: iconLeaderFace,
+  /** adult with a big thumbs-up — room assistant (full figure, lists / home) */
   helper: iconHelper,
+  /** head only — yellow camp cap: the inline "Auxiliar" marker (tags, pickers, labels) */
+  helperFace: iconHelperFace,
+  /** front-facing bus with a numbered badge — the transports (buses / cars) settings menu */
+  transport: iconTransport,
+  /** vintage camera with a cream lens — the Fotos tab and the photographers settings */
+  camera: iconCamera,
+  /** glum photographer sitting on the ground, camera set aside — the empty album */
+  noPhotos: iconNoPhotos,
+  /** teal phone with a sun-yellow speech-bubble (dark dots) — SMS notifications settings */
+  notifications: iconNotifications,
+  /** teal broom sweeping, with sparkles — the end-of-camp cleanup settings */
+  cleanup: iconCleanup,
+  /** two thick curved arrows in a circle (teal over orange) — "trocar": move room, hand over, swap role */
+  swap: iconSwap,
 } as const;
 
 /** A kid's sex is not stored: it follows the wing of the bedroom (meninas / meninos). */

@@ -3,6 +3,7 @@ import { getSelfCheckinStatus, selfCheckin, type SelfCheckinStatus } from "../ap
 import { ApiError } from "../api/client";
 import { describeGeoError, distanceMeters, formatDistance, readPosition, type DevicePosition } from "../geo";
 import type { LoggedUser } from "../roles";
+import { speakTime } from "../dates";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import Dialog from "./Dialog";
 
@@ -153,8 +154,7 @@ export default function SelfCheckinCard({ token, user }: SelfCheckinCardProps) {
 
   // ── already there ──
   if (checkedIn) {
-    const at = new Date(me.checkin!.at);
-    const when = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(at);
+    const when = speakTime(me.checkin!.at);
     const self = me.checkin!.byUserId === user.id;
     const card = (
       <section className={`selfcheck selfcheck--done${popup ? " selfcheck--popup" : ""}`} aria-live="polite">

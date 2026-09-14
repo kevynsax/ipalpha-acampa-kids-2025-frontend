@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { listCamperChanges, medicationLine, PARENT_FIELD_LABEL, type CamperChange, type Medication } from "../../api/campers";
 import Dialog from "../../components/Dialog";
 import { useLabelOf } from "../../store/derive";
+import { speakDateTime } from "../../dates";
 
 interface CamperHistoryDialogProps {
   token: string;
@@ -16,7 +17,6 @@ export default function CamperHistoryDialog({ token, open, camperId, camperName,
   const [changes, setChanges] = useState<CamperChange[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const labelOf = useLabelOf();
-  const fmt = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
   useEffect(() => {
     if (!open) return;
@@ -52,7 +52,7 @@ export default function CamperHistoryDialog({ token, open, camperId, camperName,
             {changes.map((c) => (
               <li key={c.id} className={`history-item ${c.medical ? "history-item--medical" : ""}`}>
                 <p className="history-item__head">
-                  <strong>{c.byName}</strong> · {fmt.format(new Date(c.at))}
+                  <strong>{c.byName}</strong> · {speakDateTime(c.at)}
                   <span className={`staff-tag ${c.medical ? "staff-tag--late" : "staff-tag--soft"}`}>{c.medical ? "🩺 dados médicos" : "📝 observações"}</span>
                 </p>
                 <ul className="history-item__changes">

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect } from "react";
 
-export type TabKey = "home" | "prep" | "instructions" | "occurrences" | "campers" | "staff" | "bedrooms" | "schedule" | "categories" | "checkin" | "bus" | "staffcheckin" | "vests" | "scoreboard";
+export type TabKey = "home" | "prep" | "instructions" | "occurrences" | "campers" | "staff" | "bedrooms" | "schedule" | "categories" | "checkin" | "bus" | "staffcheckin" | "vests" | "scoreboard" | "gallery";
 
 /**
  * Lets a nested detail page (e.g. a função opened from a camper) tell the

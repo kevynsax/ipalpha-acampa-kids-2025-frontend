@@ -3,6 +3,7 @@ import { updateSettings } from "../../api/settings";
 import { useCollection } from "../../store";
 import StaffListEditor from "./StaffListEditor";
 import { QrGlyph } from "../../components/Glyph";
+import PageFooter from "../../components/PageFooter";
 
 interface GameOrganizersPageProps {
   token: string;
@@ -97,10 +98,10 @@ export default function GameOrganizersPage({ token }: GameOrganizersPageProps) {
         />
       </section>
 
-      <p className="footer-note">
+      <PageFooter>
         <QrGlyph /> O ajudante ganha a aba <strong>Placar</strong> só com o botão de leitura em massa e vê das crianças apenas <strong>nome e time</strong>. Apaga só as
         próprias leituras. Ao entrar na lista a pessoa recebe um SMS avisando.
-      </p>
+      </PageFooter>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { formatEventDate, type CampEvent } from "../../api/schedule";
+import { type CampEvent } from "../../api/schedule";
+import { speakDay } from "../../dates";
 import { useCollection } from "../../store";
 
 /** "HH:mm" of now, local time */
@@ -76,7 +77,7 @@ export default function ParentSchedulePage() {
       {days.map((d) => (
         <section key={d} className="day-group">
           <header className="room-group__head">
-            <h2 className="room-group__title room-group__title--green">📆 {formatEventDate(d)}</h2>
+            <h2 className="room-group__title room-group__title--green">📆 {speakDay(d)}</h2>
             {d === now.date && <span className="room-group__stats">hoje</span>}
           </header>
           <ol className="timeline">

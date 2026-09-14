@@ -55,7 +55,7 @@ export function useAiAutoFill({ token, context, title, setTitle, emoji, setEmoji
     [token, context, existing, defaultEmoji, setTitle, setEmoji],
   );
 
-  /** ✨ button next to the title: (re)generate the title from the current content, even if one is set */
+  /** AI button next to the title: (re)generate the title from the current content, even if one is set */
   const regenerateTitle = useCallback(
     async (html: string) => {
       if (!html.trim()) return;

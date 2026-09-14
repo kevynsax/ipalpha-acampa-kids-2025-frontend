@@ -3,6 +3,7 @@ import { updateSettings } from "../../api/settings";
 import { useCollection } from "../../store";
 import { roleMeta } from "../../roles";
 import StaffListEditor from "./StaffListEditor";
+import PageFooter from "../../components/PageFooter";
 
 interface MedicalStaffPageProps {
   token: string;
@@ -58,7 +59,7 @@ export default function MedicalStaffPage({ token }: MedicalStaffPageProps) {
         </h1>
       </header>
       <p className="admin-intro">
-        Pessoas da equipe que cuidam da <strong>saúde das crianças</strong>. Veem a ficha completa de <strong>todos os acampantes</strong> (alergias, remédios, condições, contatos).
+        Pessoas da equipe que cuidam da <strong>saúde das crianças</strong>. Veem a ficha completa de <strong>todos os acampantes</strong> (alergias, remédios, condições, contatos) e baixam a planilha de saúde.
       </p>
 
       {error && <p className="message message--error">{error}</p>}
@@ -67,9 +68,9 @@ export default function MedicalStaffPage({ token }: MedicalStaffPageProps) {
         <StaffListEditor title="Quem é da equipe médica" value={ids} onChange={(nextIds) => void saveIds(nextIds)} disabled={busy} pickerTitle="Adicionar à equipe médica" empty="Ninguém escolhido ainda." />
       </section>
 
-      <p className="footer-note">
+      <PageFooter>
         🔒 A equipe médica só consulta: não cadastra, edita nem exclui crianças ou quartos, não faz check-in e não baixa a lista em Excel.
-      </p>
+      </PageFooter>
     </div>
   );
 }

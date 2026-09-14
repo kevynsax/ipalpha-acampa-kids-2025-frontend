@@ -1,3 +1,4 @@
+import RoomRoleIcon from "../../components/RoomRoleIcon";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { bedroomLabel } from "../../api/bedrooms";
 import { moveCamper, updateCamper, type Camper, type CamperSex } from "../../api/campers";
@@ -157,7 +158,7 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
     <Dialog open={open} onClose={onClose} title="Escolher líder" width={520}>
       <div className="picker">
         <h2 className="cat-form__title">
-          {ROOM_ROLE_META.caretaker.emoji} Quem vai cuidar {kidSex === "F" ? "da" : kidSex === "M" ? "do" : "do(a)"} {k.name.split(" ")[0]}?
+          <RoomRoleIcon role="caretaker" /> Quem vai cuidar {kidSex === "F" ? "da" : kidSex === "M" ? "do" : "do(a)"} {k.name.split(" ")[0]}?
         </h2>
         <input
           ref={inputRef}
@@ -207,7 +208,7 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
                         >
                           <span className="picker__name">{s.name}</span>
                           <span className="picker__meta">
-                            {ROOM_ROLE_META[s.roomRole].emoji} {ROOM_ROLE_META[s.roomRole].label}
+                            <RoomRoleIcon role={s.roomRole} /> {ROOM_ROLE_META[s.roomRole].label}
                             {g.group !== "roomLeaders" && g.group !== "roomHelpers" && <span className="picker__busy-where">{sRoom ? bedroomLabel(sRoom) : "sem quarto"}</span>}
                           </span>
                         </button>

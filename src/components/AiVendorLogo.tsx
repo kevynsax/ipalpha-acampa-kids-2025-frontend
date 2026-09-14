@@ -4,6 +4,7 @@ import openai from "../assets/ai/openai.svg";
 import xai from "../assets/ai/xai.svg";
 import meta from "../assets/ai/meta.svg";
 import zhipu from "../assets/ai/zhipu.svg";
+import google from "../assets/ai/google.svg";
 
 const LOGOS: Record<AiVendor, { src: string; name: string }> = {
   anthropic: { src: anthropic, name: "Anthropic" },
@@ -11,6 +12,7 @@ const LOGOS: Record<AiVendor, { src: string; name: string }> = {
   xai: { src: xai, name: "xAI" },
   meta: { src: meta, name: "Meta" },
   zhipu: { src: zhipu, name: "Zhipu AI" },
+  google: { src: google, name: "Google" },
 };
 
 /** Fallback when the server didn't send a vendor: guess it from the model id. */
@@ -21,6 +23,7 @@ export function guessVendor(modelId?: string): AiVendor | undefined {
   if (id.startsWith("grok")) return "xai";
   if (id.startsWith("muse") || id.startsWith("llama")) return "meta";
   if (id.startsWith("glm")) return "zhipu";
+  if (id.startsWith("gemini") || id.startsWith("gemma")) return "google";
   return undefined;
 }
 

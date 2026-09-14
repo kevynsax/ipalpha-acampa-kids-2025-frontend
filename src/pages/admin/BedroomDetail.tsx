@@ -5,6 +5,7 @@ import { kidSexOf } from "../../icons";
 import { GROUP_META, type Bedroom } from "../../api/bedrooms";
 import CamperCard from "../../components/CamperCard";
 import GroupIcon from "../../components/GroupIcon";
+import GuardianWhatsApp from "../../components/GuardianWhatsApp";
 import StaffIcon from "../../components/StaffIcon";
 import StaffMiniCard from "../../components/StaffMiniCard";
 import { useBedroomDetail, useLabelOf } from "../../store/derive";
@@ -118,7 +119,7 @@ export default function BedroomDetail({ bedroomId, nav, onEdit, onOpenStaff, onO
           ) : (
             <ul className="kid-list">
               {campers.map((k) => (
-                <CamperCard key={k.id} camper={k} labelOf={labelOf} hideBedroom onOpen={onOpenCamper} />
+                <CamperCard key={k.id} camper={k} labelOf={labelOf} hideBedroom onOpen={onOpenCamper} corner={<GuardianWhatsApp camper={k} />} />
               ))}
             </ul>
           )}

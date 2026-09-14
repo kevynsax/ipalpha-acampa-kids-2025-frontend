@@ -14,7 +14,7 @@ interface CheckinTestToolsProps {
  *   - test mode: the KIDS' church + bus roll calls open for the helpers even
  *     outside the check-in window (the team's own self check-in keeps its
  *     departure-day rule);
- *   - reset: clears every check-in (kids church + bus, team) and the log.
+ *   - reset: clears every check-in (kids church + both bus trips, team) and the log.
  */
 export default function CheckinTestTools({ token }: CheckinTestToolsProps) {
   const settings = useCollection("settings");
@@ -26,7 +26,7 @@ export default function CheckinTestTools({ token }: CheckinTestToolsProps) {
   const [done, setDone] = useState<string | null>(null);
 
   const testMode = !!settings?.checkinTestMode;
-  const kidsChecked = campers?.filter((k) => k.checkin || k.busCheckin).length ?? 0;
+  const kidsChecked = campers?.filter((k) => k.checkin || k.busCheckin || k.busReturnCheckin).length ?? 0;
   const staffChecked = staff?.filter((s) => s.checkin).length ?? 0;
   const vestsOut = staff?.filter((s) => s.vest?.delivered).length ?? 0;
 

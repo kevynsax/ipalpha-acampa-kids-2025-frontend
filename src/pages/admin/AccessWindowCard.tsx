@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { updateSettings, type Settings } from "../../api/settings";
 import { useCollection } from "../../store";
 import { useRoute } from "../../router";
+import { speakWhen } from "../../dates";
 
 interface AccessWindowCardProps {
   token: string;
@@ -25,7 +26,6 @@ function fromLocalInput(v: string): string | null {
 }
 
 const sameMinute = (a: string | null, b: string | null) => (a ? Math.floor(new Date(a).getTime() / 60_000) : null) === (b ? Math.floor(new Date(b).getTime() / 60_000) : null);
-const fmt = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
 const META = {
   staffAccessWindow: {
@@ -120,10 +120,10 @@ export default function AccessWindowCard({ token, which }: AccessWindowCardProps
           {!fromIso && !untilIso
             ? `🟢 Sem restrição — ${m.who} acessa${m.who === "os pais" ? "m" : ""} a qualquer hora.`
             : openNow
-              ? `🟢 Aberta agora${untilIso ? ` — fecha ${fmt.format(new Date(untilIso))}` : ""}`
+              ? `🟢 Aberta agora${untilIso ? ` — fecha ${speakWhen(untilIso)}` : ""}`
               : fromIso && new Date(fromIso).getTime() > now
-                ? `🕒 Abre ${fmt.format(new Date(fromIso))}${untilIso ? ` até ${fmt.format(new Date(untilIso))}` : ""}`
-                : `⚫ Fechada${untilIso ? ` desde ${fmt.format(new Date(untilIso))}` : ""}`}
+                ? `🕒 Abre ${speakWhen(fromIso)}${untilIso ? ` até ${speakWhen(untilIso)}` : ""}`
+                : `⚫ Fechada${untilIso ? ` desde ${speakWhen(untilIso)}` : ""}`}
           .
         </p>
       )}

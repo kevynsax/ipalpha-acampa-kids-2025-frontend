@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Dialog from "../../components/Dialog";
 import EmojiPicker from "../../components/EmojiPicker";
+import TimeInput from "../../components/TimeInput";
 import type { CampEvent, CampEventInput, ScheduleRole, ScheduleRoleInput } from "../../api/schedule";
 import RoleForm from "./RoleForm";
 
@@ -86,9 +87,7 @@ export default function EventForm({ token, event, roles, defaultDate, busy, onSu
   }
 
   return (
-    <form className="cat-form" onSubmit={handleSubmit}>
-      <h2 className="cat-form__title">{editing ? "✏️ Editar evento" : "✨ Novo evento"}</h2>
-
+    <form className="cat-form cat-form--plain" onSubmit={handleSubmit}>
       <div className="cat-form__row">
         <div className="cat-field cat-field--emoji">
           <span className="cat-field__label">Ícone</span>
@@ -115,17 +114,21 @@ export default function EventForm({ token, event, roles, defaultDate, busy, onSu
         </label>
         <label className="cat-field">
           <span className="cat-field__label">Início</span>
-          <input className="cat-input" type="time" value={startTime} disabled={busy} required onChange={(e) => setStartTime(e.target.value)} />
+          <TimeInput value={startTime} disabled={busy} required onChange={setStartTime} aria-label="Hora de início" />
         </label>
         <label className="cat-field">
           <span className="cat-field__label">Fim (opcional)</span>
-          <input className="cat-input" type="time" value={endTime} disabled={busy} onChange={(e) => setEndTime(e.target.value)} />
+          <TimeInput value={endTime} disabled={busy} clearable onChange={setEndTime} aria-label="Hora de fim (opcional)" />
         </label>
       </div>
       {endTime && endTime <= startTime && <p className="cat-hint cat-hint--error">O fim precisa ser depois do início.</p>}
 
-      <fieldset className="cat-fieldset">
-        <legend className="cat-field__label">🎯 Funções neste evento</legend>
+      {/* Editing an event only touches ícone, título, data e horário — funções
+          e observações ficam na tela do evento. */}
+      {!editing && (
+      <>
+      <section className="form-box form-box--plain" aria-labelledby="event-roles-title">
+        <h3 id="event-roles-title" className="form-box__title">🎯 Funções neste evento</h3>
         <p className="cat-hint">Quais funções a equipe precisa cumprir neste evento.</p>
 
         {chosen.length === 0 && <p className="opt-empty">Nenhuma função ainda — escolha abaixo ou crie uma nova.</p>}
@@ -165,10 +168,10 @@ export default function EventForm({ token, event, roles, defaultDate, busy, onSu
             <p className="cat-hint slot-add__hint">{roles.length > 0 ? "Todas as funções já estão neste evento." : "Nenhuma função cadastrada ainda."}</p>
           )}
           <button type="button" className="button button--secondary slot-add__new" disabled={busy} onClick={() => setRoleDialog(true)}>
-            ✨ Nova função
+            + Nova função
           </button>
         </div>
-      </fieldset>
+      </section>
 
       <Dialog open={roleDialog} onClose={() => !creatingRole && setRoleDialog(false)} title="Nova função" width={680} dismissible={false}>
         <RoleForm embedded token={token} busy={creatingRole} onSubmit={handleCreateRole} onCancel={() => setRoleDialog(false)} />
@@ -185,6 +188,8 @@ export default function EventForm({ token, event, roles, defaultDate, busy, onSu
           onChange={(e) => setNotes(e.target.value)}
         />
       </label>
+      </>
+      )}
 
       {error && <p className="message message--error">{error}</p>}
 

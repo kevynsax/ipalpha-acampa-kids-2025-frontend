@@ -4,6 +4,7 @@ import { useRoute } from "../../router";
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import { ICONS } from "../../icons";
 import StaffListEditor from "./StaffListEditor";
+import PageFooter from "../../components/PageFooter";
 
 interface OrganizersPageProps {
   token: string;
@@ -99,9 +100,9 @@ export default function OrganizersPage({ token }: OrganizersPageProps) {
         )}
       </section>
 
-      <p className="footer-note">
+      <PageFooter>
         🔒 Organizadores não mexem nesta lista nem em Categorias, Notificações e Sobre — só o admin.
-      </p>
+      </PageFooter>
     </div>
   );
 }

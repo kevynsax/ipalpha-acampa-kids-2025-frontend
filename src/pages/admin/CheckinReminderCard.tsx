@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { updateSettings } from "../../api/settings";
 import Toggle from "../../components/Toggle";
 import { useCollection } from "../../store";
+import { speakWhen } from "../../dates";
 
 interface CheckinReminderCardProps {
   token: string;
@@ -25,7 +26,6 @@ function fromLocalInput(v: string): string | null {
 }
 
 const sameMinute = (a: string | null, b: string | null) => (a ? Math.floor(new Date(a).getTime() / 60_000) : null) === (b ? Math.floor(new Date(b).getTime() / 60_000) : null);
-const fmt = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
 /**
  * Settings → Geral AND → Notificações: the instant at which the WHOLE team is
@@ -69,11 +69,11 @@ export default function CheckinReminderCard({ token, embedded }: CheckinReminder
   const status = !current.at
     ? "⚫ Sem data — nenhum lembrete será enviado."
     : current.sentAt
-      ? `✅ Enviado ${fmt.format(new Date(current.sentAt))}. Escolha outra data para enviar de novo.`
+      ? `✅ Enviado ${speakWhen(current.sentAt)}. Escolha outra data para enviar de novo.`
       : !on
-        ? `⏸️ Marcado para ${fmt.format(new Date(current.at))}, mas o aviso está desligado — ligue para enviar.`
+        ? `⏸️ Marcado para ${speakWhen(current.at)}, mas o aviso está desligado — ligue para enviar.`
         : new Date(current.at).getTime() > Date.now()
-          ? `🕒 Será enviado ${fmt.format(new Date(current.at))}.`
+          ? `🕒 Será enviado ${speakWhen(current.at)}.`
           : "📲 Enviando…";
 
   return (

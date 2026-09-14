@@ -1,5 +1,6 @@
 import { ApiError } from "../api/client";
 import Dialog from "./Dialog";
+import { speakWhen } from "../dates";
 
 export const STAFF_ACCESS_CODES = ["STAFF_ACCESS_NOT_YET", "STAFF_ACCESS_ENDED"] as const;
 
@@ -12,19 +13,12 @@ interface StaffAccessDialogProps {
   onClose: () => void;
 }
 
-const fmt = new Intl.DateTimeFormat("pt-BR", {
-  weekday: "long",
-  day: "2-digit",
-  month: "long",
-  hour: "2-digit",
-  minute: "2-digit",
-});
 
 /** Full-screen colourful popup shown when a team member tries to log in outside the access window. */
 export default function StaffAccessDialog({ error, onClose }: StaffAccessDialogProps) {
   const ended = error?.code === "STAFF_ACCESS_ENDED";
   const parent = error?.audience === "parent";
-  const opensAt = error?.opensAt ? fmt.format(new Date(error.opensAt)) : null;
+  const opensAt = error?.opensAt ? speakWhen(error.opensAt, { long: true }) : null;
 
   return (
     <Dialog open={!!error} onClose={onClose} width={480} title={ended ? "Acampamento encerrado" : "App ainda não liberado"}>
