@@ -27,7 +27,8 @@ export interface Staff {
   drugAllergies: string[];
   foodRestrictions: string;
   healthIssues: string[];
-  medicines: string;
+  /** medicines the person takes, each with its schedule */
+  medications: import("./campers").Medication[];
   /** free-text health/allergy remarks */
   healthNotes: string;
   /** set when the person arrived on departure day */
@@ -62,6 +63,12 @@ export const ROOM_ROLE_META: Record<RoomRole, { label: string; emoji: string; hi
   helper: { label: "Auxiliar", emoji: "🤝", hint: "ajuda no quarto, sem crianças próprias" },
 };
 
+/** Room rosters: leaders first, then assistants; alphabetical inside each role. */
+export function compareRoomStaff(a: Pick<Staff, "name" | "roomRole">, b: Pick<Staff, "name" | "roomRole">): number {
+  const roleOrder: Record<RoomRole, number> = { caretaker: 0, helper: 1 };
+  return roleOrder[a.roomRole] - roleOrder[b.roomRole] || a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+}
+
 export interface StaffInput {
   name: string;
   phone: string | null;
@@ -74,7 +81,7 @@ export interface StaffInput {
   drugAllergies: string[];
   foodRestrictions: string;
   healthIssues: string[];
-  medicines: string;
+  medications: import("./campers").Medication[];
   healthNotes: string;
 }
 

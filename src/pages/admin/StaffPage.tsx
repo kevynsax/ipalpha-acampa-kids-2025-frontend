@@ -21,6 +21,7 @@ import HealthFilter, { matchesHealth, hasHealth, type HealthKey } from "../../co
 import { downloadStaffXlsx } from "../../export";
 import { ICONS } from "../../icons";
 
+import Breadcrumbs from "../../components/Breadcrumbs";
 import StaffForm from "./StaffForm";
 import GiveawayPage from "../GiveawayPage";
 import { DownloadGlyph } from "../../components/Glyph";
@@ -149,8 +150,12 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
 
   return (
     <div className="admin-page">
+      {mode.kind === "create" && <Breadcrumbs items={[{ label: "Equipe", onClick: () => navigate("/staff") }, { label: "Novo" }]} />}
+      {mode.kind === "edit" && editing && (
+        <Breadcrumbs items={[{ label: "Equipe", onClick: () => navigate("/staff") }, { label: editing.name.split(" ")[0], onClick: () => navigate(`/staff/${editing.id}`) }, { label: "Editar" }]} />
+      )}
       <header className="admin-head">
-        <h1 className="admin-title">Equipe</h1>
+        <h1 className="admin-title">{mode.kind === "create" ? "✨ Novo membro da equipe" : mode.kind === "edit" ? "✏️ Editar membro da equipe" : "Equipe"}</h1>
         {mode.kind === "view" && !readOnly && (
           <div className="admin-head__actions">
             <button
@@ -187,7 +192,6 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
       {mode.kind === "create" && (
         <StaffForm
           categories={categories}
-          bedrooms={bedrooms}
           busy={busy}
           onSubmit={handleCreate}
           onCancel={() => navigate("/staff")}
@@ -200,7 +204,6 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
             key={editing.id}
             member={editing}
             categories={categories}
-            bedrooms={bedrooms}
             busy={busy}
             onSubmit={handleEdit}
             onCancel={() => navigate(`/staff/${editing.id}`)}

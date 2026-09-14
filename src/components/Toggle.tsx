@@ -1,8 +1,10 @@
+import type { ReactNode } from "react";
+
 interface ToggleProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
-  /** text shown beside the track */
-  label: string;
+  /** text (or icon + text) shown beside the track */
+  label: ReactNode;
   disabled?: boolean;
 }
 

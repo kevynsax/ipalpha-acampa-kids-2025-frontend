@@ -24,7 +24,7 @@ interface MedicationsEditorProps {
 }
 
 /**
- * The kid's medicines, one card each: what + dose, WHEN (fixed times of the
+ * The person's medicines, one card each: what + dose, WHEN (fixed times of the
  * day, or "quando necessário"), and a note. The times feed the medical
  * team's checklist, so a medicine with neither is flagged "a confirmar".
  */

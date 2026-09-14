@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { bedroomLabel } from "../../api/bedrooms";
-import { moveStaff, ROOM_ROLE_META, type MoveKids, type Staff } from "../../api/staff";
+import { compareRoomStaff, moveStaff, ROOM_ROLE_META, type MoveKids, type Staff } from "../../api/staff";
 import { BedroomSelect } from "../../components/CategoryFields";
 import Dialog from "../../components/Dialog";
+import { SwapGlyph } from "../../components/Glyph";
 import { useCollectionOrEmpty } from "../../store";
 
 interface MoveStaffDialogProps {
@@ -50,7 +51,7 @@ export default function MoveStaffDialog({ token, open, member: s, onClose }: Mov
   /** people to swap with: anyone of the TARGET room; to assign: anyone of MY room */
   const candidates = useMemo(() => {
     const room = kids === "swap" ? bedroom : s.bedroom;
-    return room ? staff.filter((x) => x.id !== s.id && x.bedroom === room).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) : [];
+    return room ? staff.filter((x) => x.id !== s.id && x.bedroom === room).sort(compareRoomStaff) : [];
   }, [staff, kids, bedroom, s.bedroom, s.id]);
   const kidsOf = (id: string) => campers.filter((k) => k.caretakerId === id).length;
 
@@ -76,14 +77,16 @@ export default function MoveStaffDialog({ token, open, member: s, onClose }: Mov
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Mudar de quarto" width={600}>
-      <div className="cat-form">
-        <h2 className="cat-form__title">🛏️ {s.name.split(" ")[0]}: mudar de quarto</h2>
+    <Dialog open={open} onClose={onClose} title="Trocar de quarto" width={600}>
+      <div className="cat-form cat-form--plain">
+        <h2 className="cat-form__title change-room__title">
+          <SwapGlyph /> Trocar de quarto
+        </h2>
 
         <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} current={s.bedroom} disabled={busy} />
 
         {hasKids && (
-          <fieldset className="cat-fieldset">
+          <fieldset className="cat-fieldset change-room__caretaker">
             <legend className="cat-field__label">
               {ROOM_ROLE_META.caretaker.emoji} E as {myKids.length} criança{myKids.length > 1 ? "s" : ""} sob sua responsabilidade?
             </legend>
@@ -104,7 +107,7 @@ export default function MoveStaffDialog({ token, open, member: s, onClose }: Mov
         )}
 
         {needsPerson && (
-          <fieldset className="cat-fieldset">
+          <fieldset className="cat-fieldset change-room__caretaker">
             <legend className="cat-field__label">{kids === "swap" ? `Quem vem do quarto ${target ? bedroomLabel(target) : ""}?` : "Quem assume as crianças?"}</legend>
             {candidates.length === 0 && <p className="message message--warn">⚠️ Ninguém da equipe {kids === "swap" ? "neste quarto de destino" : "no quarto atual"}.</p>}
             <div className="big-options">

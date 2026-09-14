@@ -15,6 +15,7 @@ import {
   type StaffScheduleItem,
 } from "../../api/staff";
 import MoveStaffDialog from "./MoveStaffDialog";
+import StaffFieldDialog, { type StaffQuickField } from "./StaffFieldDialog";
 import CamperCard from "../../components/CamperCard";
 import WhatsAppButton from "../../components/WhatsAppButton";
 import { loadAuth } from "../../auth/store";
@@ -83,6 +84,7 @@ export default function StaffDetail({
     useState<StaffScheduleItem | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
+  const [fieldOpen, setFieldOpen] = useState<StaffQuickField | null>(null);
   const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
   const labelOf = useLabelOf();
@@ -168,15 +170,14 @@ export default function StaffDetail({
   const vestReturned = !!s.vest?.delivered && !!s.vest.returned;
   const vestLate = campOver && !vestReturned;
 
-  /** "Kevyn e Arthur estão no mesmo quarto: 604 (Meninos)" — the room is a link */
+  /** "Cleves (auxiliar) está no mesmo quarto: 403 (Meninos)" — the colleagues and the room are links */
   const roomSentence = bedroom && (
     <p className="admin-intro">
       {roommates.length > 0 ? (
         <>
-          <strong>{firstName}</strong>
           {roommates.map((r, i) => (
             <span key={r.id}>
-              {i === roommates.length - 1 ? " e " : ", "}
+              {i > 0 && (i === roommates.length - 1 ? " e " : ", ")}
               {onOpenStaff ? (
                 <button
                   type="button"
@@ -188,9 +189,10 @@ export default function StaffDetail({
               ) : (
                 <strong>{r.name.split(" ")[0]}</strong>
               )}
+              {bedroom.group !== "staff" && ` (${ROOM_ROLE_META[r.roomRole].label.toLowerCase()})`}
             </span>
           ))}{" "}
-          estão no mesmo quarto:
+          {roommates.length === 1 ? "está" : "estão"} no mesmo quarto:
         </>
       ) : (
         <>
@@ -269,7 +271,14 @@ export default function StaffDetail({
             </>
           )}
           <dt>Time</dt>
-          <dd>{labelOf(s.team) ?? "—"}</dd>
+          <dd>
+            {labelOf(s.team) ?? "—"}
+            {onEdit && (
+              <button type="button" className="icon-btn icon-btn--bare" title="Trocar de time" aria-label="Trocar de time" onClick={() => setFieldOpen("team")}>
+                <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
+              </button>
+            )}
+          </dd>
           <dt>Quarto</dt>
           <dd>
             {bedroom ? (
@@ -292,8 +301,8 @@ export default function StaffDetail({
               <button
                 type="button"
                 className="icon-btn icon-btn--bare"
-                title="Mudar de quarto"
-                aria-label="Mudar de quarto"
+                title="Trocar de quarto"
+                aria-label="Trocar de quarto"
                 onClick={() => setMoveOpen(true)}
               >
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
@@ -310,7 +319,14 @@ export default function StaffDetail({
             )}
           </dd>
           <dt>Transporte</dt>
-          <dd>{labelOf(s.transportation) ?? "—"}</dd>
+          <dd>
+            {labelOf(s.transportation) ?? "—"}
+            {onEdit && (
+              <button type="button" className="icon-btn icon-btn--bare" title="Trocar o transporte" aria-label="Trocar o transporte" onClick={() => setFieldOpen("transportation")}>
+                <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
+              </button>
+            )}
+          </dd>
           {!s.redacted && (
             <>
               <dt>Check-in</dt>
@@ -482,6 +498,7 @@ export default function StaffDetail({
           onClose={() => setMoveOpen(false)}
         />
       )}
+      {onEdit && fieldOpen && <StaffFieldDialog token={token} open member={s} field={fieldOpen} onClose={() => setFieldOpen(null)} />}
       <InstructionsDialog
         role={instructionsFor?.role ?? null}
         context={

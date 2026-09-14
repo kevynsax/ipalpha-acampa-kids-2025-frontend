@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { medicinesText, type HealthLike } from "./HealthAlerts";
+import type { HealthLike } from "./HealthAlerts";
 import NoPillIcon from "./NoPillIcon";
 
 export type HealthKey = "healthIssues" | "allergies" | "drugAllergies" | "medicines" | "foodRestrictions" | "neurodivergent";
@@ -18,7 +18,7 @@ const FILTERS: { key: HealthKey; icon: ReactNode; label: string; title: string }
 ];
 
 export function hasHealth(p: HealthLike, key: HealthKey): boolean {
-  if (key === "medicines") return !!medicinesText(p);
+  if (key === "medicines") return p.medications.length > 0;
   const v = (p as Partial<Record<HealthKey, unknown>>)[key];
   return Array.isArray(v) ? v.length > 0 : !!v;
 }

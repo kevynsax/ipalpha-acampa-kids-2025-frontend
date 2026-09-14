@@ -692,7 +692,7 @@ button, input { font: inherit; }
 .detail-grid dd .wa-btn--sm, .detail-grid dd .icon-btn { width: 30px; height: 30px; }
 .detail-grid dd .room-card__occ { width: 220px; }
 .detail-alerts { display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 2px dashed #e2ebe5; }
-.detail-section { display: flex; flex-direction: column; gap: 10px; }
+.detail-section { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
 .detail-h2 { margin: 6px 0 0; font-family: var(--font-display); font-size: 1.15rem; font-weight: 800; color: var(--forest); display: flex; align-items: center; gap: 8px; }
 .detail-h3 { margin: 4px 0 0; font-family: var(--font-display); font-size: .95rem; font-weight: 800; color: var(--pine); }
 .detail-day { display: flex; flex-direction: column; gap: 6px; }
@@ -803,9 +803,25 @@ button, input { font: inherit; }
 .staff-card__inactive { font-family: var(--font-body); font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: #eef2ef; padding: 2px 8px; border-radius: 999px; }
 .staff-card__meta { margin: 0; color: var(--muted); font-size: .85rem; font-weight: 600; }
 .staff-card__tags { display: flex; gap: 6px; flex-wrap: wrap; }
-/* name-only colleague chips on the staff home: a real <ul>, so drop the browser indent and hug the left edge */
-.roommate-list { list-style: none; margin: 0; padding: 0; justify-content: flex-start; }
+/* Roommates on the staff home: compact people cards, not oversized name pills. */
+.roommate-section { gap: 12px; }
+.roommate-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.roommate-head .detail-h2 { margin: 0; }
+.roommate-count { flex: none; color: var(--muted); font-size: .78rem; font-weight: 800; white-space: nowrap; }
+.roommate-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+.roommate-card { min-width: 0; min-height: 64px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 2px solid #fff; border-left: 5px solid var(--sun); border-radius: 14px; background: var(--paper); box-shadow: 0 3px 0 rgba(24,61,54,.08); }
+.roommate-card__icon { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; background: #eef2ef; }
+.roommate-card__icon--caretaker { background: #fff0d7; }
+.roommate-card__icon--helper { background: #e5f3f0; }
+.roommate-card__icon img { display: block; width: 40px; height: 40px; object-fit: contain; }
+.roommate-card__body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.roommate-card__name { overflow: hidden; color: var(--forest); font-family: var(--font-display); font-size: .95rem; font-weight: 800; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.roommate-card__role { color: var(--muted); font-size: .76rem; font-weight: 700; }
 .staff-tag { padding: 6px 14px; border-radius: 999px; background: #f9f0c6; color: var(--forest); font-family: var(--font-display); font-weight: 800; font-size: .78rem; text-transform: uppercase; letter-spacing: .02em; }
+@media (max-width: 560px) {
+  .roommate-list { grid-template-columns: 1fr; }
+  .roommate-card { min-height: 60px; }
+}
 .staff-card__alert { margin: 0; color: #c0392b; font-weight: 700; font-size: .85rem; display: flex; align-items: baseline; gap: 6px; }
 .staff-card__alert-icon { flex: none; display: inline-flex; align-items: center; }
 .no-pill { width: 1.15em; height: 1.15em; vertical-align: -0.2em; flex: none; }
@@ -988,7 +1004,8 @@ select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38
 .opt-field { gap: 4px; }
 .opt-field__head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .opt-field__head .toggle { height: 36px; padding: 0; }
-.opt-field__head .toggle__label { font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.opt-field__head .toggle__label { display: inline-flex; align-items: center; gap: 6px; font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.opt-field__head .no-pill, .cat-field__label .no-pill { width: 20px; height: 20px; vertical-align: -0.35em; }
 .opt-field__head .toggle--on .toggle__label { color: var(--pine); }
 .opt-field > .cat-field, .opt-field > .cat-fieldset { margin-top: 4px; }
 .form-box__title { margin: 0; display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 800; font-size: 1rem; color: var(--pine); }

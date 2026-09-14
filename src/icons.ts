@@ -14,6 +14,8 @@ import iconGiveaway from "./assets/icons/giveaway.png";
 import iconDraw from "./assets/icons/draw.png";
 import iconPencil from "./assets/icons/pencil.png";
 import iconGuardian from "./assets/icons/guardian.png";
+import iconLeader from "./assets/icons/leader.png";
+import iconHelper from "./assets/icons/helper.png";
 
 export const ICONS = {
   camper: iconCamper,
@@ -39,6 +41,10 @@ export const ICONS = {
   pencil: iconPencil,
   /** adult holding a child's hand — the camper's "Pai ou Responsável" */
   guardian: iconGuardian,
+  /** adult holding a guide flag — room leader */
+  leader: iconLeader,
+  /** adult carrying folded blankets — room assistant */
+  helper: iconHelper,
 } as const;
 
 /** A kid's sex is not stored: it follows the wing of the bedroom (meninas / meninos). */

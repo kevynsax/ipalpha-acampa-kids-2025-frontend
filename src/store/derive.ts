@@ -3,7 +3,7 @@ import type { Bedroom, BedroomDetail } from "../api/bedrooms";
 import type { Camper, CamperDetail } from "../api/campers";
 import type { Category, CategoryAudience } from "../api/categories";
 import type { CampEvent, RoleDetail, ScheduleRole } from "../api/schedule";
-import type { Staff, StaffDetail, StaffScheduleItem } from "../api/staff";
+import { compareRoomStaff, type Staff, type StaffDetail, type StaffScheduleItem } from "../api/staff";
 import type { Team } from "../api/teams";
 import { useCollection, useCollectionOrEmpty } from "./index";
 
@@ -30,7 +30,7 @@ export function useCamperDetail(camperId: string): CamperDetail | null | undefin
       camper: k,
       bedroom: room ? { id: room.id, name: room.name, group: room.group } : null,
       caretaker: k.caretakerId ? (staff.find((s) => s.id === k.caretakerId) ?? null) : null,
-      caretakers: k.bedroom ? staff.filter((s) => s.bedroom === k.bedroom).sort(byName) : [],
+      caretakers: k.bedroom ? staff.filter((s) => s.bedroom === k.bedroom).sort(compareRoomStaff) : [],
       roommates: k.bedroom ? campers.filter((x) => x.bedroom === k.bedroom && x.id !== k.id).sort(byName) : [],
     };
   }, [campers, staff, bedrooms, camperId]);
@@ -45,7 +45,7 @@ export function useBedroomDetail(bedroomId: string): BedroomDetail | null | unde
     const b = bedrooms.find((x) => x.id === bedroomId);
     if (!b) return undefined;
     const kids = campers.filter((k) => k.bedroom === b.id).sort(byName);
-    const people = staff.filter((s) => s.bedroom === b.id).sort(byName);
+    const people = staff.filter((s) => s.bedroom === b.id).sort(compareRoomStaff);
     const occupied = kids.length + people.length;
     return {
       bedroom: { ...b, occupied, occupiedCampers: kids.length, occupiedStaff: people.length, available: b.capacity - occupied },
@@ -98,7 +98,7 @@ export function useStaffDetail(staffId: string): StaffDetail | null | undefined 
       // a caretaker's OWN kids; a helper: every kid of the room
       campers: s.roomRole === "caretaker" ? campers.filter((k) => k.caretakerId === s.id).sort(byName) : s.bedroom ? campers.filter((k) => k.bedroom === s.bedroom).sort(byName) : [],
       otherCampers: s.roomRole === "caretaker" && s.bedroom ? campers.filter((k) => k.bedroom === s.bedroom && k.caretakerId !== s.id).sort(byName) : [],
-      roommates: s.bedroom ? staff.filter((x) => x.bedroom === s.bedroom && x.id !== s.id).sort(byName) : [],
+      roommates: s.bedroom ? staff.filter((x) => x.bedroom === s.bedroom && x.id !== s.id).sort(compareRoomStaff) : [],
     };
   }, [staff, campers, bedrooms, events, roles, staffId]);
 }
@@ -133,7 +133,7 @@ export function useMyRoom(phone: string): MyRoom | null | undefined {
       bedroom,
       myKids: campers.filter((k) => k.caretakerId === me.id).sort(byName),
       campers: me.bedroom ? campers.filter((k) => k.bedroom === me.bedroom && k.caretakerId !== me.id).sort(byName) : [],
-      roommates: me.bedroom ? staff.filter((s) => s.bedroom === me.bedroom && s.id !== me.id).sort(byName) : [],
+      roommates: me.bedroom ? staff.filter((s) => s.bedroom === me.bedroom && s.id !== me.id).sort(compareRoomStaff) : [],
     };
   }, [staff, campers, bedrooms, phone]);
 }
@@ -171,7 +171,7 @@ export function useParentHome(): ParentHome | null {
       camper: k,
       bedroom: k.bedroom ? (bedrooms.find((b) => b.id === k.bedroom) ?? null) : null,
       caretaker: k.caretakerId ? (staffById.get(k.caretakerId) ?? null) : null,
-      roomStaff: k.bedroom ? staff.filter((s) => s.bedroom === k.bedroom && s.id !== k.caretakerId).sort(byName) : [],
+      roomStaff: k.bedroom ? staff.filter((s) => s.bedroom === k.bedroom && s.id !== k.caretakerId).sort(compareRoomStaff) : [],
     }));
     const contacts = (settings?.parentContacts ?? []).flatMap((c) => {
       const s = staffById.get(c.staffId);

@@ -4,7 +4,7 @@
  * screen readers / hover.
  *
  *   ⚠️ chronic conditions   🤮 allergies   🚫💊 drug allergies (must NOT take)
- *   💊 daily medicines      🍽️ food restrictions   🩺 extra medical notes
+ *   💊 medication (per medicine, with times)   🍽️ food restrictions   🩺 extra medical notes
  */
 import type { ReactNode } from "react";
 import { medicationLine, type Medication } from "../api/campers";
@@ -14,10 +14,8 @@ export interface HealthLike {
   allergies: string[];
   drugAllergies: string[];
   healthIssues: string[];
-  /** staff: free text */
-  medicines?: string;
-  /** kids: structured list with schedule */
-  medications?: Medication[];
+  /** structured list with schedule */
+  medications: Medication[];
   foodRestrictions: string;
   healthNotes: string;
   /** kids only (admin / medical view) */
@@ -31,10 +29,9 @@ interface HealthAlertsProps {
   boxed?: boolean;
 }
 
-/** the medication of a kid (structured) or a team member (free text) as ONE readable text — "" when none */
+/** the person's medication as ONE readable text — "" when none */
 export function medicinesText(p: HealthLike): string {
-  if (p.medications?.length) return p.medications.map(medicationLine).join("; ");
-  return p.medicines ?? "";
+  return p.medications.map(medicationLine).join("; ");
 }
 
 export function healthLines(p: HealthLike, labelOf: HealthAlertsProps["labelOf"]) {
@@ -80,7 +77,7 @@ export default function HealthAlerts({ person, labelOf, boxed }: HealthAlertsPro
   const lines = healthLines(person, labelOf);
   if (lines.length === 0) return null;
   const items = lines.map((l) =>
-    l.title === "Medicação" && person.medications?.length ? (
+    l.title === "Medicação" && person.medications.length ? (
       <MedicationLines key={l.title} list={person.medications} />
     ) : (
       <p key={l.title} className={`staff-card__alert ${l.soft ? "staff-card__alert--soft" : ""}`} title={l.title}>

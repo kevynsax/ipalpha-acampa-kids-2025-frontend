@@ -2,6 +2,13 @@ import { BEDROOM_GROUPS, GROUP_META, type Bedroom, type BedroomGroup } from "../
 import type { Category, CategoryOption } from "../api/categories";
 import type { Team } from "../api/teams";
 import { useCollectionOrEmpty } from "../store";
+import NoPillIcon from "./NoPillIcon";
+
+/** the drug-allergy category is drawn with the "must not take" icon everywhere, whatever emoji the admin typed */
+function categoryIcon(cat: Category | undefined) {
+  if (cat?.key === "alergia-medicamentos") return <NoPillIcon />;
+  return cat?.emoji ?? "🏷️";
+}
 
 /** Options shown in a picker: the active ones + whatever is currently selected (even if inactive). */
 function pickable(cat: Category | undefined, selected: string[] | string | null): CategoryOption[] {
@@ -24,7 +31,7 @@ export function CategorySelect({ label, category: cat, value, onChange, disabled
   return (
     <label className="cat-field cat-field--grow">
       <span className="cat-field__label">
-        {cat?.emoji ?? "🏷️"} {label}
+        {categoryIcon(cat)} {label}
       </span>
       <select className="cat-input" value={value ?? ""} disabled={disabled || !cat} onChange={(e) => onChange(e.target.value || null)}>
         <option value="">{cat ? "Não definido" : "Categoria não cadastrada"}</option>
@@ -45,7 +52,7 @@ export function CategoryRadio({ label, category: cat, value, onChange, disabled 
   return (
     <fieldset className="cat-fieldset" role="radiogroup">
       <legend className="cat-field__label">
-        {cat?.emoji ?? "🏷️"} {label}
+        {categoryIcon(cat)} {label}
       </legend>
       {!cat && <p className="cat-hint">Categoria não cadastrada.</p>}
       {cat && options.length === 0 && <p className="cat-hint">Nenhuma opção cadastrada.</p>}
@@ -107,7 +114,7 @@ export function CategoryChips({ label, category: cat, value, onChange, disabled 
   return (
     <fieldset className="cat-fieldset">
       <legend className="cat-field__label">
-        {cat?.emoji ?? "🏷️"} {label}
+        {categoryIcon(cat)} {label}
       </legend>
       {!cat && <p className="cat-hint">Categoria não cadastrada.</p>}
       {cat && options.length === 0 && <p className="cat-hint">Nenhuma opção cadastrada.</p>}

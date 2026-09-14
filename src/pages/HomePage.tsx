@@ -8,7 +8,7 @@ import KidIcon from "../components/KidIcon";
 import PlayScene from "../components/PlayScene";
 import SelfCheckinCard from "../components/SelfCheckinCard";
 import StaffIcon from "../components/StaffIcon";
-import { kidSexOf } from "../icons";
+import { ICONS, kidSexOf } from "../icons";
 import type { LoggedUser } from "../roles";
 import { useCollection } from "../store";
 import { useLabelOf, useMyRoom } from "../store/derive";
@@ -194,18 +194,29 @@ export default function HomePage({ user, token }: HomePageProps) {
       {/* departure day only: "Cheguei na igreja!" */}
       <SelfCheckinCard token={token} user={user} />
 
-      {/* ── colleagues: name only ── */}
-      <section className="detail-section">
-        <h2 className="detail-h2">
-          <StaffIcon size={24} /> Colegas de equipe no quarto <span className="cat-tab__count">{roommates.length}</span>
-        </h2>
+      {/* ── colleagues: name and room role only ── */}
+      <section className="detail-section roommate-section">
+        <div className="roommate-head">
+          <h2 className="detail-h2">
+            <StaffIcon size={24} /> Equipe no quarto
+          </h2>
+          <span className="roommate-count">
+            {roommates.length} {roommates.length === 1 ? "pessoa" : "pessoas"}
+          </span>
+        </div>
         {roommates.length === 0 ? (
           <p className="opt-empty">Só você neste quarto. 😊</p>
         ) : (
-          <ul className="staff-card__tags roommate-list" aria-label="Colegas de equipe no quarto">
+          <ul className="roommate-list" aria-label="Equipe no quarto">
             {roommates.map((r) => (
-              <li key={r.id} className="staff-tag staff-tag--soft" title={ROOM_ROLE_META[r.roomRole]?.label}>
-                {r.roomRole === "caretaker" && <span aria-hidden="true">{ROOM_ROLE_META.caretaker.emoji}</span>} {r.name}
+              <li key={r.id} className="roommate-card">
+                <span className={`roommate-card__icon roommate-card__icon--${r.roomRole}`} aria-hidden="true">
+                  <img src={r.roomRole === "caretaker" ? ICONS.leader : ICONS.helper} alt="" />
+                </span>
+                <span className="roommate-card__body">
+                  <strong className="roommate-card__name">{r.name}</strong>
+                  <span className="roommate-card__role">{ROOM_ROLE_META[r.roomRole].label}</span>
+                </span>
               </li>
             ))}
           </ul>

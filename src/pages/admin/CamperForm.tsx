@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CAMPER_CATEGORY_KEYS, blankMedication, type Camper, type CamperInput, type CamperSex, type Medication } from "../../api/campers";
 import MedicationsEditor from "../../components/MedicationsEditor";
+import NoPillIcon from "../../components/NoPillIcon";
 import type { Category } from "../../api/categories";
 import { CategoryChips, CategoryRadio } from "../../components/CategoryFields";
 import ParentIcon from "../../components/ParentIcon";
@@ -124,7 +125,7 @@ export default function CamperForm({ camper, categories, busy, onSubmit, onCance
   );
 
   /** a switch that reveals its field only when on */
-  const optional = (label: string, on: boolean, setOn: (v: boolean) => void, field: React.ReactNode) => (
+  const optional = (label: React.ReactNode, on: boolean, setOn: (v: boolean) => void, field: React.ReactNode) => (
     <div className="cat-field opt-field">
       <div className="opt-field__head">
         <Toggle checked={on} onChange={setOn} disabled={busy} label={label} />
@@ -206,7 +207,14 @@ export default function CamperForm({ camper, categories, busy, onSubmit, onCance
       <section className="form-box form-box--plain" aria-labelledby="health-title">
         <h3 id="health-title" className="form-box__title">📝 Saúde e observações</h3>
         {optional("🤧 Alergias", hasAllergies, setHasAllergies, <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.allergies)} value={allergies} onChange={setAllergies} disabled={busy} />)}
-        {optional("💊 Alergia a medicamentos", hasDrugAllergies, setHasDrugAllergies, <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.drugAllergies)} value={drugAllergies} onChange={setDrugAllergies} disabled={busy} />)}
+        {optional(
+          <>
+            <NoPillIcon /> Alergia a medicamentos
+          </>,
+          hasDrugAllergies,
+          setHasDrugAllergies,
+          <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.drugAllergies)} value={drugAllergies} onChange={setDrugAllergies} disabled={busy} />,
+        )}
         {optional("🩺 Condição crônica", hasHealthIssues, setHasHealthIssues, <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.healthIssues)} value={healthIssues} onChange={setHealthIssues} disabled={busy} />)}
         <div className="cat-field opt-field">
           <div className="opt-field__head">
