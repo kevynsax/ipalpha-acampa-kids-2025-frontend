@@ -26,6 +26,7 @@ import iconNoPhotos from "./assets/icons/no-photos.png";
 import iconNotifications from "./assets/icons/notifications.png";
 import iconCleanup from "./assets/icons/cleanup.png";
 import iconSwap from "./assets/icons/swap.png";
+import iconMedications from "./assets/icons/medications.png";
 
 export const ICONS = {
   camper: iconCamper,
@@ -74,6 +75,8 @@ export const ICONS = {
   cleanup: iconCleanup,
   /** two thick curved arrows in a circle (teal over orange) — "trocar": move room, hand over, swap role */
   swap: iconSwap,
+  /** clipboard checklist with two orange ticks and a capsule on top — the Medicações tab (what each kid already took) */
+  medications: iconMedications,
 } as const;
 
 /** A kid's sex is not stored: it follows the wing of the bedroom (meninas / meninos). */

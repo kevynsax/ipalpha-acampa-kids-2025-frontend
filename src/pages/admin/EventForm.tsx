@@ -123,8 +123,7 @@ export default function EventForm({ token, event, roles, defaultDate, busy, onSu
       </div>
       {endTime && endTime <= startTime && <p className="cat-hint cat-hint--error">O fim precisa ser depois do início.</p>}
 
-      {/* Editing an event only touches ícone, título, data e horário — funções
-          e observações ficam na tela do evento. */}
+      {/* funções só na criação — ao editar, elas são gerenciadas na tela do evento */}
       {!editing && (
       <>
       <section className="form-box form-box--plain" aria-labelledby="event-roles-title">
@@ -176,6 +175,8 @@ export default function EventForm({ token, event, roles, defaultDate, busy, onSu
       <Dialog open={roleDialog} onClose={() => !creatingRole && setRoleDialog(false)} title="Nova função" width={680} dismissible={false}>
         <RoleForm embedded token={token} busy={creatingRole} onSubmit={handleCreateRole} onCancel={() => setRoleDialog(false)} />
       </Dialog>
+      </>
+      )}
 
       <label className="cat-field">
         <span className="cat-field__label">Observações (opcional)</span>
@@ -188,8 +189,6 @@ export default function EventForm({ token, event, roles, defaultDate, busy, onSu
           onChange={(e) => setNotes(e.target.value)}
         />
       </label>
-      </>
-      )}
 
       {error && <p className="message message--error">{error}</p>}
 

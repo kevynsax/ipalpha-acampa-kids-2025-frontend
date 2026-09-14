@@ -12,6 +12,7 @@ import { staffGreeting, whatsappLink } from "../whatsapp";
 import KidIcon from "../components/KidIcon";
 import PlayScene from "../components/PlayScene";
 import SelfCheckinCard from "../components/SelfCheckinCard";
+import MedicationsCard from "../components/MedicationsCard";
 import StaffIcon from "../components/StaffIcon";
 import { ICONS, kidSexOf } from "../icons";
 import type { LoggedUser } from "../roles";
@@ -24,6 +25,8 @@ import { speakDaySlash, speakWhen, todayIso } from "../dates";
 interface HomePageProps {
   user: LoggedUser;
   token: string;
+  /** MEDICAL team: their Início opens with today's medication checklist */
+  medical?: boolean;
 }
 
 
@@ -92,7 +95,7 @@ function BirthdayBanner({ birthdays, onOpen }: { birthdays: RoomBirthday[]; onOp
  * strips phones and health data of other staff; the UI never asks for them).
  * Guardian / emergency data never reaches this page.
  */
-export default function HomePage({ user, token }: HomePageProps) {
+export default function HomePage({ user, token, medical = false }: HomePageProps) {
   const data = useMyRoom(user.phone);
   const labelOf = useLabelOf();
   const settings = useCollection("settings");
@@ -155,6 +158,8 @@ export default function HomePage({ user, token }: HomePageProps) {
       <div className="admin-page">
         <h1 className="admin-title">Olá, {first}! 👋</h1>
         <SelfCheckinCard token={token} user={user} />
+        {/* the medical team works from this list even without a room of their own */}
+        {medical && <MedicationsCard token={token} onOpen={() => navigate("/medications")} />}
         <p className="opt-empty">
           Você ainda não tem um quarto definido.
           <br />
@@ -186,6 +191,9 @@ export default function HomePage({ user, token }: HomePageProps) {
 
       {/* departure day only: "Cheguei na igreja!" */}
       <SelfCheckinCard token={token} user={user} />
+
+      {/* MEDICAL team: what still has to be given today, one tap to tick (full list on the Medicações tab) */}
+      {medical && <MedicationsCard token={token} onOpen={() => navigate("/medications")} />}
 
       {/* ── colleagues: name, room role and phone ── */}
       <section className="detail-section roommate-section">

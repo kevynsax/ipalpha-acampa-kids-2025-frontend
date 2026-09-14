@@ -14,6 +14,7 @@ import { otherTrip } from "../hooks/useDefaultBusTrip";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import { useLabelOf } from "../store/derive";
 import { UndoGlyph } from "../components/Glyph";
+import { ICONS } from "../icons";
 
 interface BusCheckinPageProps {
   token: string;
@@ -164,7 +165,10 @@ export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false,
     return (
       <div className="admin-page">
         <header className="admin-head">
-          <h1 className="admin-title">🚌 {tripTitle}</h1>
+          <h1 className="admin-title">
+            <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" />
+            {tripTitle}
+          </h1>
         </header>
         <p className="opt-empty">
           O veículo que você ficaria na porta não existe mais.
@@ -182,7 +186,10 @@ export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false,
       <div className="admin-page">
         {checkinHomePath && <Breadcrumbs items={[{ label: "Check-in", onClick: () => navigate(checkinHomePath) }, { label: "Ônibus" }]} />}
         <header className="admin-head">
-          <h1 className="admin-title">🚌 {readOnly ? tripTitle : `Check-in: ${tripTitle}`}</h1>
+          <h1 className="admin-title">
+            <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" />
+            {readOnly ? tripTitle : `Check-in: ${tripTitle}`}
+          </h1>
           {swap && <div className="admin-head__actions">{swap}</div>}
         </header>
         <p className="admin-intro">{readOnly ? "Quem vai em cada veículo e quem já embarcou." : "Na porta de qual veículo você está?"}</p>
@@ -239,7 +246,7 @@ export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false,
         </h1>
         <div className="admin-head__actions">
           <span className="checkin-progress" title="Crianças que já embarcaram">
-            🚌 {counts.boarded}/{counts.total}
+            <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> {counts.boarded}/{counts.total}
           </span>
           {swap}
         </div>

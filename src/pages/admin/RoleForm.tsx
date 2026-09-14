@@ -18,10 +18,12 @@ interface RoleFormProps {
   onCancel: () => void;
   /** rendered inside a dialog: no card chrome, tighter title */
   embedded?: boolean;
+  /** hide 📝 Instruções e 🎒 Preparação — quando a tela de trás já edita esses textos */
+  hideDocs?: boolean;
 }
 
 /** Create / edit a role: name, icon, "for everyone" flag and WYSIWYG instructions. */
-export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedded }: RoleFormProps) {
+export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedded, hideDocs }: RoleFormProps) {
   const editing = !!role;
   const [name, setName] = useState(role?.name ?? "");
   const [emoji, setEmoji] = useState(role?.emoji ?? "🎯");
@@ -29,6 +31,7 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
   const [preparation, setPreparation] = useState(role?.preparation ?? "");
   const [forEveryone, setForEveryone] = useState(role?.forEveryone ?? false);
   const [hasDetail, setHasDetail] = useState(role?.hasDetail ?? false);
+  const [detailFromTeam, setDetailFromTeam] = useState(role?.detailFromTeam ?? false);
   const [detailPlaceholder, setDetailPlaceholder] = useState(role?.detailPlaceholder ?? "");
   const [error, setError] = useState<string | null>(null);
 
@@ -51,7 +54,9 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
         preparation,
         forEveryone,
         hasDetail: forEveryone ? false : hasDetail,
-        detailPlaceholder: forEveryone || !hasDetail ? "" : detailPlaceholder.trim(),
+        detailFromTeam: forEveryone || !hasDetail ? false : detailFromTeam,
+        // a team-backed detail is never typed, so it needs no hint
+        detailPlaceholder: forEveryone || !hasDetail || detailFromTeam ? "" : detailPlaceholder.trim(),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Algo deu errado.");
@@ -60,7 +65,7 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
 
   return (
     <form className={embedded ? "cat-form cat-form--embedded" : "cat-form cat-form--plain"} onSubmit={handleSubmit}>
-      {embedded && <h2 className="cat-form__title change-room__title">Nova função</h2>}
+      {embedded && <h2 className="cat-form__title change-room__title">{editing ? "Editar função" : "Nova função"}</h2>}
 
       <div className="cat-form__row">
         <div className="cat-field cat-field--emoji">
@@ -84,6 +89,56 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
         </label>
       </div>
 
+      {/* como a função é escalada vem antes dos textos longos: decide o formato do resto */}
+      <section className="form-box form-box--plain" aria-labelledby="role-options-title">
+        <h3 id="role-options-title" className="form-box__title">⚙️ Como a função é escalada</h3>
+      <div className="cat-field opt-field">
+        <div className="opt-field__head">
+          <Toggle checked={forEveryone} onChange={setForEveryone} disabled={busy} label="👥 Vale para toda a equipe" />
+        </div>
+        <p className="cat-hint">
+          Funções padrão (ex.: “cuidar das crianças”) valem para <strong>todos</strong> os voluntários do evento, sem escalar um por um.
+        </p>
+      </div>
+
+      {!forEveryone && (
+        <div className="cat-field opt-field">
+          <div className="opt-field__head">
+            <Toggle checked={hasDetail} onChange={setHasDetail} disabled={busy} label="🏷️ Tem um detalhe por pessoa" />
+          </div>
+          <p className="cat-hint">
+            Quando cada escalado precisa de uma informação própria — o time que acompanha, o número da base, o turno.
+          </p>
+          {hasDetail && (
+            <>
+              <div className="opt-field__head">
+                <Toggle checked={detailFromTeam} onChange={setDetailFromTeam} disabled={busy} label="🏳️ O detalhe é o time da pessoa" />
+              </div>
+              <p className="cat-hint">
+                O detalhe vem do <strong>time</strong> de cada um — não precisa preencher pessoa por pessoa. Só quem tem time entra nesta
+                função, e mudar alguém de time já atualiza todos os eventos.
+              </p>
+              {!detailFromTeam && (
+                <label className="cat-field">
+                  <span className="cat-field__label">Dica do detalhe (aparece no campo)</span>
+                  <input
+                    className="cat-input"
+                    placeholder="ex.: Base 3 · 14h–14h45"
+                    value={detailPlaceholder}
+                    maxLength={60}
+                    disabled={busy}
+                    onChange={(e) => setDetailPlaceholder(e.target.value)}
+                  />
+                </label>
+              )}
+            </>
+          )}
+        </div>
+      )}
+      </section>
+
+      {!hideDocs && (
+      <>
       <section className="form-box form-box--plain" aria-labelledby="role-instructions-title">
         <h3 id="role-instructions-title" className="form-box__title">📝 Instruções para a equipe</h3>
         <p className="cat-hint">O que a pessoa nesta função precisa fazer.</p>
@@ -115,42 +170,8 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
           placeholder="ex.: Leve uma camiseta verde e um boné — quanto mais parecido com o exército, melhor! 🥣"
         />
       </section>
-
-      <section className="form-box form-box--plain" aria-labelledby="role-options-title">
-        <h3 id="role-options-title" className="form-box__title">⚙️ Como a função é escalada</h3>
-      <div className="cat-field opt-field">
-        <div className="opt-field__head">
-          <Toggle checked={forEveryone} onChange={setForEveryone} disabled={busy} label="👥 Vale para toda a equipe" />
-        </div>
-        <p className="cat-hint">
-          Funções padrão (ex.: “cuidar das crianças”) valem para <strong>todos</strong> os voluntários do evento, sem escalar um por um.
-        </p>
-      </div>
-
-      {!forEveryone && (
-        <div className="cat-field opt-field">
-          <div className="opt-field__head">
-            <Toggle checked={hasDetail} onChange={setHasDetail} disabled={busy} label="🏷️ Tem um detalhe por pessoa" />
-          </div>
-          <p className="cat-hint">
-            Quando cada escalado precisa de uma informação própria — o time que acompanha, o número da base, o turno.
-          </p>
-          {hasDetail && (
-            <label className="cat-field">
-              <span className="cat-field__label">Dica do detalhe (aparece no campo)</span>
-              <input
-                className="cat-input"
-                placeholder="ex.: Time Belém · Base 3 · 14h–14h45"
-                value={detailPlaceholder}
-                maxLength={60}
-                disabled={busy}
-                onChange={(e) => setDetailPlaceholder(e.target.value)}
-              />
-            </label>
-          )}
-        </div>
+      </>
       )}
-      </section>
 
       {error && <p className="message message--error">{error}</p>}
 

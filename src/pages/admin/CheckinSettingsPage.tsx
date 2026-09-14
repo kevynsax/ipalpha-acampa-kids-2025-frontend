@@ -6,6 +6,7 @@ import SpotMap from "../../components/SpotMap";
 import BusHelpersEditor from "./BusHelpersEditor";
 import StaffListEditor from "./StaffListEditor";
 import { speakWhen } from "../../dates";
+import { ICONS } from "../../icons";
 
 interface CheckinSettingsPageProps {
   token: string;
@@ -278,7 +279,9 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
           if (returnOrderOk) void save("return-window", { busReturnWindow: { from: returnFromIso, until: returnUntilIso } });
         }}
       >
-        <h2 className="cat-form__title">🚌 Janela da volta para a igreja</h2>
+        <h2 className="cat-form__title">
+          <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> Janela da volta para a igreja
+        </h2>
         <p className="cat-hint">Horário em que os ajudantes fazem a chamada no ônibus antes de sair do acampamento.</p>
         <div className="cat-form__row staff-form__row">
           <label className="cat-field cat-field--grow">
@@ -304,7 +307,7 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
         {ok("return-window", returnOpenNow ? "Janela da volta salva — está aberta agora." : "Janela da volta salva.")}
         <div className="cat-form__actions">
           <button type="submit" className="button button--primary" disabled={!returnOrderOk || !returnDirty || !!busy}>
-            {busy === "return-window" ? "Salvando…" : "Salvar volta 🚌"}
+            {busy === "return-window" ? "Salvando…" : "Salvar volta"}
           </button>
         </div>
       </form>

@@ -48,6 +48,32 @@ async function makeThumb(file: File): Promise<Blob> {
   return blob;
 }
 
+export interface FaceSearchResult {
+  matches: { photo: GalleryPhoto; similarity: number }[];
+  indexedFaces: number;
+  pendingPhotos: number;
+}
+
+/** The reference stays in this request only; the server returns matched gallery ids. */
+export async function searchGalleryPerson(token: string, reference: File): Promise<FaceSearchResult> {
+  const image = await shrinkImage(reference);
+  const form = new FormData();
+  const name = reference.name.replace(/\.\w+$/, "") + (image.type === "image/png" ? ".png" : ".jpg");
+  form.append("reference", image, name);
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/api/gallery/search-person`, { method: "POST", headers: bearer(token), body: form });
+  } catch {
+    throw new ApiError(0, "OFFLINE", OFFLINE_MESSAGE);
+  }
+  const data = (await res.json().catch(() => null)) as FaceSearchResult | { error?: { code?: string; message?: string } } | null;
+  if (!res.ok || !data || !("matches" in data)) {
+    const error = data && "error" in data ? data.error : undefined;
+    throw new ApiError(res.status, error?.code ?? "FACE_SEARCH_FAILED", error?.message ?? "Não foi possível procurar as fotos.");
+  }
+  return data;
+}
+
 export interface GalleryUploadInput {
   file: File;
   caption: string;

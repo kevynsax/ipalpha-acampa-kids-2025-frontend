@@ -14,6 +14,7 @@ import { formatBrazilPhoneClient } from "../phoneFormat";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import { staffGreeting, whatsappLink } from "../whatsapp";
 import { speakTime } from "../dates";
+import { ICONS } from "../icons";
 
 interface TransportReportProps {
   /** admin token — enables tap-to-check for CAR passengers straight from the report */
@@ -155,7 +156,10 @@ export default function TransportReport({ token, onBack, onHome, onOpenStaff, on
     <div className="admin-page">
       <Breadcrumbs items={crumbs} />
       <header className="admin-head">
-        <h1 className="admin-title">🚌 Por veículo</h1>
+        <h1 className="admin-title">
+          <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" />
+          Por veículo
+        </h1>
         <span className="checkin-progress" title="Crianças que já chegaram">
           ✅ {totalArrived}/{totalKids}
         </span>

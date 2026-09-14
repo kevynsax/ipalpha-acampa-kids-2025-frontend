@@ -6,6 +6,7 @@ import Dialog from "../../components/Dialog";
 import BusLogo from "../../components/BusLogo";
 import CarLogo from "../../components/CarLogo";
 import { useCollectionOrEmpty } from "../../store";
+import { ICONS } from "../../icons";
 import StaffPicker from "./StaffPicker";
 
 /** The vehicle's coloured mark: the bus logo in its colour, or a car emoji. */
@@ -34,7 +35,6 @@ export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpe
   const transports = useCollectionOrEmpty("transports");
   const [adding, setAdding] = useState<Adding>(null);
 
-  const emoji = "🚌";
   const vehicles = useMemo(() => transports.slice().sort((a, b) => a.order - b.order), [transports]);
   const staffById = useMemo(() => new Map(staff.map((s) => [s.id, s])), [staff]);
   const placed = new Set(value.map((h) => h.staffId));
@@ -58,7 +58,7 @@ export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpe
     <>
       <div className="list-head">
         <h2 className="cat-form__title">
-          {emoji} Ajudantes do check-in no ônibus <span className="cat-tab__count">{value.length}</span>
+          <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> Ajudantes do check-in no ônibus <span className="cat-tab__count">{value.length}</span>
         </h2>
         {addButton()}
       </div>

@@ -86,7 +86,11 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
 
   const pickableRoles = (event?.roles ?? []).map((id) => roleById.get(id)).filter((r): r is ScheduleRole => !!r && !r.forEveryone);
   const alreadyInRole = useMemo(() => new Set((event?.assignments ?? []).filter((a) => a.roleId === roleId).map((a) => a.staffId)), [event, roleId]);
-  const pickableStaff = useMemo(() => staffList.filter((s) => !alreadyInRole.has(s.id)), [staffList, alreadyInRole]);
+  // a role whose detail IS the team can only hold people who have one
+  const pickableStaff = useMemo(
+    () => staffList.filter((s) => !alreadyInRole.has(s.id) && (!role?.detailFromTeam || !!s.team)),
+    [staffList, alreadyInRole, role],
+  );
   const days = [...new Set((events ?? []).map((e) => e.date))].sort();
 
   const ready = !!eventId && !!roleId && !!staffId;
@@ -125,7 +129,7 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
           setStaffId(id);
           const occ = occupied.get(id);
           // nothing else to ask? save straight away
-          if (!occ && !role?.hasDetail) {
+          if (!occ && (!role?.hasDetail || role.detailFromTeam)) {
             setBusy(true);
             assignStaff(token, eventId, id, roleId, "")
               .then(() => {
@@ -246,7 +250,11 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
           </p>
         )}
 
-        {role?.hasDetail && roleId && (
+        {role?.detailFromTeam && roleId && (
+          <p className="cat-hint">🏳️ O detalhe desta função é o time da pessoa — nada a preencher. Só quem tem time aparece na lista.</p>
+        )}
+
+        {role?.hasDetail && !role.detailFromTeam && roleId && (
           <label className="cat-field">
             <span className="cat-field__label">Detalhe</span>
             <input className="cat-input" placeholder={role.detailPlaceholder || "detalhe"} value={detail} maxLength={60} disabled={busy} autoFocus={!fromPerson} onChange={(e) => setDetail(e.target.value)} />

@@ -1,3 +1,4 @@
+import { ICONS } from "../../icons";
 import { roleMeta } from "../../roles";
 import { useRoute } from "../../router";
 
@@ -11,7 +12,7 @@ const OPTIONS = [
   {
     key: "bus",
     path: "/checkin/bus",
-    emoji: "🚌",
+    icon: ICONS.transport,
     title: "Ônibus",
   },
   {

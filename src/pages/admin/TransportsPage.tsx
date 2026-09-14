@@ -89,7 +89,10 @@ export default function TransportsPage({ token }: TransportsPageProps) {
     return (
       <div className="admin-page">
         <header className="admin-head transport-head">
-          <h1 className="admin-title">🚌 Transporte</h1>
+          <h1 className="admin-title">
+            <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" />
+            Transporte
+          </h1>
         </header>
         {error && <p className="message message--error">{error}</p>}
         {mode.kind === "edit" && !editing ? (
@@ -112,7 +115,10 @@ export default function TransportsPage({ token }: TransportsPageProps) {
   return (
     <div className="admin-page">
       <header className="admin-head transport-head">
-        <h1 className="admin-title">🚌 Transporte</h1>
+        <h1 className="admin-title">
+          <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" />
+          Transporte
+        </h1>
         <div className="admin-head__actions">
           <button type="button" className="button button--primary admin-head__new" disabled={busy} onClick={() => navigate("/transports/new")}>
             + Novo

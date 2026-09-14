@@ -14,6 +14,8 @@ import { sanitizeForEditor } from "../html";
 import AiAssistantPanel from "./AiAssistantPanel";
 import AiImageDialog from "./AiImageDialog";
 import HtmlSourceEditor from "./HtmlSourceEditor";
+import StyleMenu from "./StyleMenu";
+import { StyleTokens } from "./StyleTokens";
 import type { AiContext } from "../api/ai";
 import { AiGlyph } from "./Glyph";
 
@@ -36,6 +38,16 @@ interface RichTextEditorProps {
   aiTitle?: string;
   /** fired with the new HTML after the AI helper changes the content */
   onAiApplied?: (html: string) => void;
+  /** open the full-screen editor + assistant straight away (needs `token`) */
+  autoOpenAi?: boolean;
+  /**
+   * What "Concluir" does in the full-screen workspace. Default: just close the
+   * assistant and go back to the inline editor. Give this to make Concluir
+   * SAVE the document — the wording promises it, so nothing is lost.
+   */
+  onDone?: () => void;
+  /** disables Concluir while the save is in flight */
+  doneBusy?: boolean;
 }
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -117,11 +129,11 @@ const CalloutPreview = Extension.create({
  * rule, links, pills (<mark>), collapsible sections (<details>) and images
  * (uploaded to /api/files, stored as relative urls).
  */
-export default function RichTextEditor({ value, onChange, placeholder, disabled, token, tall, aiContext, aiTitle, onAiApplied }: RichTextEditorProps) {
+export default function RichTextEditor({ value, onChange, placeholder, disabled, token, tall, aiContext, aiTitle, onAiApplied, autoOpenAi, onDone, doneBusy }: RichTextEditorProps) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [aiOpen, setAiOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(!!autoOpenAi && !!token);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [drawOpen, setDrawOpen] = useState(false);
   // kept in a ref so the paste/drop handlers (set up once) always see the latest token
@@ -149,6 +161,7 @@ export default function RichTextEditor({ value, onChange, placeholder, disabled,
       DetailsSummary,
       DetailsContent,
       Chip,
+      StyleTokens,
       CalloutPreview,
       Placeholder.configure({ placeholder: placeholder ?? "Escreva as instruções…" }),
     ],
@@ -270,6 +283,7 @@ export default function RichTextEditor({ value, onChange, placeholder, disabled,
         )}
         {btn("🏷️", "Etiqueta (pílula colorida)", editor.isActive("chip"), () => c().toggleChip().run())}
         <span className="rte__sep" />
+        <StyleMenu editor={editor} disabled={disabled} />
         {btn("</>", "Editar o HTML do documento", sourceOpen, () => setSourceOpen((v) => !v), "rte__btn--code")}
         {btn("🔗", "Link", editor.isActive("link"), setLink)}
         {btn("⌸", editor.isActive("table") ? "Remover tabela" : "Tabela (3 colunas no máximo, para dados curtos)", editor.isActive("table"), () =>
@@ -334,8 +348,14 @@ export default function RichTextEditor({ value, onChange, placeholder, disabled,
         <div className="ai-workspace" role="dialog" aria-modal="true" aria-label="Editor com assistente de IA">
           <header className="ai-workspace__head">
             <span className="ai-workspace__title"><AiGlyph /> {aiTitle?.trim() || "Editor com assistente"}</span>
-            <button type="button" className="button button--secondary ai-workspace__done" onClick={() => setAiOpen(false)}>
-              Concluir
+            <button
+              type="button"
+              className="button button--secondary ai-workspace__done"
+              title={onDone ? "Salvar o texto e fechar" : "Fechar o assistente"}
+              disabled={doneBusy}
+              onClick={() => (onDone ? onDone() : setAiOpen(false))}
+            >
+              {doneBusy ? "Salvando…" : "Concluir"}
             </button>
           </header>
           <div className="ai-workspace__body">

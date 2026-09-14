@@ -33,6 +33,7 @@ import CheckinPage from "./CheckinPage";
 import HomePage from "./HomePage";
 import MySchedulePage from "./MySchedulePage";
 import OccurrencesPage from "./OccurrencesPage";
+import MedicationsPage from "./MedicationsPage";
 import StaffCheckinPage from "./StaffCheckinPage";
 import VestPage from "./VestPage";
 import VestHelpersPage from "./admin/VestHelpersPage";
@@ -104,8 +105,9 @@ interface Tab {
  * member listed as a helper gets "Check-in Igreja" / "Check-in Ônibus" while
  * the admin's window for that roll call is open; an ORGANIZER gets the whole
  * admin tab set on top of their own (the admin gets only the admin set); a GAME organizer gets the admin
- * "Programação" and a read-only "Equipe"; the MEDICAL team gets read-only
- * "Acampantes" and "Ônibus" with no window; a VEST helper gets "Coletes";
+ * "Programação" and a read-only "Equipe"; the MEDICAL team gets its own tab
+ * set (`medicalTabs` — the kids, the occurrences and the medication
+ * checklist, never the roll call); a VEST helper gets "Coletes";
  * everyone gets "Placar" while the camp is on, or while the admin's
  * "scoreboard draft" is on (read-only unless GAME organizer / score helper /
  * organizer / admin) — see hooks/useCheckinHelper and campPhase. The admin
@@ -128,11 +130,35 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
     { key: "checkin", label: "Check-in", emoji: "✅" },
     ...scoreboard,
     { key: "occurrences", label: "Ocorrências", emoji: "📋" },
+    // what the medical team ticked as given (they own the page; the admin follows it)
+    { key: "medications", label: "Medicações", icon: ICONS.medications },
     // the photo album closes the tab row (admin / organizer view)
     { key: "gallery", label: "Fotos", icon: ICONS.camera },
   ];
   /** an ORGANIZER: their own room / preparation / instructions followed by everything the admin has */
   const managerTabs: Tab[] = [...teamHome, { key: "instructions", label: "Instruções", emoji: "📖" }, ...adminTabs];
+  /**
+   * The MEDICAL team (Settings → Equipe médica), in the order they work in:
+   * their room, every kid (read-only, health included), the occurrences they
+   * write and the daily medication checklist — then the programme, their own
+   * preparação / instruções and the album. NO ônibus tab and no Placar: the
+   * roll call and the games are not their job. A medical person who is ALSO a
+   * listed helper (church roll call, ônibus, coletes) keeps that tab.
+   */
+  const medicalTabs: Tab[] = [
+    // rooms still a draft: nobody knows their room yet, so "Início" would be empty
+    ...(roomsDraft ? [] : [home]),
+    { key: "campers", label: "Acampantes", icon: ICONS.camper },
+    { key: "occurrences", label: "Ocorrências", emoji: "📋" },
+    { key: "medications", label: "Medicações", icon: ICONS.medications },
+    { key: "schedule", label: "Programação", emoji: "📅" },
+    prep,
+    { key: "instructions", label: "Instruções", emoji: "📖" },
+    ...(helper.church ? [{ key: "checkin" as const, label: "Check-in Igreja", emoji: "⛪" }] : []),
+    ...(helper.bus ? [{ key: "bus" as const, label: "Check-in Ônibus", icon: ICONS.transport }] : []),
+    ...(helper.vest ? [{ key: "vests" as const, label: "Coletes", emoji: "🦺" }] : []),
+    ...(galleryOpen ? [{ key: "gallery" as const, label: "Fotos", icon: ICONS.camera }] : []),
+  ];
   switch (role) {
     // the admin only manages: no room / preparation / instructions of their own
     case "admin":
@@ -142,18 +168,18 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
     case "health_staff":
       // an ORGANIZER: the admin's tabs on top of their own
       if (helper.organizer) return managerTabs;
+      // the medical team has its own set: the kids and their medication, never the roll call
+      if (helper.medical) return medicalTabs;
       return [
         ...teamHome,
         { key: "schedule", label: "Programação", emoji: "📅" },
         { key: "instructions", label: "Instruções", emoji: "📖" },
         // the whole team follows the games (while the camp is on); only the game organizers write the points
         ...scoreboard,
-        ...(helper.medical ? [{ key: "campers" as const, label: "Acampantes", icon: ICONS.camper }] : []),
         ...(helper.gameOrganizer ? [{ key: "staff" as const, label: "Equipe", icon: roleMeta("staff").icon }] : []),
         ...(helper.church ? [{ key: "checkin" as const, label: "Check-in Igreja", emoji: "⛪" }] : []),
-        // a bus helper rolls-call inside the window; the medical team just LOOKS at every vehicle, always
-        ...(helper.bus || helper.medical ? [{ key: "bus" as const, label: helper.bus ? "Check-in Ônibus" : "Ônibus", emoji: "🚌" }] : []),
-        ...(helper.medical ? [{ key: "occurrences" as const, label: "Ocorrências", emoji: "📋" }] : []),
+        // a bus helper rolls-call inside the window
+        ...(helper.bus ? [{ key: "bus" as const, label: "Check-in Ônibus", icon: ICONS.transport }] : []),
         ...(helper.vest ? [{ key: "vests" as const, label: "Coletes", emoji: "🦺" }] : []),
         // the photo album is always the LAST tab — and only once it is published
         // (the photographers see it from the start, to send and publish)
@@ -345,12 +371,13 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
           </nav>
         )}
         <TabOverrideContext.Provider value={setTabOverride}>
-          {view === "home" && (isParent ? <ParentHomePage user={user} token={token} access={parentAccess} /> : <HomePage user={user} token={token} />)}
+          {view === "home" && (isParent ? <ParentHomePage user={user} token={token} access={parentAccess} /> : <HomePage user={user} token={token} medical={helper.medical} />)}
           {view === "prep" && (isParent ? <ParentPreparationPage user={user} /> : <PreparationPage user={user} token={token} />)}
           {view === "preparation" && <PreparationAdminPage token={token} />}
           {view === "instructions-admin" && <InstructionsAdminPage token={token} />}
           {view === "instructions" && <InstructionsPage user={user} />}
           {view === "occurrences" && <OccurrencesPage token={token} user={user} manager={settingsAllowed} />}
+          {view === "medications" && <MedicationsPage token={token} />}
           {view === "campers" && <CampersPage token={token} readOnly={!settingsAllowed} />}
           {view === "staff" && <StaffPage token={token} readOnly={!settingsAllowed} />}
           {view === "bedrooms" && <BedroomsPage token={token} readOnly={!settingsAllowed} />}
@@ -368,7 +395,7 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
           {view === "teams" && <TeamsPage token={token} />}
           {view === "game-organizers" && <GameOrganizersPage token={token} />}
           {view === "scoreboard" && <ScoreboardPage token={token} userId={user.id} canEdit={settingsAllowed || helper.gameOrganizer} canScan={settingsAllowed || helper.gameOrganizer || helper.scoreHelper} />}
-          {view === "gallery" && <GalleryPage token={token} canManage={settingsAllowed || helper.photographer} />}
+          {view === "gallery" && <GalleryPage token={token} canManage={settingsAllowed || helper.photographer} parentMode={isParent} />}
           {view === "contacts" && <ParentContactsPage token={token} />}
           {view === "notifications" && <NotificationsPage token={token} />}
           {view === "about" && <AboutPage token={token} />}
@@ -391,9 +418,6 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
           {view === "bus" && segments.length > 1 && helper.bus && ((segments[1] === "outbound" && !helper.busOutbound) || (segments[1] === "return" && !helper.busReturn)) && (
             <BusTripsPage outboundAvailable={helper.busOutbound} returnAvailable={helper.busReturn} />
           )}
-          {view === "bus" && segments.length === 1 && helper.medical && !helper.bus && <BusTripsPage />}
-          {view === "bus" && segments[1] === "outbound" && helper.medical && !helper.bus && <BusCheckinPage token={token} trip="outbound" readOnly />}
-          {view === "bus" && segments[1] === "return" && helper.medical && !helper.bus && <BusCheckinPage token={token} trip="return" readOnly />}
           {view === "staffcheckin" && <StaffCheckinPage token={token} />}
           {view === "profile" && (isParent ? <ParentProfile user={user} tokenExpiresAt={tokenExpiresAt} /> : <ProfileView user={user} tokenExpiresAt={tokenExpiresAt} />)}
         </TabOverrideContext.Provider>

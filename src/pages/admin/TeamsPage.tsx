@@ -2,9 +2,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useConfirm } from "../../components/ConfirmDialog";
 import Dialog from "../../components/Dialog";
 import { contrastText, createTeam, deleteTeam, reorderTeams, updateTeam, type Team, type TeamInput } from "../../api/teams";
-import type { Staff } from "../../api/staff";
 import { useCollection, useCollectionOrEmpty } from "../../store";
-import StaffPicker from "./StaffPicker";
 import PageFooter from "../../components/PageFooter";
 
 interface TeamsPageProps {
@@ -12,9 +10,8 @@ interface TeamsPageProps {
 }
 
 /**
- * Admin-only: the camp TEAMS (times) — name, colour and the team's "coringa"
- * (a staff member). Kids and staff are linked to a team on their forms; the
- * scoreboard (Placar) ranks these teams.
+ * Admin-only: the camp TEAMS (times) — name and colour. Kids and staff are
+ * linked to a team on their forms; the scoreboard (Placar) ranks these teams.
  */
 export default function TeamsPage({ token }: TeamsPageProps) {
   const teams = useCollection("teams");
@@ -26,7 +23,6 @@ export default function TeamsPage({ token }: TeamsPageProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const staffById = useMemo(() => new Map(staff.map((s) => [s.id, s])), [staff]);
   const members = useMemo(() => {
     const m = new Map<string, { kids: number; staff: number }>();
     for (const k of campers) if (k.team) m.set(k.team, { kids: (m.get(k.team)?.kids ?? 0) + 1, staff: m.get(k.team)?.staff ?? 0 });
@@ -95,7 +91,7 @@ export default function TeamsPage({ token }: TeamsPageProps) {
         </button>
       </header>
       <p className="admin-intro">
-        Os times do acampamento: <strong>nome, cor e coringa</strong>.
+        Os times do acampamento: <strong>nome e cor</strong>.
       </p>
 
       {error && <p className="message message--error">{error}</p>}
@@ -105,7 +101,6 @@ export default function TeamsPage({ token }: TeamsPageProps) {
       ) : (
         <ul className="team-list">
           {teams.map((t, i) => {
-            const joker = t.jokerStaffId ? staffById.get(t.jokerStaffId) : null;
             const m = members.get(t.id);
             return (
               <li key={t.id} className="team-card" style={{ borderLeftColor: t.color }}>
@@ -115,12 +110,12 @@ export default function TeamsPage({ token }: TeamsPageProps) {
                 <div className="team-card__body">
                   <h3 className="team-card__name">{t.name}</h3>
                   <p className="team-card__meta">
-                    🃏 {joker ? joker.name : <em className="staff-card__missing">sem coringa</em>}
-                    {m && (
+                    {m ? (
                       <>
-                        {" "}
-                        · {m.kids} criança{m.kids !== 1 ? "s" : ""} · {m.staff} da equipe
+                        {m.kids} criança{m.kids !== 1 ? "s" : ""} · {m.staff} da equipe
                       </>
+                    ) : (
+                      <em className="staff-card__missing">sem ninguém ainda</em>
                     )}
                   </p>
                 </div>
@@ -146,7 +141,7 @@ export default function TeamsPage({ token }: TeamsPageProps) {
 
       <PageFooter>🔒 Quem lança pontos no Placar é definido em Configurações → Jogos.</PageFooter>
 
-      {editing && <TeamDialog team={editing === "new" ? undefined : editing} staff={staff} busy={busy} onSave={handleSave} onClose={() => setEditing(null)} />}
+      {editing && <TeamDialog team={editing === "new" ? undefined : editing} busy={busy} onSave={handleSave} onClose={() => setEditing(null)} />}
     </div>
   );
 }
@@ -166,18 +161,15 @@ const PRESETS: { name: string; hex: string }[] = [
   { name: "Preto", hex: "#1a1a1a" },
 ];
 
-function TeamDialog({ team, staff, busy, onSave, onClose }: { team?: Team; staff: Staff[]; busy: boolean; onSave: (input: TeamInput) => Promise<void>; onClose: () => void }) {
+function TeamDialog({ team, busy, onSave, onClose }: { team?: Team; busy: boolean; onSave: (input: TeamInput) => Promise<void>; onClose: () => void }) {
   const [name, setName] = useState(team?.name ?? "");
   const [color, setColor] = useState(team?.color ?? PRESETS[0].hex);
-  const [jokerStaffId, setJoker] = useState<string | null>(team?.jokerStaffId ?? null);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const joker = jokerStaffId ? staff.find((s) => s.id === jokerStaffId) : null;
   const valid = name.trim().length > 0 && /^#[0-9a-f]{6}$/i.test(color);
 
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!valid || busy) return;
-    void onSave({ name: name.trim(), color: color.toLowerCase(), jokerStaffId });
+    void onSave({ name: name.trim(), color: color.toLowerCase() });
   }
 
   return (
@@ -217,22 +209,6 @@ function TeamDialog({ team, staff, busy, onSave, onClose }: { team?: Team; staff
           </div>
         </div>
 
-        <div className="cat-field">
-          <span className="cat-field__label">🃏 Coringa</span>
-          {joker ? (
-            <div className="staff-tag helpers-tag team-joker">
-              <span className="helpers-tag__name">{joker.name}</span>
-              <button type="button" className="helpers-tag__x" aria-label="Remover coringa" title="Remover" disabled={busy} onClick={() => setJoker(null)}>
-                ✕
-              </button>
-            </div>
-          ) : (
-            <button type="button" className="button button--secondary list-head__add" disabled={busy} onClick={() => setPickerOpen(true)}>
-              ➕ Escolher pessoa
-            </button>
-          )}
-        </div>
-
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" disabled={busy} onClick={onClose}>
             Cancelar
@@ -242,17 +218,6 @@ function TeamDialog({ team, staff, busy, onSave, onClose }: { team?: Team; staff
           </button>
         </div>
       </form>
-      <StaffPicker
-        open={pickerOpen}
-        title="Escolher o coringa"
-        staff={staff.filter((s) => s.active)}
-        occupied={new Map()}
-        onPick={(id) => {
-          setJoker(id);
-          setPickerOpen(false);
-        }}
-        onClose={() => setPickerOpen(false)}
-      />
     </Dialog>
   );
 }

@@ -7,8 +7,6 @@ export interface Team {
   name: string;
   /** #rrggbb */
   color: string;
-  /** the team's "coringa" — a staff id, or null */
-  jokerStaffId: string | null;
   order: number;
   createdAt: string;
   updatedAt: string;
@@ -17,7 +15,6 @@ export interface Team {
 export interface TeamInput {
   name: string;
   color: string;
-  jokerStaffId: string | null;
 }
 
 const json = (token: string) => ({ ...bearer(token), "content-type": "application/json" });

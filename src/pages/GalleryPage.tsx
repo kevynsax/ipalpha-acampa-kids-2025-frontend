@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { deleteGalleryPhotos, extractZipImages, galleryUrl, isZip, reorderGalleryPhotos, setAlbumPublished, updateGalleryPhotos, uploadGalleryPhoto, zipSupported, type GalleryPhoto } from "../api/gallery";
+import { deleteGalleryPhotos, extractZipImages, galleryUrl, isZip, reorderGalleryPhotos, searchGalleryPerson, setAlbumPublished, updateGalleryPhotos, uploadGalleryPhoto, zipSupported, type GalleryPhoto } from "../api/gallery";
 import { type CampEvent } from "../api/schedule";
 import { downloadPhotos, isAbort, safeName, zipsDownloads, type DownloadItem } from "../galleryDownload";
 import { useMarqueeSelect } from "../hooks/useMarqueeSelect";
@@ -17,6 +17,8 @@ interface GalleryPageProps {
   token: string;
   /** admin / organizer or a listed photographer: may upload, edit and publish */
   canManage: boolean;
+  /** parents receive photos only after a temporary face-reference search */
+  parentMode?: boolean;
 }
 
 /** A download under way (or the card that just finished one). */
@@ -83,8 +85,10 @@ async function walkEntry(entry: FileSystemEntry, out: File[]): Promise<void> {
  * and team member sees the photos. Pictures may belong to a programme event or
  * be general photos of the camp.
  */
-export default function GalleryPage({ token, canManage }: GalleryPageProps) {
-  const photos = useCollectionOrEmpty("gallery");
+export default function GalleryPage({ token, canManage, parentMode = false }: GalleryPageProps) {
+  const storePhotos = useCollectionOrEmpty("gallery");
+  const [parentPhotos, setParentPhotos] = useState<GalleryPhoto[] | null>(null);
+  const photos = parentMode ? parentPhotos ?? [] : storePhotos;
   const events = useCollectionOrEmpty("events");
   const settings = useCollection("settings");
   const confirm = useConfirm();
@@ -118,8 +122,41 @@ export default function GalleryPage({ token, canManage }: GalleryPageProps) {
   /** where the insertion marker sits while rearranging */
   const [dropAt, setDropAt] = useState<{ key: string; index: number } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const referenceInput = useRef<HTMLInputElement>(null);
+  const [faceSearching, setFaceSearching] = useState(false);
+  const [referencePreview, setReferencePreview] = useState<string | null>(null);
+  const [facePending, setFacePending] = useState(0);
   /** dragenter/dragleave fire for every child element: count them so the overlay doesn't flicker */
   const dragDepth = useRef(0);
+
+  // the preview is an object url: the browser frees it when it is replaced or the tab closes
+  useEffect(() => () => {
+    if (referencePreview) URL.revokeObjectURL(referencePreview);
+  }, [referencePreview]);
+
+  /**
+   * The parent's reference picture. It travels in ONE request, is matched
+   * against the album's stored face vectors and is never saved anywhere.
+   */
+  async function handleReference(file: File | null) {
+    if (!parentMode || !file || faceSearching) return;
+    setReferencePreview(URL.createObjectURL(file));
+    setFaceSearching(true);
+    setError(null);
+    try {
+      const result = await searchGalleryPerson(token, file);
+      setParentPhotos(result.matches.map((match) => match.photo));
+      setFacePending(result.pendingPhotos);
+      setSelected(new Set());
+      setLightbox(null);
+    } catch (err) {
+      setParentPhotos(null);
+      setError(err instanceof Error ? err.message : "Não foi possível procurar as fotos.");
+    } finally {
+      setFaceSearching(false);
+      if (referenceInput.current) referenceInput.current.value = "";
+    }
+  }
 
   const eventById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events]);
   /** the album switch: one flag for the whole gallery, not per photo */
@@ -150,7 +187,8 @@ export default function GalleryPage({ token, canManage }: GalleryPageProps) {
 
   /** groups of the "Todas" view: one section per event (programme order), photos without an event last */
   const groups = useMemo(() => {
-    if (filter !== "all") return null;
+    // parents get one flat list of their own matches — no event sections, no filter
+    if (parentMode || filter !== "all") return null;
     const out: Section[] = [];
     for (const { event } of eventSections) {
       out.push({ key: `event:${event.id}`, title: event.title, emoji: event.emoji || "📅", eventId: event.id, photos: photos.filter((p) => p.eventId === event.id) });
@@ -166,6 +204,7 @@ export default function GalleryPage({ token, canManage }: GalleryPageProps) {
    * too; only the "Todas" view offers several sections to move photos between.
    */
   const flatSection: Section = useMemo(() => {
+    if (parentMode) return { key: "general", title: "Suas fotos", emoji: "📷", eventId: null, photos: visible };
     if (filter !== "all" && filter !== "general") {
       const event = eventById.get(filter.event);
       return { key: `event:${filter.event}`, title: event?.title ?? "Evento", emoji: event?.emoji || "📅", eventId: filter.event, photos: visible };
@@ -774,7 +813,22 @@ export default function GalleryPage({ token, canManage }: GalleryPageProps) {
         </div>
         )}
       </header>
-      <p className="admin-intro">Os momentos do acampamento para pais e equipe</p>
+      <p className="admin-intro">{parentMode ? "Envie uma foto nítida para encontrar e baixar suas fotos" : "Os momentos do acampamento para pais e equipe"}</p>
+
+      {parentMode && (
+        <section className="face-search">
+          <input ref={referenceInput} type="file" accept="image/*" capture="user" hidden onChange={(e) => void handleReference(e.target.files?.[0] ?? null)} />
+          {referencePreview && <img className="face-search__preview" src={referencePreview} alt="Foto de referência" />}
+          <div className="face-search__body">
+            <h2 className="face-search__title">Encontre suas fotos</h2>
+            <p className="cat-hint">A foto serve apenas para esta busca e não fica salva.</p>
+            <button type="button" className="button button--primary" onClick={() => referenceInput.current?.click()} disabled={faceSearching || !anyPublished}>
+              {faceSearching ? "Procurando…" : referencePreview ? "Usar outra foto" : "Escolher foto de referência"}
+            </button>
+            {!anyPublished && <p className="cat-hint">As fotos ainda não foram publicadas.</p>}
+          </div>
+        </section>
+      )}
 
       {error && <p className="message message--error">{error}</p>}
 
@@ -902,7 +956,11 @@ export default function GalleryPage({ token, canManage }: GalleryPageProps) {
         </section>
       )}
 
-      {photos.length > 0 && (
+      {parentMode && parentPhotos !== null && photos.length > 0 && (
+        <p className="face-search__result">{photos.length} foto{photos.length === 1 ? " encontrada" : "s encontradas"}{facePending > 0 ? ` · ${facePending} ainda sendo analisada${facePending === 1 ? "" : "s"}` : ""}</p>
+      )}
+
+      {!parentMode && photos.length > 0 && (
         <nav className="cat-tabs" aria-label="Filtrar fotos">
           {chip("all", "Todas", photos.length)}
           {/* same order as the sections: programme order, sem evento no fim */}
@@ -917,7 +975,16 @@ export default function GalleryPage({ token, canManage }: GalleryPageProps) {
         {photos.length === 0 ? (
           <div className="admin-empty">
             <img className="admin-empty__icon admin-empty__icon--lg" src={ICONS.noPhotos} alt="" aria-hidden="true" />
-            <p>{canManage ? "Nenhuma foto ainda — arraste as fotos para cá para começar." : "Ainda não há fotos. Os fotógrafos estão capturando os melhores momentos!"}</p>
+            <p>
+              {parentMode
+                ? parentPhotos === null
+                  ? "Escolha uma foto de referência para ver as fotos encontradas."
+                  : "Não encontramos você nas fotos publicadas. Tente outra foto, de frente e com boa luz."
+                : canManage
+                  ? "Nenhuma foto ainda — arraste as fotos para cá para começar."
+                  : "Ainda não há fotos. Os fotógrafos estão capturando os melhores momentos!"}
+            </p>
+            {parentMode && parentPhotos !== null && facePending > 0 && <p className="cat-hint">{facePending} foto{facePending === 1 ? " ainda está" : "s ainda estão"} sendo analisada{facePending === 1 ? "" : "s"}.</p>}
           </div>
         ) : visible.length === 0 ? (
           <p className="opt-empty">Nenhuma foto aqui.</p>
@@ -951,8 +1018,7 @@ export default function GalleryPage({ token, canManage }: GalleryPageProps) {
       {marquee.rect && createPortal(<div className="gallery-marquee" style={marquee.rect} aria-hidden="true" />, document.body)}
 
       <PageFooter>
-        {/* fixed copy — do not reword */}
-        {canManage ? "📷 Ao ligar Publicadas, pais e equipe veem na hora." : "📷 Novas fotos aparecem aqui assim que o fotógrafo publica."}
+        {parentMode ? "📷 Sua foto de referência não fica salva." : canManage ? "📷 Ao ligar Publicadas, pais e equipe veem na hora." : "📷 Novas fotos aparecem aqui assim que o fotógrafo publica."}
       </PageFooter>
 
       {/* lightbox */}

@@ -182,7 +182,6 @@ export default function SchedulePage({ token }: SchedulePageProps) {
         onEdit={() => navigate(`/schedule/events/${ev.id}/edit`)}
         onOpenStaff={(id) => navigate(detailUrl({ kind: "staff", id }, chain))}
         onOpenRole={(id) => navigate(detailUrl({ kind: "role", id }, chain))}
-        onEditRole={(id) => navigate(`/schedule/roles/${id}/edit`)}
       />
     );
   }

@@ -8,6 +8,7 @@ import BusLogo from "./BusLogo";
 import CarLogo from "./CarLogo";
 import NoPillIcon from "./NoPillIcon";
 import { teamTagStyle } from "./TeamTag";
+import { ICONS } from "../icons";
 
 /** the drug-allergy category is drawn with the "must not take" icon everywhere, whatever emoji the admin typed */
 function categoryIcon(cat: Category | undefined) {
@@ -174,7 +175,9 @@ export function TransportSelect({ value, onChange, disabled, label = "Transporte
   return (
     <fieldset className="cat-fieldset" role="radiogroup">
       <legend className="cat-field__label cat-field__label--split">
-        <span>🚌 {label}</span>
+        <span className="cat-field__label--icon">
+          <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> {label}
+        </span>
         {cars.length > 0 && !carsOpen && (
           <button type="button" className="link-btn cat-field__link" disabled={disabled} onClick={() => setShowCars(true)}>
             Outros

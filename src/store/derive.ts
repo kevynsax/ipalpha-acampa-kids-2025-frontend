@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import type { Bedroom, BedroomDetail } from "../api/bedrooms";
 import type { Camper, CamperDetail } from "../api/campers";
 import type { Category, CategoryAudience } from "../api/categories";
-import type { CampEvent, RoleDetail, ScheduleRole } from "../api/schedule";
+import { roleDetailOf, type CampEvent, type RoleDetail, type ScheduleRole } from "../api/schedule";
 import { compareRoomStaff, type Staff, type StaffDetail, type StaffScheduleItem } from "../api/staff";
 import type { Team } from "../api/teams";
 import type { Transport } from "../api/transports";
@@ -62,11 +62,13 @@ export function useStaffDetail(staffId: string): StaffDetail | null | undefined 
   const bedrooms = useCollectionOrEmpty("bedrooms");
   const events = useCollectionOrEmpty("events");
   const roles = useCollectionOrEmpty("roles");
+  const teams = useCollectionOrEmpty("teams");
   return useMemo(() => {
     if (!staff) return null;
     const s = staff.find((x) => x.id === staffId);
     if (!s) return undefined;
     const roleById = new Map(roles.map((r) => [r.id, r]));
+    const myTeam = s.team ? teams.find((t) => t.id === s.team) : null;
     const room = s.bedroom ? bedrooms.find((b) => b.id === s.bedroom) : null;
 
     const schedule: StaffScheduleItem[] = [];
@@ -85,7 +87,7 @@ export function useStaffDetail(staffId: string): StaffDetail | null | undefined 
         title: e.title,
         emoji: e.emoji,
         role: r ? { id: r.id, name: r.name, emoji: r.emoji, instructions: r.instructions } : null,
-        detail: a?.detail ?? "",
+        ...roleDetailOf(r, a, myTeam),
         implicit: !a,
         defaultRole: fallback ? { id: fallback.id, name: fallback.name, emoji: fallback.emoji } : null,
       });
@@ -101,7 +103,7 @@ export function useStaffDetail(staffId: string): StaffDetail | null | undefined 
       otherCampers: s.roomRole === "caretaker" && s.bedroom ? campers.filter((k) => k.bedroom === s.bedroom && k.caretakerId !== s.id).sort(byName) : [],
       roommates: s.bedroom ? staff.filter((x) => x.bedroom === s.bedroom && x.id !== s.id).sort(compareRoomStaff) : [],
     };
-  }, [staff, campers, bedrooms, events, roles, staffId]);
+  }, [staff, campers, bedrooms, events, roles, teams, staffId]);
 }
 
 export interface MyRoom {
@@ -203,11 +205,13 @@ export function useMyPrepRoles(phone: string): MyPrepRole[] | null {
   const staff = useCollection("staff");
   const events = useCollection("events");
   const roles = useCollectionOrEmpty("roles");
+  const teams = useCollectionOrEmpty("teams");
   return useMemo(() => {
     if (!staff || !events) return null;
     const me = staff.find((s) => s.phone === phone);
     if (!me) return [];
     const roleById = new Map(roles.map((r) => [r.id, r]));
+    const myTeam = me.team ? teams.find((t) => t.id === me.team) : null;
     const acc = new Map<string, MyPrepRole>();
     const add = (r: ScheduleRole | undefined, detail: string, e: CampEvent) => {
       if (!r) return;
@@ -220,22 +224,24 @@ export function useMyPrepRoles(phone: string): MyPrepRole[] | null {
     const ordered = [...events].sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime) || a.title.localeCompare(b.title, "pt-BR"));
     for (const e of ordered) {
       const a = e.assignments.find((x) => x.staffId === me.id);
-      if (a) add(roleById.get(a.roleId), a.detail, e);
+      if (a) add(roleById.get(a.roleId), roleDetailOf(roleById.get(a.roleId), a, myTeam).detail, e);
       else if (me.active) for (const id of e.roles) if (roleById.get(id)?.forEveryone) add(roleById.get(id), "", e);
     }
     return [...acc.values()].sort((x, y) => byName(x.role, y.role));
-  }, [staff, events, roles, phone]);
+  }, [staff, events, roles, teams, phone]);
 }
 
 export function useRoleDetail(roleId: string): RoleDetail | null | undefined {
   const roles = useCollection("roles");
   const events = useCollectionOrEmpty("events");
   const staff = useCollectionOrEmpty("staff");
+  const teams = useCollectionOrEmpty("teams");
   return useMemo(() => {
     if (!roles) return null;
     const r = roles.find((x) => x.id === roleId);
     if (!r) return undefined;
     const active = staff.filter((s) => s.active);
+    const teamById = new Map(teams.map((t) => [t.id, t]));
     const usedIn = events
       .filter((e) => e.roles.includes(r.id))
       .map((e) => {
@@ -243,12 +249,15 @@ export function useRoleDetail(roleId: string): RoleDetail | null | undefined {
           ? active.filter((s) => !e.assignments.some((a) => a.staffId === s.id)).map((s) => ({ staffId: s.id, name: s.name, detail: "" }))
           : e.assignments
               .filter((a) => a.roleId === r.id)
-              .map((a) => ({ staffId: a.staffId, name: staff.find((s) => s.id === a.staffId)?.name ?? "?", detail: a.detail }))
+              .map((a) => {
+                const person = staff.find((s) => s.id === a.staffId);
+                return { staffId: a.staffId, name: person?.name ?? "?", detail: roleDetailOf(r, a, person?.team ? teamById.get(person.team) : null).detail };
+              })
               .sort(byName);
         return { eventId: e.id, date: e.date, startTime: e.startTime, endTime: e.endTime, title: e.title, emoji: e.emoji, people };
       });
     return { role: r, events: usedIn };
-  }, [roles, events, staff, roleId]);
+  }, [roles, events, staff, teams, roleId]);
 }
 
 /** Categories that apply to `audience` (all when omitted) — same as GET /api/categories?audience=. */

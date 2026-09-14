@@ -13,6 +13,13 @@ export interface ScheduleRole {
   forEveryone: boolean;
   /** the assignment carries a per-person detail (team, base, shift…) */
   hasDetail: boolean;
+  /**
+   * The detail is NOT typed per person: it IS the person's team
+   * (`Staff.team`). Only staff WITH a team can be scaled into the role, and
+   * the chip is the team (name + colour) read live from the staff record —
+   * moving somebody between teams re-labels every event at once.
+   */
+  detailFromTeam: boolean;
   /** placeholder shown in the detail input */
   detailPlaceholder: string;
   createdAt: string;
@@ -26,15 +33,45 @@ export interface ScheduleRoleInput {
   preparation: string;
   forEveryone: boolean;
   hasDetail: boolean;
+  detailFromTeam: boolean;
   detailPlaceholder: string;
 }
 
-/** A staff member scaled into one of the event's roles. `detail` = team / base / colour / shift. */
+/** A staff member scaled into one of the event's roles. `detail` = team / base / colour / shift.
+ *  Both stay EMPTY for a `detailFromTeam` role — use `roleDetailOf` to read the label. */
 export interface EventAssignment {
   staffId: string;
   roleId: string;
   detail: string;
+  /** "#rrggbb" tint for the detail chip (team colour), "" = default */
+  detailColor: string;
 }
+
+/**
+ * The detail label of one assignment, from the only place that knows it:
+ * the person's team for a `detailFromTeam` role, the stored value otherwise.
+ * Mirrors `backend/src/services/schedule.ts#assignmentDetail`.
+ */
+export function roleDetailOf(
+  role: Pick<ScheduleRole, "detailFromTeam"> | undefined | null,
+  assignment: Pick<EventAssignment, "detail" | "detailColor"> | undefined | null,
+  teamOfStaff: { name: string; color: string } | undefined | null,
+): { detail: string; detailColor: string } {
+  if (role?.detailFromTeam) return teamOfStaff ? { detail: teamOfStaff.name, detailColor: teamOfStaff.color } : { detail: "", detailColor: "" };
+  return { detail: assignment?.detail ?? "", detailColor: assignment?.detailColor ?? "" };
+}
+
+/** Cores sugeridas para o detalhe de cada pessoa (time, base, cor). */
+export const DETAIL_COLORS = [
+  { name: "Verde", hex: "#0f9a8a" },
+  { name: "Laranja", hex: "#f2843b" },
+  { name: "Amarelo", hex: "#f4c430" },
+  { name: "Vermelho", hex: "#e8503a" },
+  { name: "Azul", hex: "#3b6ff2" },
+  { name: "Roxo", hex: "#7d3bf2" },
+  { name: "Rosa", hex: "#e0519b" },
+  { name: "Cinza", hex: "#444b52" },
+] as const;
 
 export interface CampEvent {
   id: string;
@@ -137,11 +174,11 @@ export async function setAssignments(token: string, eventId: string, assignments
 }
 
 /** Sets one person's role in an event (replacing any previous one). */
-export async function assignStaff(token: string, eventId: string, staffId: string, roleId: string, detail = ""): Promise<CampEvent> {
+export async function assignStaff(token: string, eventId: string, staffId: string, roleId: string, detail = "", detailColor = ""): Promise<CampEvent> {
   const res = await command<{ event: CampEvent }>(`/api/schedule/events/${eventId}/assignments/${staffId}`, {
     method: "PUT",
     headers: json(token),
-    body: JSON.stringify({ roleId, detail }),
+    body: JSON.stringify({ roleId, detail, detailColor }),
   }, ["roles", "events"]);
   return res.event;
 }

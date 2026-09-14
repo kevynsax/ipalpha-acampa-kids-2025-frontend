@@ -26,6 +26,8 @@ interface Block {
   memory?: boolean;
   /** blocks left out of "Limpar tudo" — texts that are reused every year */
   keptOnAll?: boolean;
+  /** what the button and the question call the block, when the label is too long ("apagar documentos") */
+  noun?: string;
 }
 
 const BLOCKS: readonly Block[] = [
@@ -41,9 +43,11 @@ const BLOCKS: readonly Block[] = [
     emoji: "📖 + 🎒",
     hint: "Os documentos para todo mundo: Instruções e Preparações.",
     unit: ["documento", "documentos"],
+    noun: "documentos",
     keptOnAll: true,
   },
   { key: "occurrences", label: "Ocorrências", emoji: "📋", hint: "Todo o registro de ocorrências do acampamento.", unit: ["ocorrência", "ocorrências"] },
+  { key: "medications", label: "Medicações", icon: ICONS.medications, hint: "As marcações da equipe médica (o que cada criança tomou). A medicação cadastrada das crianças fica.", unit: ["marcação", "marcações"] },
   { key: "scores", label: "Placar", emoji: "🏆", hint: "Todos os pontos dados e tirados dos times.", unit: ["lançamento", "lançamentos"] },
   { key: "gallery", label: "Fotos", icon: ICONS.camera, hint: "Todas as fotos do álbum e os arquivos delas.", unit: ["foto", "fotos"] },
   {
@@ -125,6 +129,7 @@ export default function CleanupPage({ token }: CleanupPageProps) {
     schedule: useCollection("events")?.length ?? 0,
     docs: (useCollection("instructions")?.length ?? 0) + (useCollection("preparation")?.length ?? 0),
     occurrences: useCollection("occurrences")?.length ?? 0,
+    medications: useCollection("medications")?.length ?? 0,
     scores: useCollection("scores")?.length ?? 0,
     gallery: useCollection("gallery")?.length ?? 0,
     welcomes: marks.welcomes,
@@ -201,7 +206,7 @@ export default function CleanupPage({ token }: CleanupPageProps) {
         {BLOCKS.map((b) => {
           // Programação also offers the funções, so it is still worth pressing with zero events
           const empty = counts[b.key] === 0 && !(b.key === "schedule" && roles > 0);
-          const low = b.label.toLowerCase();
+          const low = b.noun ?? b.label.toLowerCase();
           const verb = b.memory ? "Liberar" : "Apagar";
           const message = (
             <>

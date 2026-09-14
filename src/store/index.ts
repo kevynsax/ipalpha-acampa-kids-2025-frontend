@@ -5,6 +5,7 @@ import type { Category } from "../api/categories";
 import type { Transport } from "../api/transports";
 import type { Instruction } from "../api/instructions";
 import type { Occurrence } from "../api/occurrences";
+import type { MedicationDose } from "../api/medications";
 import type { PrepSection } from "../api/preparation";
 import type { CampEvent, ScheduleRole } from "../api/schedule";
 import type { Staff } from "../api/staff";
@@ -37,12 +38,14 @@ export interface Collections {
   preparation: PrepSection[];
   instructions: Instruction[];
   occurrences: Occurrence[];
+  /** the medical team's checklist: one record per dose given */
+  medications: MedicationDose[];
   gallery: GalleryPhoto[];
   settings: Settings;
 }
 export type CollectionName = keyof Collections;
 type ListCollectionName = Exclude<CollectionName, "settings">;
-export const COLLECTION_NAMES: CollectionName[] = ["campers", "staff", "bedrooms", "categories", "transports", "teams", "scores", "roles", "events", "preparation", "instructions", "occurrences", "gallery", "settings"];
+export const COLLECTION_NAMES: CollectionName[] = ["campers", "staff", "bedrooms", "categories", "transports", "teams", "scores", "roles", "events", "preparation", "instructions", "occurrences", "medications", "gallery", "settings"];
 
 export type ConnectionState = "connecting" | "online" | "offline";
 

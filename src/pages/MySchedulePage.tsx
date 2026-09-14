@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { type CampEvent, type ScheduleRole } from "../api/schedule";
+import { roleDetailOf, type CampEvent, type ScheduleRole } from "../api/schedule";
 import { speakDay } from "../dates";
 import InstructionsDialog from "../components/InstructionsDialog";
 import type { LoggedUser } from "../roles";
@@ -50,6 +50,8 @@ function clock(): { date: string; time: string } {
 export default function MySchedulePage({ user }: MySchedulePageProps) {
   const storedEvents = useCollection("events");
   const roles = useCollectionOrEmpty("roles");
+  const staff = useCollectionOrEmpty("staff");
+  const teams = useCollectionOrEmpty("teams");
   const { params, navigate } = useRoute();
   const [instructionsFor, setInstructionsFor] = useState<MyEvent | null>(null);
   /** past events are collapsed by default so the first card is what's happening now */
@@ -59,14 +61,17 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
   const items = useMemo<MyEvent[] | null>(() => {
     if (!storedEvents) return null;
     const roleById = new Map(roles.map((r) => [r.id, r]));
+    // my own team: a "detalhe = time" role is labelled from it
+    const me = staff.find((s) => s.phone === user.phone);
+    const myTeam = me?.team ? teams.find((t) => t.id === me.team) : null;
     return storedEvents
       .map((e): MyEvent => {
         const mine = e.assignments[0];
         const role = mine ? (roleById.get(mine.roleId) ?? null) : (e.roles.map((id) => roleById.get(id)).find((r) => r?.forEveryone) ?? null);
-        return { event: e, role, detail: mine?.detail ?? "", implicit: !mine && !!role };
+        return { event: e, role, detail: roleDetailOf(role, mine, myTeam).detail, implicit: !mine && !!role };
       })
       .sort((a, b) => a.event.date.localeCompare(b.event.date) || a.event.startTime.localeCompare(b.event.startTime) || a.event.title.localeCompare(b.event.title, "pt-BR"));
-  }, [storedEvents, roles]);
+  }, [storedEvents, roles, staff, teams, user.phone]);
 
   // "agora" marker — re-evaluated every minute
   const [now, setNow] = useState(clock);

@@ -3,7 +3,7 @@ import { bearer } from "../auth/store";
 import type { CollectionName } from "../store";
 
 /** One block of camp data the admin wipes between two camps (Configurações → Limpeza). */
-export type CleanupGroup = "campers" | "staff" | "bedrooms" | "transports" | "teams" | "schedule" | "docs" | "occurrences" | "scores" | "gallery" | "welcomes" | "notices";
+export type CleanupGroup = "campers" | "staff" | "bedrooms" | "transports" | "teams" | "schedule" | "docs" | "occurrences" | "medications" | "scores" | "gallery" | "welcomes" | "notices";
 
 /**
  * The admin lists whose people may be SPARED when the Equipe block is wiped
@@ -13,7 +13,7 @@ export type StaffKeepGroup = "organizers" | "gameOrganizers" | "scoreHelpers" | 
 
 /** Which realtime collections the server republishes for each block — the write waits for them. */
 const TOUCHES: Record<CleanupGroup | "all", CollectionName[]> = {
-  campers: ["campers", "staff", "bedrooms", "scores"],
+  campers: ["campers", "staff", "bedrooms", "scores", "medications"],
   staff: ["staff", "campers", "bedrooms", "teams", "events", "settings"],
   bedrooms: ["bedrooms", "campers", "staff"],
   transports: ["transports", "campers", "staff", "settings"],
@@ -21,11 +21,12 @@ const TOUCHES: Record<CleanupGroup | "all", CollectionName[]> = {
   schedule: ["events", "roles", "gallery", "scores"],
   docs: ["instructions", "preparation"],
   occurrences: ["occurrences"],
+  medications: ["medications"],
   scores: ["scores"],
   gallery: ["gallery"],
   welcomes: ["staff"],
   notices: ["staff", "campers", "settings"],
-  all: ["campers", "staff", "bedrooms", "transports", "teams", "events", "occurrences", "scores", "gallery", "settings"],
+  all: ["campers", "staff", "bedrooms", "transports", "teams", "events", "occurrences", "medications", "scores", "gallery", "settings"],
 };
 
 /**
