@@ -68,7 +68,10 @@ opened online one time:
 - **Install nag**: on a phone that is *not* running the installed app, a loud
   banner (`components/InstallBanner`) explains why and offers one-tap install
   (Android) or step-by-step instructions (iOS Safari). "Depois" snoozes it
-  for 6 h only. It disappears once the app runs standalone.
+  for 6 h only. It disappears once the app runs standalone. The reason shown
+  depends on who is looking (`parent` prop): the team hears "no acampamento
+  não há internet", a **parent** — who stays at home — hears "acompanhe cada
+  novidade do acampamento".
 - **Header dot** (`components/SyncStatus`): 🟢 ao vivo · 🟠 conectando · 🔴
   offline (using saved data). Tap to force a fresh snapshot.
 
@@ -114,10 +117,17 @@ wrote (collection `preparation`, edited under ⚙️ **Preparação**, route
 `#/preparation`, `pages/admin/PreparationAdminPage`). Each general section is
 **posted to** one or more groups (`audiences`: pais / líderes / auxiliares,
 `components/AudiencePicker#PrepAudiencePicker`); the server only sends each
-person the sections posted to them. **Parents** get their own read-only
-**Preparação** tab (`pages/parent/ParentPreparationPage`, same `#/prep`) with
-the sections posted to "Pais"; the admin can text them about new / edited ones
+person the sections posted to them. **Parents** get their own **Preparação**
+tab (`pages/parent/ParentPreparationPage`, same `#/prep`) with the sections
+posted to "Pais"; the admin can text them about new / edited ones
 (⚙️ Notificações → "Preparação nova / alterada para os pais").
+
+Both pages are a **checklist**: every card has a ✓ that greys it out and sinks
+it to the end of the list, with a `feitos` counter in the countdown bar. The
+team's ticks are saved on their roster record (`setMyPrepDone`, `staff.prepDone`);
+a parent has no roster record, so theirs are saved on their account
+(`setMyPrepSectionDone` → `PUT /api/preparation/me/section:<id>`) and arrive
+back as `PrepSection.done` in the `preparation` collection.
 
 **Which tab is the landing page depends on the camp phase** (`src/campPhase.ts`,
 from the first event date in the programme): more than **3 days** before the
@@ -258,8 +268,34 @@ A parent logs in with the phone registered as the kid's guardian
 - **Programação** (`pages/parent/ParentSchedulePage`): the programme from the
   check-in onwards, no roles.
 - Clicking their name opens `pages/parent/ParentProfile`: their data plus the
-  emergency block of each kid (guardian, emergency contact, insurance,
+  emergency block of the selected kid (guardian, emergency contact, insurance,
   documents).
+
+**Trocar de perfil.** The same phone may hold several profiles (a mãe who is
+also on the team), picked in two places:
+
+- **between the SMS code and the app** (`components/RoleSwitchDialog`, from
+  `App.tsx`), whenever `user.roles.length > 1`: the login lands on the
+  highest-priority role (`pickActiveRole`), so this is where they say
+  otherwise. A big card per profile with its paper-cut icon, floating over the
+  login scenery (`CampingLayout`) — never over a home page they didn't ask for
+  — and no way out but picking one (`dismissible={false}`).
+- **later, on the profile page**: **Perfil** is a plain borderless label (where
+  they already are), and **Outros perfis** lists the rest as coloured chips —
+  one tap enters that profile, no dialog, no confirmation.
+
+Both call `POST /api/auth/role` (`auth/store#switchRole`): no new SMS, the
+server revokes the session and issues a token for that role, the local store
+is wiped and the WebSocket brings the new scope's snapshot.
+
+`user.roles` comes from the server already reconciled with reality (a mãe on
+the team roster gets `staff` even if her account only said `parent` — see the
+backend README, `availableRolesOf`), so the chip is a plain label only when
+there really is a single profile.
+
+A responsible with **more than one kid** gets a tab strip
+(`components/ParentKidTabs`, shared by Início and Perfil) to pick whose data
+is shown; with a single kid it renders nothing.
 
 **Access window.** ⚙️ Geral has a second card (`pages/admin/AccessWindowCard`,
 shared with the team's) — the **parents' access window**: when they may log
@@ -311,7 +347,7 @@ provider configured.
 2. **Phone number** — Brazilian mobile only (🇧🇷 +55 fixed, mask `(11) 98123-4567`)
 3. **OTP code** — 6 digits sent by SMS (via Comtele), valid for **5 minutes**,
    **3 attempts** before the account is **frozen**; resend available after expiry
-4. **Logged in** — session token kept in the browser for **24 hours**, then auto-logout
+4. **Logged in** — session token kept in the browser for **4 days**, then auto-logout
 
 ## Structure
 
@@ -320,7 +356,7 @@ src/
 ├── api/client.ts        # fetch wrapper with typed errors (writes only)
 ├── store/               # 📦 offline-first data: localStorage + WebSocket feed + local joins
 ├── pwa/install.ts       # standalone / beforeinstallprompt detection
-├── auth/store.ts        # 24h session persistence (localStorage)
+├── auth/store.ts        # 4-day session persistence (localStorage)
 ├── components/          # Logo, PhoneInput (BR mask), OtpInput (6 boxes)
 ├── pages/
 │   ├── RoleSelect.tsx   # screen 1: 4 roles + church logo

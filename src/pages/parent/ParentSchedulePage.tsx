@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { type CampEvent } from "../../api/schedule";
 import { speakDay } from "../../dates";
+import { ICONS } from "../../icons";
 import { useCollection } from "../../store";
 
 /** "HH:mm" of now, local time */
@@ -11,9 +12,9 @@ function clock(): { date: string; time: string } {
 }
 
 /**
- * "Programação" for a PARENT — read-only, the events from the check-in start
- * to the end of the camp (the server already cuts everything before the
- * check-in, and never sends roles or assignments).
+ * "Programação" for a PARENT — read-only. The server only sends events the
+ * organizer marked visible to parents, never roles or assignments. Past items
+ * are collapsed by default so the first card is what's happening now.
  */
 export default function ParentSchedulePage() {
   const storedEvents = useCollection("events");
@@ -53,15 +54,17 @@ export default function ParentSchedulePage() {
   const days = [...new Set(shown.map((e) => e.date))];
 
   return (
-    <div className="admin-page">
+    <div className="admin-page parent-schedule">
       <header className="admin-head">
-        <h1 className="admin-title">📅 Programação</h1>
+        <h1 className="admin-title">
+          <img className="admin-title__icon" src={ICONS.schedule} alt="" aria-hidden="true" /> Programação
+        </h1>
       </header>
-      <p className="admin-intro">O que acontece no acampamento, do check-in até a volta.</p>
+      <p className="admin-intro">Toda a programação do acampamento.</p>
 
       {items.length === 0 && (
         <div className="admin-empty">
-          <span className="admin-empty__emoji">📅</span>
+          <img className="admin-empty__icon" src={ICONS.schedule} alt="" aria-hidden="true" />
           <p>A programação ainda não foi publicada.</p>
         </div>
       )}
@@ -86,7 +89,7 @@ export default function ParentSchedulePage() {
               .map((e) => {
                 const isNow = e.id === current;
                 return (
-                  <li key={e.id} className={`timeline__item ${isNow ? "timeline__item--now" : ""} ${isPast(e) ? "timeline__item--past" : ""}`}>
+                  <li key={e.id} className={`timeline__item ${isNow ? "timeline__item--now" : ""}`}>
                     <div className="timeline__time">
                       <span className="timeline__start">{e.startTime}</span>
                       {e.endTime && <span className="timeline__end">{e.endTime}</span>}

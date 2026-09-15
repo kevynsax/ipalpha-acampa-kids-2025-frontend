@@ -42,7 +42,7 @@ export interface BedroomInput {
   notes: string;
 }
 
-/** "103 · Meninas" — how a bedroom is shown in pickers/tags. */
+/** "Meninas - 103" — plain-text label (search, exports, print, native <select>). UI chips use <BedroomTag>. */
 export function bedroomLabel(b: Pick<Bedroom, "name" | "group">): string {
   return `${GROUP_META[b.group].label} - ${b.name}`;
 }

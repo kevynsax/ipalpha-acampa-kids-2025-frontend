@@ -5,10 +5,10 @@ import { createPortal } from "react-dom";
 export const PAGE_FOOTER_ID = "page-footer";
 
 /**
- * The note that closes a page ("🔑 Sua sessão fica aberta até…", "📷 Ao ligar
- * Publicadas…"). Pages declare it wherever it reads best in their JSX and it is
- * rendered in the shell's footer, below the page body, so every tab ends the
- * same way instead of each one trailing its own paragraph.
+ * The note that closes a page ("📷 Ao ligar Publicadas…"). Pages declare it
+ * wherever it reads best in their JSX and it is rendered in the shell's
+ * footer, below the page body, so every tab ends the same way instead of
+ * each one trailing its own paragraph.
  *
  *   <PageFooter>🔒 Só o admin mexe nesta lista.</PageFooter>
  */

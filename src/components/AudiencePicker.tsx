@@ -1,14 +1,20 @@
-import { ROOM_ROLE_META, type RoomRole } from "../api/staff";
-import RoomRoleIcon from "./RoomRoleIcon";
+import { ROOM_ROLE_META } from "../api/staff";
+import { roleMeta } from "../roles";
+import iconStaff from "../assets/icons/staff.png";
 
 /** Who a general document (Instruções / Preparação) is for. */
 export type DocAudience = "all" | "caretaker" | "helper";
 
-export const DOC_AUDIENCE_META: Record<DocAudience, { label: string; emoji: string; hint: string }> = {
-  all: { label: "Todos", emoji: "👥", hint: "toda a equipe" },
-  caretaker: { label: ROOM_ROLE_META.caretaker.label + "s", emoji: ROOM_ROLE_META.caretaker.emoji, hint: "só quem cuida de crianças" },
-  helper: { label: ROOM_ROLE_META.helper.label + "es", emoji: ROOM_ROLE_META.helper.emoji, hint: "só os auxiliares de quarto" },
+export const DOC_AUDIENCE_META: Record<DocAudience, { label: string; emoji: string; icon: string; hint: string }> = {
+  all: { label: "Todos", emoji: "👥", icon: iconStaff, hint: "toda a equipe" },
+  caretaker: { label: ROOM_ROLE_META.caretaker.label + "s", emoji: ROOM_ROLE_META.caretaker.emoji, icon: ROOM_ROLE_META.caretaker.icon!, hint: "só quem cuida de crianças" },
+  helper: { label: ROOM_ROLE_META.helper.label + "es", emoji: ROOM_ROLE_META.helper.emoji, icon: ROOM_ROLE_META.helper.icon!, hint: "só os auxiliares de quarto" },
 };
+
+/** The paper-cut icon of an audience, at a given pixel size. */
+function AudienceIcon({ src, size }: { src: string; size?: number }) {
+  return <img className="audience-icon" src={src} alt="" aria-hidden="true" style={size ? { width: size, height: size } : undefined} />;
+}
 
 interface AudiencePickerProps {
   value: DocAudience;
@@ -26,7 +32,7 @@ export default function AudiencePicker({ value, onChange, disabled }: AudiencePi
           const on = value === a;
           return (
             <button key={a} type="button" className={`big-option ${on ? "big-option--on" : ""}`} aria-pressed={on} disabled={disabled} onClick={() => onChange(a)}>
-              <span className="big-option__emoji" aria-hidden="true">{a === "all" ? DOC_AUDIENCE_META[a].emoji : <RoomRoleIcon role={a as RoomRole} size={32} />}</span>
+              <span className="big-option__emoji" aria-hidden="true"><AudienceIcon src={DOC_AUDIENCE_META[a].icon} size={32} /></span>
               <span className="big-option__label">{DOC_AUDIENCE_META[a].label}</span>
               <span className="big-option__hint">{DOC_AUDIENCE_META[a].hint}</span>
             </button>
@@ -41,8 +47,8 @@ export default function AudiencePicker({ value, onChange, disabled }: AudiencePi
 
 export type PrepAudience = "parent" | "caretaker" | "helper";
 
-export const PREP_AUDIENCE_META: Record<PrepAudience, { label: string; emoji: string; hint: string }> = {
-  parent: { label: "Pais", emoji: "👨‍👩‍👧", hint: "ou responsáveis pelas crianças" },
+export const PREP_AUDIENCE_META: Record<PrepAudience, { label: string; emoji: string; icon: string; hint: string }> = {
+  parent: { label: "Pais", emoji: "👨‍👩‍👧", icon: roleMeta("parent").icon, hint: "ou responsáveis pelas crianças" },
   caretaker: { ...DOC_AUDIENCE_META.caretaker, hint: "quem cuida de crianças" },
   helper: { ...DOC_AUDIENCE_META.helper, hint: "os auxiliares de quarto" },
 };
@@ -65,7 +71,7 @@ export function PrepAudiencePicker({ value, onChange, disabled }: PrepAudiencePi
           const on = value.includes(a);
           return (
             <button key={a} type="button" className={`big-option ${on ? "big-option--on" : ""}`} aria-pressed={on} disabled={disabled} onClick={() => toggle(a)}>
-              <span className="big-option__emoji" aria-hidden="true">{PREP_AUDIENCE_META[a].emoji}</span>
+              <span className="big-option__emoji" aria-hidden="true"><AudienceIcon src={PREP_AUDIENCE_META[a].icon} size={32} /></span>
               <span className="big-option__label">{PREP_AUDIENCE_META[a].label}</span>
               <span className="big-option__hint">{PREP_AUDIENCE_META[a].hint}</span>
             </button>
@@ -83,7 +89,7 @@ export function PrepAudienceTags({ audiences }: { audiences: PrepAudience[] }) {
     <>
       {PREP_ORDER.filter((a) => audiences.includes(a)).map((a) => (
         <span key={a} className="staff-tag staff-tag--soft" title={PREP_AUDIENCE_META[a].hint}>
-          {PREP_AUDIENCE_META[a].emoji} {PREP_AUDIENCE_META[a].label}
+          <AudienceIcon src={PREP_AUDIENCE_META[a].icon} /> {PREP_AUDIENCE_META[a].label}
         </span>
       ))}
     </>
@@ -95,7 +101,7 @@ export function AudienceTag({ audience }: { audience: DocAudience }) {
   if (audience === "all") return null;
   return (
     <span className="staff-tag staff-tag--soft" title={DOC_AUDIENCE_META[audience].hint}>
-      {DOC_AUDIENCE_META[audience].emoji} {DOC_AUDIENCE_META[audience].label}
+      <AudienceIcon src={DOC_AUDIENCE_META[audience].icon} /> {DOC_AUDIENCE_META[audience].label}
     </span>
   );
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { bedroomLabel } from "../api/bedrooms";
+import BedroomTag from "../components/BedroomTag";
 import { ageOf, checkinCamper, undoCheckinCamper, type Camper } from "../api/campers";
 import { useConfirm } from "../components/ConfirmDialog";
 import Breadcrumbs from "../components/Breadcrumbs";
@@ -295,7 +295,7 @@ export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false,
                     {age !== null && <span className="kid-card__age">{age} anos</span>}
                   </span>
                   <span className="bus-row__meta">
-                    {room ? bedroomLabel(room) : "sem quarto"}
+                    {room ? <BedroomTag bedroom={room} className="staff-tag--inline" /> : "sem quarto"}
                     {k.team && (
                       <>
                         {" · "}

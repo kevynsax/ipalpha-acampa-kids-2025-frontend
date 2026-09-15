@@ -9,6 +9,8 @@ import { useMyPrepRoles } from "../store/derive";
 
 interface InstructionsPageProps {
   user: LoggedUser;
+  /** phones: Preparação and Instruções share one bottom-bar entry — this jumps to the other half */
+  pairedWith?: () => void;
 }
 
 /** one row of the list — a role's instructions or a general document */
@@ -52,7 +54,7 @@ function eventIsNow(e: { date: string; startTime: string; endTime: string | null
  *   /instructions/:id             one general document
  *   /instructions/role/:roleId    the instructions of one of my roles
  */
-export default function InstructionsPage({ user }: InstructionsPageProps) {
+export default function InstructionsPage({ user, pairedWith }: InstructionsPageProps) {
   const docs = useCollection("instructions");
   const events = useCollection("events");
   const myRoles = useMyPrepRoles(user.phone);
@@ -193,6 +195,12 @@ export default function InstructionsPage({ user }: InstructionsPageProps) {
     <div className="admin-page">
       <header className="admin-head">
         <h1 className="admin-title">📖 Instruções</h1>
+        {/* only while the bottom bar merges the pair (phones): the way to the other half */}
+        {pairedWith && (
+          <button type="button" className="dash-pair-link" onClick={pairedWith} title="Ver a Preparação">
+            <span aria-hidden="true">🎒</span> Preparação
+          </button>
+        )}
       </header>
 
       {empty ? (

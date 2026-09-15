@@ -12,8 +12,8 @@ interface OrganizersPageProps {
 
 /**
  * Admin-only: team members who are ORGANIZERS — the admin's tabs and
- * settings (campers, staff, rooms, programme, check-ins, occurrences,
- * documents…), except this page, Categorias, Notificações and Sobre. No time
+ * settings (campers, staff, rooms, programme, check-ins, their own group's
+ * occurrences, documents…), except this page, Categorias, Notificações and Sobre. No time
  * window. The GAME organizers (Settings → Jogos) are listed here read-only:
  * they only edit the programme and the scoreboard.
  */
@@ -68,7 +68,7 @@ export default function OrganizersPage({ token }: OrganizersPageProps) {
       </header>
       <p className="admin-intro">
         Pessoas da equipe com <strong>acesso de administração</strong>: acampantes, equipe, quartos, programação, check-ins, ocorrências e
-        configurações. Veem <strong>tudo</strong>, incluindo dados de saúde.
+        configurações. Veem dados de saúde. Nas ocorrências, só as que os organizadores registraram.
       </p>
 
       {error && <p className="message message--error">{error}</p>}

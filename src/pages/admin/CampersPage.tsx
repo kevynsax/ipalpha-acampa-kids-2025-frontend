@@ -1,7 +1,6 @@
 import { useConfirm } from "../../components/ConfirmDialog";
 import { useMemo, useRef, useState } from "react";
 import { ICONS } from "../../icons";
-import { GROUP_META, bedroomLabel } from "../../api/bedrooms";
 import { ageOf, createCamper, deleteCamper, updateCamper, type Camper, type CamperInput } from "../../api/campers";
 import { useRoute } from "../../router";
 import { useCollection, useCollectionOrEmpty } from "../../store";
@@ -10,6 +9,7 @@ import HealthAlerts from "../../components/HealthAlerts";
 import HealthFilter, { CAMPER_HEALTH_KEYS, matchesHealth, hasHealth, type HealthKey } from "../../components/HealthFilter";
 import { downloadCampersXlsx, downloadMedicalCampersXlsx } from "../../export";
 import PrintLabelsDialog from "../../components/PrintLabelsDialog";
+import BedroomTag from "../../components/BedroomTag";
 import GroupIcon from "../../components/GroupIcon";
 import TeamFilterDialog from "../../components/TeamFilterDialog";
 import RoomRoleIcon from "../../components/RoomRoleIcon";
@@ -406,13 +406,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
                     )}
                     {(room || k.team || caretaker || k.transportation) && (
                       <div className="staff-card__tags">
-                        {room && (
-                          <span className="staff-tag staff-tag--room" title={bedroomLabel(room)}>
-                            <GroupIcon group={room.group} face size={18} />
-                            <img className="audience-icon" src={ICONS.bunk} alt="" aria-hidden="true" style={{ width: 18, height: 18 }} />
-                            {room.name}
-                          </span>
-                        )}
+                        {room && <BedroomTag bedroom={room} />}
                         {caretaker && (
                           <span className="staff-tag" title={ROOM_ROLE_META.caretaker.label}>
                             <RoomRoleIcon role="caretaker" /> {caretaker.name.split(" ")[0]}

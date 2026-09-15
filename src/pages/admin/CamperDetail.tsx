@@ -10,7 +10,7 @@ import CamperCard from "../../components/CamperCard";
 import KidIcon from "../../components/KidIcon";
 import PlayScene from "../../components/PlayScene";
 import { ICONS, kidSexOf } from "../../icons";
-import { GROUP_META, bedroomLabel } from "../../api/bedrooms";
+import BedroomTag from "../../components/BedroomTag";
 import { ageOf, type Camper } from "../../api/campers";
 import ParentIcon from "../../components/ParentIcon";
 import GuardianWhatsApp from "../../components/GuardianWhatsApp";
@@ -19,6 +19,7 @@ import StaffMiniCard from "../../components/StaffMiniCard";
 import TeamTag from "../../components/TeamTag";
 import WhatsAppButton from "../../components/WhatsAppButton";
 import { loadAuth } from "../../auth/store";
+import { formatCpf } from "../../cpf";
 import { formatBrazilPhoneClient } from "../../phoneFormat";
 import { staffGreeting, whatsappLink } from "../../whatsapp";
 import { useCollectionOrEmpty } from "../../store";
@@ -160,13 +161,7 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
           <dt>Quarto</dt>
           <dd>
             {bedroom ? (
-              onOpenBedroom ? (
-                <button type="button" className="link-btn" title="Ver quarto" onClick={() => onOpenBedroom(bedroom.id)}>
-                  {bedroomLabel(bedroom)}
-                </button>
-              ) : (
-                bedroomLabel(bedroom)
-              )
+              <BedroomTag bedroom={bedroom} onClick={onOpenBedroom ? () => onOpenBedroom(bedroom.id) : undefined} />
             ) : (
               "—"
             )}
@@ -213,7 +208,7 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
           {(k.rg || k.cpf) && (
             <>
               <dt>Documentos</dt>
-              <dd>{[k.rg && `RG ${k.rg}`, k.cpf && `CPF ${k.cpf}`].filter(Boolean).join(" · ")}</dd>
+              <dd>{[k.rg && `RG ${k.rg}`, k.cpf && `CPF ${formatCpf(k.cpf)}`].filter(Boolean).join(" · ")}</dd>
             </>
           )}
         </dl>
@@ -260,7 +255,7 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
                   {k.guardianCpf && (
                     <>
                       <dt>CPF</dt>
-                      <dd>{k.guardianCpf}</dd>
+                      <dd>{formatCpf(k.guardianCpf)}</dd>
                     </>
                   )}
                   <dt>Emergência</dt>
@@ -295,7 +290,7 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
       {bedroom && (
         <section className="detail-section">
           <h2 className="detail-h2">
-            <KidIcon sex={sex} group size={26} /> No mesmo quarto ({GROUP_META[bedroom.group].label} {bedroom.name}) <span className="cat-tab__count">{roommates.length}</span>
+            <KidIcon sex={sex} group size={26} /> No mesmo quarto <BedroomTag bedroom={bedroom} /> <span className="cat-tab__count">{roommates.length}</span>
           </h2>
           {roommates.length === 0 ? (
             <p className="opt-empty">Sozinho(a) no quarto por enquanto.</p>

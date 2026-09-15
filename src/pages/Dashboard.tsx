@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { TabOverrideContext, type TabKey } from "../dashTab";
 import { useCampTiming, type CampPhase } from "../campPhase";
 import { useRoute, useScrollTopOnRoute } from "../router";
@@ -52,18 +52,18 @@ import ParentHomePage from "./parent/ParentHomePage";
 import ParentPreparationPage from "./parent/ParentPreparationPage";
 import ParentSchedulePage from "./parent/ParentSchedulePage";
 import ParentProfile from "./parent/ParentProfile";
-import { speakDateTime } from "../dates";
-import PageFooter, { PAGE_FOOTER_ID } from "../components/PageFooter";
+import { PAGE_FOOTER_ID } from "../components/PageFooter";
 
 interface DashboardProps {
   user: LoggedUser;
   token: string;
-  tokenExpiresAt: string;
   onLoggedOut: () => void;
+  /** switches the session to another profile the same person holds (parent ⇄ equipe) */
+  onSwitchRole: (role: Role) => Promise<void>;
 }
 
 /** "profile" is not a tab: it opens when the user clicks their own name in the header. */
-type View = TabKey | "profile" | SettingsKey;
+type View = TabKey | "profile" | "badge" | SettingsKey;
 
 /** Admin settings live behind the ⚙️ button; each one is its own URL (#/categories, #/settings). */
 type SettingsKey = "general" | "trials" | "categories" | "cleanup" | "transports" | "teams" | "preparation" | "instructions-admin" | "checkin-settings" | "organizers" | "game-organizers" | "medical" | "vests-settings" | "photographers" | "contacts" | "notifications" | "about";
@@ -126,7 +126,7 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
     { key: "campers", label: "Acampantes", icon: ICONS.camper },
     { key: "staff", label: "Equipe", icon: roleMeta("staff").icon },
     { key: "bedrooms", label: "Quartos", emoji: "🛏️" },
-    { key: "schedule", label: "Programação", emoji: "📅" },
+    { key: "schedule", label: "Programação", icon: ICONS.schedule },
     { key: "checkin", label: "Check-in", emoji: "✅" },
     ...scoreboard,
     { key: "occurrences", label: "Ocorrências", emoji: "📋" },
@@ -151,7 +151,7 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
     { key: "campers", label: "Acampantes", icon: ICONS.camper },
     { key: "occurrences", label: "Ocorrências", emoji: "📋" },
     { key: "medications", label: "Medicações", icon: ICONS.medications },
-    { key: "schedule", label: "Programação", emoji: "📅" },
+    { key: "schedule", label: "Programação", icon: ICONS.schedule },
     prep,
     { key: "instructions", label: "Instruções", emoji: "📖" },
     ...(helper.church ? [{ key: "checkin" as const, label: "Check-in Igreja", emoji: "⛪" }] : []),
@@ -172,7 +172,7 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
       if (helper.medical) return medicalTabs;
       return [
         ...teamHome,
-        { key: "schedule", label: "Programação", emoji: "📅" },
+        { key: "schedule", label: "Programação", icon: ICONS.schedule },
         { key: "instructions", label: "Instruções", emoji: "📖" },
         // the whole team follows the games (while the camp is on); only the game organizers write the points
         ...scoreboard,
@@ -185,9 +185,9 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
         // (the photographers see it from the start, to send and publish)
         ...(galleryOpen ? [{ key: "gallery" as const, label: "Fotos", icon: ICONS.camera }] : []),
       ];
-    // parents: their kids (Início) + the programme from the check-in onwards — the photos close the tab row
+    // parents: their kids (Início) + the programme — the photos close the tab row
     case "parent":
-      return [home, { key: "schedule", label: "Programação", emoji: "📅" }, prep, { key: "gallery", label: "Fotos", icon: ICONS.camera }];
+      return [home, { key: "schedule", label: "Programação", icon: ICONS.schedule }, prep, { key: "gallery", label: "Fotos", icon: ICONS.camera }];
     default:
       return [];
   }
@@ -198,7 +198,7 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
  * Clicking the user's name opens their profile (no tab). Roles without tabs
  * land on the profile.
  */
-export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: DashboardProps) {
+export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: DashboardProps) {
   const meta = roleMeta(user.activeRole);
   const { phase, synced, during, endsAt } = useCampTiming();
   const isTeam = user.activeRole === "staff" || user.activeRole === "health_staff";
@@ -213,17 +213,57 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
   /** the album shows up for the team once it is published; whoever manages it (organizer / photographer) always has the tab */
   const galleryOpen = !!settings?.galleryPublished || helper.organizer || helper.photographer;
   const tabs = tabsFor(user.activeRole, phase, helper, roomsDraft, scoreOpen, galleryOpen);
+  /**
+   * PHONES ONLY (the class it drives does nothing above 700px). Six tabs of
+   * which two are Preparação + Instruções: the bottom bar merges them into a
+   * single 🎒+📖 entry, so the row fits five. Tapping it opens whichever the camp
+   * phase calls for (before → Preparação, during / after → Instruções); the
+   * other one is one tap away, from that page's header.
+   */
+  const mergesPrep = tabs.length === 6 && tabs.some((t) => t.key === "prep") && tabs.some((t) => t.key === "instructions");
+  /** the half of the pair the merged entry opens — and the half it hides */
+  const mergedKey: TabKey = phase === "before" ? "prep" : "instructions";
+  const mergedHiddenKey: TabKey = mergedKey === "prep" ? "instructions" : "prep";
+  /** what the bottom bar actually shows, in order */
+  const bottomTabs = mergesPrep ? tabs.filter((t) => t.key !== mergedHiddenKey) : tabs;
+  /** phone bottom bar: an odd count centres Início; an even one has no middle, so it leads */
+  const bottomHomeIndex = bottomTabs.length % 2 === 1 ? Math.floor(bottomTabs.length / 2) : 0;
+  const bottomNavOrder = (key: TabKey) => {
+    if (key === "home") return bottomHomeIndex;
+    const others = bottomTabs.filter((tab) => tab.key !== "home");
+    const index = others.findIndex((tab) => tab.key === key);
+    return index < bottomHomeIndex ? index : index + 1;
+  };
   const { path, segments, navigate } = useRoute();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   useScrollTopOnRoute(path);
+  useEffect(() => setMobileMenuOpen(false), [path]);
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenuOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [mobileMenuOpen]);
 
   // the first URL segment is the tab: #/campers/…, #/staff/…, #/profile
   /** the admin, or a team member listed as ORGANIZER: the admin's pages and the ⚙️ settings (minus the admin-only ones) */
   const isAdmin = user.activeRole === "admin";
   const settingsAllowed = isAdmin || helper.organizer;
+  /**
+   * Phones: up to 5 menu entries (Perfil does NOT count — it lives in the app
+   * bar as the person's name) become a bottom bar with an app bar above it;
+   * anything bigger — or the ⚙️ roles, whose “Configurações” is one more entry
+   * — keeps the hamburger drawer. Six tabs still fit when two of them are the
+   * Preparação + Instruções pair, which shares one entry (`mergesPrep`).
+   */
+  const useMobileBottomNav = bottomTabs.length > 0 && bottomTabs.length <= 5 && !settingsAllowed;
   /** the settings pages this session may open */
   const settingsPages = SETTINGS.filter((s) => isAdmin || !s.adminOnly);
   const isSettingsKey = (s: string | undefined): s is SettingsKey => settingsPages.some((x) => x.key === s);
-  const isView = (s: string | undefined): s is View => s === "profile" || (settingsAllowed && isSettingsKey(s)) || tabs.some((t) => t.key === s);
+  const isView = (s: string | undefined): s is View => s === "profile" || (s === "badge" && !isParent && during) || (settingsAllowed && isSettingsKey(s)) || tabs.some((t) => t.key === s);
   const view: View = isView(segments[0]) ? segments[0] : tabs[0]?.key ?? "profile";
   /** the tab we auto-landed on BEFORE the programme had arrived (the phase, hence the default, may still change) */
   const provisionalLanding = useRef<string | null>(null);
@@ -234,7 +274,7 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
       provisionalLanding.current = synced ? null : view;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [segments[0], tabs.length]); // tabs.length: a helper's window closing while on #/checkin bounces them home
+  }, [segments[0], tabs.length, during]); // access windows closing bounce restricted pages home
   useEffect(() => {
     // the programme arrived after a provisional landing and the default tab changed → move there
     if (!synced || !provisionalLanding.current) return;
@@ -257,6 +297,15 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
   /** a nested detail (e.g. função opened from a camper) can ask another tab to look active */
   const [tabOverride, setTabOverride] = useState<TabKey | null>(null);
   const shownTab: View = !profileOpen && !settingsOpen && tabOverride ? tabOverride : view;
+  const currentTab = tabs.find((tab) => tab.key === shownTab);
+  const currentSetting = settingsOpen ? settingsPages.find((item) => item.key === view) : undefined;
+  const currentView = profileOpen
+    ? { label: "Perfil", icon: meta.icon, emoji: undefined }
+    : currentSetting
+      ? { label: currentSetting.label, icon: currentSetting.icon, emoji: currentSetting.emoji }
+      : view === "badge"
+        ? { label: "Ler crachá", icon: undefined, emoji: "🎟️" }
+        : { label: currentTab?.label ?? "Acampa Kids", icon: currentTab?.icon, emoji: currentTab?.emoji };
   /** tab click → that tab's root list (a real history entry, so Back returns here) */
   function goTo(next: View) {
     setTabOverride(null);
@@ -264,17 +313,42 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
   }
 
   async function handleLogout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
     await logout(token);
     onLoggedOut();
   }
 
   return (
-    <div className="dash">
+    <div className={`dash ${useMobileBottomNav ? "dash--bottom-nav" : "dash--drawer-nav"}`}>
       <header className="dash-top">
+        {tabs.length > 0 && !useMobileBottomNav && (
+          <button
+            type="button"
+            className={`dash-iconbtn dash-menu-toggle ${mobileMenuOpen ? "dash-menu-toggle--open" : ""}`}
+            title={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+            aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="dashboard-menu"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+          >
+            <span className="dash-menu-toggle__lines" aria-hidden="true"><i /><i /><i /></span>
+          </button>
+        )}
+
         <div className="dash-brand">
           <Logo size={48} />
           <span className="dash-brand__name">Acampa Kids</span>
         </div>
+
+        <span className="dash-current-view" aria-live="polite">
+          {currentView.icon ? (
+            <img className="dash-current-view__icon" src={currentView.icon} alt="" aria-hidden="true" />
+          ) : currentView.emoji ? (
+            <span className="dash-current-view__emoji" aria-hidden="true">{currentView.emoji}</span>
+          ) : null}
+          <span className="dash-current-view__label">{currentView.label}</span>
+        </span>
 
         <div className="dash-user">
           <SyncStatus />
@@ -291,7 +365,7 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
           {settingsAllowed && (
             <button
               type="button"
-              className={`dash-iconbtn ${settingsOpen ? "dash-iconbtn--active" : ""}`}
+              className={`dash-iconbtn dash-settings-btn ${settingsOpen ? "dash-iconbtn--active" : ""}`}
               title="Configurações: equipe, contatos, check-in e notificações"
               aria-label="Configurações"
               aria-pressed={settingsOpen}
@@ -302,43 +376,94 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
               </svg>
             </button>
           )}
-          <button type="button" className="dash-iconbtn dash-iconbtn--logout" title="Sair" aria-label="Sair" onClick={handleLogout}>
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-              <path fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M15 8l4 4-4 4M19 12H9" />
-            </svg>
-          </button>
+          {/* phones, drawer layout: the church logo (no label) closes the app bar */}
+          <span className="dash-top-logo" aria-hidden="true"><Logo size={34} /></span>
         </div>
       </header>
 
       {tabs.length > 0 && (
-      <nav className="dash-tabs" role="tablist" aria-label="Seções">
+      <nav id="dashboard-menu" className={`dash-tabs ${mobileMenuOpen ? "dash-tabs--open" : ""}`} role="tablist" aria-label="Seções">
         {tabs.map((t) => {
+          /** the merged 🎒+📖 entry (phone bottom bar only) stands in for BOTH halves */
+          const merged = mergesPrep && t.key === mergedKey;
           const active = t.key === shownTab;
           /** already on this tab's root list → clicking does nothing, so no hover either */
           const atRoot = active && segments.length === 1 && segments[0] === t.key;
+          /**
+           * The OTHER half is open: the merged entry looks active in its place.
+           * A class, not `active` — on the desktop both tabs exist, and lighting
+           * up two of them at once is exactly what this must not do.
+           */
+          const standsIn = merged && shownTab === mergedHiddenKey;
+          /** the half the bottom bar hides: still rendered, hidden by CSS on phones */
+          const spare = mergesPrep && t.key === mergedHiddenKey;
           return (
             <button
               key={t.key}
               type="button"
               role="tab"
               aria-selected={active}
-              className={`dash-tab ${active ? "dash-tab--active" : ""} ${atRoot ? "dash-tab--root" : ""}`}
+              className={`dash-tab ${active ? "dash-tab--active" : ""} ${atRoot ? "dash-tab--root" : ""} ${merged ? "dash-tab--merged" : ""} ${standsIn ? "dash-tab--merged-active" : ""} ${spare ? "dash-tab--merged-spare" : ""}`}
               aria-disabled={atRoot || undefined}
-              onClick={() => !atRoot && goTo(t.key)}
+              style={{ "--mobile-nav-order": bottomNavOrder(t.key) } as CSSProperties}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                if (!atRoot) goTo(t.key);
+              }}
             >
               {t.icon ? (
                 <img className="dash-tab__icon" src={t.icon} alt="" aria-hidden="true" />
               ) : (
                 <span className="dash-tab__emoji" aria-hidden="true">{t.emoji}</span>
               )}
+              {/* 🎒+📖 — only the phone bottom bar shows this pair glyph */}
+              {merged && (
+                <span className="dash-tab__pair" aria-hidden="true">
+                  <span>🎒</span>
+                  <i>+</i>
+                  <span>📖</span>
+                </span>
+              )}
               <span className="dash-tab__label">{t.label}</span>
+              {merged && <span className="dash-tab__pair-label">Instruções</span>}
             </button>
           );
         })}
+        <button
+          type="button"
+          role="tab"
+          aria-selected={profileOpen}
+          className={`dash-tab dash-menu-profile ${profileOpen ? "dash-tab--active dash-tab--root" : ""}`}
+          style={{ "--mobile-nav-order": tabs.length } as CSSProperties}
+          onClick={() => {
+            setMobileMenuOpen(false);
+            if (!profileOpen) goTo("profile");
+          }}
+        >
+          <img className="dash-tab__icon" src={meta.icon} alt="" aria-hidden="true" />
+          <span className="dash-tab__label">{user.name.split(" ")[0]}</span>
+          <span className="dash-menu-profile__label">Perfil</span>
+        </button>
+        {/* phones: the ⚙️ leaves the app bar (the logo takes its place) and lives in the drawer */}
+        {settingsAllowed && (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={settingsOpen}
+            className={`dash-tab dash-menu-settings ${settingsOpen ? "dash-tab--active dash-tab--root" : ""}`}
+            onClick={() => {
+              setMobileMenuOpen(false);
+              if (!settingsOpen) goTo(settingsPages[0].key);
+            }}
+          >
+            <span className="dash-tab__emoji" aria-hidden="true">⚙️</span>
+            <span className="dash-tab__label">Configurações</span>
+          </button>
+        )}
       </nav>
       )}
 
-      <InstallBanner />
+      <InstallBanner parent={isParent} />
 
       <main className={`dash-body ${settingsOpen ? "dash-body--settings" : ""}`} role="tabpanel">
         {settingsOpen && (
@@ -371,12 +496,13 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
           </nav>
         )}
         <TabOverrideContext.Provider value={setTabOverride}>
+          {view === "badge" && <EmergencyScanFab token={token} page />}
           {view === "home" && (isParent ? <ParentHomePage user={user} token={token} access={parentAccess} /> : <HomePage user={user} token={token} medical={helper.medical} />)}
-          {view === "prep" && (isParent ? <ParentPreparationPage user={user} /> : <PreparationPage user={user} token={token} />)}
+          {view === "prep" && (isParent ? <ParentPreparationPage user={user} token={token} /> : <PreparationPage user={user} token={token} pairedWith={mergesPrep ? () => goTo("instructions") : undefined} />)}
           {view === "preparation" && <PreparationAdminPage token={token} />}
           {view === "instructions-admin" && <InstructionsAdminPage token={token} />}
-          {view === "instructions" && <InstructionsPage user={user} />}
-          {view === "occurrences" && <OccurrencesPage token={token} user={user} manager={settingsAllowed} />}
+          {view === "instructions" && <InstructionsPage user={user} pairedWith={mergesPrep ? () => goTo("prep") : undefined} />}
+          {view === "occurrences" && <OccurrencesPage token={token} audience={isAdmin ? "admin" : helper.organizer ? "organizer" : "medical"} />}
           {view === "medications" && <MedicationsPage token={token} />}
           {view === "campers" && <CampersPage token={token} readOnly={!settingsAllowed} />}
           {view === "staff" && <StaffPage token={token} readOnly={!settingsAllowed} />}
@@ -419,7 +545,9 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
             <BusTripsPage outboundAvailable={helper.busOutbound} returnAvailable={helper.busReturn} />
           )}
           {view === "staffcheckin" && <StaffCheckinPage token={token} />}
-          {view === "profile" && (isParent ? <ParentProfile user={user} tokenExpiresAt={tokenExpiresAt} /> : <ProfileView user={user} tokenExpiresAt={tokenExpiresAt} />)}
+          {view === "profile" && (isParent
+            ? <ParentProfile user={user} onLogout={handleLogout} loggingOut={loggingOut} onSwitchRole={onSwitchRole} />
+            : <ProfileView user={user} onLogout={handleLogout} loggingOut={loggingOut} onSwitchRole={onSwitchRole} />)}
         </TabOverrideContext.Provider>
       </main>
 
@@ -427,15 +555,29 @@ export default function Dashboard({ user, token, tokenExpiresAt, onLoggedOut }: 
       <footer className="dash-foot" id={PAGE_FOOTER_ID} />
 
       {/* "Ler crachá" QR lookup — the team, WHILE THE CAMP IS ON (first day → end of the last event), on every page except the settings and the pages whose own yellow ScanFab performs their action */}
-      {!isParent && during && !settingsOpen && !hasOwnScanFab && <EmergencyScanFab token={token} />}
+      {!isParent && during && view !== "badge" && !settingsOpen && !hasOwnScanFab && <EmergencyScanFab token={token} />}
     </div>
   );
 }
 
-function ProfileView({ user, tokenExpiresAt }: { user: LoggedUser; tokenExpiresAt: string }) {
+function ProfileView({ user, onLogout, loggingOut, onSwitchRole }: { user: LoggedUser; onLogout: () => void; loggingOut: boolean; onSwitchRole: (role: Role) => Promise<void> }) {
   const meta = roleMeta(user.activeRole);
   const otherRoles = user.roles.filter((r) => r !== user.activeRole);
-  const formatted = speakDateTime(tokenExpiresAt);
+  const [switchingTo, setSwitchingTo] = useState<Role | null>(null);
+  const [switchError, setSwitchError] = useState<string | null>(null);
+
+  /** one tap on another profile enters it — there is nothing to confirm */
+  async function enterAs(role: Role) {
+    if (switchingTo) return;
+    setSwitchingTo(role);
+    setSwitchError(null);
+    try {
+      await onSwitchRole(role);
+    } catch (err) {
+      setSwitchError(err instanceof Error ? err.message : "Não foi possível trocar de perfil.");
+      setSwitchingTo(null);
+    }
+  }
 
   return (
     <div className="screen screen--narrow">
@@ -457,7 +599,8 @@ function ProfileView({ user, tokenExpiresAt }: { user: LoggedUser; tokenExpiresA
         </div>
         <div className="user-card__row">
           <span className="user-card__label">Perfil</span>
-          <span className={`role-chip role-chip--${meta.color} role-chip--small`}>
+          {/* the one they are already in: a plain label, nothing to tap */}
+          <span className="role-chip role-chip--small role-chip--bare">
             <img className="role-chip__icon" src={meta.icon} alt="" aria-hidden="true" /> {meta.label}
           </span>
         </div>
@@ -468,9 +611,16 @@ function ProfileView({ user, tokenExpiresAt }: { user: LoggedUser; tokenExpiresA
               {otherRoles.map((r) => {
                 const m = roleMeta(r);
                 return (
-                  <span key={r} className={`role-chip role-chip--${m.color} role-chip--small`}>
-                    <img className="role-chip__icon" src={m.icon} alt="" aria-hidden="true" /> {m.label}
-                  </span>
+                  <button
+                    key={r}
+                    type="button"
+                    className={`role-chip role-chip--${m.color} role-chip--small role-chip--switch`}
+                    disabled={!!switchingTo}
+                    onClick={() => void enterAs(r)}
+                    title={`Entrar como ${m.label}`}
+                  >
+                    <img className="role-chip__icon" src={m.icon} alt="" aria-hidden="true" /> {switchingTo === r ? "Entrando…" : m.label}
+                  </button>
                 );
               })}
             </span>
@@ -478,7 +628,13 @@ function ProfileView({ user, tokenExpiresAt }: { user: LoggedUser; tokenExpiresA
         )}
       </div>
 
-      <PageFooter>🔑 Sua sessão fica aberta até {formatted} (24h).</PageFooter>
+      {switchError && <p className="message message--error">{switchError}</p>}
+
+      <div className="profile-actions">
+        <button type="button" className="button button--danger profile-logout" onClick={onLogout} disabled={loggingOut}>
+          {loggingOut ? "Saindo…" : "Sair do aplicativo"}
+        </button>
+      </div>
     </div>
   );
 }

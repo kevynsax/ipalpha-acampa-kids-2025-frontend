@@ -5,6 +5,7 @@ import { useRoleDetail } from "../../store/derive";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import RichHtml from "../../components/RichHtml";
 import StaffIcon from "../../components/StaffIcon";
+import { ICONS } from "../../icons";
 import AssignRoleDialog from "./AssignRoleDialog";
 import type { DetailNav } from "./DetailStack";
 
@@ -86,7 +87,7 @@ export default function RoleDetail({ token, roleId, nav, onEdit, onOpenStaff, on
 
       <section className="detail-section">
         <h2 className="detail-h2">
-          📅 Onde é usada <span className="cat-tab__count">{usage.length}</span>
+          <img className="audience-icon" src={ICONS.schedule} alt="" aria-hidden="true" /> Onde é usada <span className="cat-tab__count">{usage.length}</span>
           {usage.length > 0 && (
             <span className="cat-hint">
               · <StaffIcon size={16} /> {totalPeople} pessoa{totalPeople !== 1 ? "s" : ""}

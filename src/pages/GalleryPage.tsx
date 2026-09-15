@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode, type TouchEvent } from "react";
 import { createPortal } from "react-dom";
 import { deleteGalleryPhotos, extractZipImages, galleryUrl, isZip, reorderGalleryPhotos, searchGalleryPerson, setAlbumPublished, updateGalleryPhotos, uploadGalleryPhoto, zipSupported, type GalleryPhoto } from "../api/gallery";
 import { type CampEvent } from "../api/schedule";
@@ -17,7 +17,7 @@ interface GalleryPageProps {
   token: string;
   /** admin / organizer or a listed photographer: may upload, edit and publish */
   canManage: boolean;
-  /** parents receive photos only after a temporary face-reference search */
+  /** parents see the published album and may filter it with a face-reference search */
   parentMode?: boolean;
 }
 
@@ -47,6 +47,12 @@ const UPLOAD_LEAVE_MS = 420;
 
 /** how long a deleted tile takes to shrink away (matches `tile-poof` in the CSS) */
 const DELETE_LEAVE_MS = 380;
+
+/** touch and hold this long on a photo to pick it (phones have no checkbox) */
+const HOLD_MS = 420;
+
+/** how far a finger must travel across the photo sheet to flick to the next one */
+const SWIPE_PX = 60;
 
 /** One drop target of the grid: an event, or the general "camp photos" block. */
 interface Section {
@@ -87,8 +93,9 @@ async function walkEntry(entry: FileSystemEntry, out: File[]): Promise<void> {
  */
 export default function GalleryPage({ token, canManage, parentMode = false }: GalleryPageProps) {
   const storePhotos = useCollectionOrEmpty("gallery");
-  const [parentPhotos, setParentPhotos] = useState<GalleryPhoto[] | null>(null);
-  const photos = parentMode ? parentPhotos ?? [] : storePhotos;
+  /** parent face-search: null = the whole album; a Set = only those ids */
+  const [matchedIds, setMatchedIds] = useState<Set<string> | null>(null);
+  const photos = matchedIds ? storePhotos.filter((p) => matchedIds.has(p.id)) : storePhotos;
   const events = useCollectionOrEmpty("events");
   const settings = useCollection("settings");
   const confirm = useConfirm();
@@ -123,7 +130,15 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
   const [dropAt, setDropAt] = useState<{ key: string; index: number } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const referenceInput = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const cameraGen = useRef(0);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraStarting, setCameraStarting] = useState(false);
   const [faceSearching, setFaceSearching] = useState(false);
+  /** how the last reference arrived — “Tentar de novo” repeats exactly that */
+  const [lastSource, setLastSource] = useState<"camera" | "file">("camera");
   const [referencePreview, setReferencePreview] = useState<string | null>(null);
   const [facePending, setFacePending] = useState(0);
   /** dragenter/dragleave fire for every child element: count them so the overlay doesn't flicker */
@@ -134,28 +149,140 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
     if (referencePreview) URL.revokeObjectURL(referencePreview);
   }, [referencePreview]);
 
+  function stopCamera() {
+    cameraGen.current += 1;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    const video = videoRef.current;
+    if (video) video.srcObject = null;
+    setCameraOpen(false);
+    setCameraStarting(false);
+  }
+
+  useEffect(() => () => {
+    cameraGen.current += 1;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  }, []);
+
+  /** Live viewfinder in the face-search picture. Started from the tap: iPhone drops getUserMedia without a user gesture, and ignores `.click()` on a hidden file input. */
+  async function openCamera() {
+    if (faceSearching || !anyPublished) return;
+    if (cameraOpen) {
+      void captureStill();
+      return;
+    }
+    setError(null);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      cameraInput.current?.click();
+      return;
+    }
+    const gen = cameraGen.current + 1;
+    cameraGen.current = gen;
+    setCameraStarting(true);
+    setCameraOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: "environment" } },
+      }).catch(() => navigator.mediaDevices.getUserMedia({ audio: false, video: true }));
+      if (cameraGen.current !== gen) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      streamRef.current = stream;
+      const video = videoRef.current;
+      if (!video) {
+        stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        setCameraOpen(false);
+        setCameraStarting(false);
+        return;
+      }
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      video.setAttribute("playsinline", "");
+      video.setAttribute("webkit-playsinline", "");
+      await video.play();
+      if (cameraGen.current !== gen) return;
+      setCameraStarting(false);
+    } catch (err) {
+      if (cameraGen.current !== gen) return;
+      stopCamera();
+      setError(cameraErrorText(err));
+      const name = typeof err === "object" && err && "name" in err ? String((err as { name: unknown }).name) : "";
+      if (name !== "NotAllowedError") cameraInput.current?.click();
+    }
+  }
+
+  async function captureStill() {
+    const video = videoRef.current;
+    if (!video) return;
+    if (!video.videoWidth) {
+      await new Promise<void>((resolve) => {
+        const done = () => { video.removeEventListener("loadeddata", done); resolve(); };
+        video.addEventListener("loadeddata", done);
+        window.setTimeout(done, 800);
+      });
+    }
+    if (!video.videoWidth) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+    stopCamera();
+    if (!blob) {
+      setError("Não foi possível fotografar. Tente novamente.");
+      return;
+    }
+    void handleReference(new File([blob], "camera.jpg", { type: "image/jpeg" }));
+  }
+
   /**
    * The parent's reference picture. It travels in ONE request, is matched
    * against the album's stored face vectors and is never saved anywhere.
    */
   async function handleReference(file: File | null) {
-    if (!parentMode || !file || faceSearching) return;
-    setReferencePreview(URL.createObjectURL(file));
+    if (!parentMode || !file || faceSearching || !anyPublished) return;
+    stopCamera();
+    setReferencePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
     setFaceSearching(true);
     setError(null);
     try {
       const result = await searchGalleryPerson(token, file);
-      setParentPhotos(result.matches.map((match) => match.photo));
+      setMatchedIds(new Set(result.matches.map((match) => match.photo.id)));
       setFacePending(result.pendingPhotos);
       setSelected(new Set());
       setLightbox(null);
+      setFilter("all");
     } catch (err) {
-      setParentPhotos(null);
       setError(err instanceof Error ? err.message : "Não foi possível procurar as fotos.");
     } finally {
       setFaceSearching(false);
       if (referenceInput.current) referenceInput.current.value = "";
+      if (cameraInput.current) cameraInput.current.value = "";
     }
+  }
+
+  function clearSearch() {
+    stopCamera();
+    setMatchedIds(null);
+    setFacePending(0);
+    setReferencePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setSelected(new Set());
+    setLightbox(null);
+    setFilter("all");
+    setError(null);
   }
 
   const eventById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events]);
@@ -172,7 +299,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
   }, [photos, events]);
 
   const filterKey = (f: Filter) => (f === "all" || f === "general" ? f : `event:${f.event}`);
-  /** a photo whose event left the viewer's programme (parents only receive events from the check-in onwards) counts as general */
+  /** a photo whose event is not in the viewer's programme counts as general */
   const isGeneral = (p: GalleryPhoto) => !p.eventId || !eventById.has(p.eventId);
   const visible = useMemo(() => {
     if (filter === "all") return photos;
@@ -187,8 +314,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
 
   /** groups of the "Todas" view: one section per event (programme order), photos without an event last */
   const groups = useMemo(() => {
-    // parents get one flat list of their own matches — no event sections, no filter
-    if (parentMode || filter !== "all") return null;
+    if (filter !== "all") return null;
     const out: Section[] = [];
     for (const { event } of eventSections) {
       out.push({ key: `event:${event.id}`, title: event.title, emoji: event.emoji || "📅", eventId: event.id, photos: photos.filter((p) => p.eventId === event.id) });
@@ -204,7 +330,6 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
    * too; only the "Todas" view offers several sections to move photos between.
    */
   const flatSection: Section = useMemo(() => {
-    if (parentMode) return { key: "general", title: "Suas fotos", emoji: "📷", eventId: null, photos: visible };
     if (filter !== "all" && filter !== "general") {
       const event = eventById.get(filter.event);
       return { key: `event:${filter.event}`, title: event?.title ?? "Evento", emoji: event?.emoji || "📅", eventId: filter.event, photos: visible };
@@ -389,7 +514,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
   // anywhere on the tab is accepted and nothing falls through to the browser
   // (which would navigate away to the dropped file)
   useEffect(() => {
-    if (!canManage) return;
+    if (!canManage && !(parentMode && anyPublished)) return;
     const hasFiles = (e: globalThis.DragEvent) => !!e.dataTransfer && [...e.dataTransfer.types].includes("Files");
 
     const onEnter = (e: globalThis.DragEvent) => {
@@ -414,8 +539,14 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       e.preventDefault();
       dragDepth.current = 0;
       setDragging(false);
-      // a drop may carry anything: keep only pictures and zips
-      void filesFromDrop(e.dataTransfer!).then((files) => handlePicked(files.filter((f) => f.type.startsWith("image/") || isZip(f))));
+      void filesFromDrop(e.dataTransfer!).then((files) => {
+        if (parentMode) {
+          const first = files.find((f) => f.type.startsWith("image/"));
+          if (first) void handleReference(first);
+          return;
+        }
+        void handlePicked(files.filter((f) => f.type.startsWith("image/") || isZip(f)));
+      });
     };
 
     window.addEventListener("dragenter", onEnter);
@@ -430,7 +561,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       dragDepth.current = 0;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, filter, token, uploadEventId]);
+  }, [canManage, parentMode, filter, token, uploadEventId, anyPublished]);
 
   /** master switch: publishes every draft (the server texts everyone once) or hides the album again */
   async function toggleAlbum(next: boolean) {
@@ -451,9 +582,9 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
   /** the photos the bar acts on, in the order they appear on screen */
   const selectedPhotos = useMemo(() => visible.filter((p) => selected.has(p.id)), [visible, selected]);
 
-  // everyone may tick photos — the team picks what to take home; only the
-  // photographers get the move / delete buttons on top of it
-  const marquee = useMarqueeSelect({ enabled: true, selected, onChange: setSelected });
+  // parents without a reference may tick photos one by one, never the whole album
+  const parentLocked = parentMode && !matchedIds;
+  const marquee = useMarqueeSelect({ enabled: !parentLocked, selected, onChange: setSelected });
 
   /**
    * Which section shows the action buttons: the first one (top to bottom) that
@@ -486,6 +617,38 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       if (!next.delete(id)) next.add(id);
       return next;
     });
+  }
+
+  /**
+   * Touch: there is no checkbox on the tiles — a TOUCH AND HOLD picks the photo
+   * (and opens the selection); after that a plain tap keeps ticking, exactly
+   * like the phone's own photo app. The hold is cancelled by scrolling.
+   */
+  const hold = useRef<{ timer: number | null; fired: boolean; x: number; y: number }>({ timer: null, fired: false, x: 0, y: 0 });
+  function cancelHold() {
+    if (hold.current.timer !== null) {
+      clearTimeout(hold.current.timer);
+      hold.current.timer = null;
+    }
+  }
+  function startHold(e: TouchEvent<HTMLElement>, id: string) {
+    const touch = e.touches[0];
+    if (!touch) return;
+    cancelHold();
+    hold.current.fired = false;
+    hold.current.x = touch.clientX;
+    hold.current.y = touch.clientY;
+    hold.current.timer = window.setTimeout(() => {
+      hold.current.timer = null;
+      hold.current.fired = true;
+      navigator.vibrate?.(25);
+      toggleOne(id);
+    }, HOLD_MS);
+  }
+  function moveHold(e: TouchEvent<HTMLElement>) {
+    const touch = e.touches[0];
+    if (!touch) return;
+    if (Math.abs(touch.clientX - hold.current.x) > 10 || Math.abs(touch.clientY - hold.current.y) > 10) cancelHold();
   }
 
   async function bulkMove(eventId: string | null) {
@@ -621,6 +784,23 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lightbox]);
 
+  /** phones: flick left / right across the sheet to walk the set */
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+  function swipeStart(e: TouchEvent<HTMLElement>) {
+    const touch = e.touches[0];
+    swipe.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  }
+  function swipeEnd(e: TouchEvent<HTMLElement>) {
+    const from = swipe.current;
+    const touch = e.changedTouches[0];
+    swipe.current = null;
+    if (!from || !touch) return;
+    const dx = touch.clientX - from.x;
+    // a mostly-horizontal flick, so scrolling the sheet never changes the photo
+    if (Math.abs(dx) < SWIPE_PX || Math.abs(dx) < Math.abs(touch.clientY - from.y)) return;
+    step(dx < 0 ? 1 : -1);
+  }
+
   function step(delta: number) {
     setLightbox((lb) => {
       if (!lb || lb.list.length === 0) return lb;
@@ -648,9 +828,11 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
    */
   const selectAllBox = (list: GalleryPhoto[], sectionKey: string) => {
     if (list.length === 0) return null;
+    const canSelectAll = !parentLocked;
     const picked = list.filter((p) => selected.has(p.id)).length;
     const all = picked === list.length;
     const some = picked > 0 && !all;
+    if (!canSelectAll && selected.size === 0) return null;
     return (
       <div className="pick-head">
         {selected.size > 0 && sectionKey === actionsSectionKey && (
@@ -675,28 +857,40 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
                 </button>
               </>
             )}
+            {/* phones have no Esc: this is how the selection closes */}
+            <button
+              type="button"
+              className="button button--secondary pick-head__clear"
+              onClick={() => setSelected(new Set())}
+              disabled={bulkBusy}
+              title="Cancelar a seleção"
+            >
+              ✕
+            </button>
           </div>
         )}
-        <button
-          type="button"
-          className="pick-all"
-          onClick={() =>
-            setSelected((prev) => {
-              const next = new Set(prev);
-              for (const p of list) if (all) next.delete(p.id);
-                else next.add(p.id);
-              return next;
-            })
-          }
-          disabled={bulkBusy}
-          aria-pressed={all}
-          aria-label={all ? "Desmarcar todas desta seção" : "Selecionar todas desta seção"}
-          title={all ? "Desmarcar todas desta seção" : "Selecionar todas desta seção"}
-        >
-          <span className={`pick-all__box ${all ? "pick-all__box--on" : ""} ${some ? "pick-all__box--some" : ""}`} aria-hidden="true">
-            {all ? "✓" : some ? "–" : ""}
-          </span>
-        </button>
+        {canSelectAll && (
+          <button
+            type="button"
+            className="pick-all"
+            onClick={() =>
+              setSelected((prev) => {
+                const next = new Set(prev);
+                for (const p of list) if (all) next.delete(p.id);
+                  else next.add(p.id);
+                return next;
+              })
+            }
+            disabled={bulkBusy}
+            aria-pressed={all}
+            aria-label={all ? "Desmarcar todas desta seção" : "Selecionar todas desta seção"}
+            title={all ? "Desmarcar todas desta seção" : "Selecionar todas desta seção"}
+          >
+            <span className={`pick-all__box ${all ? "pick-all__box--on" : ""} ${some ? "pick-all__box--some" : ""}`} aria-hidden="true">
+              {all ? "✓" : some ? "–" : ""}
+            </span>
+          </button>
+        )}
       </div>
     );
   };
@@ -728,13 +922,32 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
         <button
           type="button"
           className="gallery-tile"
-          onClick={(e) => (selecting || e.shiftKey || e.metaKey || e.ctrlKey ? toggleOne(photo.id) : setLightbox({ list, index }))}
+          onClick={(e) => {
+            // the touch-and-hold already picked this photo: ignore the tap that follows it
+            if (hold.current.fired) {
+              hold.current.fired = false;
+              return;
+            }
+            if (selecting || e.shiftKey || e.metaKey || e.ctrlKey) toggleOne(photo.id);
+            else setLightbox({ list, index });
+          }}
+          onTouchStart={(e) => startHold(e, photo.id)}
+          onTouchMove={moveHold}
+          onTouchEnd={cancelHold}
+          onTouchCancel={cancelHold}
+          onContextMenu={(e) => {
+            // the hold fired: keep the browser's own "save image" menu out of the way
+            if (hold.current.fired) e.preventDefault();
+          }}
           aria-label={photo.caption || "Ver foto"}
+          aria-pressed={selecting ? picked : undefined}
           disabled={going}
         >
           <img src={galleryUrl(photo.thumbUrl)} alt={photo.caption || "Foto do acampamento"} loading="lazy" draggable={false} />
+          {/* a picked photo carries its tick; there is no always-on checkbox to hunt for */}
+          {picked && <span className="gallery-tile__tick" aria-hidden="true">✓</span>}
         </button>
-        {/* the only control on a tile: the selection tick (deleting lives in the section header) */}
+        {/* mouse only (hidden on touch, where the hold does this): the selection tick */}
         <button
           type="button"
           className={`gallery-tile__pick ${picked ? "gallery-tile__pick--on" : ""}`}
@@ -765,7 +978,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
     <div className="admin-page admin-page--wide">
       {/* rendered at the document root, like Dialog: an ancestor with a transform
           or filter would otherwise anchor the fixed backdrop to the page box */}
-      {dragging &&
+      {dragging && !parentMode &&
         createPortal(
           <div className="gallery-drop" aria-hidden="true">
             <span className="gallery-drop__box">📷 Solte as fotos aqui</span>
@@ -777,10 +990,10 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
           <img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" />
           Fotos
         </h1>
-        {(canManage || visible.length > 0) && (
+        {(canManage || selected.size > 0 || (visible.length > 0 && !parentLocked)) && (
         <div className="admin-head__actions">
-          {/* takes the album home: the whole view, or just what is ticked */}
-          {visible.length > 0 && (
+          {/* parents: the whole filtered set after a search, or only what they ticked */}
+          {visible.length > 0 && (selected.size > 0 || !parentLocked) && (
             <button
               type="button"
               className="button button--secondary admin-head__new"
@@ -813,18 +1026,78 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
         </div>
         )}
       </header>
-      <p className="admin-intro">{parentMode ? "Envie uma foto nítida para encontrar e baixar suas fotos" : "Os momentos do acampamento para pais e equipe"}</p>
+      <p className="admin-intro">{parentMode ? "Todas as fotos do acampamento. Uma foto do seu filho filtra as dele — e não fica salva." : "Os momentos do acampamento para pais e equipe"}</p>
 
       {parentMode && (
-        <section className="face-search">
-          <input ref={referenceInput} type="file" accept="image/*" capture="user" hidden onChange={(e) => void handleReference(e.target.files?.[0] ?? null)} />
-          {referencePreview && <img className="face-search__preview" src={referencePreview} alt="Foto de referência" />}
+        <section className={`face-search${dragging ? " face-search--over" : ""}${cameraOpen ? " face-search--live" : ""}`}>
+          <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void handleReference(e.target.files?.[0] ?? null)} />
+          <input ref={referenceInput} type="file" accept="image/*" hidden onChange={(e) => void handleReference(e.target.files?.[0] ?? null)} />
+          <div className="face-search__shot">
+            {/* always mounted: iPhone only plays a stream attached in the same tap */}
+            <video ref={videoRef} className="face-search__video" playsInline muted autoPlay />
+            {!cameraOpen && (referencePreview
+              ? <img className="face-search__preview" src={referencePreview} alt="Foto de referência" />
+              : <img className="face-search__icon" src={ICONS.takingPhoto} alt="" aria-hidden="true" />)}
+            {cameraStarting && <span className="face-search__spinner" aria-hidden="true" />}
+          </div>
           <div className="face-search__body">
-            <h2 className="face-search__title">Encontre suas fotos</h2>
-            <p className="cat-hint">A foto serve apenas para esta busca e não fica salva.</p>
-            <button type="button" className="button button--primary" onClick={() => referenceInput.current?.click()} disabled={faceSearching || !anyPublished}>
-              {faceSearching ? "Procurando…" : referencePreview ? "Usar outra foto" : "Escolher foto de referência"}
-            </button>
+            {/* the copy follows the state: asking for a picture → aiming the camera →
+                a search is already on (the picture is right there, so "mande uma foto"
+                would make no sense any more) */}
+            <h2 className="face-search__title">
+              {cameraOpen ? "Enquadre o rosto e fotografe" : matchedIds ? "Mostrando as fotos do seu filho" : "Encontre as fotos do seu filho"}
+            </h2>
+            {!cameraOpen && (
+              <p className="cat-hint">
+                {dragging ? "Solte a foto aqui." : matchedIds ? "Não deu certo? Tente novamente." : "Mande uma foto do seu filho para filtrar as dele."}
+              </p>
+            )}
+            <div className="face-search__actions">
+              {/* PHONES ONLY (hidden by CSS above 700px): with a search on, three
+                  buttons never fit on one line, so the two “how to search” ones
+                  collapse into “Tentar de novo”, repeating whichever was used
+                  last. The desktop row below is untouched. */}
+              {matchedIds && !cameraOpen && (
+                <button
+                  type="button"
+                  className="button button--primary face-search__retry"
+                  onClick={() => (lastSource === "camera" ? void openCamera() : referenceInput.current?.click())}
+                  disabled={faceSearching || !anyPublished || cameraStarting}
+                  title={lastSource === "camera" ? "Fotografar de novo" : "Escolher outra foto"}
+                >
+                  {faceSearching ? "Procurando…" : cameraStarting ? "Abrindo…" : "Tentar de novo"}
+                </button>
+              )}
+              <button
+                type="button"
+                className={`button button--primary ${matchedIds ? "face-search__again" : ""}`}
+                onClick={() => { setLastSource("camera"); void openCamera(); }}
+                disabled={faceSearching || !anyPublished || cameraStarting}
+              >
+                {faceSearching ? "Procurando…" : cameraOpen ? "Fotografar" : cameraStarting ? "Abrindo…" : "Abrir câmera"}
+              </button>
+              {cameraOpen ? (
+                <button type="button" className="button button--secondary" onClick={stopCamera}>
+                  Cancelar
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className={`button button--secondary ${matchedIds ? "face-search__again" : ""}`}
+                    onClick={() => { setLastSource("file"); referenceInput.current?.click(); }}
+                    disabled={faceSearching || !anyPublished}
+                  >
+                    {matchedIds ? "Escolher outra" : "Escolher foto"}
+                  </button>
+                  {matchedIds && (
+                    <button type="button" className="button button--secondary" onClick={clearSearch} disabled={faceSearching}>
+                      Ver todas
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
             {!anyPublished && <p className="cat-hint">As fotos ainda não foram publicadas.</p>}
           </div>
         </section>
@@ -956,8 +1229,8 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
         </section>
       )}
 
-      {parentMode && parentPhotos !== null && photos.length > 0 && (
-        <p className="face-search__result">{photos.length} foto{photos.length === 1 ? " encontrada" : "s encontradas"}{facePending > 0 ? ` · ${facePending} ainda sendo analisada${facePending === 1 ? "" : "s"}` : ""}</p>
+      {parentMode && matchedIds && (
+        <p className="face-search__result">{photos.length} foto{photos.length === 1 ? " com o seu filho" : "s com o seu filho"}{facePending > 0 ? ` · ${facePending} ainda sendo analisada${facePending === 1 ? "" : "s"}` : ""}</p>
       )}
 
       {!parentMode && photos.length > 0 && (
@@ -976,15 +1249,13 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
           <div className="admin-empty">
             <img className="admin-empty__icon admin-empty__icon--lg" src={ICONS.noPhotos} alt="" aria-hidden="true" />
             <p>
-              {parentMode
-                ? parentPhotos === null
-                  ? "Escolha uma foto de referência para ver as fotos encontradas."
-                  : "Não encontramos você nas fotos publicadas. Tente outra foto, de frente e com boa luz."
+              {parentMode && matchedIds
+                ? "Não encontramos o seu filho. Tente outra foto, de frente e com boa luz — ou veja o álbum inteiro."
                 : canManage
                   ? "Nenhuma foto ainda — arraste as fotos para cá para começar."
                   : "Ainda não há fotos. Os fotógrafos estão capturando os melhores momentos!"}
             </p>
-            {parentMode && parentPhotos !== null && facePending > 0 && <p className="cat-hint">{facePending} foto{facePending === 1 ? " ainda está" : "s ainda estão"} sendo analisada{facePending === 1 ? "" : "s"}.</p>}
+            {parentMode && matchedIds && facePending > 0 && <p className="cat-hint">{facePending} foto{facePending === 1 ? " ainda está" : "s ainda estão"} sendo analisada{facePending === 1 ? "" : "s"}.</p>}
           </div>
         ) : visible.length === 0 ? (
           <p className="opt-empty">Nenhuma foto aqui.</p>
@@ -1021,10 +1292,11 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
         {parentMode ? "📷 Sua foto de referência não fica salva." : canManage ? "📷 Ao ligar Publicadas, pais e equipe veem na hora." : "📷 Novas fotos aparecem aqui assim que o fotógrafo publica."}
       </PageFooter>
 
-      {/* lightbox */}
-      <Dialog open={!!current} onClose={() => setLightbox(null)} title="Foto" width={860} fullscreenOnMobile>
+      {/* the photo itself: a card on a computer, a bottom sheet on phones */}
+      <Dialog open={!!current} onClose={() => setLightbox(null)} title="Foto" width={860} className="photo-sheet-dialog">
         {current && (
-          <div className="lightbox">
+          <div className="lightbox" onTouchStart={swipeStart} onTouchEnd={swipeEnd}>
+            <span className="lightbox__handle" aria-hidden="true" />
             <img className="lightbox__img" src={galleryUrl(current.url)} alt={current.caption || "Foto do acampamento"} />
             <div className="lightbox__nav">
               <button type="button" className="icon-btn icon-btn--lg" onClick={() => step(-1)} aria-label="Foto anterior" disabled={lightbox!.list.length < 2}>
@@ -1106,6 +1378,15 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
 
     </div>
   );
+}
+
+function cameraErrorText(err: unknown): string {
+  const name = typeof err === "object" && err && "name" in err ? String((err as { name: unknown }).name) : "";
+  if (name === "NotAllowedError") return "Permita o acesso à câmera nas configurações do iPhone e tente novamente.";
+  if (name === "NotFoundError") return "Nenhuma câmera foi encontrada neste aparelho.";
+  if (name === "NotReadableError") return "A câmera está sendo usada por outro aplicativo.";
+  if (!window.isSecureContext) return "A câmera só funciona em uma conexão segura (HTTPS).";
+  return "Não foi possível abrir a câmera. Confira a permissão e tente novamente.";
 }
 
 interface EventPickerDialogProps {

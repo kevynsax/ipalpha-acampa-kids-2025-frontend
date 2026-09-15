@@ -33,32 +33,60 @@ const MAX_EDGE = 1280;
 const MAX_UPLOAD = 2 * 1024 * 1024;
 
 /**
+ * Decodes a still. `createImageBitmap` alone fails on iPhone HEIC (and on
+ * JPEGs that only have an EXIF orientation), so we honour EXIF and fall back
+ * to an <img> decode when the bitmap path rejects the file.
+ */
+async function bitmapFromFile(file: File): Promise<ImageBitmap | null> {
+  const opts: ImageBitmapOptions = { imageOrientation: "from-image" };
+  const direct = await createImageBitmap(file, opts).catch(() => null);
+  if (direct) return direct;
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("decode"));
+      el.src = url;
+    });
+    return await createImageBitmap(img, opts).catch(() => null);
+  } catch {
+    return null;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/**
  * Shrinks a picture on the device before upload (phones shoot 4000 px JPEGs):
  * longest edge ≤ 1280 px, re-encoded as JPEG (or WebP when the source is PNG
  * with transparency… we keep it simple: PNG stays PNG, anything else → JPEG).
  */
 export async function shrinkImage(file: File): Promise<Blob> {
   if (file.type === "image/gif") return file; // keep animations
-  const bitmap = await createImageBitmap(file).catch(() => null);
-  if (!bitmap) return file;
+  const bitmap = await bitmapFromFile(file);
+  if (!bitmap) {
+    throw new ApiError(0, "UPLOAD_FAILED", "Não foi possível abrir a imagem. Tire a foto pela câmera ou escolha um JPG/PNG.");
+  }
   const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
-  if (scale === 1 && file.size <= MAX_UPLOAD) {
+  if (scale === 1 && file.size <= MAX_UPLOAD && (file.type === "image/jpeg" || file.type === "image/png" || file.type === "image/webp")) {
     bitmap.close();
     return file;
   }
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     bitmap.close();
-    return file;
+    throw new ApiError(0, "UPLOAD_FAILED", "Não foi possível abrir a imagem.");
   }
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
   const type = file.type === "image/png" ? "image/png" : "image/jpeg";
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, 0.85));
-  return blob ?? file;
+  if (!blob) throw new ApiError(0, "UPLOAD_FAILED", "Não foi possível abrir a imagem.");
+  return blob;
 }
 
 export async function uploadImage(token: string, file: File): Promise<UploadedFile> {

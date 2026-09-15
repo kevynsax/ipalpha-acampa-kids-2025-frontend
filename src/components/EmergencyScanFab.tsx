@@ -1,15 +1,19 @@
 import { useCallback, useState } from "react";
 import { ApiError } from "../api/client";
-import { lookupCamper, type Camper } from "../api/campers";
+import { lookupCamper, type CamperLookupResult } from "../api/campers";
 import { camperIdFromQr } from "../print/camperLabels";
 import CamperDetail from "../pages/admin/CamperDetail";
 import Dialog from "./Dialog";
 import QrScannerDialog from "./QrScannerDialog";
 import { QrGlyph } from "./Glyph";
 import { ICONS } from "../icons";
+import { goBack, useRoute } from "../router";
+import Breadcrumbs from "./Breadcrumbs";
 
 interface EmergencyScanFabProps {
   token: string;
+  /** The badge route renders the scanner's result in the dashboard, not a dialog. */
+  page?: boolean;
 }
 
 /**
@@ -19,21 +23,12 @@ interface EmergencyScanFabProps {
  * check-in) so the two never fight. The server is the source
  * of truth for scope + counters; out-of-scope kids come back with a warning.
  */
-export default function EmergencyScanFab({ token }: EmergencyScanFabProps) {
-  const [scannerOpen, setScannerOpen] = useState(false);
+export default function EmergencyScanFab({ token, page = false }: EmergencyScanFabProps) {
+  const { navigate } = useRoute();
+  const [scannerOpen, setScannerOpen] = useState(page);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{
-    camper: Camper;
-    belonged: boolean;
-    foreignLookupCount: number;
-    bedroom?: {
-      id: string;
-      name: string;
-      group: "girls" | "boys" | "staff";
-    } | null;
-    caretaker?: { id: string; name: string } | null;
-  } | null>(null);
+  const [result, setResult] = useState<CamperLookupResult | null>(null);
 
   const onScan = useCallback(
     async (raw: string) => {
@@ -48,13 +43,8 @@ export default function EmergencyScanFab({ token }: EmergencyScanFabProps) {
       try {
         const res = await lookupCamper(token, id);
         setScannerOpen(false);
-        setResult({
-          camper: res.camper,
-          belonged: res.belonged,
-          foreignLookupCount: res.foreignLookupCount,
-          bedroom: res.bedroom,
-          caretaker: res.caretaker,
-        });
+        setResult(res);
+        window.scrollTo({ top: 0 });
       } catch (e) {
         setScannerOpen(false);
         if (e instanceof ApiError) setError(e.message);
@@ -66,21 +56,24 @@ export default function EmergencyScanFab({ token }: EmergencyScanFabProps) {
     [token],
   );
 
-  function closeResult() {
+  function scanAnother() {
+    setError(null);
     setResult(null);
+    setScannerOpen(true);
   }
 
-  return (
-    <>
+  function back() {
+    goBack("/");
+  }
+
+  if (!page) {
+    return (
       <button
         type="button"
         className="fab fab--emergency"
         title="Ler o crachá de qualquer criança (emergência)"
         aria-label="Ler o crachá de qualquer criança"
-        onClick={() => {
-          setError(null);
-          setScannerOpen(true);
-        }}
+        onClick={() => navigate("/badge")}
       >
         <img className="fab__kid" src={ICONS.camper} alt="" aria-hidden="true" />
         <span className="fab__label">Ler crachá</span>
@@ -88,6 +81,22 @@ export default function EmergencyScanFab({ token }: EmergencyScanFabProps) {
           <QrGlyph size="1.4em" />
         </span>
       </button>
+    );
+  }
+
+  return (
+    <div className="admin-page lookup-result">
+      {!result && (
+        <>
+          <Breadcrumbs items={[{ label: "Voltar", onClick: back }, { label: "Ler crachá" }]} />
+          <header className="admin-head">
+            <h1 className="admin-title"><QrGlyph /> Ler crachá</h1>
+            <button type="button" className="button button--primary" onClick={scanAnother}>
+              Ler pulseira ou crachá
+            </button>
+          </header>
+        </>
+      )}
 
       <QrScannerDialog open={scannerOpen} busy={busy} onScan={(v) => void onScan(v)} onClose={() => !busy && setScannerOpen(false)} />
 
@@ -116,43 +125,34 @@ export default function EmergencyScanFab({ token }: EmergencyScanFabProps) {
       )}
 
       {result && (
-        <Dialog open onClose={closeResult} title={result.camper.name.split(" ")[0]} width={720}>
-          <div className="cat-form cat-form--plain lookup-result">
-            {!result.belonged && (
-              <p className="message message--warn">
-                ⚠️ Esta criança <strong>não é do seu quarto</strong>. Use só em emergência
-                {result.foreignLookupCount > 0 ? ` (leitura fora do escopo nº ${result.foreignLookupCount})` : ""}.
-              </p>
-            )}
-            <CamperDetail
-              token={token}
-              camperId={result.camper.id}
-              camperOverride={result.camper}
-              bedroomOverride={result.bedroom}
-              caretakerOverride={result.caretaker}
-              nav={{
-                crumbs: [{ label: "Busca", onClick: closeResult }, { label: "Criança" }],
-                setTitle: () => undefined,
-              }}
-            />
-            <div className="cat-form__actions">
-              <button type="button" className="button button--secondary" onClick={closeResult}>
-                Fechar
-              </button>
-              <button
-                type="button"
-                className="button button--primary"
-                onClick={() => {
-                  setResult(null);
-                  setScannerOpen(true);
-                }}
-              >
-                Ler outro
-              </button>
-            </div>
+        <>
+          {!result.belonged && (
+            <p className="message message--warn">
+              ⚠️ Esta criança <strong>não é do seu quarto</strong>. Use só em emergência
+              {result.foreignLookupCount > 0 ? ` (leitura fora do escopo nº ${result.foreignLookupCount})` : ""}.
+            </p>
+          )}
+          <CamperDetail
+            token={token}
+            camperId={result.camper.id}
+            camperOverride={result.camper}
+            bedroomOverride={result.bedroom}
+            caretakerOverride={result.caretaker}
+            nav={{
+              crumbs: [{ label: "Voltar", onClick: back }, { label: "Criança" }],
+              setTitle: () => undefined,
+            }}
+          />
+          <div className="cat-form__actions">
+            <button type="button" className="button button--secondary" onClick={back}>
+              Voltar
+            </button>
+            <button type="button" className="button button--primary" onClick={scanAnother}>
+              Ler outro
+            </button>
           </div>
-        </Dialog>
+        </>
       )}
-    </>
+    </div>
   );
 }

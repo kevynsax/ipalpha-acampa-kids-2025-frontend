@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { bedroomLabel } from "../api/bedrooms";
+import BedroomTag from "../components/BedroomTag";
 import { ageOf, checkinCamper, undoCheckinCamper, type Camper } from "../api/campers";
 import { checkinStaff, undoCheckinStaff, type Staff } from "../api/staff";
 import { useConfirm } from "../components/ConfirmDialog";
@@ -254,7 +254,7 @@ export default function TransportReport({ token, onBack, onHome, onOpenStaff, on
                             {age !== null && <span className="kid-card__age">{age} anos</span>}
                           </span>
                           <span className="vehicle__person-meta">
-                            {room ? bedroomLabel(room) : "sem quarto"}
+                            {room ? <BedroomTag bedroom={room} className="staff-tag--inline" /> : "sem quarto"}
                             {k.guardianPhone && (
                               <WhatsAppButton
                                 className="wa-btn--sm"

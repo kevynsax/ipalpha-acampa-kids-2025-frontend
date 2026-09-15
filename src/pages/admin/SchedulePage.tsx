@@ -12,6 +12,7 @@ import {
   type ScheduleRole,
   type ScheduleRoleInput,
 } from "../../api/schedule";
+import ParentIcon from "../../components/ParentIcon";
 import { speakDay } from "../../dates";
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import DetailStack, { detailUrl, rememberTitle, viaCrumbs, type DetailRef } from "./DetailStack";
@@ -21,6 +22,7 @@ import Breadcrumbs from "../../components/Breadcrumbs";
 import EventForm from "./EventForm";
 import RoleForm from "./RoleForm";
 import RichHtml from "../../components/RichHtml";
+import { ICONS } from "../../icons";
 
 interface SchedulePageProps {
   token: string;
@@ -108,6 +110,15 @@ export default function SchedulePage({ token }: SchedulePageProps) {
     if (mode.kind !== "edit-event") return;
     const updated = await withBusy(() => updateEvent(token, mode.id, input));
     navigate(`/schedule/events/${updated.id}`, { replace: true });
+  }
+
+  async function handleParentsVisible(e: CampEvent, next: boolean) {
+    if (next === (e.visibleToParents !== false)) return;
+    try {
+      await updateEvent(token, e.id, { visibleToParents: next });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Algo deu errado.");
+    }
   }
 
   async function handleDeleteEvent(e: CampEvent) {
@@ -217,7 +228,21 @@ export default function SchedulePage({ token }: SchedulePageProps) {
       )}
       <header className="admin-head">
         <h1 className="admin-title">
-          {mode.kind === "create-event" ? "📅 Novo evento" : mode.kind === "edit-event" ? "✏️ Editar evento" : mode.kind === "create-role" ? "🎯 Nova função" : mode.kind === "edit-role" ? "✏️ Editar função" : "Programação"}
+          {mode.kind === "create-event" ? (
+            <>
+              <img className="admin-title__icon" src={ICONS.schedule} alt="" aria-hidden="true" /> Novo evento
+            </>
+          ) : mode.kind === "edit-event" ? (
+            "✏️ Editar evento"
+          ) : mode.kind === "create-role" ? (
+            "🎯 Nova função"
+          ) : mode.kind === "edit-role" ? (
+            "✏️ Editar função"
+          ) : (
+            <>
+              <img className="admin-title__icon" src={ICONS.schedule} alt="" aria-hidden="true" /> Programação
+            </>
+          )}
         </h1>
         {!inForm && (
           <button
@@ -261,24 +286,26 @@ export default function SchedulePage({ token }: SchedulePageProps) {
 
       {!inForm && (
         <div className="staff-toolbar__filters" role="tablist" aria-label="Programação">
-          {(
-            [
-              ["events", "📅 Eventos", events.length],
-              ["roles", "🎯 Funções", roles.length],
-            ] as [SubTab, string, number][]
-          ).map(([key, label, n]) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={sub === key}
-              className={`cat-tab ${sub === key ? "cat-tab--active" : ""}`}
-              onClick={() => setSub(key)}
-            >
-              {label}
-              <span className="cat-tab__count">{n}</span>
-            </button>
-          ))}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={sub === "events"}
+            className={`cat-tab ${sub === "events" ? "cat-tab--active" : ""}`}
+            onClick={() => setSub("events")}
+          >
+            <img className="cat-tab__img" src={ICONS.schedule} alt="" aria-hidden="true" /> Eventos
+            <span className="cat-tab__count">{events.length}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={sub === "roles"}
+            className={`cat-tab ${sub === "roles" ? "cat-tab--active" : ""}`}
+            onClick={() => setSub("roles")}
+          >
+            🎯 Funções
+            <span className="cat-tab__count">{roles.length}</span>
+          </button>
         </div>
       )}
 
@@ -301,7 +328,7 @@ export default function SchedulePage({ token }: SchedulePageProps) {
       {/* ── events timeline ── */}
       {!inForm && sub === "events" && events.length === 0 && (
         <div className="admin-empty">
-          <span className="admin-empty__emoji">📅</span>
+          <img className="admin-empty__icon" src={ICONS.schedule} alt="" aria-hidden="true" />
           <p>Nenhum evento ainda. Monte a programação do acampamento!</p>
           <button type="button" className="button button--primary" onClick={() => navigate("/schedule/events/new")}>
             + Criar evento
@@ -343,6 +370,19 @@ export default function SchedulePage({ token }: SchedulePageProps) {
                     >
                       <h3 className="event-card__title">
                         <span aria-hidden="true">{e.emoji}</span> {e.title}
+                        <button
+                          type="button"
+                          className={`event-card__parents ${e.visibleToParents === false ? "event-card__parents--off" : ""}`}
+                          title={e.visibleToParents === false ? "Só a equipe vê — clicar para os pais verem" : "Os pais veem — clicar para esconder"}
+                          aria-pressed={e.visibleToParents !== false}
+                          aria-label={e.visibleToParents === false ? "Os pais não veem este evento" : "Os pais veem este evento"}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            void handleParentsVisible(e, e.visibleToParents === false);
+                          }}
+                        >
+                          <ParentIcon size={16} />
+                        </button>
                       </h3>
                       {e.notes && <p className="staff-card__meta">{e.notes}</p>}
                       {e.roles.length > 0 && (

@@ -108,6 +108,12 @@ button, input { font: inherit; }
 .subtitle { margin: 0; text-align: center; color: var(--muted); font-size: 1.05rem; font-weight: 600; max-width: 40ch; }
 .role-chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border-radius: 999px; font-family: var(--font-display); font-weight: 700; font-size: .95rem; border: 2px solid; background: #fff; }
 .role-chip--orange { border-color: var(--sun); background: #f8dfbb; }.role-chip--green { border-color: var(--sage); background: #c5d9c0; }.role-chip--red { border-color: var(--red); background: #e8b8a9; }.role-chip--purple { border-color: #8eaab4; background: #c8d6dc; }.role-chip--small { font-size: .8rem; padding: 4px 12px; }
+/* just the icon + the name, no pill around it (a detail row already has its own card) */
+.role-chip--bare { border: 0; background: none; padding: 0; }
+/* the chip opens the profile switcher: still a chip, but tappable */
+.role-chip--switch { cursor: pointer; font: inherit; font-family: var(--font-display); font-weight: 800; color: inherit; transition: opacity .15s ease, transform .15s ease; }
+.role-chip--switch:hover { opacity: .75; }
+.role-chip--switch:active { transform: translateY(1px); }
 .form { width: 100%; display: flex; flex-direction: column; gap: 14px; align-items: stretch; }
 .button { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; padding: 14px 24px; border-radius: 999px; border: 0; cursor: pointer; transition: transform .15s ease, filter .15s ease; }.button--primary { background: var(--forest); color: #fff; box-shadow: 0 5px 0 var(--forest-dark); }.button--primary:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); }.button--primary:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 var(--forest-dark); }.button--primary:disabled { opacity: .55; cursor: not-allowed; }.button--secondary { background: #fff; color: var(--forest); box-shadow: 0 5px 0 rgba(24,61,54,.12); }
 .back-button, .resend-button { align-self: flex-start; background: none; border: 0; font-family: var(--font-display); font-weight: 700; color: var(--pine); cursor: pointer; padding: 6px 10px; border-radius: 12px; }.back-button:hover, .resend-button:hover { background: rgba(255,255,255,.6); }
@@ -323,6 +329,7 @@ span.opt-item__label { cursor: default; }
 .dash-brand { display: flex; align-items: center; gap: 10px; }
 .dash-brand .logo-img { width: 48px; height: 48px; border: 0; border-radius: 50%; box-shadow: none; background: transparent; object-fit: contain; }
 .dash-brand__name { font-family: var(--font-display); font-weight: 800; font-size: 1.1rem; letter-spacing: -.02em; }
+.dash-current-view { display: none; }
 .dash-user { display: flex; align-items: center; gap: 8px; }
 .dash-user .role-chip { border: 0; background: var(--sand); color: var(--forest-dark); padding: 5px 12px 5px 6px; gap: 8px; }
 .dash-user .role-chip__icon { width: 26px; height: 26px; object-fit: contain; }
@@ -333,7 +340,12 @@ span.opt-item__label { cursor: default; }
 .dash-iconbtn:hover { background-color: rgba(255,255,255,.14); transform: translateY(-1px); }
 .dash-iconbtn--active { background-color: var(--sand); color: var(--forest-dark); border-color: var(--sand); box-shadow: 0 0 0 3px var(--sun); }
 .dash-iconbtn--active:hover { background-color: var(--sand); }
-.dash-iconbtn--logout:hover { background-color: rgba(201,107,85,.35); border-color: rgba(201,107,85,.6); }
+.dash-menu-toggle { display: none; }
+.dash-menu-toggle__lines { width: 20px; display: flex; flex-direction: column; gap: 4px; }
+.dash-menu-toggle__lines i { display: block; width: 100%; height: 2px; border-radius: 999px; background: currentColor; transition: transform .18s ease, opacity .18s ease; }
+.dash-menu-toggle--open .dash-menu-toggle__lines i:first-child { transform: translateY(6px) rotate(45deg); }
+.dash-menu-toggle--open .dash-menu-toggle__lines i:nth-child(2) { opacity: 0; }
+.dash-menu-toggle--open .dash-menu-toggle__lines i:last-child { transform: translateY(-6px) rotate(-45deg); }
 
 .dash-tabs { background: var(--forest-dark); display: flex; gap: 6px; padding: 0 20px; overflow-x: auto; scrollbar-width: none; }
 .dash-tabs::-webkit-scrollbar { display: none; }
@@ -347,6 +359,15 @@ span.opt-item__label { cursor: default; }
 .dash-tab--root, .dash-tab--root:hover { background-color: var(--sand); cursor: default; }
 .dash-tab__icon { width: 28px; height: 28px; object-fit: contain; }
 .dash-tab__emoji { font-size: 1.2rem; line-height: 1; }
+.dash-menu-profile, .dash-menu-settings { display: none; }
+/* the 🎒+📖 pair glyph and its label belong to the phone bottom bar only */
+.dash-tab__pair, .dash-tab__pair-label { display: none; }
+/* the header link between Preparação and Instruções, shown only while they share
+   one bottom-bar entry (the page passes `pairedWith`, i.e. 6 tabs on a phone) */
+.dash-pair-link { display: none; flex: none; align-items: center; gap: 6px; padding: 8px 14px; border: 2px solid var(--sage); border-radius: 999px; background: #fff; color: var(--pine); font-family: var(--font-display); font-weight: 800; font-size: .85rem; cursor: pointer; }
+.dash-pair-link:active { transform: translateY(1px); }
+.dash-top-logo { display: none; }
+.dash-menu-profile__label { margin-left: auto; font-family: var(--font-body); font-size: .72rem; font-weight: 700; opacity: .72; }
 /* Size full-bleed scenes against the usable page width, excluding scrollbars. */
 .dash-body { flex: 1; background: var(--sand); container-type: inline-size; }
 /* the page's closing note (PageFooter portals into this) — empty on pages without one */
@@ -356,11 +377,78 @@ span.opt-item__label { cursor: default; }
 .dash-body .admin-page { padding-top: 20px; }
 .dash-body .screen { padding-top: 24px; }
 
-@media (max-width: 560px) {
-  .dash-top { padding: 10px 14px; }
-  .dash-brand__name { display: none; }
-  .dash-tabs { padding: 0 10px; }
-  .dash-tab { padding: 8px 12px 10px; font-size: .85rem; }
+@media (max-width: 700px) {
+  .dash-top { position: sticky; top: 0; z-index: 20; display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; padding: 10px 14px; }
+  .dash-brand { display: none; }
+  .dash-current-view { display: flex; grid-column: 2; min-width: 0; align-items: center; justify-content: center; gap: 7px; color: var(--sand); font-family: var(--font-display); font-size: 1rem; font-weight: 800; text-align: center; }
+  .dash-current-view__icon { flex: none; width: 28px; height: 28px; object-fit: contain; }
+  .dash-current-view__emoji { flex: none; font-size: 1.2rem; line-height: 1; }
+  .dash-current-view__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dash-user { grid-column: 3; justify-self: end; gap: 6px; }
+  .dash-menu-toggle { display: inline-flex; grid-column: 1; grid-row: 1; border: 0; border-radius: 0; }
+  .dash-menu-toggle:hover { background: none; }
+  /* drawer layout: hamburger · current page · the church logo alone (no "Acampa Kids") */
+  .dash--drawer-nav .dash-user__chip, .dash--drawer-nav .dash-settings-btn { display: none; }
+  .dash--drawer-nav .dash-top-logo { display: inline-flex; align-items: center; }
+  .dash--drawer-nav .dash-top-logo .logo-img { width: 34px; height: 34px; border: 0; border-radius: 50%; box-shadow: none; background: transparent; object-fit: contain; }
+  /* ⚙️ moves into the drawer, where it costs no app-bar room */
+  .dash--drawer-nav .dash-menu-settings { display: inline-flex; grid-column: 1 / -1; background: rgba(255,255,255,.16); }
+  .version-mark { display: none; }
+  .dash-tabs { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 0; padding: 0 12px; overflow: hidden; visibility: hidden; opacity: 0; transform: translateY(-8px); transition: max-height .24s ease, padding .24s ease, opacity .18s ease, transform .18s ease, visibility 0s linear .24s; }
+  .dash-tabs--open { max-height: 520px; padding: 8px 12px 14px; visibility: visible; opacity: 1; transform: translateY(0); transition-delay: 0s; }
+  .dash-tab { width: 100%; min-height: 52px; justify-content: flex-start; padding: 10px 12px; border-radius: 14px; font-size: .9rem; box-shadow: none; }
+  .dash-menu-profile { display: inline-flex; grid-column: 1 / -1; background: rgba(255,255,255,.16); }
+  .dash-tab--active, .dash-tab--root, .dash-tab--root:hover { box-shadow: inset 4px 0 0 var(--sun); }
+  .dash-tab__icon { width: 26px; height: 26px; }
+  /* the 64px tail a page leaves for the desktop footer is dead space on a phone,
+     but the content still needs a little air above the bottom bar */
+  .dash-body .admin-page, .dash-body .screen { padding-bottom: 24px; }
+  .dash-foot:not(:empty) { padding-bottom: 24px; }
+}
+@media (max-width: 700px) {
+  /* bottom bar layout: the app bar stays, carrying brand · current tab · the person */
+  .dash--bottom-nav .dash-brand { display: flex; grid-column: 1; grid-row: 1; justify-self: start; gap: 7px; }
+  .dash--bottom-nav .dash-brand .logo-img { width: 32px; height: 32px; }
+  .dash--bottom-nav .dash-brand__name { font-size: .82rem; line-height: 1.05; }
+  /* the bottom bar already names the current tab — the app bar just scrolls away with the page */
+  .dash--bottom-nav .dash-top { position: static; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .dash--bottom-nav .dash-current-view { display: none; }
+  .dash--bottom-nav .dash-user { grid-column: 2; }
+  .dash--bottom-nav .dash-user__chip { display: inline-flex; max-width: 100%; font-size: .8rem; }
+  .dash--bottom-nav .dash-user__chip .role-chip__icon { width: 22px; height: 22px; }
+  .dash--bottom-nav .dash-tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; gap: 0; max-height: none; padding: 7px 6px max(7px, env(safe-area-inset-bottom)); overflow: visible; visibility: visible; opacity: 1; transform: none; border-top: 2px solid rgba(255,255,255,.16); box-shadow: 0 -4px 14px rgba(24,61,54,.16); }
+  /* justify-content: start + a fixed icon slot keeps every label on one line,
+     whatever the glyph's own height */
+  .dash--bottom-nav .dash-tab { order: var(--mobile-nav-order); flex: 1 1 0; min-width: 0; min-height: 54px; flex-direction: column; justify-content: flex-start; align-items: center; gap: 4px; padding: 6px 2px; border-radius: 12px; background: transparent; font-size: .68rem; line-height: 1; text-align: center; opacity: .78; }
+  .dash--bottom-nav .dash-tab--active, .dash--bottom-nav .dash-tab--root, .dash--bottom-nav .dash-tab--root:hover { background: var(--sand); color: var(--forest-dark); box-shadow: none; opacity: 1; }
+  /* every tab gets the SAME icon slot (PNG, emoji or the 🎒+📖 pair), so the
+     labels below them share one baseline instead of drifting with each glyph */
+  .dash--bottom-nav .dash-tab__icon,
+  .dash--bottom-nav .dash-tab__emoji,
+  .dash--bottom-nav .dash-tab--merged .dash-tab__pair { flex: none; height: 26px; display: inline-flex; align-items: center; justify-content: center; }
+  .dash--bottom-nav .dash-tab__icon { width: 25px; }
+  .dash--bottom-nav .dash-tab__emoji { font-size: 1.35rem; line-height: 1; }
+  .dash--bottom-nav .dash-tab__label, .dash--bottom-nav .dash-tab__pair-label { flex: none; }
+  /* six tabs, two of them Preparação + Instruções: one 🎒+📖 entry stands for both */
+  .dash--bottom-nav .dash-tab--merged-spare { display: none; }
+  /* the other half is open: only HERE does the merged entry light up for it */
+  .dash--bottom-nav .dash-tab--merged-active { background: var(--sand); color: var(--forest-dark); box-shadow: none; opacity: 1; }
+  .dash--bottom-nav .dash-tab--merged .dash-tab__emoji, .dash--bottom-nav .dash-tab--merged .dash-tab__icon, .dash--bottom-nav .dash-tab--merged .dash-tab__label { display: none; }
+  .dash--bottom-nav .dash-tab--merged .dash-tab__pair { gap: 1px; font-size: 1.05rem; line-height: 1; }
+  .dash--bottom-nav .dash-tab--merged .dash-tab__pair i { font-style: normal; font-size: .7rem; font-weight: 800; opacity: .8; }
+  .dash--bottom-nav .dash-tab--merged .dash-tab__pair-label { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* …and the header link that reaches the half the bar no longer shows */
+  .dash--bottom-nav .dash-pair-link { display: inline-flex; }
+  /* Perfil is the name in the app bar, so it takes no slot in the bottom bar */
+  .dash--bottom-nav .dash-menu-profile { display: none; }
+  .dash--bottom-nav .dash-body { padding-top: 8px; }
+  /* the room for the bar is reserved ONCE, on the footer: it is always the last
+     element of the shell, empty or not (adding it to the body too doubled it) */
+  .dash--bottom-nav .dash-foot { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 380px) {
+  .dash--drawer-nav .dash-tabs { grid-template-columns: 1fr; }
+  .dash--bottom-nav .dash-tab { font-size: .62rem; }
 }
 
 /* ── Admin: bedrooms (quartos) ─────────────────────────────────────────── */
@@ -426,13 +514,19 @@ span.opt-item__label { cursor: default; }
 .timeline__end { font-size: .75rem; font-weight: 700; color: var(--muted); }
 .event-card { flex: 1; min-width: 0; background: var(--paper); border: 3px solid #fff; border-radius: var(--radius); box-shadow: 0 6px 0 rgba(24,61,54,.12); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
 .event-card__title { margin: 0; font-family: var(--font-display); font-size: 1.1rem; font-weight: 800; color: var(--forest); }
+.event-card__parents { display: inline-flex; margin-left: 8px; vertical-align: middle; padding: 0; border: 0; background: none; cursor: pointer; }
+.event-card__parents--off { opacity: .35; }
+.detail-grid .toggle { height: 32px; padding: 0; }
+.detail-grid .toggle__track { width: 42px; height: 24px; }
+.detail-grid .toggle__knob { width: 20px; height: 20px; top: 2px; left: 2px; }
+.detail-grid .toggle--on .toggle__knob { transform: translateX(18px); }
+.detail-grid .toggle__label { font-size: .85rem; }
 .event-card--plain { padding: 8px 12px 8px 16px; box-shadow: 0 3px 0 rgba(24,61,54,.08); }
 .event-card--plain .event-card__title { font-size: 1rem; }
 .event-card--clickable { cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
 .event-card--clickable:hover, .event-card--clickable:focus-visible { transform: translateY(-2px); box-shadow: 0 8px 0 rgba(24,61,54,.14); outline: 0; }
 .event-card--clickable:focus-visible { border-color: var(--sun); }
-/* team's read-only programme: "agora" highlight, faded past, own role tag */
-.timeline__item--past { opacity: .6; }
+/* team's read-only programme: "agora" highlight, own role tag */
 /* collapsed "already happened" bar — keeps the current event as the first card */
 .past-toggle { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; border: 2px dashed var(--sage); border-radius: var(--radius); background: transparent; color: var(--muted); font: inherit; font-weight: 700; font-size: .9rem; text-align: left; cursor: pointer; transition: background .15s ease, border-color .15s ease; }
 .past-toggle:hover, .past-toggle:focus-visible { background: #f3f7f4; border-color: var(--pine); color: var(--pine); outline: 0; }
@@ -747,7 +841,7 @@ span.opt-item__label { cursor: default; }
 .prep-countdown__text strong { font-family: var(--font-display); font-size: 1.35rem; font-weight: 800; line-height: 1.1; }
 .prep-countdown__text span { font-size: .85rem; font-weight: 600; opacity: .9; }
 .prep-sections { display: flex; flex-direction: column; gap: 14px; }
-.prep-section { gap: 8px; }
+.prep-section { gap: 8px; position: relative; /* the card in flight is raised above the ones it passes */ }
 .prep-section__head { display: flex; align-items: center; gap: 10px; }
 .prep-section__head .prep-section__title { flex: 1; }
 .prep-section__title { margin: 0; font-family: var(--font-display); font-size: 1.15rem; font-weight: 800; color: var(--forest); display: flex; align-items: center; gap: 8px; }
@@ -755,12 +849,32 @@ span.opt-item__label { cursor: default; }
 .prep-progress { display: flex; flex-direction: column; align-items: center; padding: 6px 14px; border-radius: 14px; background: rgba(255,255,255,.14); }
 .prep-progress strong { font-family: var(--font-display); font-size: 1.3rem; font-weight: 800; line-height: 1.1; }
 .prep-progress span { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; opacity: .9; white-space: nowrap; }
+/* phones: “3/8 feitos” has no room beside the countdown — it drops to its own line */
+@media (max-width: 700px) {
+  .prep-countdown { flex-wrap: wrap; }
+  .prep-countdown__text { min-width: 0; flex-basis: 0; }
+  .prep-progress { width: 100%; flex-direction: row; align-items: baseline; justify-content: center; gap: 7px; padding: 5px 12px; }
+}
 .prep-check { flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; background: none; cursor: pointer; }
 .prep-check:disabled { opacity: .6; cursor: wait; }
 .prep-check__box { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; border: 3px solid var(--sage); background: #fff; color: #fff; font-size: 1.1rem; font-weight: 900; line-height: 1; transition: transform .15s ease, background-color .15s ease, border-color .15s ease; }
 .prep-check:hover:not(:disabled) .prep-check__box { transform: scale(1.08); border-color: var(--pine); }
 .prep-check--on .prep-check__box { background: var(--forest); border-color: var(--forest); color: var(--sun); }
 .prep-section--done { opacity: .62; background: #f3f2ec; border-color: #e2ebe5; box-shadow: none; }
+/* ── ticking sinks the card to the end: it first greys out WHERE IT IS, then flies down (JS/FLIP) ── */
+.prep-section { transition: opacity .5s ease, background-color .5s ease, border-color .5s ease, box-shadow .35s ease; will-change: transform; }
+/* the beat between “done” and “gone”: settles onto the page, a bit dimmer than its resting state */
+.prep-section--settling { opacity: .5; box-shadow: 0 2px 0 rgba(24,61,54,.10); }
+.prep-section--settling .prep-check__box { animation: prep-tick-pop .42s cubic-bezier(.3,1.5,.5,1) both; }
+@keyframes prep-tick-pop {
+  0%   { transform: scale(1); }
+  38%  { transform: scale(1.32) rotate(-6deg); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .prep-section { transition: none; will-change: auto; }
+  .prep-section--settling .prep-check__box { animation: none; }
+}
 .prep-section--done .prep-section__title { text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: var(--sage); }
 .prep-section--role { border-color: var(--sun); }
 .prep-section__tag { padding: 2px 9px; border-radius: 999px; background: var(--sun); color: var(--forest-dark); font-family: var(--font-body); font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
@@ -788,10 +902,18 @@ span.opt-item__label { cursor: default; }
   .timeline__item { flex-direction: column; gap: 4px; }
   .timeline__time { flex-direction: row; gap: 6px; width: auto; align-items: baseline; padding-top: 0; }
   .timeline__time::before { top: .6em; }
+  /* the phone timeline both programmes use: the time keeps its own column
+     beside the card instead of stacking above it */
+  .parent-schedule .timeline { gap: 14px; margin-bottom: 14px; }
+  .parent-schedule .timeline__item { display: grid; grid-template-columns: 58px minmax(0, 1fr); align-items: start; gap: 10px; }
+  .parent-schedule .timeline__time { width: 58px; flex-direction: column; align-items: flex-start; padding-top: 10px; }
+  .parent-schedule .timeline__time::before { top: calc(10px + .6em); }
   .slot-item { flex-wrap: wrap; }
 }
 
 /* ── Dialog (native <dialog>) ───────────────────────────────────────────── */
+.attention-sheet__head, .attention-sheet__body { display: flex; flex-direction: column; gap: 14px; }
+.attention-sheet__handle { display: none; }
 .dialog { width: calc(100% - 32px); padding: 0; border: 0; border-radius: var(--radius); background: transparent; }
 .dialog::backdrop { background: rgba(24,61,54,.55); backdrop-filter: blur(2px); }
 .dialog[open] { animation: pop-in .2s ease; }
@@ -807,6 +929,20 @@ span.opt-item__label { cursor: default; }
 .lookup-result .admin-page { padding: 0; animation: none; }
 /* full-screen on phones (camera scanners): edge to edge, the panel fills the screen and scrolls */
 @media (max-width: 560px) {
+  .attention-sheet-dialog { width: 100%; max-width: none !important; max-height: none; margin: auto 0 0; border-radius: 22px 22px 0 0; }
+  .attention-sheet-dialog[open] { animation: attention-sheet-in .22s cubic-bezier(.2,.8,.2,1); }
+  .attention-sheet-dialog .dialog__panel { height: min(90dvh, 820px); max-height: none; overflow: hidden; border-radius: 22px 22px 0 0; }
+  .attention-sheet { height: 100%; padding: 0; gap: 0; overflow: hidden; border: 0; border-radius: 22px 22px 0 0; box-shadow: none; }
+  .attention-sheet__head { flex: none; gap: 0; padding: 8px 18px 14px; border-bottom: 2px solid #e2ebe5; background: var(--paper); }
+  .attention-sheet__handle { display: block; width: 42px; height: 5px; margin: 0 auto 12px; border-radius: 999px; background: var(--sage); }
+  .attention-sheet__head .cat-form__title { margin-bottom: 6px; }
+  .attention-sheet__body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 18px 22px; display: flex; flex-direction: column; gap: 14px; -webkit-overflow-scrolling: touch; }
+  .attention-sheet__body .cat-form__row { flex-direction: column; }
+  .attention-sheet__body .cat-field--weight { max-width: none; }
+  .attention-sheet__actions { flex: none; padding: 12px 18px max(12px, env(safe-area-inset-bottom)); border-top: 2px solid #e2ebe5; background: var(--paper); }
+  .attention-sheet__actions .button { flex: 1; }
+  @keyframes attention-sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
   .dialog--full-mobile { width: 100%; max-width: none !important; height: 100dvh; max-height: none; margin: 0; border-radius: 0; }
   .dialog--full-mobile .dialog__panel { height: 100dvh; max-height: none; border-radius: 0; }
   .dialog--full-mobile .qr-scanner { min-height: 100dvh; border: 0; border-radius: 0; box-shadow: none; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
@@ -850,6 +986,29 @@ span.opt-item__label { cursor: default; }
 .access-pop--ended .access-pop__title { color: var(--forest-dark); }
 .access-pop__confetti { font-size: 1.5rem; letter-spacing: 8px; }
 .access-pop__btn { min-width: 180px; }
+
+/* ── Trocar de perfil (the same person is a parent AND on the team) ── */
+.role-switch { overflow: hidden; border-radius: var(--radius); background: var(--paper); text-align: center; }
+.role-switch__sky { position: relative; height: 172px; display: grid; place-items: center; background: linear-gradient(160deg, #6fc3b8 0%, var(--panel) 50%, var(--forest) 100%); }
+.role-switch__sky::after { content: ""; position: absolute; left: -10%; right: -10%; bottom: -40px; height: 80px; background: var(--paper); border-radius: 50% 50% 0 0; }
+.role-switch__emoji { position: relative; z-index: 1; width: 164px; height: 164px; object-fit: contain; }
+.role-switch__body { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: stretch; gap: 14px; padding: 8px 24px 26px; }
+.role-switch__title { margin: 0; font-family: var(--font-display); font-size: 1.45rem; color: var(--forest); }
+.role-switch__text { margin: 0; color: var(--muted); font-size: .95rem; line-height: 1.45; }
+.role-switch__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.role-switch__option { width: 100%; min-height: 78px; display: flex; align-items: center; gap: 14px; padding: 14px 18px; border: 3px solid var(--sage); border-radius: 18px; background: #fff; color: var(--forest-dark); text-align: left; cursor: pointer; box-shadow: 0 5px 0 rgba(24,61,54,.12); transition: transform .15s ease, box-shadow .15s ease, background .15s ease; }
+.role-switch__option:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 7px 0 rgba(24,61,54,.14); }
+.role-switch__option:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 rgba(24,61,54,.14); }
+.role-switch__option:disabled { opacity: .6; cursor: wait; }
+.role-switch__option--orange { border-color: var(--sun); background: #fff8ee; }
+.role-switch__option--green { border-color: var(--sage); background: #f4f9f3; }
+.role-switch__option--red { border-color: var(--red); background: #fdf2ee; }
+.role-switch__option--purple { border-color: #8eaab4; background: #f1f6f8; }
+.role-switch__icon { width: 52px; height: 52px; flex: none; object-fit: contain; }
+.role-switch__option-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.role-switch__option-label { font-family: var(--font-display); font-weight: 800; font-size: 1.05rem; }
+.role-switch__option-hint { font-size: .82rem; color: var(--muted); }
+
 .cat-form--embedded { border-color: var(--sage); box-shadow: none; }
 .cat-form--plain { border-color: #fff; }
 /* dialogs already float on a backdrop — drop the coloured card border */
@@ -917,12 +1076,25 @@ span.opt-item__label { cursor: default; }
 .doc-full { display: flex; flex-direction: column; height: 100%; background: var(--paper); }
 .doc-full__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 2px solid #e2ebe5; background: var(--paper); }
 .doc-full__head .rich-box__actions { align-items: flex-start; gap: 6px; }
-.doc-full__sub { display: block; margin-left: 0; }
+/* the heading takes the free space and may wrap; the actions keep their size */
+.doc-full__head .cat-form__title { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+/* the context line always sits under the title, never beside it */
+.doc-full__sub { display: block; flex: 0 0 100%; margin-left: 0; }
 .doc-full__body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 6px; padding: 16px 20px; }
 .doc-full__body .instructions { font-size: 1.02rem; }
 .doc-full__actions { display: flex; justify-content: flex-end; padding: 12px 20px max(12px, env(safe-area-inset-bottom)); border-top: 2px solid #e2ebe5; background: var(--paper); }
 .instructions img { max-width: 100%; height: auto; border-radius: 12px; }
-.instructions-dialog .cat-form__sub { display: block; font-family: var(--font-body); font-size: .85rem; font-weight: 600; color: var(--muted); }
+/* flex-basis 100% inside the wrapping title row = its own line, under the name */
+.instructions-dialog .cat-form__sub { display: block; flex: 0 0 100%; margin-left: 0; font-family: var(--font-body); font-size: .85rem; font-weight: 600; color: var(--muted); }
+.instructions-dialog__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex: none; min-width: 0; }
+/* without this the heading keeps `flex: none` from `.picker .cat-form__title`,
+   sticks at its max-content width and pushes the sheet past the screen edge */
+.instructions-dialog__head .cat-form__title { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+/* the drag handle and the corner ✕ are the phone sheet's, and the “Fechar”
+   button is the desktop's — each is turned on in exactly one place */
+.instructions-dialog__handle, .instructions-dialog__close { display: none; }
+.instructions-dialog__close { flex: none; width: 34px; height: 34px; place-items: center; padding: 0; border: 0; background: none; color: var(--pine); font-family: var(--font-display); font-size: 1.2rem; font-weight: 800; line-height: 1; cursor: pointer; transition: opacity .15s ease; }
+.instructions-dialog__close:hover, .instructions-dialog__close:focus-visible { opacity: .6; outline: 0; }
 /* "🎯 Base 3 em 🏊 Piscina" — bold parts are links, prepositions stay plain */
 .escala-item__line { margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; line-height: 1.4; }
 .escala-item__prep { color: var(--muted); font-weight: 600; }
@@ -997,8 +1169,17 @@ span.opt-item__label { cursor: default; }
 .wa-btn--sm svg { width: 16px; height: 16px; }
 
 @media (max-width: 560px) {
-  .detail-grid { grid-template-columns: 1fr; gap: 2px 0; }
-  .detail-grid dt { margin-top: 8px; }
+  /* One stacked list: LABEL above its value, every row the same shape.
+     No per-row nudges — the grid's own row-gap does the spacing, so a value
+     that is text, a chip, several chips or a wrapped hint all sit alike. */
+  .detail-grid { grid-template-columns: 1fr; gap: 0; }
+  .detail-grid dt { min-height: 0; margin: 14px 0 5px; line-height: 1; }
+  .detail-grid dt:first-child { margin-top: 0; }
+  .detail-grid dd { min-height: 0; margin: 0; padding: 0; row-gap: 6px; }
+  /* the hint that wraps under a value (“· carteirinha …”) is part of that value */
+  .detail-grid dd .cat-hint { flex-basis: 100%; line-height: 1.25; }
+  /* chips in the same row share one height, whether or not they carry icons */
+  .detail-grid dd .staff-tag, .detail-grid dd .role-chip { min-height: 34px; box-sizing: border-box; }
   .escala-item { flex-direction: column; gap: 4px; }
 }
 
@@ -1028,6 +1209,9 @@ span.opt-item__label { cursor: default; }
 .roommate-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .roommate-head .detail-h2 { margin: 0; }
 .roommate-count { flex: none; color: var(--muted); font-size: .78rem; font-weight: 800; white-space: nowrap; }
+/* phones: nobody else in the room → the whole block goes (the desktop keeps it,
+   where the empty state costs nothing and the column would look truncated) */
+@media (max-width: 700px) { .roommate-section--empty { display: none; } }
 .roommate-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
 .roommate-card { min-width: 0; min-height: 64px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 2px solid #fff; border-left: 5px solid var(--sun); border-radius: 14px; background: var(--paper); box-shadow: 0 3px 0 rgba(24,61,54,.08); }
 .roommate-card__icon { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; background: #eef2ef; }
@@ -1040,6 +1224,8 @@ span.opt-item__label { cursor: default; }
 .roommate-card__wa { flex: none; margin-left: auto; }
 .roommate-card__team { align-self: flex-start; margin-top: 2px; }
 .staff-tag { padding: 6px 14px; border-radius: 999px; background: transparent; border: 2px solid var(--sage); color: var(--forest); font-family: var(--font-display); font-weight: 800; font-size: .78rem; text-transform: uppercase; letter-spacing: .02em; }
+button.staff-tag { margin: 0; cursor: pointer; color: inherit; }
+button.staff-tag:hover, button.staff-tag:focus-visible { opacity: .85; outline: 0; }
 /* the vehicle chip: no pill border — the coloured logo is the marker (must come
    after the base .staff-tag rule above, which would otherwise win) */
 .staff-tag--transport { padding: 0; gap: 6px; border: 0; background: transparent; }
@@ -1198,11 +1384,14 @@ select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38
 .play-garden__canvas { display: block; width: 100%; height: 100%; }
 
 
+/* Phones: the scene plays here too, just shorter — the stage keeps its 16:? feel
+   without eating the screen. The canvas stays hidden until a full frame has
+   rendered (and re-hides on webglcontextlost), so a GPU that cannot composite
+   it shows nothing instead of an opaque black box. */
 @media (max-width: 560px) {
-  /* The decorative WebGL scene can become an opaque black/white canvas on
-     some Android GPU/browser combinations. It is non-essential, so do not
-     mount a visible canvas below the content on phones. */
-  .play-scene { display: none; }
+  /* the -64px tail cancelled the desktop page padding; on a phone it is 24px */
+  .play-scene { height: 150px; margin: 16px calc(50% - 50cqw) -24px; }
+  .play-car { --car-width: 190px; height: 140px; }
 }
 
 /* ── sync status (header dot) ─────────────────────────────────────────── */
@@ -1521,6 +1710,7 @@ select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38
 .score-day__meta { font-size: .8rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .score-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
 .score-section { display: flex; flex-direction: column; gap: 10px; }
+.score-list + .score-section { margin-top: 16px; }
 .score-section__title { margin: 0; display: flex; align-items: baseline; gap: 12px; font-family: var(--font-display); font-size: 1.1rem; font-weight: 800; color: var(--forest); }
 .score-section__clear { margin-left: auto; font-size: .85rem; white-space: nowrap; }
 .score-swatch { display: inline-block; width: .9em; height: .9em; border-radius: 6px; border: 2px solid #fff; box-shadow: 0 2px 0 rgba(24,61,54,.15); }
@@ -1564,7 +1754,21 @@ select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38
   .fab { padding: 14px; }
   .fab--emergency { padding: 6px 14px 6px 8px; }
   .fab--emergency .fab__label { font-size: .85rem; }
-  .admin-page { padding-bottom: 96px; }
+}
+/* phones with the bottom bar: the FAB floats ABOVE it instead of covering the
+   tabs, and drops its wording — the kid + QR icons already say “ler crachá” */
+@media (max-width: 700px) {
+  .dash--bottom-nav .fab { bottom: calc(90px + env(safe-area-inset-bottom)); }
+  .dash--bottom-nav .fab--emergency { padding: 8px 12px; gap: 7px; }
+  .dash--bottom-nav .fab--emergency .fab__label { display: none; }
+  /* A FAB is on screen: it hovers over the last lines of the page, so the shell
+     reserves its height too (the FAB is a sibling of the body and the footer,
+     hence :has on the shell). Drawer layout: FAB at 18px + ~66px tall. Bottom
+     bar: the footer already clears the bar, so it only adds the FAB on top. */
+  .dash:has(.fab) .dash-foot { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+  .dash--bottom-nav:has(.fab) .dash-foot { padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
+  /* a page that scrolls inside the body (not the shell) keeps its own tail */
+  .dash:has(.fab) .dash-body .admin-page, .dash:has(.fab) .dash-body .screen { padding-bottom: 24px; }
 }
 /* Settings → Geral: staff past the out-of-scope emergency-QR alert threshold */
 .foreign-lookup-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -1830,8 +2034,7 @@ select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38
 .instruction-doc .footer-note { margin: 4px 0 0; }
 .instruction-row__chevron { flex: none; font-size: 1.6rem; font-weight: 800; color: var(--sage); padding: 0 6px; }
 
-/* ── Ocorrências: admin + medical incident records ─────────────────────── */
-.occurrence-access { margin: 0; padding: 10px 14px; border: 2px solid #f2d6a2; border-radius: 14px; background: #fff5d6; color: #7a4a10; font-size: .88rem; font-weight: 700; line-height: 1.45; }
+/* ── Ocorrências: admin + medical + organizer incident records ─────────── */
 .occurrence-form { gap: 18px; }
 .occurrence-people-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .occurrence-people { min-width: 0; padding: 14px; border: 2px solid #e2ebe5; border-radius: 14px; background: #fff; display: flex; flex-direction: column; gap: 9px; }
@@ -2156,11 +2359,66 @@ select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38
 .stat-card__label { font-weight: 700; font-size: .8rem; text-align: center; }
 
 /* ── parents' area ──────────────────────────────────────────────────────── */
-.parent-kid { padding-top: 8px; border-top: 3px dashed var(--sage); gap: 14px; }
-.parent-kid:first-of-type { border-top: 0; padding-top: 0; }
-.parent-contact { gap: 12px; }
-.parent-contact__title { margin: 0 0 2px; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.parent-kid-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 10px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+.parent-kid-tab { flex: 1 0 auto; min-width: 0; min-height: 52px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 16px; border: 3px solid var(--sage); border-radius: 16px; background: #fff; color: var(--pine); font-family: var(--font-display); font-weight: 800; cursor: pointer; box-shadow: 0 4px 0 rgba(24,61,54,.1); transition: transform .15s ease, background .15s ease; }
+.parent-kid-tab:hover:not(.parent-kid-tab--active) { transform: translateY(-2px); background: #f3f7f4; }
+.parent-kid-tab:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+.parent-kid-tab--active { background: var(--forest); border-color: var(--forest); color: #fff; box-shadow: 0 4px 0 var(--forest-dark); }
+.parent-kid-tab > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.parent-kid-panel { min-width: 0; }
+.parent-kid { gap: 14px; }
+.parent-kid .detail-title { flex-wrap: wrap; align-items: center; }
+.parent-kid__identity { display: inline-flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+.parent-kid__name { min-width: 0; line-height: 1; }
+.parent-kid__identity .kid-card__age { flex: none; display: inline-flex; align-items: center; line-height: 1; }
+.parent-kid__break { display: none; }
+.parent-kid__status { flex: none; margin-left: auto; }
+@media (max-width: 520px) {
+  .parent-kid-tab { flex: 0 0 auto; max-width: min(78vw, 260px); justify-content: flex-start; padding-inline: 13px; }
+}
+/* phones: the tabs belong to the panel under them — breathe above, sit close below.
+   Only the first name is shown: two full names never fit side by side. */
+@media (max-width: 700px) {
+  .parent-kid-tabs { padding: 14px 2px 6px; margin-bottom: -6px; }
+  .parent-kid-tab__rest { display: none; }
+  .parent-kid-tab { flex: 1 1 0; justify-content: center; }
+}
+.parent-contact__title { margin: 0 0 6px; font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--ink); display: flex; align-items: center; gap: 6px; }
+.parent-chip .staff-card__name,
+.parent-team-card .staff-card__name { font-size: .82rem; line-height: 1.15; color: var(--muted); font-weight: 700; }
+.parent-chip .staff-card__meta,
+.parent-team-card .staff-card__meta { font-size: .72rem; line-height: 1.2; }
+
+/* Important contacts: one stretching row of compact chips. */
+.parent-contacts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: row; flex-wrap: nowrap; align-items: stretch; gap: 8px; }
+.parent-chip { display: flex; flex: 1 1 0; min-width: 0; align-items: center; gap: 8px; padding: 6px 10px; background: var(--paper); border: 2px solid #fff; border-radius: 12px; box-shadow: 0 2px 0 rgba(24,61,54,.08); }
+.parent-chip__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0; }
+.parent-chip .parent-contact__title { margin: 0 0 4px; }
+.parent-chip .wa-btn { flex: none; }
+@media (max-width: 620px) {
+  .parent-contacts { display: grid; grid-template-columns: 1fr; }
+  .parent-chip { min-height: 62px; padding: 10px 12px; }
+  .parent-chip .staff-card__name { font-size: .9rem; }
+  .parent-chip .wa-btn { width: 40px; height: 40px; }
+  .parent-chip .wa-btn svg { width: 20px; height: 20px; }
+}
+
+/* Kid's room team: stacked full-width cards, same padding as the identity card. */
+.parent-team { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.parent-team-card { display: flex; align-items: center; gap: 12px; width: 100%; padding: 16px 20px; background: var(--paper); border: 3px solid #fff; border-radius: var(--radius); box-shadow: 0 6px 0 rgba(24,61,54,.12); }
+.parent-team-card__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0; }
+.parent-team-card > .wa-btn { flex: none; width: 40px; height: 40px; }
+.profile-actions { display: flex; justify-content: flex-end; padding-top: 8px; }
+.profile-logout:disabled { opacity: .65; cursor: wait; }
 .parent-qr { align-items: center; text-align: center; }
+@media (max-width: 560px) {
+  .parent-kid .detail-title { flex-wrap: wrap; align-items: center; }
+  .parent-kid__identity { flex: 1; min-width: 0; }
+  .parent-kid__break { display: block; flex-basis: 100%; height: 0; }
+  .parent-kid__status { margin-left: 0; }
+  .parent-team-card { padding: 13px 14px; }
+  .profile-actions, .profile-logout { width: 100%; }
+}
 .camper-qr { margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .camper-qr__code { width: 100%; aspect-ratio: 1; padding: 10px; background: #fff; border: 3px solid #fff; border-radius: var(--radius); box-shadow: 0 6px 0 rgba(24,61,54,.12); }
 .camper-qr__code svg { width: 100%; height: 100%; display: block; }
@@ -2253,13 +2511,41 @@ select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38
 
 /* bulk selection: section title row, tile checkbox and the rubber band */
 .gallery-surface { display: flex; flex-direction: column; gap: 16px; }
-.face-search { display: flex; align-items: center; gap: 16px; padding: 18px; border: 3px dashed var(--sun); border-radius: var(--radius); background: var(--paper); box-shadow: 0 6px 0 rgba(24,61,54,.12); }
-.face-search__preview { flex: none; width: 92px; height: 92px; object-fit: cover; border: 4px solid #fff; border-radius: 50%; box-shadow: 0 3px 0 rgba(24,61,54,.12); }
+.face-search { display: flex; align-items: center; gap: 16px; padding: 18px; margin-bottom: 24px; border: 3px dashed var(--sun); border-radius: var(--radius); background: var(--paper); box-shadow: 0 6px 0 rgba(24,61,54,.12); transition: border-color .15s ease, background .15s ease; }
+.face-search--over { border-color: var(--forest); background: #fff8e8; }
+.face-search__shot { position: relative; flex: none; width: 92px; height: 92px; }
+.face-search__icon { width: 100%; height: 100%; object-fit: contain; }
+.face-search__preview { width: 100%; height: 100%; object-fit: cover; border: 4px solid #fff; border-radius: 50%; box-shadow: 0 3px 0 rgba(24,61,54,.12); }
+.face-search__video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 4px solid #fff; border-radius: 50%; background: #10211e; box-shadow: 0 3px 0 rgba(24,61,54,.12); opacity: 0; pointer-events: none; }
+.face-search--live { align-items: center; }
+.face-search--live .face-search__shot { width: 168px; height: 168px; }
+.face-search--live .face-search__video { opacity: 1; }
+.face-search__spinner { position: absolute; inset: 0; margin: auto; width: 28px; height: 28px; border: 4px solid rgba(255,255,255,.35); border-top-color: var(--sun); border-radius: 50%; animation: qr-spin .8s linear infinite; }
 .face-search__body { display: flex; flex: 1; min-width: 0; flex-direction: column; align-items: flex-start; gap: 8px; }
 .face-search__title { margin: 0; color: var(--forest); font-family: var(--font-display); font-size: 1.2rem; }
+.face-search__actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .face-search__body .cat-hint { margin: 0; }
 .face-search__result { margin: 2px 0 0; color: var(--pine); font-family: var(--font-display); font-weight: 800; }
-@media (max-width: 520px) { .face-search { align-items: flex-start; } .face-search__preview { width: 72px; height: 72px; } .face-search__body .button { padding: 12px 16px; font-size: .95rem; } }
+/* the phone-only “Tentar de novo” shortcut: the desktop keeps the full button row */
+.face-search__retry { display: none; }
+@media (max-width: 520px) { .face-search { align-items: flex-start; } }
+/* Phones: “Abrir câmera” + “Escolher foto” stay on ONE line, pushed to the right.
+   An iPhone 13 (390px) leaves the actions ~250px once the page padding, the
+   card and the icon are paid for, so the row must not wrap: the buttons give up
+   padding and a little type size instead. “Ver todas” (after a search) is a
+   third button — that row may wrap, it has nothing tight to sit beside. */
+@media (max-width: 700px) {
+  .face-search { gap: 10px; padding: 14px 12px; }
+  .face-search__shot { width: 56px; height: 56px; }
+  .face-search--live { flex-direction: column; align-items: stretch; }
+  .face-search--live .face-search__shot { width: min(72vw, 220px); height: min(72vw, 220px); align-self: center; }
+  .face-search__actions { width: 100%; flex-wrap: nowrap; justify-content: flex-end; gap: 6px; }
+  .face-search__actions .button { flex: 0 1 auto; min-width: 0; padding: 10px 11px; font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* with a search on: “Tentar de novo” + “Ver todas” replace the three buttons */
+  .face-search__retry { display: inline-flex; padding: 10px 16px; }
+  .face-search__again { display: none; }
+
+}
 
 /* selection actions + "select all" checkbox, inline with the section title */
 .gallery-group__head { display: flex; align-items: center; gap: 12px; }
@@ -2274,6 +2560,9 @@ select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38
 .pick-all__box { width: 22px; height: 22px; display: grid; place-items: center; border: 3px solid var(--sage); border-radius: 7px; background: #fff; color: #fff; font-weight: 800; font-size: .85rem; line-height: 1; transition: background .15s ease, border-color .15s ease; }
 .pick-all__box--on, .pick-all__box--some { background: var(--forest); border-color: var(--forest); }
 @media (max-width: 560px) { .pick-head__count { display: none; } }
+/* clearing the selection: only on touch, where there is no Esc key */
+.pick-head__clear { display: none; }
+@media (hover: none) { .pick-head__clear { display: inline-flex; } }
 
 /* a picked photo pulls back inside its cell, leaving a margin that frames it */
 .gallery-cell--picked .gallery-tile { transform: scale(.88); border-color: var(--sky); box-shadow: 0 2px 0 rgba(24,61,54,.1); }
@@ -2284,7 +2573,13 @@ select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38
 .gallery-cell:hover .gallery-tile__pick, .gallery-tile__pick:focus-visible { opacity: 1; }
 .gallery-tile__pick:hover { background: rgba(255,255,255,.6); transform: scale(1.08); }
 .gallery-tile__pick--on { opacity: 1; background: var(--sky); border-color: #fff; color: var(--forest); }
-@media (hover: none) { .gallery-tile__pick { opacity: 1; } }
+/* the tick a picked photo wears; on touch it is the ONLY selection control */
+.gallery-tile__tick { position: absolute; right: 7px; bottom: 7px; z-index: 2; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 999px; border: 2px solid #fff; background: var(--forest); color: #fff; font-size: .8rem; font-weight: 800; line-height: 1; box-shadow: 0 2px 6px rgba(24,61,54,.35); animation: pop-in .15s ease; }
+/* touch: no checkbox to hunt for — touch and hold a photo to pick it */
+@media (hover: none) {
+  .gallery-tile__pick { display: none; }
+  .gallery-tile { -webkit-touch-callout: none; }
+}
 
 .gallery-marquee { position: fixed; z-index: 1000; pointer-events: none; border: 2px solid var(--pine); border-radius: 6px; background: rgba(46,102,82,.18); }
 
@@ -2365,6 +2660,7 @@ body:has(.gallery-marquee) .gallery-tile, body:has(.gallery-marquee) .gallery-ti
 /* .dialog is transparent and .dialog__panel has no background of its own: like
    .cat-form, the content inside the dialog is what paints the card */
 .lightbox { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px; background: var(--paper); border: 3px solid #fff; border-radius: var(--radius); box-shadow: 0 6px 0 rgba(24,61,54,.12); }
+.lightbox__handle { display: none; }
 .lightbox__img { max-width: 100%; max-height: 52dvh; object-fit: contain; border-radius: 14px; border: 3px solid #fff; box-shadow: 0 8px 0 rgba(24, 61, 54, .15); background: var(--paper); }
 .lightbox__nav { display: flex; align-items: center; gap: 16px; }
 .lightbox__count { font-family: var(--font-display); font-weight: 800; color: var(--forest); font-variant-numeric: tabular-nums; }
@@ -2377,6 +2673,36 @@ body:has(.gallery-marquee) .gallery-tile, body:has(.gallery-marquee) .gallery-ti
 .lb-reel__item--on { opacity: 1; border-color: var(--forest); }
 .lb-reel__item img { width: 100%; height: 100%; object-fit: cover; display: block; }
 @media (max-width: 560px) { .lb-reel__item { width: 52px; height: 52px; } }
+
+/* phones: the photo arrives as a bottom sheet (drag handle, rounded top, swipe to walk the set) */
+@media (max-width: 700px) {
+  .photo-sheet-dialog { width: 100%; max-width: none !important; max-height: none; margin: auto 0 0; border-radius: 22px 22px 0 0; }
+  .photo-sheet-dialog[open] { animation: photo-sheet-in .22s cubic-bezier(.2,.8,.2,1); }
+  .photo-sheet-dialog .dialog__panel { max-height: 92dvh; border-radius: 22px 22px 0 0; overscroll-behavior: contain; }
+  .photo-sheet-dialog .lightbox { gap: 10px; padding: 8px 14px max(16px, env(safe-area-inset-bottom)); border: 0; border-radius: 22px 22px 0 0; box-shadow: none; touch-action: pan-y; }
+  .photo-sheet-dialog .lightbox__handle { display: block; width: 42px; height: 5px; flex: none; margin: 0 auto 4px; border-radius: 999px; background: var(--sage); }
+  .photo-sheet-dialog .lightbox__img { max-height: 58dvh; border-width: 0; box-shadow: none; }
+  @keyframes photo-sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+  /* a função's instructions arrive as a bottom sheet too (drag handle, rounded
+     top, ✕ in the corner); only the text scrolls, the title stays put */
+  /* same anchoring as the photo sheet: full width, glued to the bottom edge */
+  .instructions-sheet-dialog { width: 100%; max-width: none !important; max-height: none; margin: auto 0 0; border-radius: 22px 22px 0 0; }
+  .instructions-sheet-dialog[open] { animation: photo-sheet-in .22s cubic-bezier(.2,.8,.2,1); }
+  .instructions-sheet-dialog .dialog__panel { max-height: 88dvh; border-radius: 22px 22px 0 0; overflow: hidden; overscroll-behavior: contain; }
+  .instructions-sheet-dialog .instructions-dialog { max-width: 100%; max-height: 88dvh; padding: 8px 14px max(16px, env(safe-area-inset-bottom)); border: 0; border-radius: 22px 22px 0 0; }
+  /* a long word / wide image must wrap, never push the sheet sideways */
+  .instructions-sheet-dialog .instructions-dialog > * { min-width: 0; max-width: 100%; }
+  .instructions-sheet-dialog .instructions { overflow-wrap: anywhere; }
+  .instructions-sheet-dialog .instructions-dialog__handle { display: block; width: 42px; height: 5px; flex: none; margin: 0 auto 10px; border-radius: 999px; background: var(--sage); }
+  /* the corner ✕ replaces the “Fechar” button, which costs a whole row here */
+  .instructions-sheet-dialog .instructions-dialog__close { display: grid; }
+  .instructions-sheet-dialog .instructions-dialog__actions { display: none; }
+  /* a long name must wrap under itself, not drop whole below the emoji */
+  .instructions-sheet-dialog .instructions-dialog__head .cat-form__title { display: block; line-height: 1.25; }
+  .instructions-sheet-dialog .instructions-dialog__head .cat-form__title > span[aria-hidden] { margin-right: 6px; }
+  .instructions-sheet-dialog .instructions--scroll { max-height: none; flex: 1; min-height: 0; }
+}
 
 
 /* ── Configurações → Limpeza (fim do acampamento) ────────────────────────── */

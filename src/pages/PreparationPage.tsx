@@ -4,6 +4,7 @@ import { setMyPrepDone } from "../api/staff";
 import RichHtml from "../components/RichHtml";
 import SelfCheckinCard from "../components/SelfCheckinCard";
 import { useCampTiming } from "../campPhase";
+import { useSinkingChecklist } from "../hooks/useSinkingChecklist";
 import type { LoggedUser } from "../roles";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import { useMyPrepRoles } from "../store/derive";
@@ -11,6 +12,8 @@ import { useMyPrepRoles } from "../store/derive";
 interface PreparationPageProps {
   user: LoggedUser;
   token: string;
+  /** phones: Preparação and Instruções share one bottom-bar entry — this jumps to the other half */
+  pairedWith?: () => void;
 }
 
 /** "Faltam 12 dias" / "É amanhã!" / "É hoje!" / "Acampamento em andamento" */
@@ -43,7 +46,7 @@ interface PrepItem {
  * (so they follow them to any phone). The admin edits the content in
  * ⚙️ → Preparação and the per-role text in the role itself.
  */
-export default function PreparationPage({ user, token }: PreparationPageProps) {
+export default function PreparationPage({ user, token, pairedWith }: PreparationPageProps) {
   const sections = useCollection("preparation");
   const myRoles = useMyPrepRoles(user.phone);
   const staff = useCollectionOrEmpty("staff");
@@ -54,22 +57,12 @@ export default function PreparationPage({ user, token }: PreparationPageProps) {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (sections === null || myRoles === null) {
-    return (
-      <div className="admin-page">
-        <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>
-      </div>
-    );
-  }
-
   const me = staff.find((s) => s.phone === user.phone);
   const done = new Set(me?.prepDone ?? []);
   const canTick = !!me;
 
-  const countdown = countdownLabel(timing.daysToGo);
-
   /** only the roles that actually ask for something — the rest would just be noise here */
-  const roleItems: PrepItem[] = myRoles
+  const roleItems: PrepItem[] = (myRoles ?? [])
     .filter((m) => m.role.preparation)
     .map((m) => ({
       key: `role:${m.role.id}`,
@@ -85,7 +78,7 @@ export default function PreparationPage({ user, token }: PreparationPageProps) {
       html: m.role.preparation,
       role: true,
     }));
-  const generalItems: PrepItem[] = sections.map((s) => ({ key: `section:${s.id}`, emoji: s.emoji, title: s.title, html: s.content }));
+  const generalItems: PrepItem[] = (sections ?? []).map((s) => ({ key: `section:${s.id}`, emoji: s.emoji, title: s.title, html: s.content }));
 
   /**
    * ONE list: the person's role items first, then the general ones (each in
@@ -93,11 +86,22 @@ export default function PreparationPage({ user, token }: PreparationPageProps) {
    * the role items are done the general ones take the top.
    */
   const all = [...roleItems, ...generalItems];
-  const items = [...all.filter((i) => !done.has(i.key)), ...all.filter((i) => done.has(i.key))];
+  /** ticked cards fade in place for a beat, then slide down to the end of the list */
+  const { listRef, ordered, settling } = useSinkingChecklist(all, (i) => i.key, (i) => done.has(i.key));
 
   const total = all.length;
   const doneCount = all.filter((i) => done.has(i.key)).length;
   const allDone = total > 0 && doneCount === total;
+
+  if (sections === null || myRoles === null) {
+    return (
+      <div className="admin-page">
+        <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>
+      </div>
+    );
+  }
+
+  const countdown = countdownLabel(timing.daysToGo);
 
   async function toggle(item: PrepItem) {
     if (busyKey) return;
@@ -112,12 +116,16 @@ export default function PreparationPage({ user, token }: PreparationPageProps) {
     }
   }
 
-  const renderList = (items: PrepItem[]) => (
-    <div className="prep-sections">
-      {items.map((item) => {
+  const renderList = () => (
+    <div className="prep-sections" ref={listRef}>
+      {ordered.map((item) => {
         const isDone = done.has(item.key);
         return (
-          <article key={item.key} className={`detail-card prep-section ${item.role ? "prep-section--role" : ""} ${isDone ? "prep-section--done" : ""}`}>
+          <article
+            key={item.key}
+            data-sink-key={item.key}
+            className={`detail-card prep-section ${item.role ? "prep-section--role" : ""} ${isDone ? "prep-section--done" : ""} ${settling.has(item.key) ? "prep-section--settling" : ""}`}
+          >
             <header className="prep-section__head">
               <h3 className="prep-section__title">
                 <span aria-hidden="true">{item.emoji}</span> {item.title}
@@ -148,6 +156,12 @@ export default function PreparationPage({ user, token }: PreparationPageProps) {
     <div className="admin-page prep-page">
       <header className="admin-head">
         <h1 className="admin-title">🎒 Preparação</h1>
+        {/* only while the bottom bar merges the pair (phones): the way to the other half */}
+        {pairedWith && (
+          <button type="button" className="dash-pair-link" onClick={pairedWith} title="Ver as Instruções">
+            <span aria-hidden="true">📖</span> Instruções
+          </button>
+        )}
       </header>
 
       {roomsDraft && <SelfCheckinCard token={token} user={user} />}
@@ -157,7 +171,7 @@ export default function PreparationPage({ user, token }: PreparationPageProps) {
           <span className="prep-countdown__emoji" aria-hidden="true">{countdown.emoji}</span>
           <div className="prep-countdown__text">
             <strong>{countdown.text}</strong>
-            {timing.firstDate && <span>Começa {speakDay(timing.firstDate).toLowerCase()}</span>}
+            {timing.firstDate && <span>{timing.daysToGo !== null && timing.daysToGo < 0 ? "Começou" : "Começa"} {speakDay(timing.firstDate).toLowerCase()}</span>}
           </div>
           {canTick && total > 0 && (
             <div className="prep-progress" aria-label={`${doneCount} de ${total} itens feitos`}>
@@ -176,7 +190,7 @@ export default function PreparationPage({ user, token }: PreparationPageProps) {
       {error && <p className="message message--error">{error}</p>}
 
       {/* ── one checklist: role items (only roles that ask for something) first, then the general ones; done sinks to the end ── */}
-      {total > 0 && renderList(items)}
+      {total > 0 && renderList()}
 
       {total === 0 && (
         <div className="admin-empty">

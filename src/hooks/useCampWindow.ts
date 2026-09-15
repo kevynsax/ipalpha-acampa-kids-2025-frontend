@@ -11,7 +11,9 @@ import { patchCollection, useCollection } from "../store";
  * caretaker is left with only the kids under their own care (`caretakerId`).
  *
  * A HELPER has no camp gate (they get the room's kids the whole time), so
- * nothing is purged for them.
+ * nothing is purged for them. Same for people whose scope is NOT the room
+ * (medical team, organizers, score helpers): they keep every kid the server
+ * sent, camp or not.
  *
  * @param enabled  the logged-in user is a team member (staff / health_staff)
  * @param phone    the logged-in user's phone (to find their staff record)
@@ -19,27 +21,35 @@ import { patchCollection, useCollection } from "../store";
  */
 export function useCampWindow(enabled: boolean, phone: string, during: boolean): void {
   const staff = useCollection("staff");
+  const settings = useCollection("settings");
   const me = staff?.find((s) => s.phone === phone) ?? null;
   const isCaretaker = me?.roomRole === "caretaker";
   const myId = me?.id ?? null;
+  // wait for both collections so a medical/organizer login is never mistaken
+  // for an ordinary caretaker on the first paint (that used to wipe the kids)
+  const ready = enabled && staff !== null && settings !== null;
+  const keepAll =
+    !!me &&
+    !!settings &&
+    (settings.medicalStaff.staffIds.includes(me.id) || settings.organizers.staffIds.includes(me.id) || settings.scoreHelpers.staffIds.includes(me.id));
 
   // camp in progress → over: a caretaker keeps only their own kids
   const wasDuring = useRef(false);
   useEffect(() => {
-    if (!enabled) return;
+    if (!ready || keepAll) return;
     if (wasDuring.current && !during && isCaretaker && myId !== null) {
       patchCollection("campers", (list) => list.filter((k) => k.caretakerId === myId));
     }
     wasDuring.current = during;
-  }, [enabled, during, isCaretaker, myId]);
+  }, [ready, keepAll, during, isCaretaker, myId]);
 
   // outside the camp nothing about the other kids may sit in localStorage,
   // even from a stale snapshot loaded while offline
   useEffect(() => {
-    if (!enabled || during || !isCaretaker || myId === null) return;
+    if (!ready || keepAll || during || !isCaretaker || myId === null) return;
     patchCollection("campers", (list) => {
       const own = list.filter((k) => k.caretakerId === myId);
       return own.length === list.length ? list : own;
     });
-  }, [enabled, during, isCaretaker, myId]);
+  }, [ready, keepAll, during, isCaretaker, myId]);
 }

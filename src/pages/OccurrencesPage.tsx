@@ -5,15 +5,15 @@ import type { Staff } from "../api/staff";
 import Dialog from "../components/Dialog";
 import RichHtml from "../components/RichHtml";
 import RichTextEditor from "../components/RichTextEditor";
-import type { LoggedUser } from "../roles";
 import { useCollection } from "../store";
 import { speakDateTime } from "../dates";
+import PageFooter from "../components/PageFooter";
+
+type OccurrenceAudience = "admin" | "organizer" | "medical";
 
 interface OccurrencesPageProps {
   token: string;
-  user: LoggedUser;
-  /** admin or ORGANIZER: every occurrence, campers optional */
-  manager?: boolean;
+  audience: OccurrenceAudience;
 }
 
 type PersonKind = "camper" | "staff";
@@ -25,11 +25,10 @@ const normalize = (value: string) =>
     .toLowerCase();
 
 
-export default function OccurrencesPage({ token, user, manager = false }: OccurrencesPageProps) {
+export default function OccurrencesPage({ token, audience }: OccurrencesPageProps) {
   const occurrences = useCollection("occurrences");
   const campers = useCollection("campers");
   const staff = useCollection("staff");
-  const isAdmin = manager || user.activeRole === "admin";
   const [creating, setCreating] = useState(false);
   const [camperIds, setCamperIds] = useState<string[]>([]);
   const [staffIds, setStaffIds] = useState<string[]>([]);
@@ -43,7 +42,7 @@ export default function OccurrencesPage({ token, user, manager = false }: Occurr
   const staffById = useMemo(() => new Map((staff ?? []).map((person) => [person.id, person])), [staff]);
   const selectedCampers = camperIds.map((id) => camperById.get(id)).filter((person): person is Camper => !!person);
   const selectedStaff = staffIds.map((id) => staffById.get(id)).filter((person): person is Staff => !!person);
-  const valid = description.trim().length > 0 && (isAdmin || camperIds.length > 0);
+  const valid = description.trim().length > 0;
 
   function resetForm() {
     setCamperIds([]);
@@ -91,7 +90,6 @@ export default function OccurrencesPage({ token, user, manager = false }: Occurr
       <p className="admin-intro">
         Registre com clareza o que aconteceu e quem estava envolvido.
       </p>
-      {!isAdmin && <p className="occurrence-access">🔒 A equipe médica vê e cria apenas ocorrências relacionadas a pelo menos um acampante.</p>}
       {saved && <p className="message message--ok">✅ Ocorrência registrada.</p>}
       {error && <p className="message message--error">{error}</p>}
 
@@ -101,7 +99,7 @@ export default function OccurrencesPage({ token, user, manager = false }: Occurr
           <div className="occurrence-people-grid">
             <PeopleField
               title="Acampantes relacionados"
-              hint={isAdmin ? "Opcional. Sem acampante, somente a administração verá o registro." : "Obrigatório para a equipe médica."}
+              hint="Opcional. Selecione todas as crianças envolvidas."
               people={selectedCampers}
               onAdd={() => setPicker("camper")}
               onRemove={(id) => setCamperIds((current) => current.filter((item) => item !== id))}
@@ -158,6 +156,9 @@ export default function OccurrencesPage({ token, user, manager = false }: Occurr
           {occurrences.map((occurrence) => <OccurrenceCard key={occurrence.id} occurrence={occurrence} />)}
         </section>
       )}
+      <PageFooter>
+        {audience === "admin" ? "🔒 Você vê as ocorrências de todos." : audience === "organizer" ? "🔒 Só os organizadores vêem estas ocorrências." : "🔒 Só a equipe médica vê estas ocorrências."}
+      </PageFooter>
     </div>
   );
 }
@@ -240,7 +241,7 @@ function OccurrenceCard({ occurrence }: { occurrence: Occurrence }) {
       <div className="occurrence-card__people">
         {occurrence.campers.map((person) => <span key={`c-${person.id}`} className="occurrence-badge occurrence-badge--camper">🧒 {person.name}</span>)}
         {occurrence.staff.map((person) => <span key={`s-${person.id}`} className="occurrence-badge">🎒 {person.name}</span>)}
-        {occurrence.campers.length === 0 && <span className="occurrence-badge occurrence-badge--private">🔒 Somente administração</span>}
+        {occurrence.campers.length === 0 && occurrence.staff.length === 0 && <span className="occurrence-badge occurrence-badge--private">Sem pessoas relacionadas</span>}
       </div>
       {open && <RichHtml html={occurrence.description} className="instructions occurrence-card__description" />}
     </article>

@@ -24,6 +24,7 @@ import Breadcrumbs from "../../components/Breadcrumbs";
 import StaffForm from "./StaffForm";
 import GiveawayPage from "../GiveawayPage";
 import { DownloadGlyph, SearchGlyph } from "../../components/Glyph";
+import BedroomTag from "../../components/BedroomTag";
 import GroupIcon from "../../components/GroupIcon";
 import TeamFilterDialog from "../../components/TeamFilterDialog";
 import RoomRoleIcon from "../../components/RoomRoleIcon";
@@ -377,13 +378,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
                     </p>
                     {(room || s.team || s.transportation) && (
                       <div className="staff-card__tags">
-                        {room && (
-                          <span className="staff-tag staff-tag--room" title={bedroomLabel(room)}>
-                            <GroupIcon group={room.group} face size={18} />
-                            <img className="audience-icon" src={ICONS.bunk} alt="" aria-hidden="true" style={{ width: 18, height: 18 }} />
-                            {room.name}
-                          </span>
-                        )}
+                        {room && <BedroomTag bedroom={room} />}
                         {room && (
                           <span className="staff-tag" title="Função no quarto">
                             <RoomRoleIcon role={s.roomRole} /> {ROOM_ROLE_META[s.roomRole].label}

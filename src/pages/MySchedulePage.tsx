@@ -6,6 +6,7 @@ import type { LoggedUser } from "../roles";
 import { useRoute } from "../router";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import { useCampTiming } from "../campPhase";
+import { ICONS } from "../icons";
 
 interface MySchedulePageProps {
   user: LoggedUser;
@@ -117,7 +118,9 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
   return (
     <div className="admin-page">
       <header className="admin-head">
-        <h1 className="admin-title">Programação</h1>
+        <h1 className="admin-title">
+          <img className="admin-title__icon" src={ICONS.schedule} alt="" aria-hidden="true" /> Programação
+        </h1>
       </header>
       <p className="admin-intro">
         {filter === "mine"
@@ -128,26 +131,27 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
       </p>
 
       <div className="staff-toolbar__filters" role="tablist" aria-label="Filtro da programação">
-        {(
-          [
-            ["mine", "🙋 Minha escala", mine.length],
-            ["all", "📅 Tudo", items.length],
-          ] as [Filter, string, number][]
-        ).map(([key, label, n]) => (
-          <button key={key} type="button" role="tab" aria-selected={filter === key} className={`cat-tab ${filter === key ? "cat-tab--active" : ""}`} onClick={() => setFilter(key)}>
-            {label}
-            <span className="cat-tab__count">{n}</span>
-          </button>
-        ))}
+        <button type="button" role="tab" aria-selected={filter === "mine"} className={`cat-tab ${filter === "mine" ? "cat-tab--active" : ""}`} onClick={() => setFilter("mine")}>
+          🙋 Minha escala
+          <span className="cat-tab__count">{mine.length}</span>
+        </button>
+        <button type="button" role="tab" aria-selected={filter === "all"} className={`cat-tab ${filter === "all" ? "cat-tab--active" : ""}`} onClick={() => setFilter("all")}>
+          <img className="cat-tab__img" src={ICONS.schedule} alt="" aria-hidden="true" /> Tudo
+          <span className="cat-tab__count">{items.length}</span>
+        </button>
       </div>
 
       {shown.length === 0 && (
         <div className="admin-empty">
-          <span className="admin-empty__emoji">{filter === "mine" ? "🙋" : "📅"}</span>
+          {filter === "mine" ? (
+            <span className="admin-empty__emoji">🙋</span>
+          ) : (
+            <img className="admin-empty__icon" src={ICONS.schedule} alt="" aria-hidden="true" />
+          )}
           <p>{filter === "mine" ? "Nenhuma função na sua escala por enquanto. Veja a programação completa!" : "A programação ainda não foi publicada."}</p>
           {filter === "mine" && items.length > 0 && (
             <button type="button" className="button button--primary" onClick={() => setFilter("all")}>
-              📅 Ver tudo
+              <img className="admin-head__action-icon" src={ICONS.schedule} alt="" aria-hidden="true" /> Ver tudo
             </button>
           )}
         </div>
@@ -177,9 +181,8 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
               .map((i) => {
                 const e = i.event;
                 const isNow = e.id === current;
-                const past = isPast(e);
                 return (
-                  <li key={e.id} className={`timeline__item ${isNow ? "timeline__item--now" : ""} ${past ? "timeline__item--past" : ""}`}>
+                  <li key={e.id} className={`timeline__item ${isNow ? "timeline__item--now" : ""}`}>
                     <div className="timeline__time">
                       <span className="timeline__start">{e.startTime}</span>
                       {e.endTime && <span className="timeline__end">{e.endTime}</span>}

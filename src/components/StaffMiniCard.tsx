@@ -46,7 +46,7 @@ export default function StaffMiniCard({ staff: s, onOpen }: StaffMiniCardProps) 
             </span>
           )}
           <TeamTag teamId={s.team} />
-          <TransportTag transportId={s.transportation} size={18} short />
+          <TransportTag transportId={s.transportation} size={18} short className="staff-tag--pill" />
         </h3>
       </div>
       {s.phone && (

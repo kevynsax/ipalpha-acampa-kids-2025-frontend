@@ -14,11 +14,14 @@ interface DialogProps {
   fullscreenOnMobile?: boolean;
   /** takes the whole screen on every size (long documents) */
   fullscreen?: boolean;
+  /** optional variant class for a specific dialog */
+  className?: string;
 }
 
 /** Native <dialog> modal: closes on Esc / backdrop click, traps focus. */
-export default function Dialog({ open, onClose, title, children, width = 640, dismissible = true, fullscreenOnMobile = false, fullscreen = false }: DialogProps) {
+export default function Dialog({ open, onClose, title, children, width = 640, dismissible = true, fullscreenOnMobile = false, fullscreen = false, className = "" }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = ref.current;
@@ -35,7 +38,7 @@ export default function Dialog({ open, onClose, title, children, width = 640, di
   return createPortal(
     <dialog
       ref={ref}
-      className={`dialog ${fullscreenOnMobile ? "dialog--full-mobile" : ""} ${fullscreen ? "dialog--full" : ""}`}
+      className={`dialog ${fullscreenOnMobile ? "dialog--full-mobile" : ""} ${fullscreen ? "dialog--full" : ""} ${className}`}
       style={{ maxWidth: width }}
       aria-label={title}
       onClose={(e) => {
@@ -47,14 +50,19 @@ export default function Dialog({ open, onClose, title, children, width = 640, di
         if (dismissible) onClose();
       }}
       onClick={(e) => {
-        // click on the backdrop (outside the panel) closes only when allowed
-        if (dismissible && e.target === ref.current) onClose();
+        if (!dismissible || e.target !== ref.current) return;
+        // ::backdrop clicks report the <dialog> as the target, but so does the
+        // element's own box (a sheet that doesn't fill it, its padding…): only
+        // a point OUTSIDE the panel is really "outside the dialog"
+        const box = panel.current?.getBoundingClientRect();
+        if (box && e.clientX >= box.left && e.clientX <= box.right && e.clientY >= box.top && e.clientY <= box.bottom) return;
+        onClose();
       }}
     >
       {/* The portal detaches the DOM, but React events still travel the
           component tree: without this, submitting a form inside the dialog
           also submits a form the dialog is nested in. */}
-      <div className="dialog__panel" onSubmit={(e) => e.stopPropagation()} onReset={(e) => e.stopPropagation()}>
+      <div className="dialog__panel" ref={panel} onSubmit={(e) => e.stopPropagation()} onReset={(e) => e.stopPropagation()}>
         {open && children}
       </div>
     </dialog>,

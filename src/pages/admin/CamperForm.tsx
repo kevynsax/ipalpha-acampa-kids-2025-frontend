@@ -12,8 +12,10 @@ import NoPillIcon from "../../components/NoPillIcon";
 import type { Category } from "../../api/categories";
 import { BedroomSelect, CategoryChips, CategoryRadio, TeamSelect, TransportSelect } from "../../components/CategoryFields";
 import ParentIcon from "../../components/ParentIcon";
+import CpfInput from "../../components/CpfInput";
 import PhoneInput from "../../components/PhoneInput";
 import Toggle from "../../components/Toggle";
+import { formatCpf } from "../../cpf";
 import { maskBrazilPhone, toE164 } from "../../phone";
 
 interface CamperFormProps {
@@ -38,7 +40,7 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
   const [name, setName] = useState(camper?.name ?? "");
   const [birthDate, setBirthDate] = useState(camper?.birthDate ?? "");
   const [sex, setSex] = useState<CamperSex | null>(camper?.sex ?? null);
-  const [cpf, setCpf] = useState(camper?.cpf ?? "");
+  const [cpf, setCpf] = useState(formatCpf(camper?.cpf ?? ""));
   const [rg, setRg] = useState(camper?.rg ?? "");
   const [school, setSchool] = useState(camper?.school ?? "");
   const [schoolGrade, setSchoolGrade] = useState(camper?.schoolGrade ?? "");
@@ -67,7 +69,7 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
 
   const [guardianName, setGuardianName] = useState(camper?.guardianName ?? "");
   const [guardianPhone, setGuardianPhone] = useState(camper?.guardianPhone ? maskBrazilPhone(camper.guardianPhone.replace(/^\+55/, "")) : "");
-  const [guardianCpf, setGuardianCpf] = useState(camper?.guardianCpf ?? "");
+  const [guardianCpf, setGuardianCpf] = useState(formatCpf(camper?.guardianCpf ?? ""));
   const [guardianEmail, setGuardianEmail] = useState(camper?.guardianEmail ?? "");
   const [emergencyContact, setEmergencyContact] = useState(camper?.emergencyContact ?? "");
   const [insurance, setInsurance] = useState(camper?.insurance ?? "");
@@ -200,7 +202,7 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
       if (f.weightKg != null) setWeight(String(f.weightKg).replace(".", ","));
       if (f.insurance) setInsurance(f.insurance);
       if (f.insuranceCard) setInsuranceCard(f.insuranceCard);
-      if (f.cpf) setCpf(f.cpf);
+      if (f.cpf) setCpf(formatCpf(f.cpf));
       if (f.rg) setRg(f.rg);
       if (f.school) setSchool(f.school);
       if (f.schoolGrade) setSchoolGrade(f.schoolGrade);
@@ -208,7 +210,7 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
       if (f.invitedBy) setInvitedBy(f.invitedBy);
       if (f.guardianName) setGuardianName(f.guardianName);
       if (f.guardianPhone) setGuardianPhone(maskBrazilPhone(f.guardianPhone.replace(/^\+?55/, "")));
-      if (f.guardianCpf) setGuardianCpf(f.guardianCpf);
+      if (f.guardianCpf) setGuardianCpf(formatCpf(f.guardianCpf));
       if (f.guardianEmail) setGuardianEmail(f.guardianEmail);
       setGeneralNotes(f.generalNotes);
       // the sorter just replaced several fields; clean repeats in all of them in parallel
@@ -237,7 +239,7 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
         name: name.trim(),
         birthDate: birthDate || null,
         sex,
-        cpf: cpf.trim(),
+        cpf: formatCpf(cpf),
         rg: rg.trim(),
         school: school.trim(),
         schoolGrade: schoolGrade.trim(),
@@ -266,7 +268,7 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
         emergencyContact: emergencyContact.trim(),
         guardianName: guardianName.trim(),
         guardianPhone: phoneE164 ?? null,
-        guardianCpf: guardianCpf.trim(),
+        guardianCpf: formatCpf(guardianCpf),
         guardianEmail: guardianEmail.trim().toLowerCase(),
       });
       return true;
@@ -355,7 +357,10 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
       <section className="form-box form-box--plain" aria-labelledby="extra-title">
         <h3 id="extra-title" className="form-box__title">🪪 Documentos e escola</h3>
         <div className="cat-form__row staff-form__row">
-          {text("CPF", cpf, setCpf, "ex.: 123.456.789-00")}
+          <label className="cat-field cat-field--grow">
+            <span className="cat-field__label">CPF</span>
+            <CpfInput value={cpf} onChange={setCpf} disabled={busy} placeholder="ex.: 123.456.789-00" />
+          </label>
           {text("RG", rg, setRg)}
         </div>
         <div className="cat-form__row staff-form__row">
@@ -381,7 +386,10 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
           </div>
         </div>
         <div className="cat-form__row staff-form__row">
-          {text("CPF do responsável", guardianCpf, setGuardianCpf)}
+          <label className="cat-field cat-field--grow">
+            <span className="cat-field__label">CPF do responsável</span>
+            <CpfInput value={guardianCpf} onChange={setGuardianCpf} disabled={busy} ariaLabel="CPF do responsável" />
+          </label>
           {text("E-mail do responsável", guardianEmail, setGuardianEmail, "ex.: nome@email.com")}
         </div>
         {text("Contato de emergência", emergencyContact, setEmergencyContact, "ex.: Marcos (pai) 11 99999-0000", undefined, "emergencyContact")}

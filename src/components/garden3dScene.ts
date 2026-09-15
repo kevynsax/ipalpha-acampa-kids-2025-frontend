@@ -3,7 +3,7 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { buildBallerina, buildButterfly } from "./garden3dModels";
 import { buildUnicorn } from "./unicorn3dModel";
 
-/** All three characters share one context, lighting rig and animation loop. */
+/** One context and animation loop; separate lighting passes preserve each shadow style. */
 export function mountGardenScene(host: HTMLDivElement, onReady: () => void, onUnavailable: () => void): () => void {
   let renderer: THREE.WebGLRenderer;
   try {
@@ -23,6 +23,8 @@ export function mountGardenScene(host: HTMLDivElement, onReady: () => void, onUn
   host.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
+  const unicornScene = new THREE.Scene();
+  renderer.autoClear = false;
   const camera = new THREE.OrthographicCamera(-5, 5, 2.3, -2.3, .1, 40);
   camera.position.set(0, 1.5, 12);
   camera.lookAt(0, 0, 0);
@@ -30,8 +32,10 @@ export function mountGardenScene(host: HTMLDivElement, onReady: () => void, onUn
   const room = new RoomEnvironment();
   const environment = pmrem.fromScene(room, .04);
   scene.environment = environment.texture;
+  unicornScene.environment = environment.texture;
   room.dispose();
   pmrem.dispose();
+  // Preserve the dancer's original warm lighting and soft ground shadow.
   scene.add(new THREE.HemisphereLight("#fff0f7", "#839880", 2.5));
   const sun = new THREE.DirectionalLight("#fff0d9", 3);
   sun.position.set(-3, 7, 5);
@@ -47,12 +51,29 @@ export function mountGardenScene(host: HTMLDivElement, onReady: () => void, onUn
   // Trots along a lane just behind the dancer, so crossing her never clips.
   unicorn.root.scale.setScalar(.95);
   unicorn.root.position.set(0, -2.1, -1.2);
-  scene.add(ballerina.root, butterfly.root, unicorn.root);
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 5), new THREE.ShadowMaterial({ color: "#5c4052", opacity: .16 }));
+  scene.add(ballerina.root, butterfly.root);
+  unicornScene.add(unicorn.root);
+  // The unicorn keeps its stronger self-shading without changing the dancer.
+  unicornScene.add(new THREE.HemisphereLight("#fff0f7", "#77758c", 1.35));
+  const unicornSun = new THREE.DirectionalLight("#fff0d9", 2.8);
+  unicornSun.position.set(-3, 7, 5);
+  unicornSun.castShadow = true;
+  unicornSun.shadow.mapSize.set(1024, 1024);
+  Object.assign(unicornSun.shadow.camera, { top: 4, bottom: -4, near: .5, far: 20 });
+  unicornSun.shadow.normalBias = .012;
+  unicornSun.shadow.bias = -.00015;
+  unicornScene.add(unicornSun, unicornSun.target);
+  // Transparent catchers must not write depth across the other lighting pass.
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 8), new THREE.ShadowMaterial({ color: "#5c4052", opacity: .16, depthWrite: false }));
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = -2.1;
   ground.receiveShadow = true;
   scene.add(ground);
+  const unicornGround = new THREE.Mesh(ground.geometry, new THREE.ShadowMaterial({ color: "#51435f", opacity: .32, depthWrite: false }));
+  unicornGround.rotation.copy(ground.rotation);
+  unicornGround.position.copy(ground.position);
+  unicornGround.receiveShadow = true;
+  unicornScene.add(unicornGround);
 
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   let inView = false;
@@ -81,6 +102,13 @@ export function mountGardenScene(host: HTMLDivElement, onReady: () => void, onUn
       reduced ? .9 : .85 + Math.sin(phase * 2) * .43,
       reduced ? .3 : .3 + Math.sin(phase) * .65,
     );
+    renderer.clear();
+    // Render the rear lane first, retaining depth for correct character overlap.
+    if (unicorn.root.visible) {
+      renderer.toneMappingExposure = 1;
+      renderer.render(unicornScene, camera);
+    }
+    renderer.toneMappingExposure = 1.15;
     renderer.render(scene, camera);
     if (!ready) {
       ready = true;
@@ -105,13 +133,19 @@ export function mountGardenScene(host: HTMLDivElement, onReady: () => void, onUn
     camera.updateProjectionMatrix();
     const x = -halfWidth + Math.max(1.05, halfWidth * .20);
     ballerina.root.position.set(x, -2.1, 0);
-    // The shadow catcher and the sun's frustum span the whole stage: the
-    // unicorn crosses it end to end.
+    // Anchor the light to the dancer as before, but cover both stage edges
+    // relative to that offset so the butterfly's shadow is not clipped.
     ground.scale.x = halfWidth * 2 + 4;
+    unicornGround.scale.x = ground.scale.x;
+    unicornSun.shadow.camera.left = -halfWidth - 2;
+    unicornSun.shadow.camera.right = halfWidth + 2;
+    unicornSun.shadow.camera.far = 20 + halfWidth;
+    unicornSun.shadow.camera.updateProjectionMatrix();
     sun.position.set(x - 3, 7, 5);
     sun.target.position.set(x, 0, 0);
-    sun.shadow.camera.left = -halfWidth - 2;
-    sun.shadow.camera.right = halfWidth + 2;
+    sun.shadow.camera.left = -halfWidth - x - 2;
+    sun.shadow.camera.right = halfWidth - x + 2;
+    sun.shadow.camera.far = 20 + halfWidth;
     sun.shadow.camera.updateProjectionMatrix();
     resume();
   }
@@ -147,7 +181,7 @@ export function mountGardenScene(host: HTMLDivElement, onReady: () => void, onUn
     renderer.domElement.removeEventListener("webglcontextrestored", contextRestored);
     const geometries = new Set<THREE.BufferGeometry>();
     const materials = new Set<THREE.Material>();
-    scene.traverse(object => {
+    for (const stage of [scene, unicornScene]) stage.traverse(object => {
       if (!(object instanceof THREE.Mesh)) return;
       geometries.add(object.geometry);
       for (const mat of Array.isArray(object.material) ? object.material : [object.material]) materials.add(mat);
@@ -156,6 +190,7 @@ export function mountGardenScene(host: HTMLDivElement, onReady: () => void, onUn
     materials.forEach(mat => mat.dispose());
     environment.dispose();
     sun.shadow.map?.dispose();
+    unicornSun.shadow.map?.dispose();
     renderer.dispose();
     renderer.forceContextLoss();
     renderer.domElement.remove();

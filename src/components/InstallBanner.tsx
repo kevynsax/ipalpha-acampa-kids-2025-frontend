@@ -11,14 +11,22 @@ function snoozed(): boolean {
   return !!raw && Number(raw) > Date.now();
 }
 
+interface InstallBannerProps {
+  /** a PARENT stays at home: the reason to install is following the camp, not the missing Wi-Fi up there */
+  parent?: boolean;
+}
+
 /**
  * On a phone, running inside the browser tab instead of the installed app is
  * a real problem at the camp: the browser may evict the tab, there is no icon
  * to come back to, and there's no internet to re-download anything. So this
  * banner is deliberately loud until the app is installed. "Depois" hides it
  * for a few hours only.
+ *
+ * A PARENT never goes to the camp, so the missing internet means nothing to
+ * them: they are told to install it to keep up with their kid instead.
  */
-export default function InstallBanner() {
+export default function InstallBanner({ parent }: InstallBannerProps) {
   const standalone = useStandalone();
   const { canPrompt, prompt } = useInstallPrompt();
   const [hidden, setHidden] = useState(snoozed);
@@ -50,7 +58,7 @@ export default function InstallBanner() {
         <div className="install-banner__body">
           <strong className="install-banner__title">Instale o Acampa Kids no seu celular</strong>
           <p className="install-banner__text">
-            No acampamento <strong>não há internet</strong>.
+            {parent ? <>Acompanhe <strong>cada novidade</strong> do acampamento.</> : <>No acampamento <strong>não há internet</strong>.</>}
           </p>
           <div className="install-banner__actions">
             <button type="button" className="button button--primary install-banner__cta" onClick={install}>
@@ -86,7 +94,7 @@ export default function InstallBanner() {
                 Confirme em <strong>Adicionar</strong>. O ícone do Acampa Kids aparece na sua tela inicial.
               </li>
               <li>
-                Abra o app <strong>pelo ícone</strong> e faça login uma vez com o Wi-Fi ligado.
+                Abra o app <strong>pelo ícone</strong> e faça login{parent ? "." : <> uma vez com o Wi-Fi ligado.</>}
               </li>
             </ol>
           )}
@@ -101,7 +109,7 @@ export default function InstallBanner() {
               </li>
               <li>Confirme. O ícone do Acampa Kids aparece na sua tela inicial.</li>
               <li>
-                Abra o app <strong>pelo ícone</strong> e faça login uma vez com o Wi-Fi ligado.
+                Abra o app <strong>pelo ícone</strong> e faça login{parent ? "." : <> uma vez com o Wi-Fi ligado.</>}
               </li>
             </ol>
           )}
@@ -110,7 +118,6 @@ export default function InstallBanner() {
             <p className="install-how__text">Abra o menu do navegador e procure por "Instalar aplicativo" ou "Adicionar à tela inicial".</p>
           )}
 
-          <p className="cat-hint">Depois de instalado, este aviso some sozinho.</p>
           <button type="button" className="button button--secondary" onClick={() => setHowOpen(false)}>
             Entendi
           </button>

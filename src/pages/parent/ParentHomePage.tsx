@@ -1,10 +1,11 @@
-import { useState, type ReactNode } from "react";
-import { bedroomLabel } from "../../api/bedrooms";
+import { useEffect, useState, type ReactNode } from "react";
+import BedroomTag from "../../components/BedroomTag";
 import { ageOf, type Camper } from "../../api/campers";
 import type { Staff } from "../../api/staff";
 import CamperQr from "../../components/CamperQr";
 import HealthAlerts from "../../components/HealthAlerts";
 import KidIcon from "../../components/KidIcon";
+import ParentKidTabs from "../../components/ParentKidTabs";
 import PlayScene from "../../components/PlayScene";
 import StaffIcon from "../../components/StaffIcon";
 import RoomRoleIcon from "../../components/RoomRoleIcon";
@@ -28,14 +29,34 @@ interface ParentHomePageProps {
 }
 
 
-/** A team member as the parent sees them: name + phone + WhatsApp. */
-function ContactRow({ staff: s, title, from, about }: { staff: Staff; title?: ReactNode; from: string; about?: string }) {
+function ContactBody({ staff: s, title }: { staff: Staff; title?: ReactNode }) {
   return (
-    <li className="staff-card staff-card--compact parent-contact">
-      <div className="staff-card__body">
-        {title && <p className="parent-contact__title">{title}</p>}
-        <h3 className="staff-card__name">{s.name}</h3>
-        <p className="staff-card__meta">{s.phone ? formatBrazilPhoneClient(s.phone) : <em className="staff-card__missing">sem celular</em>}</p>
+    <>
+      {title && <p className="parent-contact__title">{title}</p>}
+      <h3 className="staff-card__name">{s.name}</h3>
+      <p className="staff-card__meta">{s.phone ? formatBrazilPhoneClient(s.phone) : <em className="staff-card__missing">sem celular</em>}</p>
+    </>
+  );
+}
+
+/** Compact chip: important contacts sit in one stretching row. */
+function ImportantContact({ staff: s, title, from }: { staff: Staff; title?: ReactNode; from: string }) {
+  return (
+    <li className="parent-chip">
+      <div className="parent-chip__body">
+        <ContactBody staff={s} title={title} />
+      </div>
+      {s.phone && <WhatsAppButton className="wa-btn--sm" href={whatsappLink(s.phone, staffGreeting({ toName: s.name, fromName: from }))} label={`Falar com ${s.name.split(" ")[0]} no WhatsApp`} />}
+    </li>
+  );
+}
+
+/** Full-width card for the kid's room team — same padding as the identity card. */
+function TeamContact({ staff: s, title, from, about }: { staff: Staff; title?: ReactNode; from: string; about?: string }) {
+  return (
+    <li className="parent-team-card">
+      <div className="parent-team-card__body">
+        <ContactBody staff={s} title={title} />
       </div>
       {s.phone && <WhatsAppButton href={whatsappLink(s.phone, staffGreeting({ toName: s.name, fromName: from, about }))} label={`Falar com ${s.name.split(" ")[0]} no WhatsApp`} />}
     </li>
@@ -56,9 +77,12 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
       <header className="admin-head">
         <h2 className="admin-title detail-title">
           <KidIcon sex={sex} size={40} />
-          {k.name}
-          {age !== null && <span className="kid-card__age">{age} anos</span>}
-          {k.checkin && <span className="staff-tag staff-tag--here">✅ check-in feito</span>}
+          <span className="parent-kid__identity">
+            <span className="parent-kid__name">{k.name}</span>
+            {age !== null && <span className="kid-card__age">{age} anos</span>}
+          </span>
+          <span className="parent-kid__break" aria-hidden="true" />
+          {k.checkin && <span className="parent-kid__status staff-tag staff-tag--here">✅ check-in feito</span>}
         </h2>
       </header>
 
@@ -72,7 +96,7 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
           </dd>
           <dt>Quarto</dt>
           <dd>
-            {bedroom ? bedroomLabel(bedroom) : "—"}
+            {bedroom ? <BedroomTag bedroom={bedroom} /> : "—"}
             {labelOf(k.bed) && <span className="staff-tag">Cama {labelOf(k.bed)!.toLowerCase()}</span>}
           </dd>
           <dt>Transporte</dt>
@@ -90,10 +114,10 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
           {!caretaker && roomStaff.length === 0 ? (
             <p className="opt-empty">A equipe do quarto ainda não foi definida.</p>
           ) : (
-            <ul className="staff-list">
-              {caretaker && <ContactRow staff={caretaker} title={<><RoomRoleIcon role="caretaker" /> Líder de {first}</>} from={user.name} about={k.name} />}
+            <ul className="parent-team">
+              {caretaker && <TeamContact staff={caretaker} title={<><RoomRoleIcon role="caretaker" /> Líder de {first}</>} from={user.name} about={k.name} />}
               {roomStaff.map((s) => (
-                <ContactRow key={s.id} staff={s} title={`Equipe do quarto${bedroom ? ` ${bedroom.name}` : ""}`} from={user.name} about={k.name} />
+                <TeamContact key={s.id} staff={s} title={`Equipe do quarto${bedroom ? ` ${bedroom.name}` : ""}`} from={user.name} about={k.name} />
               ))}
             </ul>
           )}
@@ -138,14 +162,22 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
 
 /**
  * "Início" for a PARENT: the important contacts (while the parents' window
- * is open), then each kid — registration data, the team looking after them
- * (window only), the editable "Pontos de atenção" and the QR code. Before
+ * is open), then the selected kid — registration data, the team looking after
+ * them (window only), the editable "Pontos de atenção" and the QR code. Before
  * the check-in starts and after the last event only the kids' own data is
  * shown; the server does not even send the team then.
  */
 export default function ParentHomePage({ user, token, access }: ParentHomePageProps) {
   const data = useParentHome();
   const first = user.name.split(" ")[0];
+  const [selectedKidId, setSelectedKidId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!data?.kids.length) return;
+    if (!selectedKidId || !data.kids.some((kid) => kid.camper.id === selectedKidId)) {
+      setSelectedKidId(data.kids[0].camper.id);
+    }
+  }, [data, selectedKidId]);
 
   if (data === null) {
     return (
@@ -169,14 +201,15 @@ export default function ParentHomePage({ user, token, access }: ParentHomePagePr
   }
 
   const kids: Camper[] = data.kids.map((k) => k.camper);
-  const sex = kidSexOf(data.kids[0].bedroom?.group);
+  const selectedKid = data.kids.find((kid) => kid.camper.id === selectedKidId) ?? data.kids[0];
+  const sex = kidSexOf(selectedKid.bedroom?.group);
 
   return (
     <div className="admin-page">
       <h1 className="admin-title">Olá, {first}! 👋</h1>
       <p className="admin-intro">
         {access.open
-          ? `O acampamento está rolando! Aqui estão os contatos da equipe e as informações das suas crianças${access.closesAt ? ` (disponíveis até ${speakWhen(access.closesAt, { long: true })})` : ""}.`
+          ? "O acampamento está rolando! Aqui estão os contatos da equipe e as informações das suas crianças."
           : access.opensAt && new Date(access.opensAt).getTime() > Date.now()
             ? `Os contatos da equipe aparecem aqui a partir do check-in (${speakWhen(access.opensAt, { long: true })}).`
             : "O acampamento terminou. Obrigado por confiar em nós! 💚"}
@@ -190,18 +223,25 @@ export default function ParentHomePage({ user, token, access }: ParentHomePagePr
           {data.contacts.length === 0 ? (
             <p className="opt-empty">Nenhum contato divulgado ainda.</p>
           ) : (
-            <ul className="staff-list">
+            <ul className="parent-contacts">
               {data.contacts.map((c) => (
-                <ContactRow key={c.id} staff={c.staff} title={c.title} from={user.name} />
+                <ImportantContact key={c.id} staff={c.staff} title={c.title} from={user.name} />
               ))}
             </ul>
           )}
         </section>
       )}
 
-      {data.kids.map((kid) => (
-        <KidSection key={kid.camper.id} kid={kid} token={token} user={user} showTeam={access.open} />
-      ))}
+      <ParentKidTabs kids={data.kids} selectedId={selectedKid.camper.id} onSelect={setSelectedKidId} idPrefix="parent-kid-tab" panelId="parent-kid-panel" />
+
+      <div
+        id="parent-kid-panel"
+        role={data.kids.length > 1 ? "tabpanel" : undefined}
+        aria-labelledby={data.kids.length > 1 ? `parent-kid-tab-${selectedKid.camper.id}` : undefined}
+        className="parent-kid-panel"
+      >
+        <KidSection key={selectedKid.camper.id} kid={selectedKid} token={token} user={user} showTeam={access.open} />
+      </div>
 
       <PlayScene sex={sex} />
     </div>

@@ -23,10 +23,14 @@ import iconHelperFace from "./assets/icons/helper-face.png";
 import iconTransport from "./assets/icons/transport.png";
 import iconCamera from "./assets/icons/camera.png";
 import iconNoPhotos from "./assets/icons/no-photos.png";
+import iconSearchPhotos from "./assets/icons/search-photos.png";
+import iconTakingPhoto from "./assets/icons/taking-photo.png";
 import iconNotifications from "./assets/icons/notifications.png";
 import iconCleanup from "./assets/icons/cleanup.png";
 import iconSwap from "./assets/icons/swap.png";
+import iconBadge from "./assets/icons/badge.png";
 import iconMedications from "./assets/icons/medications.png";
+import iconSchedule from "./assets/icons/schedule.png";
 
 export const ICONS = {
   camper: iconCamper,
@@ -69,14 +73,22 @@ export const ICONS = {
   camera: iconCamera,
   /** glum photographer sitting on the ground, camera set aside — the empty album */
   noPhotos: iconNoPhotos,
+  /** kid with a loupe over polaroids scattered on the ground — waiting for a parent reference photo */
+  searchPhotos: iconSearchPhotos,
+  /** kid posing for a vintage camera with a yellow flash — parent face-search card */
+  takingPhoto: iconTakingPhoto,
   /** teal phone with a sun-yellow speech-bubble (dark dots) — SMS notifications settings */
   notifications: iconNotifications,
   /** teal broom sweeping, with sparkles — the end-of-camp cleanup settings */
   cleanup: iconCleanup,
   /** two thick curved arrows in a circle (teal over orange) — "trocar": move room, hand over, swap role */
   swap: iconSwap,
+  /** smiling woman holding her lanyard ID card up beside her face — "quem você é aqui": choosing / showing a profile */
+  badge: iconBadge,
   /** clipboard checklist with two orange ticks and a capsule on top — the Medicações tab (what each kid already took) */
   medications: iconMedications,
+  /** 📅 calendar emoji in pastel camp colours: teal header with 31, cream page with a big 31, orange header dots — the Programação tab */
+  schedule: iconSchedule,
 } as const;
 
 /** A kid's sex is not stored: it follows the wing of the bedroom (meninas / meninos). */

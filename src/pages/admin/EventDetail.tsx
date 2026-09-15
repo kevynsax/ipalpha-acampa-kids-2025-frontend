@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { assignStaff, unassignStaff, updateRole, roleDetailOf, DETAIL_COLORS, type CampEvent, type ScheduleRole, type ScheduleRoleInput } from "../../api/schedule";
+import { assignStaff, unassignStaff, updateEvent, updateRole, roleDetailOf, DETAIL_COLORS, type CampEvent, type ScheduleRole, type ScheduleRoleInput } from "../../api/schedule";
 import { contrastText } from "../../api/teams";
 import { useTeamOf } from "../../store/derive";
 import { speakDay } from "../../dates";
@@ -8,6 +8,8 @@ import Breadcrumbs, { type Crumb } from "../../components/Breadcrumbs";
 import { useConfirm } from "../../components/ConfirmDialog";
 import RichTextBox from "../../components/RichTextBox";
 import Dialog from "../../components/Dialog";
+import ParentIcon from "../../components/ParentIcon";
+import Toggle from "../../components/Toggle";
 import { ICONS } from "../../icons";
 import AddRoleToEventDialog from "./AddRoleToEventDialog";
 import AssignRoleDialog from "./AssignRoleDialog";
@@ -46,7 +48,22 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
   /** per-person detail being typed (Base 1, Time Belém…) */
   const [editDetail, setEditDetail] = useState<{ role: ScheduleRole; staffId: string; value: string; color: string } | null>(null);
   const [savingDetail, setSavingDetail] = useState(false);
+  const [savingParents, setSavingParents] = useState(false);
   const confirm = useConfirm();
+  const parentsSee = e.visibleToParents !== false;
+
+  async function handleParentsVisible(next: boolean) {
+    if (next === parentsSee) return;
+    setSavingParents(true);
+    setError(null);
+    try {
+      await updateEvent(token, e.id, { visibleToParents: next });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Algo deu errado.");
+    } finally {
+      setSavingParents(false);
+    }
+  }
 
   async function handleSaveDetail(ev: React.FormEvent) {
     ev.preventDefault();
@@ -133,6 +150,10 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
           <dd>
             {speakDay(e.date)} · {e.startTime}
             {e.endTime && `–${e.endTime}`}
+          </dd>
+          <dt>Pais</dt>
+          <dd>
+            <Toggle checked={parentsSee} onChange={(v) => void handleParentsVisible(v)} disabled={savingParents} label={<><ParentIcon size={16} /> {parentsSee ? "veem" : "não veem"}</>} />
           </dd>
           {e.notes && (
             <>

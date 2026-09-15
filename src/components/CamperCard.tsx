@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import { type Bedroom } from "../api/bedrooms";
 import { ageOf, type Camper } from "../api/campers";
+import BedroomTag from "./BedroomTag";
 import HealthAlerts from "./HealthAlerts";
 import TeamTag from "./TeamTag";
 import TransportTag from "./TransportTag";
@@ -9,7 +11,7 @@ interface CamperCardProps {
   labelOf: (id: string | null | undefined) => string | null;
   /** hide the bedroom tag (when already in a room context) */
   hideBedroom?: boolean;
-  bedroomLabel?: string | null;
+  bedroom?: Pick<Bedroom, "name" | "group"> | null;
   /** click → open the kid's page */
   onOpen?: (camperId: string) => void;
   /** pinned to the top-right corner (e.g. the WhatsApp button to the guardian) */
@@ -17,10 +19,10 @@ interface CamperCardProps {
 }
 
 /** One kid: name, age, bed / team / transport tags + health alerts. Click navigates to the kid. */
-export default function CamperCard({ camper: k, labelOf, hideBedroom, bedroomLabel, onOpen, corner }: CamperCardProps) {
+export default function CamperCard({ camper: k, labelOf, hideBedroom, bedroom, onOpen, corner }: CamperCardProps) {
   const age = ageOf(k.birthDate);
 
-  const showBedroom = !hideBedroom && bedroomLabel;
+  const showBedroom = !hideBedroom && bedroom;
 
 
   const body = (
@@ -32,7 +34,7 @@ export default function CamperCard({ camper: k, labelOf, hideBedroom, bedroomLab
         </h4>
         {(showBedroom || k.team || k.transportation) && (
           <div className="staff-card__tags">
-            {showBedroom && <span className="staff-tag">{bedroomLabel}</span>}
+            {showBedroom && <BedroomTag bedroom={bedroom} />}
             <TeamTag teamId={k.team} />
             <TransportTag transportId={k.transportation} short />
           </div>

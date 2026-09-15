@@ -4,7 +4,7 @@ import HealthAlerts from "../../components/HealthAlerts";
 import InstructionsDialog from "../../components/InstructionsDialog";
 import KidIcon, { AdultIcon } from "../../components/KidIcon";
 import { ICONS, adultSexOf, kidSexOf } from "../../icons";
-import { GROUP_META, bedroomLabel } from "../../api/bedrooms";
+import BedroomTag from "../../components/BedroomTag";
 import { useCampTiming } from "../../campPhase";
 import { unassignStaff } from "../../api/schedule";
 import { speakDay, speakStamp } from "../../dates";
@@ -195,20 +195,7 @@ export default function StaffDetail({
           <strong>{firstName}</strong> é a única pessoa da equipe no quarto:
         </>
       )}{" "}
-      {onOpenBedroom ? (
-        <button
-          type="button"
-          className="link-btn"
-          title="Ver quarto"
-          onClick={() => onOpenBedroom(bedroom.id)}
-        >
-          {bedroom.name} ({GROUP_META[bedroom.group].label})
-        </button>
-      ) : (
-        <strong>
-          {bedroom.name} ({GROUP_META[bedroom.group].label})
-        </strong>
-      )}
+      <BedroomTag bedroom={bedroom} onClick={onOpenBedroom ? () => onOpenBedroom(bedroom.id) : undefined} />
     </p>
   );
 
@@ -275,18 +262,7 @@ export default function StaffDetail({
           <dt>Quarto</dt>
           <dd>
             {bedroom ? (
-              onOpenBedroom ? (
-                <button
-                  type="button"
-                  className="link-btn"
-                  title="Ver quarto"
-                  onClick={() => onOpenBedroom(bedroom.id)}
-                >
-                  {bedroomLabel(bedroom)}
-                </button>
-              ) : (
-                bedroomLabel(bedroom)
-              )
+              <BedroomTag bedroom={bedroom} onClick={onOpenBedroom ? () => onOpenBedroom(bedroom.id) : undefined} />
             ) : (
               "—"
             )}

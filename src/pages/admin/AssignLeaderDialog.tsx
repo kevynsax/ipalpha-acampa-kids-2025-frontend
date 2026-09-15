@@ -1,6 +1,7 @@
 import RoomRoleIcon from "../../components/RoomRoleIcon";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { bedroomLabel } from "../../api/bedrooms";
+import BedroomTag from "../../components/BedroomTag";
 import { moveCamper, updateCamper, type Camper, type CamperSex } from "../../api/campers";
 import { ROOM_ROLE_META, staffSex, updateStaff, type Staff } from "../../api/staff";
 import { useConfirm } from "../../components/ConfirmDialog";
@@ -174,7 +175,7 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
         {kidSex && (
           <p className="cat-hint">
             Equipe do sexo {SEX_LABEL[kidSex]}
-            {room ? ` · quarto ${bedroomLabel(room)}` : " · sem quarto"}
+            {room ? <> · <BedroomTag bedroom={room} className="staff-tag--inline" /></> : " · sem quarto"}
           </p>
         )}
         {error && <p className="message message--error">{error}</p>}
@@ -209,7 +210,7 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
                           <span className="picker__name">{s.name}</span>
                           <span className="picker__meta">
                             <RoomRoleIcon role={s.roomRole} /> {ROOM_ROLE_META[s.roomRole].label}
-                            {g.group !== "roomLeaders" && g.group !== "roomHelpers" && <span className="picker__busy-where">{sRoom ? bedroomLabel(sRoom) : "sem quarto"}</span>}
+                            {g.group !== "roomLeaders" && g.group !== "roomHelpers" && (sRoom ? <BedroomTag bedroom={sRoom} className="staff-tag--inline" /> : <span className="picker__busy-where">sem quarto</span>)}
                           </span>
                         </button>
                       </li>

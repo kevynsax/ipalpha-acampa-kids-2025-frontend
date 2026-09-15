@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Camper } from "../../api/campers";
 import CamperQr from "../../components/CamperQr";
 import Dialog from "../../components/Dialog";
+import KidIcon from "../../components/KidIcon";
 
 interface CheckinQrDialogProps {
   kids: Camper[];
@@ -20,6 +21,14 @@ interface CheckinQrDialogProps {
 export default function CheckinQrDialog({ kids, active }: CheckinQrDialogProps) {
   const pending = kids.filter((k) => !k.checkin);
   const [dismissed, setDismissed] = useState(false);
+  const [selectedKidId, setSelectedKidId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pending.length) return;
+    if (!selectedKidId || !pending.some((kid) => kid.id === selectedKidId)) {
+      setSelectedKidId(pending[0].id);
+    }
+  }, [pending, selectedKidId]);
 
   // tab back to the foreground → show again
   useEffect(() => {
@@ -37,15 +46,57 @@ export default function CheckinQrDialog({ kids, active }: CheckinQrDialogProps) 
   }, []);
 
   const open = active && pending.length > 0 && !dismissed;
+  const selectedKid = pending.find((kid) => kid.id === selectedKidId) ?? pending[0];
+  if (!selectedKid) return null;
+
   return (
     <Dialog open={open} onClose={() => setDismissed(true)} title="Check-in: mostre o QR code" width={480}>
       <div className="cat-form qr-dialog">
         <h2 className="cat-form__title">✅ Hora do check-in!</h2>
-        <p className="cat-hint">Mostre {pending.length === 1 ? "este QR code" : "estes QR codes"} para a equipe na entrada. 🏕️</p>
-        <div className="qr-dialog__codes">
-          {pending.map((k) => (
-            <CamperQr key={k.id} camperId={k.id} name={k.name} size={pending.length > 1 ? 180 : 240} />
-          ))}
+        <p className="cat-hint">Mostre {pending.length === 1 ? "este QR code" : "um QR code de cada vez"} para a equipe na entrada. 🏕️</p>
+        {pending.length > 1 && (
+          <nav className="parent-kid-tabs qr-dialog__tabs" role="tablist" aria-label="Escolha o QR code da criança">
+            {pending.map((kid) => {
+              const selected = kid.id === selectedKid.id;
+              return (
+                <button
+                  key={kid.id}
+                  id={`checkin-qr-tab-${kid.id}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  aria-controls="checkin-qr-panel"
+                  tabIndex={selected ? 0 : -1}
+                  className={`parent-kid-tab ${selected ? "parent-kid-tab--active" : ""}`}
+                  onClick={() => setSelectedKidId(kid.id)}
+                  onKeyDown={(event) => {
+                    const index = pending.findIndex((item) => item.id === kid.id);
+                    const nextIndex = event.key === "ArrowRight" ? (index + 1) % pending.length
+                      : event.key === "ArrowLeft" ? (index - 1 + pending.length) % pending.length
+                        : event.key === "Home" ? 0
+                          : event.key === "End" ? pending.length - 1
+                            : null;
+                    if (nextIndex === null) return;
+                    event.preventDefault();
+                    const next = pending[nextIndex].id;
+                    setSelectedKidId(next);
+                    requestAnimationFrame(() => document.getElementById(`checkin-qr-tab-${next}`)?.focus());
+                  }}
+                >
+                  <KidIcon sex={kid.sex === "F" ? "girl" : kid.sex === "M" ? "boy" : null} size={26} />
+                  <span>{kid.name}</span>
+                </button>
+              );
+            })}
+          </nav>
+        )}
+        <div
+          id="checkin-qr-panel"
+          className="qr-dialog__codes"
+          role={pending.length > 1 ? "tabpanel" : undefined}
+          aria-labelledby={pending.length > 1 ? `checkin-qr-tab-${selectedKid.id}` : undefined}
+        >
+          <CamperQr key={selectedKid.id} camperId={selectedKid.id} name={selectedKid.name} size={240} />
         </div>
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" onClick={() => setDismissed(true)}>

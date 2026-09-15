@@ -59,7 +59,7 @@ export default function MedicalStaffPage({ token }: MedicalStaffPageProps) {
         </h1>
       </header>
       <p className="admin-intro">
-        Pessoas da equipe que cuidam da <strong>saúde das crianças</strong>. Veem a ficha completa de <strong>todos os acampantes</strong> (alergias, remédios, condições, contatos) e baixam a planilha de saúde.
+        Pessoas da equipe que cuidam da <strong>saúde das crianças</strong>. Veem a ficha completa de <strong>todos os acampantes</strong> (alergias, remédios, condições, contatos) e baixam a planilha de saúde. Nas ocorrências, só as que a equipe médica registrou.
       </p>
 
       {error && <p className="message message--error">{error}</p>}

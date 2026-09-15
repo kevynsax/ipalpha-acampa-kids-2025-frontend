@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import { GROUP_META, bedroomLabel, type Bedroom } from "./api/bedrooms";
 import { ageOf, medicationsText, type Camper } from "./api/campers";
 import type { Staff } from "./api/staff";
+import { formatCpf } from "./cpf";
 import { formatBrazilPhoneClient } from "./phoneFormat";
 import { speakBirth, speakDateTime } from "./dates";
 
@@ -43,7 +44,7 @@ export function camperRow(k: Camper, roomById: Map<string, Bedroom>, labelOf: La
     "Data de nascimento": brDate(k.birthDate),
     Idade: age ?? "",
     Sexo: k.sex === "F" ? "Feminino" : k.sex === "M" ? "Masculino" : "",
-    CPF: k.cpf,
+    CPF: formatCpf(k.cpf),
     RG: k.rg,
     Escola: k.school,
     "Série": k.schoolGrade,
@@ -70,7 +71,7 @@ export function camperRow(k: Camper, roomById: Map<string, Bedroom>, labelOf: La
     "Contato de emergência": k.emergencyContact,
     Responsável: k.guardianName,
     "Celular do responsável": phone(k.guardianPhone),
-    "CPF do responsável": k.guardianCpf,
+    "CPF do responsável": formatCpf(k.guardianCpf),
     "E-mail do responsável": k.guardianEmail,
     "QR token": k.qrToken,
     "Check-in": k.checkin ? "Sim" : "Não",

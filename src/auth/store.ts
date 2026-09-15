@@ -9,7 +9,7 @@ export interface AuthState {
   user: LoggedUser;
 }
 
-/** Saves the session in the browser; it auto-clears after 24h (checked on load). */
+/** Saves the session in the browser; it auto-clears after the token expiry (checked on load). */
 export function saveAuth(state: AuthState): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
@@ -113,6 +113,18 @@ export async function verifyOtp(phoneE164: string, code: string): Promise<OtpVer
   return api<OtpVerifyResult>("/api/auth/otp/verify", {
     method: "POST",
     body: JSON.stringify({ phone: phoneE164, code }),
+  });
+}
+
+/**
+ * Switches the session to another profile the SAME person holds (parent ⇄
+ * team): the server revokes this session and issues a new token. No SMS.
+ */
+export async function switchRole(token: string, role: LoggedUser["activeRole"]): Promise<OtpVerifyResult> {
+  return api<OtpVerifyResult>("/api/auth/role", {
+    method: "POST",
+    headers: bearer(token),
+    body: JSON.stringify({ role }),
   });
 }
 

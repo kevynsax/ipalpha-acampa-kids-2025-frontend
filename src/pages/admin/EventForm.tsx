@@ -3,6 +3,8 @@ import Dialog from "../../components/Dialog";
 import EmojiPicker from "../../components/EmojiPicker";
 import TimeInput from "../../components/TimeInput";
 import type { CampEvent, CampEventInput, ScheduleRole, ScheduleRoleInput } from "../../api/schedule";
+import ParentIcon from "../../components/ParentIcon";
+import Toggle from "../../components/Toggle";
 import RoleForm from "./RoleForm";
 
 const EMOJI_SUGGESTIONS = ["📅", "🌅", "🥐", "🍽️", "🍝", "🏊", "🎯", "🌙", "🎤", "🙏", "🎶", "🔥", "🎬", "🛏️", "🚌", "🎁"];
@@ -38,6 +40,7 @@ export default function EventForm({ token, event, roles, defaultDate, busy, onSu
   const [endTime, setEndTime] = useState(event?.endTime ?? "");
   const [notes, setNotes] = useState(event?.notes ?? "");
   const [roleIds, setRoleIds] = useState<string[]>(event?.roles ?? []);
+  const [visibleToParents, setVisibleToParents] = useState(event?.visibleToParents ?? true);
   const [error, setError] = useState<string | null>(null);
 
   const timeOk = /^\d{2}:\d{2}$/.test(startTime) && (!endTime || endTime > startTime);
@@ -80,6 +83,7 @@ export default function EventForm({ token, event, roles, defaultDate, busy, onSu
         endTime: endTime || null,
         notes: notes.trim(),
         roles: roleIds,
+        visibleToParents,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Algo deu errado.");
@@ -122,6 +126,13 @@ export default function EventForm({ token, event, roles, defaultDate, busy, onSu
         </label>
       </div>
       {endTime && endTime <= startTime && <p className="cat-hint cat-hint--error">O fim precisa ser depois do início.</p>}
+
+      <div className="cat-field opt-field">
+        <div className="opt-field__head">
+          <Toggle checked={visibleToParents} onChange={setVisibleToParents} disabled={busy} label={<><ParentIcon size={18} /> Pais veem</>} />
+        </div>
+        <p className="cat-hint">Aparece na programação dos pais. A equipe sempre vê.</p>
+      </div>
 
       {/* funções só na criação — ao editar, elas são gerenciadas na tela do evento */}
       {!editing && (

@@ -55,7 +55,10 @@ export function buildButterfly() {
     for (const [shape, mat] of [[fore, upper], [hind, lower]] as const) {
       const geometry = new THREE.ExtrudeGeometry(shape, { depth: .025, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: .025, bevelThickness: .012, curveSegments: 20 });
       geometry.translate(0, 0, -.0125);
-      wing.add(new THREE.Mesh(geometry, [mat, edge]));
+      const surface = new THREE.Mesh(geometry, [mat, edge]);
+      // Cast the full wing silhouette, not just the tiny body and gold spots.
+      surface.castShadow = true;
+      wing.add(surface);
     }
     for (const face of [-1, 1]) {
       const z = face * .045;

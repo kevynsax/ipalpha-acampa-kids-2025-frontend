@@ -1,11 +1,15 @@
+import { useState } from "react";
 import { speakDay } from "../../dates";
+import { setMyPrepSectionDone } from "../../api/preparation";
 import RichHtml from "../../components/RichHtml";
 import { useCampTiming } from "../../campPhase";
+import { useSinkingChecklist } from "../../hooks/useSinkingChecklist";
 import type { LoggedUser } from "../../roles";
 import { useCollection } from "../../store";
 
 interface ParentPreparationPageProps {
   user: LoggedUser;
+  token: string;
 }
 
 /** "Faltam 12 dias" / "É amanhã!" / "É hoje!" / "Acampamento em andamento" */
@@ -18,14 +22,26 @@ function countdownLabel(daysToGo: number | null): { emoji: string; text: string 
 }
 
 /**
- * "Preparação" for a PARENT — read-only: the general sections the admin
- * posted to the parents ("O que levar na mala", "Chegada na igreja"…). The
- * server only sends the sections posted to `parent`, so no filtering here.
+ * "Preparação" for a PARENT: the general sections the admin posted to the
+ * parents ("O que levar na mala", "Chegada na igreja"…). The server only sends
+ * the sections posted to `parent`, so no filtering here.
+ *
+ * Each section is a CHECKLIST item, exactly like the team's page: "✓" ticks
+ * it, it turns grey and sinks to the end of the list. The ticks are saved on
+ * the responsible's own record (so they follow them to any phone).
  */
-export default function ParentPreparationPage({ user }: ParentPreparationPageProps) {
+export default function ParentPreparationPage({ user, token }: ParentPreparationPageProps) {
   const sections = useCollection("preparation");
   const timing = useCampTiming();
   const first = user.name.split(" ")[0];
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  /** ticked cards fade in place for a beat, then slide down to the end of the list */
+  const { listRef, ordered, settling } = useSinkingChecklist(
+    sections ?? [],
+    (s) => s.id,
+    (s) => !!s.done,
+  );
 
   if (sections === null) {
     return (
@@ -36,6 +52,23 @@ export default function ParentPreparationPage({ user }: ParentPreparationPagePro
   }
 
   const countdown = countdownLabel(timing.daysToGo);
+
+  const total = sections.length;
+  const doneCount = sections.filter((s) => s.done).length;
+  const allDone = total > 0 && doneCount === total;
+
+  async function toggle(id: string, done: boolean) {
+    if (busyId) return;
+    setBusyId(id);
+    setError(null);
+    try {
+      await setMyPrepSectionDone(token, id, !done);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Algo deu errado.");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   return (
     <div className="admin-page prep-page">
@@ -48,29 +81,58 @@ export default function ParentPreparationPage({ user }: ParentPreparationPagePro
           <span className="prep-countdown__emoji" aria-hidden="true">{countdown.emoji}</span>
           <div className="prep-countdown__text">
             <strong>{countdown.text}</strong>
-            {timing.firstDate && <span>Começa {speakDay(timing.firstDate).toLowerCase()}</span>}
+            {timing.firstDate && <span>{timing.daysToGo !== null && timing.daysToGo < 0 ? "Começou" : "Começa"} {speakDay(timing.firstDate).toLowerCase()}</span>}
           </div>
+          {total > 0 && (
+            <div className="prep-progress" aria-label={`${doneCount} de ${total} itens feitos`}>
+              <strong>{doneCount}/{total}</strong>
+              <span>{allDone ? "tudo pronto! 🎉" : "feitos"}</span>
+            </div>
+          )}
         </div>
       )}
 
-      <p className="admin-intro">Olá, {first}! Aqui está tudo o que sua família precisa saber e preparar antes do acampamento. 😊</p>
+      <p className="admin-intro">
+        Olá, {first}! Aqui está tudo o que sua família precisa saber e preparar antes do acampamento.
+        {total > 0 && " Conforme for resolvendo cada item, marque como feito."} 😊
+      </p>
 
-      {sections.length > 0 && (
-        <div className="prep-sections">
-          {sections.map((s) => (
-            <article key={s.id} className="detail-card prep-section">
-              <header className="prep-section__head">
-                <h3 className="prep-section__title">
-                  <span aria-hidden="true">{s.emoji}</span> {s.title}
-                </h3>
-              </header>
-              {s.content ? <RichHtml html={s.content} /> : <p className="opt-empty">Em breve.</p>}
-            </article>
-          ))}
+      {error && <p className="message message--error">{error}</p>}
+
+      {total > 0 && (
+        <div className="prep-sections" ref={listRef}>
+          {ordered.map((s) => {
+            const isDone = !!s.done;
+            return (
+              <article
+                key={s.id}
+                data-sink-key={s.id}
+                className={`detail-card prep-section ${isDone ? "prep-section--done" : ""} ${settling.has(s.id) ? "prep-section--settling" : ""}`}
+              >
+                <header className="prep-section__head">
+                  <h3 className="prep-section__title">
+                    <span aria-hidden="true">{s.emoji}</span> {s.title}
+                  </h3>
+                  <button
+                    type="button"
+                    className={`prep-check ${isDone ? "prep-check--on" : ""}`}
+                    aria-pressed={isDone}
+                    disabled={busyId === s.id}
+                    title={isDone ? "Desmarcar" : "Marcar como feito"}
+                    aria-label={isDone ? "Desmarcar" : "Marcar como feito"}
+                    onClick={() => toggle(s.id, isDone)}
+                  >
+                    <span className="prep-check__box" aria-hidden="true">{isDone ? "✓" : ""}</span>
+                  </button>
+                </header>
+                {s.content ? <RichHtml html={s.content} /> : <p className="opt-empty">Em breve.</p>}
+              </article>
+            );
+          })}
         </div>
       )}
 
-      {sections.length === 0 && (
+      {total === 0 && (
         <div className="admin-empty">
           <span className="admin-empty__emoji">🎒</span>
           <p>Nada para preparar por enquanto. Assim que a organização publicar as orientações, elas aparecem aqui.</p>

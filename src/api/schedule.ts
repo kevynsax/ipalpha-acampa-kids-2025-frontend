@@ -84,6 +84,8 @@ export interface CampEvent {
   notes: string;
   /** ids of the roles staff fulfil in this event */
   roles: string[];
+  /** parents see this event on their programme (the team always does) */
+  visibleToParents: boolean;
   assignments: EventAssignment[];
   createdAt: string;
   updatedAt: string;
@@ -97,6 +99,7 @@ export interface CampEventInput {
   endTime: string | null;
   notes: string;
   roles: string[];
+  visibleToParents: boolean;
 }
 
 /** Programme day → spoken pt-BR (`speakDay`). Prefer importing from `../dates` in new code. */

@@ -195,8 +195,29 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
       {/* MEDICAL team: what still has to be given today, one tap to tick (full list on the Medicações tab) */}
       {medical && <MedicationsCard token={token} onOpen={() => navigate("/medications")} />}
 
+      {/* ── my kids (caretaker only) ── */}
+      {!isStaffRoom && caretaker && (
+        <section className="detail-section">
+          <h2 className="detail-h2">
+            <KidIcon sex={sex} group size={26} /> Minhas crianças <span className="cat-tab__count">{myKids.length}</span>
+          </h2>
+          <p className="admin-intro">Você é o líder delas.</p>
+          {myKids.length === 0 ? (
+            <p className="opt-empty">Nenhuma criança sob sua responsabilidade ainda.</p>
+          ) : (
+            <ul className="kid-list">
+              {myKids.map((k) => (
+                <CamperCard key={k.id} camper={k} labelOf={labelOf} hideBedroom onOpen={openCamper} corner={<GuardianWhatsApp camper={k} />} />
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
       {/* ── colleagues: name, room role and phone ── */}
-      <section className="detail-section roommate-section">
+      {/* alone in the room: phones drop the whole block (CSS) — a heading, a
+          “0 pessoas” count and an empty note is a lot of screen to say nothing */}
+      <section className={`detail-section roommate-section ${roommates.length === 0 ? "roommate-section--empty" : ""}`}>
         <div className="roommate-head">
           <h2 className="detail-h2">
             <StaffIcon size={24} /> Equipe no quarto
@@ -234,25 +255,6 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
           </ul>
         )}
       </section>
-
-      {/* ── my kids (caretaker only) ── */}
-      {!isStaffRoom && caretaker && (
-        <section className="detail-section">
-          <h2 className="detail-h2">
-            <KidIcon sex={sex} group size={26} /> Minhas crianças <span className="cat-tab__count">{myKids.length}</span>
-          </h2>
-          <p className="admin-intro">Você é o líder delas.</p>
-          {myKids.length === 0 ? (
-            <p className="opt-empty">Nenhuma criança sob sua responsabilidade ainda.</p>
-          ) : (
-            <ul className="kid-list">
-              {myKids.map((k) => (
-                <CamperCard key={k.id} camper={k} labelOf={labelOf} hideBedroom onOpen={openCamper} corner={<GuardianWhatsApp camper={k} />} />
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
 
       {/* ── the other kids of the room: collapsed; only sent by the server while the camp is happening ── */}
       {!isStaffRoom && (campers.length > 0 || !caretaker) && (

@@ -5,7 +5,8 @@ import TeamTag from "../components/TeamTag";
 import TransportTag from "../components/TransportTag";
 import ScanFab from "../components/ScanFab";
 import { camperIdFromQr } from "../print/camperLabels";
-import { bedroomLabel, type Bedroom } from "../api/bedrooms";
+import { type Bedroom } from "../api/bedrooms";
+import BedroomTag from "../components/BedroomTag";
 import { ageOf, checkinCamper, undoCheckinCamper, type Camper } from "../api/campers";
 import { useConfirm } from "../components/ConfirmDialog";
 import Dialog from "../components/Dialog";
@@ -234,7 +235,7 @@ export default function CheckinPage({ token, canOpenStaff, adminMerged = false, 
                   {age !== null && <span className="kid-card__age">{age} anos</span>}
                 </h3>
                 <p className="staff-card__meta">
-                  {room ? bedroomLabel(room) : <span className="staff-card__missing">sem quarto</span>}
+                  {room ? <BedroomTag bedroom={room} className="staff-tag--inline" /> : <span className="staff-card__missing">sem quarto</span>}
                   {k.team && (
                     <>
                       {" · "}
@@ -354,15 +355,7 @@ function CheckinDialog({ camper: k, bedroom, sex, labelOf, busy, onConfirm, onCa
       {/* where the kid goes: team + bedroom as compact tags */}
       <div className="staff-card__tags">
         <TeamTag teamId={k.team} fallback="sem time" />
-        {bedroom ? (
-          <span className="staff-tag" title="Quarto">
-            🛏️ {bedroomLabel(bedroom)}
-          </span>
-        ) : (
-          <span className="staff-tag" title="Quarto">
-            🛏️ <em className="staff-card__missing">sem quarto</em>
-          </span>
-        )}
+        <BedroomTag bedroom={bedroom} fallback="sem quarto" />
         {labelOf(k.bed) && <span className="staff-tag">Cama {labelOf(k.bed)!.toLowerCase()}</span>}
       </div>
 

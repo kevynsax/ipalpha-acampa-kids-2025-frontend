@@ -36,7 +36,7 @@ const BLOCKS: readonly Block[] = [
   { key: "bedrooms", label: "Quartos", emoji: "🛏️", hint: "Os quartos; as crianças e a equipe ficam sem quarto, cama e líder.", unit: ["quarto", "quartos"] },
   { key: "transports", label: "Transporte", icon: ICONS.transport, hint: "Os ônibus e carros; ninguém fica com veículo e os ajudantes do check-in do ônibus saem da função.", unit: ["veículo", "veículos"] },
   { key: "teams", label: "Times", emoji: "🚩", hint: "Os times, o time de cada pessoa e todo o placar.", unit: ["time", "times"] },
-  { key: "schedule", label: "Programação", emoji: "📅", hint: "Os eventos do acampamento.", unit: ["evento", "eventos"] },
+  { key: "schedule", label: "Programação", icon: ICONS.schedule, hint: "Os eventos do acampamento.", unit: ["evento", "eventos"] },
   {
     key: "docs",
     label: "Instruções e Preparação",

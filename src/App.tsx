@@ -2,12 +2,14 @@ import { useEffect, useState, type ReactElement } from "react";
 import { ApiError } from "./api/client";
 import CampingLayout from "./components/CampingLayout";
 import StaffAccessDialog from "./components/StaffAccessDialog";
-import { clearAuth, clearPendingOtp, loadAuth, loadPendingOtp, saveAuth, savePendingOtp } from "./auth/store";
+import { clearAuth, clearPendingOtp, loadAuth, loadPendingOtp, saveAuth, savePendingOtp, switchRole } from "./auth/store";
 import Dashboard from "./pages/Dashboard";
+import RoleSwitchDialog from "./components/RoleSwitchDialog";
 import OtpStep from "./pages/OtpStep";
 import PhoneStep from "./pages/PhoneStep";
 import { formatBrazilPhoneClient } from "./phoneFormat";
-import type { LoggedUser } from "./roles";
+import type { LoggedUser, Role } from "./roles";
+import { navigate } from "./router";
 import { clearStore } from "./store";
 import { connectRealtime, disconnectRealtime } from "./store/realtime";
 
@@ -26,10 +28,12 @@ export default function App() {
   /** set when the server kicked the person out because the team's access window closed */
   const [evicted, setEvicted] = useState<ApiError | null>(null);
 
-  // restore an existing session (still within its 24h window)
+  // restore an existing session (still within its 4-day window)
   const [session, setSession] = useState<{ user: LoggedUser; token: string; tokenExpiresAt: string } | null>(
     null,
   );
+  /** just logged in holding more than one profile: ask which one before letting them in */
+  const [choosingRole, setChoosingRole] = useState(false);
   useEffect(() => {
     const stored = loadAuth();
     if (stored) {
@@ -48,6 +52,7 @@ export default function App() {
 
   function resetToLogin() {
     setSession(null);
+    setChoosingRole(false);
     setStep("phone");
     setPhoneMasked("");
     setOtp(null);
@@ -74,6 +79,44 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
+  /** a new session for the SAME person: the old data belongs to the old scope, so it is wiped before the new socket brings its snapshot */
+  async function applyRole(role: Role) {
+    if (!session) return;
+    const res = await switchRole(session.token, role);
+    clearStore();
+    saveAuth({ token: res.token, tokenExpiresAt: res.tokenExpiresAt, user: res.user });
+    setSession({ user: res.user, token: res.token, tokenExpiresAt: res.tokenExpiresAt });
+    // the other profile has its own menu: the screen we were on (usually
+    // #/profile, where the chip lives) means nothing there → drop the path and
+    // let the dashboard land on the new profile's first tab. `replace` so Back
+    // doesn't bounce into the previous role's page.
+    navigate("/", { replace: true });
+  }
+
+  /**
+   * Holds more than one profile: the choice comes BEFORE the app, over the
+   * login scenery — never on top of a home page they didn't ask for.
+   */
+  if (step === "done" && session && choosingRole) {
+    return (
+      <>
+        <VersionMark />
+        <CampingLayout>
+          <h1 className="camping-panel__title">Quase lá, {session.user.name.split(" ")[0]}! 🏕️</h1>
+        </CampingLayout>
+        <RoleSwitchDialog
+          open
+          user={session.user}
+          onClose={() => setChoosingRole(false)}
+          onSwitch={async (role) => {
+            await applyRole(role);
+            setChoosingRole(false);
+          }}
+        />
+      </>
+    );
+  }
+
   if (step === "done" && session) {
     return (
       <>
@@ -81,11 +124,11 @@ export default function App() {
         <Dashboard
           user={session.user}
           token={session.token}
-          tokenExpiresAt={session.tokenExpiresAt}
           onLoggedOut={() => {
             clearStore();
             resetToLogin();
           }}
+          onSwitchRole={applyRole}
         />
       </>
     );
@@ -109,6 +152,9 @@ export default function App() {
           clearPendingOtp();
           saveAuth({ token, tokenExpiresAt, user });
           setSession({ user, token, tokenExpiresAt });
+          // the login always lands on the highest-priority profile: let them
+          // pick when they hold more than one (mãe que também é da equipe)
+          setChoosingRole(user.roles.length > 1);
           setStep("done");
         }}
         onBack={() => {
