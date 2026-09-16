@@ -182,7 +182,7 @@ export default function StaffCheckinPage({ token, checkinHomePath }: StaffChecki
           const first = s.name.split(" ")[0];
           const label = s.checkin ? `Desfazer o check-in de ${first}` : on ? `Desfazer: ${first}` : `${first} chegou`;
           return (
-            <li key={s.id} className={going ? "bus-item--leaving" : undefined}>
+            <li key={s.id} className={`${going ? "bus-item--leaving" : ""} ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
               <button
                 type="button"
                 className={`bus-row bus-row--roll ${on ? "bus-row--on" : ""}`}

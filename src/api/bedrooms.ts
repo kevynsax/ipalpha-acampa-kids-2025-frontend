@@ -1,4 +1,4 @@
-import { command } from "./client";
+import { api, command } from "./client";
 import { bearer } from "../auth/store";
 import { roleMeta } from "../roles";
 import { ICONS } from "../icons";
@@ -77,4 +77,34 @@ export async function updateBedroom(token: string, id: string, patch: Partial<Be
 
 export async function deleteBedroom(token: string, id: string): Promise<void> {
   await command(`/api/bedrooms/${id}`, { method: "DELETE", headers: bearer(token) }, ["bedrooms"]);
+}
+
+/** The whole "montar quartos" delta, applied by Concluir in one shot (POST /api/bedrooms/apply). */
+export interface RoomsApplyInput {
+  staff: { id: string; bedroom: string | null; roomRole: import("./staff").RoomRole }[];
+  campers: { id: string; bedroom: string | null; caretakerId: string | null }[];
+}
+
+/**
+ * Applies every room placement at once — staff rooms + roles, kids' rooms +
+ * líderes. Texts each person concerned with one SMS about their change, unless
+ * `notify` is false (the admin turned the avisos off for this apply).
+ */
+export async function applyRooms(token: string, input: RoomsApplyInput, notify = true): Promise<{ applied: { staff: number; campers: number } }> {
+  return command("/api/bedrooms/apply", { method: "POST", headers: json(token), body: JSON.stringify({ ...input, notify }) }, ["staff", "bedrooms", "campers"]);
+}
+
+/** One team member who would be texted by an apply, and the exact SMS they'd get. */
+export interface RoomsAppliedMessage {
+  staffId: string;
+  name: string;
+  text: string;
+}
+
+/**
+ * Dry-run the apply: who would be texted and the exact SMS each would receive.
+ * Read-only — nothing is written. Mirrors the server's real notification gates.
+ */
+export async function previewRooms(token: string, input: RoomsApplyInput): Promise<{ messages: RoomsAppliedMessage[]; smsEnabled: boolean }> {
+  return api("/api/bedrooms/apply/preview", { method: "POST", headers: json(token), body: JSON.stringify(input) });
 }

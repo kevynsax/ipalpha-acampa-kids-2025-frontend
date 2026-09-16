@@ -1,7 +1,7 @@
 import RoomRoleIcon from "../../components/RoomRoleIcon";
 import { useEffect, useMemo, useState } from "react";
 import { moveCamper, type Camper } from "../../api/campers";
-import { canBeCaretaker, staffSex } from "../../api/staff";
+import { staffSex } from "../../api/staff";
 import { bedroomGroupsForSex } from "../../api/bedrooms";
 import { BedroomSelect } from "../../components/CategoryFields";
 import Dialog from "../../components/Dialog";
@@ -41,7 +41,7 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
   const room = bedroom ? bedrooms.find((b) => b.id === bedroom) : null;
   const caretakers = useMemo(
     // an admin sleeping in the room is not a líder: their roster record is only for the room / transport / vest
-    () => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "caretaker" && canBeCaretaker(s)).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) : []),
+    () => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "caretaker").sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) : []),
     [staff, bedroom],
   );
   const helpers = useMemo(() => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "helper") : []), [staff, bedroom]);

@@ -71,6 +71,12 @@ export interface Camper {
   createdAt: string;
   /** ISO — when a parent last edited the "Pontos de atenção"; null until they do (drives the 🕓 history button) */
   parentEditedAt: string | null;
+  importId: string | null;
+  /** Pending/processing imported campers pulse subtly while the worker reviews observations. */
+  aiReviewStatus: "pending" | "processing" | "reviewed" | "error" | null;
+  aiReviewError: string;
+  aiReviewStartedAt: string | null;
+  aiReviewFinishedAt: string | null;
   updatedAt: string;
 }
 
@@ -109,7 +115,7 @@ export interface CamperCheckin {
   note?: string;
 }
 
-export type CamperInput = Omit<Camper, "id" | "checkin" | "busCheckin" | "busReturnCheckin" | "parentEditedAt" | "createdAt" | "updatedAt">;
+export type CamperInput = Omit<Camper, "id" | "checkin" | "busCheckin" | "busReturnCheckin" | "parentEditedAt" | "importId" | "aiReviewStatus" | "aiReviewError" | "aiReviewStartedAt" | "aiReviewFinishedAt" | "createdAt" | "updatedAt">;
 
 export interface CamperDetail {
   camper: Camper;
@@ -168,7 +174,14 @@ export async function deleteCamper(token: string, id: string): Promise<void> {
 export type ParentEditableField = "allergies" | "drugAllergies" | "healthIssues" | "medications" | "foodRestrictions" | "healthNotes" | "weightKg" | "insurance" | "insuranceCard" | "generalNotes";
 export type ParentPatch = Partial<Pick<Camper, ParentEditableField>>;
 
-export const PARENT_FIELD_LABEL: Record<ParentEditableField, string> = {
+/** The fields the MEDICAL team may edit on any kid — the health block, plus `neurodivergent`. */
+export type MedicalEditableField = Exclude<ParentEditableField, "generalNotes"> | "neurodivergent";
+export type MedicalPatch = Partial<Pick<Camper, MedicalEditableField>>;
+
+/** a field that can appear in the kid's change history (parent or medical edits) */
+export type CamperChangeField = ParentEditableField | MedicalEditableField;
+
+export const PARENT_FIELD_LABEL: Record<CamperChangeField, string> = {
   allergies: "Alergias",
   drugAllergies: "Alergia a medicamentos",
   healthIssues: "Condição de saúde",
@@ -179,6 +192,7 @@ export const PARENT_FIELD_LABEL: Record<ParentEditableField, string> = {
   insurance: "Convênio",
   insuranceCard: "Carteirinha",
   generalNotes: "Observações",
+  neurodivergent: "Neurodivergente",
 };
 
 /** One edit a parent made to their kid (history read by the admin). */
@@ -192,12 +206,18 @@ export interface CamperChange {
   byRole: string;
   /** at least one MEDICAL field changed */
   medical: boolean;
-  changes: { field: ParentEditableField; before: unknown; after: unknown }[];
+  changes: { field: CamperChangeField; before: unknown; after: unknown }[];
 }
 
 /** A PARENT edits the "Pontos de atenção" of their own kid. */
 export async function parentUpdateCamper(token: string, id: string, patch: ParentPatch): Promise<Camper> {
   const res = await command<{ camper: Camper }>(`/api/campers/${id}/parent`, { method: "PUT", headers: json(token), body: JSON.stringify(patch) }, ["campers"]);
+  return res.camper;
+}
+
+/** The MEDICAL team (or the organization) edits the health block of a kid. */
+export async function medicalUpdateCamper(token: string, id: string, patch: MedicalPatch): Promise<Camper> {
+  const res = await command<{ camper: Camper }>(`/api/campers/${id}/health`, { method: "PUT", headers: json(token), body: JSON.stringify(patch) }, ["campers"]);
   return res.camper;
 }
 

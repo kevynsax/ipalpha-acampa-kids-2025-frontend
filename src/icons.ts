@@ -30,6 +30,7 @@ import iconCamera from "./assets/icons/camera.png";
 import iconNoPhotos from "./assets/icons/no-photos.png";
 import iconTakingPhoto from "./assets/icons/taking-photo.png";
 import iconNotifications from "./assets/icons/notifications.png";
+import iconNotifyOff from "./assets/icons/notify-off.png";
 import iconCleanup from "./assets/icons/cleanup.png";
 import iconPreparation from "./assets/icons/preparation.png";
 import iconSwap from "./assets/icons/swap.png";
@@ -40,6 +41,10 @@ import iconSchedule from "./assets/icons/schedule.png";
 import iconReport from "./assets/icons/report.png";
 import iconChooseExisting from "./assets/icons/choose-existing.png";
 import iconCreateNew from "./assets/icons/create-new.png";
+import iconImportCampers from "./assets/icons/import-campers.png";
+import iconRoomAssign from "./assets/icons/room-assign.png";
+import iconAssistant from "./assets/icons/assistant.png";
+import iconWizard from "./assets/icons/wizard.png";
 
 export const ICONS = {
   camper: iconCamper,
@@ -96,6 +101,8 @@ export const ICONS = {
   takingPhoto: iconTakingPhoto,
   /** teal phone with a sun-yellow speech-bubble (dark dots) — SMS notifications settings */
   notifications: iconNotifications,
+  /** teal notification bell with a diagonal slash — nobody will be texted (muted) */
+  notifyOff: iconNotifyOff,
   /** teal broom sweeping, with sparkles — the end-of-camp cleanup settings */
   cleanup: iconCleanup,
   /** closed red-orange hard suitcase with wheels — Preparação (what to pack before camp) */
@@ -116,6 +123,14 @@ export const ICONS = {
   chooseExisting: iconChooseExisting,
   /** teal tile with a cream plus and a sun-yellow sparkle — create something new */
   createNew: iconCreateNew,
+  /** spreadsheet with an entering arrow and yellow sparkle — import campers from CSV/Excel */
+  importCampers: iconImportCampers,
+  /** bunk bed with two kids tucked in while a curved arrow drops a third kid head on the top mattress — "Montar quartos": assign kids / staff to rooms */
+  roomAssign: iconRoomAssign,
+  /** teal camping lantern shaped like a chat bubble, with a cream AI sparkle — read-only camp assistant */
+  assistant: iconAssistant,
+  /** wooden trail signpost with three direction boards and an orange pennant — the setup wizard */
+  wizard: iconWizard,
 } as const;
 
 /** A kid's sex is not stored: it follows the wing of the bedroom (meninas / meninos). */

@@ -28,6 +28,7 @@ export default function ParentKidTabs({ kids, selectedId, onSelect, idPrefix, pa
     <nav className="parent-kid-tabs" role="tablist" aria-label="Escolha uma criança">
       {kids.map((kid) => {
         const active = kid.camper.id === selectedId;
+        const reviewing = kid.camper.aiReviewStatus === "pending" || kid.camper.aiReviewStatus === "processing";
         return (
           <button
             key={kid.camper.id}
@@ -37,8 +38,8 @@ export default function ParentKidTabs({ kids, selectedId, onSelect, idPrefix, pa
             aria-selected={active}
             aria-controls={panelId}
             tabIndex={active ? 0 : -1}
-            title={kid.camper.name}
-            className={`parent-kid-tab ${active ? "parent-kid-tab--active" : ""}`}
+            title={reviewing ? `${kid.camper.name} · cadastro em revisão pela IA` : kid.camper.name}
+            className={`parent-kid-tab ${active ? "parent-kid-tab--active" : ""} ${reviewing ? "camper-ai-review" : ""}`}
             onClick={() => onSelect(kid.camper.id)}
             onKeyDown={(event) => {
               const index = kids.findIndex((item) => item.camper.id === kid.camper.id);

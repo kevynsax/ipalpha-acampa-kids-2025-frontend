@@ -251,7 +251,8 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
 
   function rowClass(s: Staff, step: Step, extra = "") {
     const late = step === "out" && windowOver;
-    return `bus-row vest-row vest-row--${step} ${late ? "vest-row--late" : ""} ${extra}`;
+    const reviewing = s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing";
+    return `bus-row vest-row vest-row--${step} ${late ? "vest-row--late" : ""} ${reviewing ? "camper-ai-review" : ""} ${extra}`;
   }
 
   /** "Todos" layout: status icon · name + phone · action buttons */

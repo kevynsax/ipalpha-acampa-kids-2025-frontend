@@ -44,8 +44,10 @@ export default function CamperCard({ camper: k, labelOf, hideBedroom, bedroom, o
     </>
   );
 
+  const reviewing = k.aiReviewStatus === "pending" || k.aiReviewStatus === "processing";
+
   return (
-    <li className={`kid-card ${corner ? "kid-card--with-corner" : ""}`}>
+    <li className={`kid-card ${corner ? "kid-card--with-corner" : ""} ${reviewing ? "camper-ai-review" : ""}`} title={reviewing ? "Cadastro em revisão pela IA" : undefined}>
       {corner && <div className="kid-card__corner">{corner}</div>}
       {onOpen ? (
         <button type="button" className="kid-card__main" title={`Ver ${k.name}`} onClick={() => onOpen(k.id)}>

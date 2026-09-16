@@ -90,7 +90,7 @@ export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpe
                 </header>
                 <ul className="staff-card__tags helpers-list" aria-label={`Na porta: ${v.label}`}>
                   {people.map((s) => (
-                    <li key={s.id} className="staff-tag helpers-tag">
+                    <li key={s.id} className={`staff-tag helpers-tag ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
                       <span className="helpers-tag__name">{s.name}</span>
                       <button type="button" className="helpers-tag__x" aria-label={`Remover ${s.name}`} title="Remover" disabled={disabled} onClick={() => remove(s.id)}>
                         ✕

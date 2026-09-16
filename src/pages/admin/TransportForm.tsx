@@ -12,6 +12,9 @@ import {
 import BusLogo from "../../components/BusLogo";
 import { useHideScanFab } from "../../scanFab";
 
+/** mirrors the server's cap on seats */
+const CAPACITY_MAX = 200;
+
 interface TransportFormProps {
   transport?: Transport;
   busy?: boolean;
@@ -28,16 +31,25 @@ export default function TransportForm({ transport, busy, onSubmit, onCancel }: T
   const [name, setName] = useState(transport?.name ?? "");
   const [color, setColor] = useState(transport?.color ?? BUS_COLORS[0].hex);
   const [number, setNumber] = useState(transport?.number ?? "");
+  const [capacity, setCapacity] = useState(transport?.capacity != null ? String(transport.capacity) : "");
   const [error, setError] = useState<string | null>(null);
 
   const isBus = kind === "bus";
-  const valid = isBus ? /^#[0-9a-fA-F]{6}$/.test(color) && number.trim().length > 0 : name.trim().length > 0;
+  // capacity is optional, but when typed it must be a whole number of seats
+  const capacityNum = Number(capacity.trim());
+  const capacityValid =
+    capacity.trim() === "" || (Number.isInteger(capacityNum) && capacityNum >= 1 && capacityNum <= CAPACITY_MAX);
+  const valid = isBus
+    ? /^#[0-9a-fA-F]{6}$/.test(color) && number.trim().length > 0 && capacityValid
+    : name.trim().length > 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!valid) return;
     setError(null);
-    const input: TransportInput = isBus ? { kind, color, number: number.trim() } : { kind, name: name.trim() };
+    const input: TransportInput = isBus
+      ? { kind, color, number: number.trim(), capacity: capacity.trim() === "" ? null : capacityNum }
+      : { kind, name: name.trim() };
     try {
       await onSubmit(input);
     } catch (err) {
@@ -99,6 +111,20 @@ export default function TransportForm({ transport, busy, onSubmit, onCancel }: T
               inputMode="numeric"
               autoFocus
               onChange={(e) => setNumber(e.target.value)}
+            />
+          </label>
+
+          <label className="cat-field">
+            <span className="cat-field__label">
+              Capacidade (lugares) <em className="cat-field__hint">· opcional</em>
+            </span>
+            <input
+              className="cat-input"
+              placeholder="ex.: 46"
+              value={capacity}
+              maxLength={3}
+              inputMode="numeric"
+              onChange={(e) => setCapacity(e.target.value.replace(/\D/g, ""))}
             />
           </label>
 

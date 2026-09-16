@@ -163,11 +163,11 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
 }
 
 /**
- * "Início" for a PARENT: the important contacts (while the parents' window
- * is open), then the selected kid — registration data, the team looking after
- * them (window only), the editable "Pontos de atenção" and the QR code. Before
- * the check-in starts and after the last event only the kids' own data is
- * shown; the server does not even send the team then.
+ * "Início" for a PARENT: the important contacts — always, for as long as the
+ * parent may use the app — then the selected kid: registration data, the team
+ * looking after them (parents' window only), the editable "Pontos de atenção"
+ * and the QR code. Before the check-in starts and after the last event the
+ * ROOM TEAM is not sent by the server; the contacts are.
  */
 export default function ParentHomePage({ user, token, access }: ParentHomePageProps) {
   const data = useParentHome();
@@ -211,26 +211,23 @@ export default function ParentHomePage({ user, token, access }: ParentHomePagePr
       <h1 className="admin-title">Olá, {first}! 👋</h1>
       <p className="admin-intro">
         {access.open
-          ? "O acampamento está rolando! Aqui estão os contatos da equipe e as informações das suas crianças."
+          ? "O acampamento está rolando! Aqui estão os contatos e as informações das suas crianças."
           : access.opensAt && new Date(access.opensAt).getTime() > Date.now()
-            ? `Os contatos da equipe aparecem aqui a partir do check-in (${speakWhen(access.opensAt, { long: true })}).`
+            ? `A equipe do quarto aparece aqui a partir do check-in (${speakWhen(access.opensAt, { long: true })}).`
             : "O acampamento terminou. Obrigado por confiar em nós! 💚"}
       </p>
 
       <CheckinQrDialog kids={kids} active={access.checkin} />
 
-      {access.open && (
+      {/* the numbers to call — shown the whole time the parent has access, not only during the camp */}
+      {data.contacts.length > 0 && (
         <section className="detail-section">
           <h2 className="detail-h2">📞 Contatos importantes</h2>
-          {data.contacts.length === 0 ? (
-            <p className="opt-empty">Nenhum contato divulgado ainda.</p>
-          ) : (
-            <ul className="parent-contacts">
-              {data.contacts.map((c) => (
-                <ImportantContact key={c.id} staff={c.staff} title={c.title} from={user.name} />
-              ))}
-            </ul>
-          )}
+          <ul className="parent-contacts">
+            {data.contacts.map((c) => (
+              <ImportantContact key={c.id} staff={c.staff} title={c.title} from={user.name} />
+            ))}
+          </ul>
         </section>
       )}
 

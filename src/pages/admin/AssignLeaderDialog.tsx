@@ -4,7 +4,7 @@ import { bedroomLabel } from "../../api/bedrooms";
 import BedroomTag from "../../components/BedroomTag";
 import BedIcon from "../../components/BedIcon";
 import { moveCamper, updateCamper, type Camper, type CamperSex } from "../../api/campers";
-import { canBeCaretaker, ROOM_ROLE_META, staffSex, updateStaff, type Staff } from "../../api/staff";
+import { ROOM_ROLE_META, staffSex, updateStaff, type Staff } from "../../api/staff";
 import { useConfirm } from "../../components/ConfirmDialog";
 import Dialog from "../../components/Dialog";
 import { useCollectionOrEmpty } from "../../store";
@@ -70,7 +70,7 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
     const byName = (a: Staff, b: Staff) => a.name.localeCompare(b.name, "pt-BR");
     // anyone with a room; the staff wing (no sex) is the exception at the end — a parent on the team, say.
     // admins are on the roster only for the room / transport / vest: they never look after kids
-    const pool = staff.filter((s) => !s.redacted && canBeCaretaker(s) && !!s.bedroom && s.id !== k.caretakerId && (!nq || normalize(s.name).includes(nq)));
+    const pool = staff.filter((s) => !s.redacted && !!s.bedroom && s.id !== k.caretakerId && (!nq || normalize(s.name).includes(nq)));
     const sexOf = (s: Staff) => staffSex(s, bedrooms);
     const compatible = (s: Staff) => !kidSex || sexOf(s) === kidSex;
     const same = pool.filter(compatible);
@@ -158,7 +158,7 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
 
   let index = -1;
   return (
-    <Dialog open={open} onClose={onClose} title="Escolher líder" width={520} dismissible={!busy} className="picker-sheet-dialog">
+    <Dialog open={open} onClose={onClose} title="Escolher líder" width={520} dismissible={!busy} autofocus className="picker-sheet-dialog">
       <div className="picker picker-sheet">
         {/* head · body · actions: on phones this becomes a bottom sheet (see .picker-sheet) */}
         <header className="picker-sheet__head">

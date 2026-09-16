@@ -36,6 +36,8 @@ interface DetailStackProps {
   onEditCamper?: (k: Camper) => void;
   onEditBedroom?: (b: Bedroom) => void;
   onEditRole?: (r: ScheduleRole) => void;
+  /** the MEDICAL team (or admin) may edit a kid's health block on the detail page */
+  canEditHealth?: boolean;
 }
 
 /** What every detail page receives from the stack. */
@@ -69,7 +71,7 @@ export function viaCrumbs(params: URLSearchParams): { via: DetailRef[]; crumbs: 
  * browser history entry: Back returns to the previous page, the breadcrumb
  * jumps to any earlier one, and a reload rebuilds the same trail.
  */
-export default function DetailStack({ token, current, rootCrumbs, onEditStaff, onEditCamper, onEditBedroom, onEditRole }: DetailStackProps) {
+export default function DetailStack({ token, current, rootCrumbs, onEditStaff, onEditCamper, onEditBedroom, onEditRole, canEditHealth }: DetailStackProps) {
   const { params } = useRoute();
   const via = useMemo(() => parseVia(params).filter((v): v is DetailRef => v.kind in PATH_OF), [params]);
   const chain: DetailRef[] = [...via, current];
@@ -108,6 +110,6 @@ export default function DetailStack({ token, current, rootCrumbs, onEditStaff, o
 
   if (current.kind === "staff") return <StaffDetail key={key} token={token} staffId={current.id} nav={detailNav} onEdit={onEditStaff} {...nav} />;
   if (current.kind === "role") return <RoleDetail key={key} token={token} roleId={current.id} nav={detailNav} onEdit={onEditRole ?? (() => {})} onOpenStaff={nav.onOpenStaff} onOpenEvent={nav.onOpenEvent} />;
-  if (current.kind === "camper") return <CamperDetail key={key} token={token} camperId={current.id} nav={detailNav} onEdit={onEditCamper} {...nav} />;
+  if (current.kind === "camper") return <CamperDetail key={key} token={token} camperId={current.id} nav={detailNav} onEdit={onEditCamper} canEditHealth={canEditHealth} {...nav} />;
   return <BedroomDetail key={key} token={token} bedroomId={current.id} nav={detailNav} onEdit={onEditBedroom} {...nav} />;
 }

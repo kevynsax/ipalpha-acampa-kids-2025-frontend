@@ -34,6 +34,10 @@ export interface Staff {
   medications: import("./campers").Medication[];
   /** free-text health/allergy remarks */
   healthNotes: string;
+  aiReviewStatus?: "pending" | "processing" | "reviewed" | "error" | null;
+  aiReviewError?: string;
+  aiReviewStartedAt?: string | null;
+  aiReviewFinishedAt?: string | null;
   /** set when the person arrived on departure day */
   checkin: import("./campers").CamperCheckin | null;
   /** the team vest (colete): handed out, then taken back */
@@ -67,16 +71,6 @@ export const ROOM_ROLE_META: Record<RoomRole, { label: string; plural: string; i
   caretaker: { label: "Líder", plural: "Líderes", icon: ICONS.leaderFaceWoman, hint: "cuida de crianças específicas do quarto" },
   helper: { label: "Auxiliar", plural: "Auxiliares", icon: ICONS.helperFaceWoman, hint: "ajuda no quarto, sem crianças próprias" },
 };
-
-/**
- * An ADMIN's roster record exists only so they have a room, a transport and a
- * vest like everyone else — it is not a team profile: they never become a
- * líder, never receive kids and never join a time. Keep them out of every
- * líder / "who takes the kids" picker.
- */
-export function canBeCaretaker(s: Pick<Staff, "admin">): boolean {
-  return !s.admin;
-}
 
 /** Room rosters: leaders first, then assistants; alphabetical inside each role. */
 export function compareRoomStaff(a: Pick<Staff, "name" | "roomRole">, b: Pick<Staff, "name" | "roomRole">): number {

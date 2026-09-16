@@ -3,8 +3,9 @@ import BedroomTag from "./BedroomTag";
 import GuardianWhatsApp from "./GuardianWhatsApp";
 import HealthAlerts from "./HealthAlerts";
 import KidIcon from "./KidIcon";
-import { ageOf } from "../api/campers";
 import { kidSexOf } from "../icons";
+import { ageOf } from "../api/campers";
+import { navigate } from "../router";
 import { formatBrazilPhoneClient } from "../phoneFormat";
 import { useCamperDetail, useLabelOf } from "../store/derive";
 
@@ -22,7 +23,7 @@ interface CamperPeekDialogProps {
  * Deliberately NOT the whole record: someone ticking a dose wants the health
  * picture (what the kid can't take, what they have, weight for the dose, the
  * convênio) and a way to reach the guardian — not school, church, documents
- * or transport.
+ * or transport. "Ver ficha completa" opens the kid's page.
  */
 export default function CamperPeekDialog({ camperId, name, onClose }: CamperPeekDialogProps) {
   const data = useCamperDetail(camperId ?? "");
@@ -83,6 +84,18 @@ export default function CamperPeekDialog({ camperId, name, onClose }: CamperPeek
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" onClick={onClose}>
             Fechar
+          </button>
+          <button
+            type="button"
+            className="button button--primary"
+            title="Abrir a página da criança"
+            onClick={() => {
+              navigate(`/campers/${camperId}`);
+              onClose();
+            }}
+          >
+            <span className="ficha-btn__full">Ver ficha completa</span>
+            <span className="ficha-btn__short">Ver ficha</span>
           </button>
         </div>
       </div>

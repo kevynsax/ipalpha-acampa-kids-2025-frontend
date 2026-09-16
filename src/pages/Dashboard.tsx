@@ -11,9 +11,10 @@ import SyncStatus from "../components/SyncStatus";
 import EmergencyScanFab from "../components/EmergencyScanFab";
 import InstallBanner from "../components/InstallBanner";
 import BedroomsPage from "./admin/BedroomsPage";
+import RoomAssignPage from "./admin/RoomAssignPage";
 import CampersPage from "./admin/CampersPage";
 import CategoriesPage from "./admin/CategoriesPage";
-import TransportsPage from "./admin/TransportsPage";
+import BusAssignPage from "./admin/BusAssignPage";
 import CheckinSettingsPage from "./admin/CheckinSettingsPage";
 import GeneralSettingsPage from "./admin/GeneralSettingsPage";
 import AboutPage from "./admin/AboutPage";
@@ -44,18 +45,22 @@ import TeamsPage from "./admin/TeamsPage";
 import GameOrganizersPage from "./admin/GameOrganizersPage";
 import TrialsPage from "./admin/TrialsPage";
 import CleanupPage from "./admin/CleanupPage";
+import SeedsPage from "./admin/SeedsPage";
 import ScoreboardPage from "./ScoreboardPage";
 import GalleryPage from "./GalleryPage";
 import { useCheckinHelper, type HelperAccess } from "../hooks/useCheckinHelper";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useParentWindow } from "../hooks/useParentWindow";
 import { useCampWindow } from "../hooks/useCampWindow";
-import { useCollection } from "../store";
+import { useCollection, useCollectionOrEmpty, useHydrated } from "../store";
+import WizardPage from "../wizard/WizardPage";
+import { campIsZeroed, setWizardDismissed, wizardDismissed } from "../wizard/state";
 import ParentHomePage from "./parent/ParentHomePage";
 import ParentPreparationPage from "./parent/ParentPreparationPage";
 import ParentSchedulePage from "./parent/ParentSchedulePage";
 import ParentProfile from "./parent/ParentProfile";
 import { PAGE_FOOTER_ID } from "../components/PageFooter";
+import CampAssistant from "../components/CampAssistant";
 
 interface DashboardProps {
   user: LoggedUser;
@@ -65,13 +70,13 @@ interface DashboardProps {
   onSwitchRole: (role: Role) => Promise<void>;
 }
 
-/** "profile" is not a tab: it opens when the user clicks their own name in the header. "settings" (phones only) is the settings MENU — the big list an entry is chosen from. */
-type View = TabKey | "profile" | "badge" | "settings" | SettingsKey;
+/** "profile" is not a tab: it opens when the user clicks their own name in the header. "settings" (phones only) is the settings MENU — the big list an entry is chosen from. "wizard" is the setup assistant, which takes over the whole body (no tabs). */
+type View = TabKey | "profile" | "badge" | "settings" | "wizard" | SettingsKey;
 
-/** Admin settings live behind the ⚙️ button; each one is its own URL (#/categories, #/settings). */
-type SettingsKey = "general" | "trials" | "categories" | "cleanup" | "transports" | "teams" | "preparation" | "instructions-admin" | "checkin-settings" | "organizers" | "game-organizers" | "medical" | "vests-settings" | "photographers" | "contacts" | "notifications" | "about";
-/** `adminOnly`: an ORGANIZER (Settings → Organizadores) gets every other page — these four stay with the real admin. */
-const SETTINGS: readonly { key: SettingsKey; label: string; emoji?: string; icon?: string; adminOnly?: boolean }[] = [
+/** Admin settings live behind the ⚙️ button; each one is its own URL (#/categories, #/settings). `superOnly`: just the deployment owner (SUPER_ADMIN_PHONE) — Sementes. */
+type SettingsKey = "general" | "trials" | "categories" | "cleanup" | "teams" | "preparation" | "instructions-admin" | "checkin-settings" | "organizers" | "game-organizers" | "medical" | "vests-settings" | "photographers" | "contacts" | "notifications" | "seeds" | "about";
+/** `adminOnly`: an ORGANIZER (Settings → Organizadores) gets every other page — these four stay with the real admin. `superOnly`: only the deployment owner. */
+const SETTINGS: readonly { key: SettingsKey; label: string; emoji?: string; icon?: string; adminOnly?: boolean; superOnly?: boolean }[] = [
   { key: "general", label: "Geral", emoji: "⚙️" },
   { key: "preparation", label: "Preparação", icon: ICONS.preparation },
   { key: "instructions-admin", label: "Instruções", emoji: "📖" },
@@ -83,11 +88,11 @@ const SETTINGS: readonly { key: SettingsKey; label: string; emoji?: string; icon
   { key: "vests-settings", label: "Coletes", emoji: "🦺" },
   { key: "contacts", label: "Important contacts", emoji: "📞" },
   { key: "notifications", label: "Notificações", icon: ICONS.notifications, adminOnly: true },
-  { key: "transports", label: "Transporte", icon: ICONS.transport, adminOnly: true },
   { key: "teams", label: "Times", emoji: "🚩" },
   { key: "trials", label: "Testes", emoji: "🚧" },
   { key: "categories", label: "Categorias", emoji: "🗂️", adminOnly: true },
   { key: "cleanup", label: "Limpeza", icon: ICONS.cleanup, adminOnly: true },
+  { key: "seeds", label: "Sementes", emoji: "🌱", adminOnly: true, superOnly: true },
   { key: "about", label: "Sobre", emoji: "ℹ️", adminOnly: true },
 ] as const;
 
@@ -129,6 +134,8 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
     { key: "campers", label: "Acampantes", icon: ICONS.camper },
     { key: "staff", label: "Equipe", icon: roleMeta("staff").icon },
     { key: "bedrooms", label: "Quartos", icon: ICONS.bed },
+    // the fleet + the kid-per-líder allocation board (was Settings → Transporte)
+    { key: "buses", label: "Ônibus", icon: ICONS.transport },
     { key: "schedule", label: "Programação", icon: ICONS.schedule },
     { key: "checkin", label: "Check-in", emoji: "✅" },
     ...scoreboard,
@@ -270,12 +277,12 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
    * Preparação + Instruções pair, which shares one entry (`mergesPrep`).
    */
   const useMobileBottomNav = bottomTabs.length > 0 && bottomTabs.length <= 5 && !settingsAllowed;
-  /** the settings pages this session may open */
-  const settingsPages = SETTINGS.filter((s) => isAdmin || !s.adminOnly);
+  /** the settings pages this session may open (Sementes: deployment owner only) */
+  const settingsPages = SETTINGS.filter((s) => (isAdmin || !s.adminOnly) && (!s.superOnly || !!settings?.superAdmin));
   /** desktop ⚙️ landing — Notificações for the admin; organizers have no such page, so Geral */
   const settingsHome: SettingsKey = settingsPages.find((s) => s.key === "notifications")?.key ?? settingsPages[0].key;
   const isSettingsKey = (s: string | undefined): s is SettingsKey => settingsPages.some((x) => x.key === s);
-  const isView = (s: string | undefined): s is View => s === "profile" || (s === "badge" && !isParent && during) || (settingsAllowed && (s === "settings" || isSettingsKey(s))) || tabs.some((t) => t.key === s);
+  const isView = (s: string | undefined): s is View => s === "profile" || (s === "wizard" && isAdmin) || (s === "badge" && !isParent && during) || (settingsAllowed && (s === "settings" || isSettingsKey(s))) || tabs.some((t) => t.key === s);
   const view: View = isView(segments[0]) ? segments[0] : tabs[0]?.key ?? "profile";
   /** the tab we auto-landed on BEFORE the programme had arrived (the phase, hence the default, may still change) */
   const provisionalLanding = useRef<string | null>(null);
@@ -308,6 +315,39 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [synced]);
 
+  // ── the setup wizard opens by itself on a ZEROED camp (fresh or just cleaned) ──
+  const wizardOpen = view === "wizard";
+  const hydrated = useHydrated();
+  const wizardAutoEntered = useRef(false);
+  const campersList = useCollectionOrEmpty("campers");
+  const staffList = useCollectionOrEmpty("staff");
+  const bedroomsList = useCollectionOrEmpty("bedrooms");
+  const eventsList = useCollectionOrEmpty("events");
+  const transportsList = useCollectionOrEmpty("transports");
+  const prepList = useCollectionOrEmpty("preparation");
+  const instrList = useCollectionOrEmpty("instructions");
+  useEffect(() => {
+    if (wizardAutoEntered.current || !isAdmin || !hydrated || wizardOpen) return;
+    // only the default landing walks in by itself — a deep link is respected
+    if (segments.length !== 1 || segments[0] !== tabs[0]?.key) return;
+    wizardAutoEntered.current = true;
+    if (wizardDismissed()) return;
+    if (
+      campIsZeroed({
+        campers: campersList,
+        bedrooms: bedroomsList,
+        events: eventsList,
+        transports: transportsList,
+        preparation: prepList,
+        instructions: instrList,
+        teamStaff: staffList.filter((s) => s.active && !s.admin),
+      })
+    ) {
+      navigate("/wizard", { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, isAdmin, view, wizardOpen, segments, tabs, campersList, staffList, bedroomsList, eventsList, transportsList, prepList, instrList]);
+
   const profileOpen = view === "profile";
   /** admin settings (sidebar layout) — never for the team, even if a tab key happens to look alike */
   const settingsOpen = settingsAllowed && isSettingsKey(view);
@@ -335,7 +375,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
    */
   const [formsOpen, setFormsOpen] = useState(0);
   const bumpFormsOpen = useCallback((delta: number) => setFormsOpen((n) => Math.max(0, n + delta)), []);
-  const showEmergencyFab = !isParent && during && view !== "badge" && !settingsOpen && !settingsMenuOpen && !hasOwnScanFab && formsOpen === 0;
+  const showEmergencyFab = !isParent && during && view !== "badge" && !wizardOpen && !settingsOpen && !settingsMenuOpen && !hasOwnScanFab && formsOpen === 0;
   const hasFab = hasOwnScanFab || showEmergencyFab;
   useEffect(() => {
     const root = document.documentElement;
@@ -347,7 +387,9 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   const currentSetting = settingsOpen ? settingsPages.find((item) => item.key === view) : undefined;
   const currentView = profileOpen
     ? { label: "Perfil", icon: meta.icon, emoji: undefined }
-    : settingsMenuOpen
+    : wizardOpen
+      ? { label: "Assistente", icon: ICONS.wizard, emoji: undefined }
+      : settingsMenuOpen
       ? { label: "Configurações", icon: undefined, emoji: "⚙️" }
       : currentSetting
       ? { label: currentSetting.label, icon: currentSetting.icon, emoji: currentSetting.emoji }
@@ -372,7 +414,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
     <div className={`dash ${useMobileBottomNav ? "dash--bottom-nav" : "dash--drawer-nav"}${settingsAllowed ? " dash--has-settings" : ""}${hasFab ? " dash--has-fab" : ""}`}>
       <div className="dash-chrome">
       <header className="dash-top">
-        {tabs.length > 0 && !useMobileBottomNav && (
+        {tabs.length > 0 && !useMobileBottomNav && !wizardOpen && (
           <button
             type="button"
             className={`dash-iconbtn dash-menu-toggle ${mobileMenuOpen ? "dash-menu-toggle--open" : ""}`}
@@ -433,7 +475,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
         </div>
       </header>
 
-      {tabs.length > 0 && (
+      {tabs.length > 0 && !wizardOpen && (
       <nav id="dashboard-menu" className={`dash-tabs ${mobileMenuOpen ? "dash-tabs--open" : ""}`} role="tablist" aria-label="Seções">
         {tabs.map((t) => {
           /** the merged 📖+mala entry (phone bottom bar only) stands in for BOTH halves */
@@ -577,6 +619,9 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
         <TabOverrideContext.Provider value={setTabOverride}>
           <HideScanFabContext.Provider value={bumpFormsOpen}>
             {view === "badge" && <EmergencyScanFab token={token} page />}
+            {view === "wizard" && (
+              <WizardPage token={token} user={user} onExit={() => navigate("/", { replace: true })} />
+            )}
             {view === "home" && (isParent ? <ParentHomePage user={user} token={token} access={parentAccess} /> : <HomePage user={user} token={token} medical={helper.medical} />)}
             {view === "prep" && (isParent ? <ParentPreparationPage user={user} token={token} /> : <PreparationPage user={user} token={token} pairedWith={mergesPrep ? () => goTo("instructions") : undefined} />)}
             {view === "preparation" && <PreparationAdminPage token={token} />}
@@ -586,13 +631,16 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
             {view === "medications" && <MedicationsPage token={token} />}
             {view === "campers" && <CampersPage token={token} readOnly={!settingsAllowed} />}
             {view === "staff" && <StaffPage token={token} readOnly={!settingsAllowed} />}
-            {view === "bedrooms" && <BedroomsPage token={token} readOnly={!settingsAllowed} />}
+            {view === "bedrooms" && segments[1] === "assign" &&
+              (settingsAllowed ? <RoomAssignPage token={token} onBack={() => navigate("/bedrooms")} /> : <BedroomsPage token={token} readOnly />)}
+            {view === "bedrooms" && segments[1] !== "assign" && <BedroomsPage token={token} readOnly={!settingsAllowed} />}
             {view === "schedule" && (isParent ? <ParentSchedulePage /> : settingsAllowed || helper.gameOrganizer ? <SchedulePage token={token} /> : <MySchedulePage user={user} />)}
             {view === "categories" && <CategoriesPage token={token} />}
-            {view === "transports" && <TransportsPage token={token} />}
+            {view === "buses" && <BusAssignPage token={token} />}
             {view === "general" && <GeneralSettingsPage token={token} />}
             {view === "trials" && <TrialsPage token={token} isAdmin={isAdmin} />}
             {view === "cleanup" && <CleanupPage token={token} />}
+            {view === "seeds" && <SeedsPage token={token} />}
             {view === "checkin-settings" && <CheckinSettingsPage token={token} />}
             {view === "organizers" && <OrganizersPage token={token} />}
             {view === "medical" && <MedicalStaffPage token={token} />}
@@ -638,7 +686,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
             {view === "staffcheckin" && <StaffCheckinPage token={token} />}
             {view === "profile" && (isParent
               ? <ParentProfile user={user} onLogout={handleLogout} loggingOut={loggingOut} onSwitchRole={onSwitchRole} />
-              : <ProfileView user={user} onLogout={handleLogout} loggingOut={loggingOut} onSwitchRole={onSwitchRole} />)}
+              : <ProfileView user={user} onLogout={handleLogout} loggingOut={loggingOut} onSwitchRole={onSwitchRole} onOpenWizard={isAdmin ? () => { setWizardDismissed(false); goTo("wizard"); } : undefined} />)}
           </HideScanFabContext.Provider>
         </TabOverrideContext.Provider>
       </main>
@@ -649,11 +697,12 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
 
       {/* "Ler crachá" QR lookup — the team, WHILE THE CAMP IS ON (first day → end of the last event), on every page except the settings, the pages whose own yellow ScanFab performs their action, and any page showing a FORM (its Salvar / Cancelar own that corner) */}
       {showEmergencyFab && <EmergencyScanFab token={token} />}
+      {settingsAllowed && <CampAssistant token={token} avoidFab={hasFab} />}
     </div>
   );
 }
 
-function ProfileView({ user, onLogout, loggingOut, onSwitchRole }: { user: LoggedUser; onLogout: () => void; loggingOut: boolean; onSwitchRole: (role: Role) => Promise<void> }) {
+function ProfileView({ user, onLogout, loggingOut, onSwitchRole, onOpenWizard }: { user: LoggedUser; onLogout: () => void; loggingOut: boolean; onSwitchRole: (role: Role) => Promise<void>; /** admin only: reopen the setup wizard */ onOpenWizard?: () => void }) {
   const meta = roleMeta(user.activeRole);
   const otherRoles = user.roles.filter((r) => r !== user.activeRole);
   const [switchingTo, setSwitchingTo] = useState<Role | null>(null);
@@ -724,6 +773,11 @@ function ProfileView({ user, onLogout, loggingOut, onSwitchRole }: { user: Logge
       {switchError && <p className="message message--error">{switchError}</p>}
 
       <div className="profile-actions">
+        {onOpenWizard && (
+          <button type="button" className="button button--secondary profile-wizard" onClick={onOpenWizard}>
+            <img className="audience-icon" src={ICONS.wizard} alt="" aria-hidden="true" /> Assistente de configuração
+          </button>
+        )}
         <button type="button" className="button button--danger profile-logout" onClick={onLogout} disabled={loggingOut}>
           {loggingOut ? "Saindo…" : "Sair do aplicativo"}
         </button>

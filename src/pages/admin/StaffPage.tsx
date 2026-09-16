@@ -35,6 +35,7 @@ import TransportTag from "../../components/TransportTag";
 import WhatsAppButton from "../../components/WhatsAppButton";
 import { loadAuth } from "../../auth/store";
 import { staffGreeting, whatsappLink } from "../../whatsapp";
+import StaffImportPage from "./StaffImportPage";
 
 interface StaffPageProps {
   token: string;
@@ -43,12 +44,13 @@ interface StaffPageProps {
 }
 
 /** URL → what to show:  /staff · /staff/new · /staff/giveaway · /staff/:id · /staff/:id/edit */
-type Mode = { kind: "view" } | { kind: "create" } | { kind: "giveaway" } | { kind: "edit"; id: string } | { kind: "detail"; id: string };
+type Mode = { kind: "view" } | { kind: "create" } | { kind: "giveaway" } | { kind: "import" } | { kind: "edit"; id: string } | { kind: "detail"; id: string };
 function modeOf(segments: string[]): Mode {
   const [, id, action] = segments;
   if (!id) return { kind: "view" };
   if (id === "new") return { kind: "create" };
   if (id === "giveaway") return { kind: "giveaway" };
+  if (id === "import") return { kind: "import" };
   if (action === "edit") return { kind: "edit", id };
   return { kind: "detail", id };
 }
@@ -67,7 +69,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
   const { segments, navigate } = useRoute();
   /** read-only: the create / edit URLs fall back to the list */
   const rawMode = modeOf(segments);
-  const mode: Mode = readOnly && (rawMode.kind === "create" || rawMode.kind === "edit" || rawMode.kind === "giveaway") ? { kind: "view" } : rawMode;
+  const mode: Mode = readOnly && (rawMode.kind === "create" || rawMode.kind === "edit" || rawMode.kind === "giveaway" || rawMode.kind === "import") ? { kind: "view" } : rawMode;
   const confirm = useConfirm();
   // set by the open form; asks save/discard before a breadcrumb navigation leaves the form
   const leaveGuardRef = useRef<(() => Promise<boolean>) | null>(null);
@@ -204,6 +206,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
   if (mode.kind === "giveaway") {
     return <GiveawayPage who="staff" crumbs={[{ label: "Equipe", onClick: () => navigate("/staff") }, { label: "Sorteio" }]} />;
   }
+  if (mode.kind === "import") return <StaffImportPage token={token} onBack={() => navigate("/staff")} />;
 
   if (mode.kind === "detail") {
     return (
@@ -238,6 +241,17 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
         </h1>
         {mode.kind === "view" && !readOnly && (
           <div className="admin-head__actions admin-head__actions--icons">
+            <button
+              type="button"
+              className="button button--secondary admin-head__new"
+              disabled={busy}
+              title="Importar equipe de uma planilha"
+              aria-label="Importar equipe de uma planilha"
+              onClick={() => navigate("/staff/import")}
+            >
+              <img className="admin-head__action-icon" src={ICONS.importCampers} alt="" aria-hidden="true" />
+              <span className="admin-head__action-label">Importar</span>
+            </button>
             <button
               type="button"
               className="button button--secondary admin-head__new"
@@ -384,7 +398,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
               const noRoom = !s.bedroom;
 
               return (
-                <li key={s.id} className={`staff-card staff-card--clickable staff-card--cover ${noRoom ? "staff-card--orphan" : ""} ${s.active ? "" : "staff-card--inactive"}`}>
+                <li key={s.id} className={`staff-card staff-card--clickable staff-card--cover ${noRoom ? "staff-card--orphan" : ""} ${s.active ? "" : "staff-card--inactive"} ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
                   <div
                     className="staff-card__body"
                     role="link"

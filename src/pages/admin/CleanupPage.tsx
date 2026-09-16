@@ -3,6 +3,8 @@ import { fetchCleanupMarks, runCleanup, type CleanupGroup, type StaffKeepGroup }
 import { useConfirm } from "../../components/ConfirmDialog";
 import { useCollection } from "../../store";
 import type { Settings } from "../../api/settings";
+import { useRoute } from "../../router";
+import { setWizardDismissed } from "../../wizard/state";
 import { ICONS } from "../../icons";
 import { roleMeta } from "../../roles";
 
@@ -102,6 +104,7 @@ function idsOf(settings: Settings | null | undefined, group: StaffKeepGroup): st
  */
 export default function CleanupPage({ token }: CleanupPageProps) {
   const confirm = useConfirm();
+  const { navigate } = useRoute();
   const [busy, setBusy] = useState<CleanupGroup | "all" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -186,6 +189,8 @@ export default function CleanupPage({ token }: CleanupPageProps) {
       const n = Object.values(removed).reduce((a, b) => a + b, 0);
       setReload((r) => r + 1);
       setDone(group === "all" ? `Acampamento limpo: ${n} registro(s) apagado(s).` : memory ? `${n} aviso(s) liberado(s).` : `${n} registro(s) apagado(s).`);
+      // the camp is zero again → the setup wizard may open by itself on the next login
+      if (group === "all") setWizardDismissed(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Algo deu errado.");
     } finally {
@@ -282,6 +287,25 @@ export default function CleanupPage({ token }: CleanupPageProps) {
           }
         >
           {busy === "all" ? "Limpando tudo…" : "🧹 Limpar tudo"}
+        </button>
+      </section>
+      <section className="cleanup-all cleanup-next">
+        <h2 className="cleanup-all__title">
+          <img className="audience-icon" src={ICONS.wizard} alt="" aria-hidden="true" /> Próximo acampamento
+        </h2>
+        <p className="cleanup-all__text">
+          Depois de limpar, o <strong>assistente de configuração</strong> monta o próximo: importa equipe e crianças, escolhe o local conhecido,
+          preenche a programação e ajusta as configurações — passo a passo, com etapas que podem ser puladas.
+        </p>
+        <button
+          type="button"
+          className="button button--primary cleanup-all__button"
+          onClick={() => {
+            setWizardDismissed(false);
+            navigate("/wizard");
+          }}
+        >
+          🏕️ Abrir o assistente
         </button>
       </section>
     </div>

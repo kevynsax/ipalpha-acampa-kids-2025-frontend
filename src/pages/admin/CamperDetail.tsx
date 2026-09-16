@@ -5,7 +5,8 @@ import ChangeRoomDialog from "./ChangeRoomDialog";
 import CamperHistoryDialog from "./CamperHistoryDialog";
 import CamperFieldDialog, { type CamperQuickField } from "./CamperFieldDialog";
 import Breadcrumbs from "../../components/Breadcrumbs";
-import HealthAlerts from "../../components/HealthAlerts";
+import HealthAlerts, { healthLines } from "../../components/HealthAlerts";
+import HealthEditDialog from "../../components/HealthEditDialog";
 import CamperCard from "../../components/CamperCard";
 import KidIcon from "../../components/KidIcon";
 import PlayScene from "../../components/PlayScene";
@@ -44,6 +45,8 @@ interface CamperDetailProps {
   caretakerOverride?: { id: string; name: string } | null;
   /** absent = read-only (medical team, or opened from another page): no pencil, no room change */
   onEdit?: (camper: Camper) => void;
+  /** the MEDICAL team (or admin) may edit the kid's health block in place — the 🩺 pencil */
+  canEditHealth?: boolean;
   onOpenStaff?: (staffId: string) => void;
   onOpenCamper?: (camperId: string) => void;
   onOpenBedroom?: (bedroomId: string) => void;
@@ -51,11 +54,12 @@ interface CamperDetailProps {
 
 
 /** One kid: full registration info, the room + caretakers, and roommates. */
-export default function CamperDetail({ token, camperId, nav, camperOverride, bedroomOverride, caretakerOverride, onEdit, onOpenStaff, onOpenCamper, onOpenBedroom }: CamperDetailProps) {
+export default function CamperDetail({ token, camperId, nav, camperOverride, bedroomOverride, caretakerOverride, onEdit, canEditHealth, onOpenStaff, onOpenCamper, onOpenBedroom }: CamperDetailProps) {
   const [moveOpen, setMoveOpen] = useState(false);
   const [leaderOpen, setLeaderOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [fieldOpen, setFieldOpen] = useState<CamperQuickField | null>(null);
+  const [healthOpen, setHealthOpen] = useState(false);
   // joined locally from the store — works offline and updates live
   const data = useCamperDetail(camperId);
   const bedrooms = useCollectionOrEmpty("bedrooms");
@@ -98,6 +102,7 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
   const { camper: k, bedroom, caretaker, caretakers, roommates } = resolved;
   const age = ageOf(k.birthDate);
   const sex = k.sex === "F" ? "girl" : k.sex === "M" ? "boy" : kidSexOf(bedroom?.group);
+  const reviewing = k.aiReviewStatus === "pending" || k.aiReviewStatus === "processing";
 
   return (
     <div className="admin-page">
@@ -212,8 +217,20 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
             </>
           )}
         </dl>
-        <HealthAlerts person={k} labelOf={labelOf} boxed />
-        {k.generalNotes && <p className="detail-note">📝 {k.generalNotes}</p>}
+        {canEditHealth ? (
+          <div className="detail-health">
+            <div className="detail-health__head">
+              <h3 className="detail-health__title">🩺 Saúde</h3>
+              <button type="button" className="icon-btn icon-btn--bare" title="Editar saúde" aria-label="Editar saúde" onClick={() => setHealthOpen(true)}>
+                <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
+              </button>
+            </div>
+            {healthLines(k, labelOf).length > 0 ? <HealthAlerts person={k} labelOf={labelOf} boxed /> : <p className="staff-card__alert staff-card__alert--soft">Nada de saúde declarado.</p>}
+          </div>
+        ) : (
+          <HealthAlerts person={k} labelOf={labelOf} boxed />
+        )}
+        {(k.generalNotes || reviewing) && <p className={`detail-note ${reviewing ? "camper-ai-observation" : ""}`} title={reviewing ? "Este campo está sendo revisado pela IA" : undefined}>📝 {k.generalNotes || "Observações em revisão pela IA…"}</p>}
       </section>
 
       {/* a CARE record (room team) carries the guardian's name + phone only; the rest is admin / medical / check-in.
@@ -308,6 +325,7 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
       {onEdit && <AssignLeaderDialog token={token} open={leaderOpen} camper={k} onClose={() => setLeaderOpen(false)} />}
       {onEdit && fieldOpen && <CamperFieldDialog token={token} open camper={k} field={fieldOpen} onClose={() => setFieldOpen(null)} />}
       {onEdit && <CamperHistoryDialog token={token} open={historyOpen} camperId={k.id} camperName={k.name} onClose={() => setHistoryOpen(false)} />}
+      {canEditHealth && <HealthEditDialog token={token} open={healthOpen} camper={k} onClose={() => setHealthOpen(false)} />}
       <PlayScene sex={sex} />
     </div>
   );

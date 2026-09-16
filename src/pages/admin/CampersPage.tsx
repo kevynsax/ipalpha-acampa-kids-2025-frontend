@@ -24,6 +24,7 @@ import Breadcrumbs from "../../components/Breadcrumbs";
 import CamperForm from "./CamperForm";
 import DetailStack from "./DetailStack";
 import GiveawayPage from "../GiveawayPage";
+import CamperImportPage from "./CamperImportPage";
 import { DownloadGlyph, SearchGlyph } from "../../components/Glyph";
 
 interface CampersPageProps {
@@ -32,12 +33,13 @@ interface CampersPageProps {
   readOnly?: boolean;
 }
 
-/** URL → what to show:  /campers · /campers/new · /campers/giveaway · /campers/:id · /campers/:id/edit */
-type Mode = { kind: "view" } | { kind: "create" } | { kind: "giveaway" } | { kind: "edit"; id: string } | { kind: "detail"; id: string };
+/** URL → what to show:  /campers · /campers/new · /campers/import · /campers/giveaway · /campers/:id · /campers/:id/edit */
+type Mode = { kind: "view" } | { kind: "create" } | { kind: "import" } | { kind: "giveaway" } | { kind: "edit"; id: string } | { kind: "detail"; id: string };
 function modeOf(segments: string[]): Mode {
   const [, id, action] = segments;
   if (!id) return { kind: "view" };
   if (id === "new") return { kind: "create" };
+  if (id === "import") return { kind: "import" };
   if (id === "giveaway") return { kind: "giveaway" };
   if (action === "edit") return { kind: "edit", id };
   return { kind: "detail", id };
@@ -55,7 +57,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
   const { segments, navigate } = useRoute();
   const rawMode = modeOf(segments);
   // read-only viewers can't reach the forms even by URL
-  const mode: Mode = readOnly && (rawMode.kind === "create" || rawMode.kind === "edit" || rawMode.kind === "giveaway") ? { kind: "view" } : rawMode;
+  const mode: Mode = readOnly && (rawMode.kind === "create" || rawMode.kind === "edit" || rawMode.kind === "import" || rawMode.kind === "giveaway") ? { kind: "view" } : rawMode;
   const confirm = useConfirm();
   // set by the open form; asks save/discard before a breadcrumb navigation leaves the form
   const leaveGuardRef = useRef<(() => Promise<boolean>) | null>(null);
@@ -190,6 +192,8 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
     return <GiveawayPage who="campers" crumbs={[{ label: "Acampantes", onClick: () => navigate("/campers") }, { label: "Sorteio" }]} />;
   }
 
+  if (mode.kind === "import") return <CamperImportPage token={token} />;
+
   if (mode.kind === "detail") {
     return (
       <DetailStack
@@ -197,6 +201,8 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
         current={{ kind: "camper", id: mode.id }}
         rootCrumbs={[{ label: "Acampantes", onClick: () => navigate("/campers") }]}
         onEditCamper={readOnly ? undefined : (camper) => navigate(`/campers/${camper.id}/edit`)}
+        // read-only here = the medical team: they still edit the kids' HEALTH block in place
+        canEditHealth={readOnly}
       />
     );
   }
@@ -232,6 +238,16 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
             >
               <img className="admin-head__action-icon" src={ICONS.giveaway} alt="" aria-hidden="true" />
               <span className="admin-head__action-label">Sorteio</span>
+            </button>
+            <button
+              type="button"
+              className="button button--secondary admin-head__new"
+              title="Importar acampantes de uma planilha"
+              aria-label="Importar acampantes de uma planilha"
+              onClick={() => navigate("/campers/import")}
+            >
+              <img className="admin-head__action-icon" src={ICONS.importCampers} alt="" aria-hidden="true" />
+              <span className="admin-head__action-label">Importar</span>
             </button>
             <button
               type="button"
@@ -413,7 +429,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
 
               return (
                 // `staff-card--cover`: every blank spot of the row opens the kid — only the WhatsApp button keeps its own action
-                <li key={k.id} className={`staff-card staff-card--clickable staff-card--cover ${attention ? "staff-card--orphan" : ""}`}>
+                <li key={k.id} className={`staff-card staff-card--clickable staff-card--cover ${attention ? "staff-card--orphan" : ""} ${k.aiReviewStatus === "pending" || k.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={k.aiReviewStatus === "pending" || k.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
                   <div
                     className="staff-card__body"
                     role="link"

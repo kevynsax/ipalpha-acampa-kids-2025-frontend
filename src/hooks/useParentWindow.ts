@@ -5,7 +5,7 @@ import { patchCollection, useCollection } from "../store";
 const MAX_TIMEOUT = 2 ** 31 - 1;
 
 export interface ParentAccess {
-  /** the parents' window (check-in start → end of the last event) is open right now: contacts are shown */
+  /** the parents' window (check-in start → end of the last event) is open right now: the kids' ROOM TEAM is shown */
   open: boolean;
   /** the kids' CHECK-IN window is open right now: the QR dialog pops up */
   checkin: boolean;
@@ -17,14 +17,16 @@ export interface ParentAccess {
 const NONE: ParentAccess = { open: false, checkin: false, opensAt: null, closesAt: null };
 
 /**
- * Is the PARENT inside the window in which they may see the team's contacts
- * (important contacts, caretaker, room staff)? Mirrors the server
- * (`services/camp.ts#parentWindow`): from the kids' check-in start to the
- * end of the last event. Re-evaluates itself at the next edge and asks the
- * server for a fresh snapshot there. When the window CLOSES the staff
- * records are purged from localStorage at once — the server would stop
- * sending them anyway, but the phone may be offline at that moment and
- * nothing may linger.
+ * Is the PARENT inside the window in which they may see their kid's ROOM TEAM
+ * (caretaker, room staff)? Mirrors the server (`services/camp.ts#parentWindow`):
+ * from the kids' check-in start to the end of the last event. Re-evaluates
+ * itself at the next edge and asks the server for a fresh snapshot there.
+ *
+ * The IMPORTANT CONTACTS (Settings → Contatos) are NOT gated by this window:
+ * a parent has them for as long as they may use the app. So when the window
+ * closes only the room team is dropped from localStorage — the contacts stay
+ * (the server keeps sending them, but the phone may be offline right then and
+ * the room team may not linger).
  */
 export function useParentWindow(enabled: boolean): ParentAccess {
   const settings = useCollection("settings");
@@ -49,18 +51,20 @@ export function useParentWindow(enabled: boolean): ParentAccess {
     return () => clearTimeout(t);
   }, [enabled, edge, open, checkin]);
 
-  // open → closed: the contacts must not stay on the phone
+  /** the staff ids the parent keeps outside the window: the important contacts */
+  const contactIds = (settings?.parentContacts ?? []).map((c) => c.staffId).join(",");
+
+  // open → closed, and any stale snapshot: only the important contacts may stay on the phone
   const wasOpen = useRef(false);
   useEffect(() => {
-    if (!enabled) return;
-    if (wasOpen.current && !open) patchCollection("staff", () => []);
+    if (!enabled || !settings || open) {
+      wasOpen.current = open;
+      return;
+    }
+    const keep = new Set(contactIds ? contactIds.split(",") : []);
+    patchCollection("staff", (list) => (list.some((s) => !keep.has(s.id)) ? list.filter((s) => keep.has(s.id)) : list));
     wasOpen.current = open;
-  }, [enabled, open]);
-
-  // outside the window nothing about the team may sit in localStorage, even from a stale snapshot
-  useEffect(() => {
-    if (enabled && settings && !open) patchCollection("staff", (list) => (list.length ? [] : list));
-  }, [enabled, settings, open]);
+  }, [enabled, settings, open, contactIds]);
 
   return enabled ? { open, checkin, opensAt: settings?.parentWindow?.from ?? null, closesAt: settings?.parentWindow?.until ?? null } : NONE;
 }

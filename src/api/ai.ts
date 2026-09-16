@@ -47,8 +47,22 @@ export interface AiVendorUsage {
   models: { model: string; calls: number; promptTokens: number; completionTokens: number }[];
 }
 
-/** admin only: AI calls and tokens per company */
-export async function aiUsage(token: string): Promise<{ vendors: AiVendorUsage[] }> {
+export interface AiKindUsage {
+  kind: string;
+  calls: number;
+  promptTokens: number;
+  completionTokens: number;
+}
+
+export interface SmsUsage {
+  sent: number;
+  /** sent × R$ 0,095 (server-side rate) */
+  costBrl: number;
+  lastAt: string | null;
+}
+
+/** admin only: AI calls and tokens per company and per kind of request, plus the SMS counter */
+export async function aiUsage(token: string): Promise<{ vendors: AiVendorUsage[]; kinds: AiKindUsage[]; sms?: SmsUsage }> {
   return api("/api/ai/usage", { headers: bearer(token) });
 }
 

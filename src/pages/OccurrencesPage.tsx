@@ -211,7 +211,7 @@ function PersonPicker({ open, kind, campers, staff, selectedIds, onPick, onClose
   const people = (kind === "camper" ? campers : staff.filter((person) => person.active)).filter((person) => !selectedIds.includes(person.id));
   const filtered = people.filter((person) => normalize(person.name).includes(normalize(query.trim()))).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   return (
-    <Dialog open={open} onClose={() => { setQuery(""); onClose(); }} title={kind === "camper" ? "Adicionar acampante" : "Adicionar pessoa da equipe"} width={520}>
+    <Dialog open={open} onClose={() => { setQuery(""); onClose(); }} title={kind === "camper" ? "Adicionar acampante" : "Adicionar pessoa da equipe"} width={520} autofocus>
       <div className="picker">
         <h2 className="cat-form__title">{kind === "camper" ? "Adicionar acampante" : "Adicionar pessoa da equipe"}</h2>
         <input className="cat-input" type="search" value={query} autoFocus placeholder="Digite o nome…" aria-label="Buscar pessoa" onChange={(event) => setQuery(event.target.value)} />

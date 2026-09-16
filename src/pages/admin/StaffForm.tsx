@@ -55,6 +55,7 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
   const [active, setActive] = useState(member?.active ?? true);
   const [roomRole, setRoomRole] = useState<RoomRole>(isAdmin ? "helper" : (member?.roomRole ?? "helper"));
   const bedrooms = useCollectionOrEmpty("bedrooms");
+  const roster = useCollectionOrEmpty("staff");
   const [team, setTeam] = useState<string | null>(member?.team ?? null);
   const [bedroom, setBedroom] = useState<string | null>(member?.bedroom ?? null);
   const room = bedroom ? bedrooms.find((b) => b.id === bedroom) : undefined;
@@ -80,6 +81,8 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
   const [hasMedicines, setHasMedicines] = useState(medications.length > 0);
   const [hasFoodRestrictions, setHasFoodRestrictions] = useState(!!foodRestrictions);
   const [error, setError] = useState<string | null>(null);
+  /** don't paint the "falta o celular" warning red on a form the person just opened */
+  const [phoneTouched, setPhoneTouched] = useState(false);
 
   // any change from the values the form opened with → ask save/discard before leaving
   const askChoice = useConfirmChoice();
@@ -117,10 +120,18 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
     };
   }, [leaveGuardRef, askChoice]);
 
-  // phone is optional (some volunteers haven't registered one yet) but must be valid when given
+  // the phone IS the login: required here and never shared with another member
+  // (imports may still create someone without one — the form asks for it on the first edit)
   const phoneE164 = toE164(phone);
-  const phoneOk = !phone.trim() || !!phoneE164;
-  const valid = name.trim().length > 0 && phoneOk;
+  const phoneTwin = phoneE164 ? roster.find((s) => s.phone === phoneE164 && s.id !== member?.id) : undefined;
+  const phoneError = !phone.trim()
+    ? "Informe o celular: é por ele que a pessoa entra no app."
+    : !phoneE164
+      ? "Informe um celular válido com DDD."
+      : phoneTwin
+        ? `Este celular já é de ${phoneTwin.name}.`
+        : null;
+  const valid = name.trim().length > 0 && !phoneError;
 
   // ✨ background "remove repeats" on individual free-text fields (fires on blur and after the sorter fills them)
   const dedup = useFieldDedup({ token, busy });
@@ -246,8 +257,15 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
         <input type="hidden" name="sex" value={sex ?? ""} />
         <div className="cat-field cat-field--grow">
           <span className="cat-field__label">Celular</span>
-          <PhoneInput value={phone} onChange={setPhone} disabled={busy || !!member?.admin} />
-          {phone && !phoneE164 && <p className="cat-hint cat-hint--error">Informe um celular válido com DDD.</p>}
+          <PhoneInput
+            value={phone}
+            onChange={(v) => {
+              setPhoneTouched(true);
+              setPhone(v);
+            }}
+            disabled={busy || !!member?.admin}
+          />
+          {phoneError && <p className={`cat-hint${phoneTouched || phone.trim() ? " cat-hint--error" : ""}`}>{phoneError}</p>}
           {member?.admin && <p className="cat-hint">🔑 Celular de admin — é o login, não muda por aqui.</p>}
         </div>
         <div className="cat-field">

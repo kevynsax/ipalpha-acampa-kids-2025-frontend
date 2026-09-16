@@ -15,10 +15,11 @@ import PlayScene from "../components/PlayScene";
 import SelfCheckinCard from "../components/SelfCheckinCard";
 import MedicationChecklist from "../components/MedicationChecklist";
 import StaffIcon from "../components/StaffIcon";
+import BusLogo from "../components/BusLogo";
 import { kidSexOf } from "../icons";
 import type { LoggedUser } from "../roles";
 import { useCollection } from "../store";
-import { useLabelOf, useMyRoom } from "../store/derive";
+import { useLabelOf, useMyRoom, useTransportOf } from "../store/derive";
 import { useRoute } from "../router";
 import CamperDetail from "./admin/CamperDetail";
 import { speakDaySlash, speakWhen, todayIso } from "../dates";
@@ -68,6 +69,27 @@ function useRoomBirthdays(kids: Camper[]): RoomBirthday[] {
  */
 function MedicationsToday({ token }: { token: string }) {
   return <MedicationChecklist token={token} day={todayIso()} variant="card" title="Medicações de hoje" />;
+}
+
+/**
+ * The logged-in team member's assigned bus. Hidden when they have no vehicle
+ * or it is a car — going by car they already know the ride.
+ */
+function StaffBusCard({ transportId }: { transportId: string | null }) {
+  const t = useTransportOf()(transportId);
+  if (!t || t.kind !== "bus") return null;
+  return (
+    <section className="staff-bus" aria-label={`Seu ônibus: ${t.label}`}>
+      <span className="staff-bus__mark" aria-hidden="true">
+        <BusLogo color={t.color ?? "#0f9a8a"} number={t.number} size={52} />
+      </span>
+      <div className="staff-bus__body">
+        <p className="staff-bus__kicker">Seu ônibus</p>
+        <h2 className="staff-bus__title">{t.label}</h2>
+        <p className="staff-bus__text">É neste que você vai.</p>
+      </div>
+    </section>
+  );
 }
 
 /** 🎂 banner: every kid of the room whose birthday is on a camp day (today highlighted) */
@@ -161,13 +183,14 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
   const caretaker = me.roomRole === "caretaker";
 
   if (openKid) {
-    return <CamperDetail token={token} camperId={openKid} nav={{ crumbs: [{ label: "Início", onClick: () => navigate("/home") }, { label: "Criança" }], setTitle }} onOpenCamper={openCamper} />;
+    return <CamperDetail token={token} camperId={openKid} nav={{ crumbs: [{ label: "Início", onClick: () => navigate("/home") }, { label: "Criança" }], setTitle }} onOpenCamper={openCamper} canEditHealth={medical} />;
   }
 
   if (!bedroom) {
     return (
       <div className="admin-page">
         <h1 className="admin-title">Olá, {first}! 👋</h1>
+        <StaffBusCard transportId={me.transportation} />
         <SelfCheckinCard token={token} user={user} />
         {/* the medical team works from this list even without a room of their own */}
         {medical && <MedicationsToday token={token} />}
@@ -196,6 +219,8 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
         Olá, {first}! Este é o seu quarto.{" "}
         {isStaffRoom ? "Aqui ficam só pessoas da equipe." : caretaker ? "Você é líder de crianças deste quarto." : "Você é auxiliar neste quarto."}
       </p>
+
+      <StaffBusCard transportId={me.transportation} />
 
       {/* a kid of the room has their birthday on a camp day */}
       {!isStaffRoom && <BirthdayBanner birthdays={birthdays} onOpen={openCamper} />}

@@ -131,7 +131,7 @@ export default function AddRoleDialog({ token, open, roles, excludeIds, where, o
       </Dialog>
 
       {/* 2 · reuse: pick a função that already exists */}
-      <Dialog open={open && step === "pick"} onClose={closeAll} title="Escolher função" width={520} className="picker-sheet-dialog">
+      <Dialog open={open && step === "pick"} onClose={closeAll} title="Escolher função" width={520} autofocus className="picker-sheet-dialog">
         <div className="picker picker-sheet">
           <header className="picker-sheet__head">
             <span className="picker-sheet__handle" aria-hidden="true" />

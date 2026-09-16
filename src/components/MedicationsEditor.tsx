@@ -64,6 +64,9 @@ function MedicationCard({ med: m, disabled, onChange, onRemove }: { med: Medicat
 
   return (
     <div className="meds__card">
+      <button type="button" className="icon-btn icon-btn--danger meds__remove" title="Remover medicamento" aria-label="Remover medicamento" disabled={disabled} onClick={onRemove}>
+        🗑️
+      </button>
       <div className="cat-form__row staff-form__row">
         <label className="cat-field cat-field--grow">
           <span className="cat-field__label">💊 Medicamento</span>
@@ -73,9 +76,6 @@ function MedicationCard({ med: m, disabled, onChange, onRemove }: { med: Medicat
           <span className="cat-field__label">Dose</span>
           <input className="cat-input" value={m.dose} placeholder="ex.: 10mg, 1 comprimido" maxLength={120} disabled={disabled} onChange={(e) => onChange({ dose: e.target.value })} />
         </label>
-        <button type="button" className="icon-btn icon-btn--danger meds__remove" title="Remover medicamento" aria-label="Remover medicamento" disabled={disabled} onClick={onRemove}>
-          🗑️
-        </button>
       </div>
 
       <fieldset className="cat-fieldset">
@@ -109,7 +109,16 @@ function MedicationCard({ med: m, disabled, onChange, onRemove }: { med: Medicat
             </button>
           </span>
         </div>
-        <Toggle checked={m.asNeeded} onChange={(v) => onChange({ asNeeded: v, times: v ? [] : m.times })} disabled={disabled} label="Sem horário fixo (quando necessário)" />
+        <Toggle
+          checked={m.asNeeded}
+          onChange={(v) => onChange({ asNeeded: v, times: v ? [] : m.times })}
+          disabled={disabled}
+          label={
+            <>
+              Sem horário fixo<span className="meds__asneeded-extra"> (quando necessário)</span>
+            </>
+          }
+        />
         {unscheduled && <p className="cat-hint cat-hint--error">Sem horário: a equipe médica vai precisar confirmar com os pais.</p>}
       </fieldset>
 

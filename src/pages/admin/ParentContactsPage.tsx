@@ -23,14 +23,14 @@ function contactId(): string {
 }
 
 
-/** When the parents actually see these contacts: only during the camp (check-in start → end of the last event). */
+/** These contacts are visible for as long as the parents may use the app (Geral → janela de acesso dos pais). */
 function ParentWindowNote({ window: w }: { window: { from: string | null; until: string | null; open: boolean } }) {
   const range = w.from && w.until ? `de ${speakWhen(w.from)} até ${speakWhen(w.until)}` : null;
   return (
     <p className={`message ${w.open ? "message--ok" : "message--warn"}`}>
-      {w.open ? "🟢" : "🕒"} Os pais só veem estes contatos <strong>durante o acampamento</strong> — do início do check-in das crianças até o fim do último evento da programação
-      {range ? <>: <strong>{range}</strong></> : " (defina a janela de check-in e a programação)"}.{" "}
-      {w.open ? "Visível para os pais agora." : "Fora desse período os pais veem só os dados da própria criança."}
+      {w.open ? "🟢" : "🕒"} Os pais veem estes contatos <strong>o tempo todo em que têm acesso ao app</strong> (janela de acesso dos pais, em Geral).{" "}
+      Já a <strong>equipe do quarto</strong> da criança só aparece durante o acampamento
+      {range ? <>: <strong>{range}</strong></> : " (defina a janela de check-in e a programação)"}.
     </p>
   );
 }

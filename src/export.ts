@@ -323,6 +323,11 @@ const blankCamper: Camper = {
   busCheckin: null,
   busReturnCheckin: null,
   parentEditedAt: null,
+  importId: null,
+  aiReviewStatus: null,
+  aiReviewError: "",
+  aiReviewStartedAt: null,
+  aiReviewFinishedAt: null,
   createdAt: "",
   updatedAt: "",
 };

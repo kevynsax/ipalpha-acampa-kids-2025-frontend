@@ -10,6 +10,7 @@ import { minutesOf, nowTime, slotParts, useMedicationDay, type MedEntry } from "
 import { useDoseGrace } from "../hooks/useDoseGrace";
 import { speakStamp, todayIso } from "../dates";
 import { useCollectionOrEmpty } from "../store";
+import { navigate } from "../router";
 
 interface MedicationChecklistProps {
   token: string;
@@ -177,7 +178,7 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
               const key = `${e.kid.id}|${e.medKey}`;
               const taken = sosToday.get(key) ?? [];
               return (
-                <li key={key} className={`bus-row meds-row meds-row--tick meds-row--sos ${taken.length ? "bus-row--on" : ""}`}>
+                <li key={key} className={`bus-row meds-row meds-row--tick meds-row--sos ${taken.length ? "bus-row--on" : ""} ${e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
                   {/* the kid + WhatsApp are ONE line: on a phone the icon is simply the last
                       item of that line (top right of the card), never a floating overlay */}
                   <div className="meds-sos__top">
@@ -250,7 +251,7 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
                   .join(" ");
                 return (
                   <li key={key} className={cls}>
-                    <div className={`bus-row meds-row meds-row--tick ${given ? "bus-row--on" : ""} ${justTicked ? "meds-row--ticked" : ""}`}>
+                    <div className={`bus-row meds-row meds-row--tick ${given ? "bus-row--on" : ""} ${justTicked ? "meds-row--ticked" : ""} ${e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
                       {/* the tick lives in its own checkbox: the rest of the card opens the kid */}
                       <label className="meds-check" title={given ? `Dado por ${given.by.name} · ${speakStamp(given.givenAt)} — desmarque para desfazer` : "Marcar como dado"}>
                         <input
@@ -330,11 +331,11 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
             <ul className={`meds-rows ${card ? "meds-rows--flat" : ""}`}>
               {unscheduled.map((e) => (
                 <li key={`${e.kid.id}|${e.medKey}`} className="meds-item">
-                  <div className="bus-row meds-row meds-row--tick meds-row--warn">
+                  <div className={`bus-row meds-row meds-row--tick meds-row--warn ${e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
                     <span className="bus-row__check meds-row__check meds-row__check--warn" aria-hidden="true">
                       ?
                     </span>
-                    <button type="button" className="meds-row__hit" title={`Ver ${e.kid.name}`} onClick={() => setPeek({ id: e.kid.id, name: e.kid.name })}>
+                    <button type="button" className="meds-row__hit" title={`Abrir a ficha de ${e.kid.name}`} onClick={() => navigate(`/campers/${e.kid.id}`)}>
                       <MedBody entry={e} room={roomOf(e.kid.bedroom)} />
                     </button>
                     <GuardianWhatsApp camper={e.kid} className="wa-btn--sm meds-row__wa" />

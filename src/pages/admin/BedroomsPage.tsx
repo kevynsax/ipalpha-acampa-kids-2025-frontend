@@ -35,7 +35,7 @@ interface BedroomsPageProps {
 type Mode = { kind: "view" } | { kind: "create"; group?: BedroomGroup } | { kind: "edit"; id: string } | { kind: "detail"; id: string };
 function modeOf(segments: string[], params: URLSearchParams): Mode {
   const [, id, action] = segments;
-  if (!id) return { kind: "view" };
+  if (!id || id === "assign") return { kind: "view" };
   if (id === "new") {
     const g = params.get("group");
     return { kind: "create", group: (BEDROOM_GROUPS as readonly string[]).includes(g ?? "") ? (g as BedroomGroup) : undefined };
@@ -127,6 +127,16 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
         <h1 className="admin-title">{mode.kind === "create" ? <><img className="admin-title__icon" src={ICONS.bed} alt="" aria-hidden="true" /> Novo quarto</> : mode.kind === "edit" ? "✏️ Editar quarto" : <><img className="admin-title__icon" src={ICONS.bed} alt="" aria-hidden="true" /> Quartos</>}</h1>
         {mode.kind === "view" && !readOnly && (
           <div className="admin-head__actions">
+            <button
+              type="button"
+              className="button button--secondary admin-head__new"
+              disabled={busy}
+              title="Montar os quartos: crianças grudadas por preferência, arrastando para os quartos"
+              onClick={() => navigate("/bedrooms/assign")}
+            >
+              <img className="admin-head__action-icon" src={ICONS.roomAssign} alt="" aria-hidden="true" />
+              <span className="admin-head__action-label">Montar</span>
+            </button>
             <button
               type="button"
               className="button button--secondary admin-head__new"

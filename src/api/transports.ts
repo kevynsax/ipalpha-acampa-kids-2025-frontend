@@ -41,6 +41,8 @@ export interface Transport {
   color: string | null;
   /** buses only */
   number: string | null;
+  /** buses only: number of seats, null when not informed */
+  capacity: number | null;
   /** display label the server derives: "Ônibus 2" for a bus, the name for a car */
   label: string;
   order: number;
@@ -54,6 +56,8 @@ export interface TransportInput {
   name?: string;
   color?: string;
   number?: string;
+  /** buses only: number of seats; null / omitted clears it */
+  capacity?: number | null;
 }
 
 /**

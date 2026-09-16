@@ -16,10 +16,12 @@ interface DialogProps {
   fullscreen?: boolean;
   /** optional variant class for a specific dialog */
   className?: string;
+  /** true = first field is focused on open (phone keyboard pops). Default off. */
+  autofocus?: boolean;
 }
 
 /** Native <dialog> modal: closes on Esc / backdrop click, traps focus. */
-export default function Dialog({ open, onClose, title, children, width = 640, dismissible = true, fullscreenOnMobile = false, fullscreen = false, className = "" }: DialogProps) {
+export default function Dialog({ open, onClose, title, children, width = 640, dismissible = true, fullscreenOnMobile = false, fullscreen = false, className = "", autofocus = false }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   // the close event fired by our OWN el.close() below is not the user closing
@@ -30,12 +32,18 @@ export default function Dialog({ open, onClose, title, children, width = 640, di
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (open && !el.open) el.showModal();
-    else if (!open && el.open) {
+    if (open && !el.open) {
+      el.showModal();
+      // showModal focuses the first field; that pops the phone keyboard. Park focus on the dialog instead.
+      if (!autofocus) {
+        (document.activeElement instanceof HTMLElement ? document.activeElement : null)?.blur();
+        el.focus();
+      }
+    } else if (!open && el.open) {
       ownClose.current = true;
       el.close();
     }
-  }, [open]);
+  }, [open, autofocus]);
 
   // Render at the document root. Besides avoiding clipping/stacking issues,
   // this keeps a form inside a dialog from becoming a nested form when the

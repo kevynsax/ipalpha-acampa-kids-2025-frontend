@@ -151,15 +151,16 @@ export interface MyKid {
 
 export interface ParentHome {
   kids: MyKid[];
-  /** Settings → Contatos, joined to the staff records the server sent (empty outside the parents' window) */
+  /** Settings → Contatos, joined to the staff records the server sent (available the whole time the parent has access) */
   contacts: { id: string; title: string; staff: Staff }[];
 }
 
 /**
  * The parent's view: their kids (the server only sends the guardian's own
  * kids), each with its room, caretaker and room staff, plus the important
- * contacts. Staff records only exist in the store while the parents' window
- * is open — outside it the joins simply come back empty. `null` while syncing.
+ * contacts. The contacts are sent for as long as the parent may use the app;
+ * the kids' ROOM TEAM only while the parents' window is open — outside it
+ * those joins simply come back empty. `null` while syncing.
  */
 export function useParentHome(): ParentHome | null {
   const campers = useCollection("campers");

@@ -1,7 +1,7 @@
 import RoomRoleIcon from "../../components/RoomRoleIcon";
 import { useEffect, useMemo, useState } from "react";
 import { bedroomGroupsForSex, bedroomLabel } from "../../api/bedrooms";
-import { canBeCaretaker, compareRoomStaff, moveStaff, ROOM_ROLE_META, staffSex, type MoveKids, type Staff } from "../../api/staff";
+import { compareRoomStaff, moveStaff, ROOM_ROLE_META, staffSex, type MoveKids, type Staff } from "../../api/staff";
 import { BedroomSelect } from "../../components/CategoryFields";
 import Dialog from "../../components/Dialog";
 import { ICONS } from "../../icons";
@@ -51,16 +51,14 @@ export default function MoveStaffDialog({ token, open, member: s, onClose }: Mov
 
   const myKids = useMemo(() => campers.filter((k) => k.caretakerId === s.id), [campers, s.id]);
   const hasKids = s.roomRole === "caretaker" && myKids.length > 0;
-  /** an admin's roster record never becomes a líder: "bring" / "swap" are not offered */
-  const admin = !canBeCaretaker(s);
   const target = bedroom ? bedrooms.find((b) => b.id === bedroom) : null;
   const sameRoom = bedroom === s.bedroom;
   /** a full destination can still be chosen — but then the only way in is a swap */
   const targetFull = !!target && !sameRoom && target.available <= 0;
-  /** people to swap with: anyone of the TARGET room; to assign: anyone of MY room (never an admin: they don't take kids over) */
+  /** people to swap with: anyone of the TARGET room; to assign: anyone of MY room */
   const candidates = useMemo(() => {
     const room = kids === "swap" ? bedroom : s.bedroom;
-    return room ? staff.filter((x) => x.id !== s.id && x.bedroom === room && canBeCaretaker(x)).sort(compareRoomStaff) : [];
+    return room ? staff.filter((x) => x.id !== s.id && x.bedroom === room).sort(compareRoomStaff) : [];
   }, [staff, kids, bedroom, s.bedroom, s.id]);
   const kidsOf = (id: string) => campers.filter((k) => k.caretakerId === id).length;
 
@@ -119,7 +117,7 @@ export default function MoveStaffDialog({ token, open, member: s, onClose }: Mov
               <RoomRoleIcon role="caretaker" sex={staffSex(s, bedrooms)} /> E as {myKids.length} criança{myKids.length > 1 ? "s" : ""} sob sua responsabilidade?
             </legend>
             <div className="big-options">
-              {OPTIONS.filter((o) => (sameRoom ? o.key === "assign" : targetFull ? o.key === "swap" : true)).filter((o) => !admin || (o.key !== "bring" && o.key !== "swap")).map((o) => {
+              {OPTIONS.filter((o) => (sameRoom ? o.key === "assign" : targetFull ? o.key === "swap" : true)).map((o) => {
                 const on = kids === o.key;
                 return (
                   <button key={o.key} type="button" className={`big-option ${on ? "big-option--on" : ""}`} aria-pressed={on} disabled={busy} onClick={() => setKids(o.key)}>

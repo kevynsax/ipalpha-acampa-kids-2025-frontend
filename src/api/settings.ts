@@ -129,6 +129,8 @@ export interface Settings {
   smsRedirect: SmsRedirect;
   /** false when the server has no SMS provider configured (texts are only logged) */
   smsEnabled: boolean;
+  /** read-only: this session is the deployment owner (SUPER_ADMIN_PHONE) — the only one who sees / edits ⚙️ → Sementes */
+  superAdmin: boolean;
   /**
    * Staff who scanned ≥3 kids outside their scope (emergency QR). Empty when
    * nobody reached the threshold — the Geral card stays hidden then.

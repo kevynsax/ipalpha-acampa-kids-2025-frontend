@@ -36,6 +36,29 @@ export function AiGlyph({ size = "1.1em", className }: GlyphProps) {
   );
 }
 
+/** a microphone on its stand — "falar com o assistente" / the mic is open */
+export function MicGlyph({ size = "1.1em", className }: GlyphProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="9" y="2.4" width="6" height="11.2" rx="3" />
+      <path d="M5 11.2a7 7 0 0 0 14 0" />
+      <path d="M12 18.2v3.4" />
+    </svg>
+  );
+}
+
+/** the same microphone crossed out — the mic is muted while the conversation stays open */
+export function MicOffGlyph({ size = "1.1em", className }: GlyphProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="9" y="2.4" width="6" height="11.2" rx="3" />
+      <path d="M5 11.2a7 7 0 0 0 14 0" />
+      <path d="M12 18.2v3.4" />
+      <path d="M4 3.4 20 20.6" />
+    </svg>
+  );
+}
+
 /** a bold check mark — used inside ticked boxes instead of the ✓ character */
 export function CheckGlyph({ size = "1.1em", className }: GlyphProps) {
   return (

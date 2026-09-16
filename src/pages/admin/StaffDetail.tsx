@@ -150,6 +150,7 @@ export default function StaffDetail({
   const vestReturned = !!s.vest?.delivered && !!s.vest.returned;
   const vestLate = campOver && !vestReturned;
   const adultIcon = staffSex(s, bedroom ? [bedroom] : []) === "M" ? "man" : "woman";
+  const reviewing = s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing";
 
   /** "Cleves (auxiliar) está no mesmo quarto: 403 (Meninos)" — the colleagues and the room are links */
   const roomSentence = bedroom && (
@@ -336,7 +337,10 @@ export default function StaffDetail({
             </>
           )}
         </dl>
-        <HealthAlerts person={s} labelOf={labelOf} boxed />
+        <div className={reviewing ? "camper-ai-observation" : ""} title={reviewing ? "Este campo está sendo revisado pela IA" : undefined}>
+          <HealthAlerts person={s} labelOf={labelOf} boxed />
+          {reviewing && !s.healthNotes && <p className="detail-note">Observações em revisão pela IA…</p>}
+        </div>
       </section>
 
       {/* ── functions (explicit assignments only) ── */}

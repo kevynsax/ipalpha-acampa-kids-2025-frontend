@@ -69,7 +69,7 @@ export default function StaffPicker({ open, title, staff, occupied, onPick, onCl
   const freeCount = results.filter((s) => !occupied.has(s.id)).length;
 
   return (
-    <Dialog open={open} onClose={onClose} title={title} width={520} className="picker-sheet-dialog">
+    <Dialog open={open} onClose={onClose} title={title} width={520} autofocus className="picker-sheet-dialog">
       <div className="picker picker-sheet">
         <header className="picker-sheet__head">
           <span className="picker-sheet__handle" aria-hidden="true" />

@@ -2,7 +2,6 @@ import RoomRoleIcon from "../../components/RoomRoleIcon";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useConfirmChoice } from "../../components/ConfirmDialog";
 import { CAMPER_CATEGORY_KEYS, blankMedication, type Camper, type CamperInput, type CamperSex, type Medication } from "../../api/campers";
-import { canBeCaretaker } from "../../api/staff";
 import { useHideScanFab } from "../../scanFab";
 import { useCollectionOrEmpty } from "../../store";
 import AiNotesField from "../../components/AiNotesField";
@@ -73,9 +72,9 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
   }, [sex, sexBusy, onSexChange]);
   const [caretakerId, setCaretakerId] = useState<string | null>(camper?.caretakerId ?? null);
   const [transportation, setTransportation] = useState<string | null>(camper?.transportation ?? null);
-  /** the líderes of the chosen room: the only people who may look after the kid (never an admin — see api/staff#canBeCaretaker) */
+  /** the líderes of the chosen room: the only people who may look after the kid */
   const caretakers = useMemo(
-    () => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "caretaker" && canBeCaretaker(s)).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) : []),
+    () => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "caretaker").sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) : []),
     [staff, bedroom],
   );
   // one líder → picked for you; room changed → a líder from elsewhere is dropped

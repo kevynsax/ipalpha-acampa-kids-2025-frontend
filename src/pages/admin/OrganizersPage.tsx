@@ -101,7 +101,7 @@ export default function OrganizersPage({ token }: OrganizersPageProps) {
         ) : (
           <ul className="staff-card__tags helpers-list" aria-label="Organizadores dos jogos">
             {gameOrganizers.map((s) => (
-              <li key={s.id} className="staff-tag helpers-tag">
+              <li key={s.id} className={`staff-tag helpers-tag ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
                 <span className="helpers-tag__name">{s.name}</span>
               </li>
             ))}
