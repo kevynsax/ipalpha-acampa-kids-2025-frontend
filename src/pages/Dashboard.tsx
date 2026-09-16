@@ -272,6 +272,8 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   const useMobileBottomNav = bottomTabs.length > 0 && bottomTabs.length <= 5 && !settingsAllowed;
   /** the settings pages this session may open */
   const settingsPages = SETTINGS.filter((s) => isAdmin || !s.adminOnly);
+  /** desktop ⚙️ landing — Notificações for the admin; organizers have no such page, so Geral */
+  const settingsHome: SettingsKey = settingsPages.find((s) => s.key === "notifications")?.key ?? settingsPages[0].key;
   const isSettingsKey = (s: string | undefined): s is SettingsKey => settingsPages.some((x) => x.key === s);
   const isView = (s: string | undefined): s is View => s === "profile" || (s === "badge" && !isParent && during) || (settingsAllowed && (s === "settings" || isSettingsKey(s))) || tabs.some((t) => t.key === s);
   const view: View = isView(segments[0]) ? segments[0] : tabs[0]?.key ?? "profile";
@@ -314,7 +316,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   // the phone menu route on a DESKTOP window (resized, or a link pasted around): the
   // sidebar already IS the menu there, so fall through to the first settings page
   useEffect(() => {
-    if (settingsMenuOpen && !isPhone) navigate(`/${settingsPages[0].key}`, { replace: true });
+    if (settingsMenuOpen && !isPhone) navigate(`/${settingsHome}`, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsMenuOpen, isPhone]);
   /** pages that carry the yellow ScanFab (the scan IS the page's action): bulk points, church check-in, bus roll call (not the medical read-only view nor the per-vehicle report) */
@@ -417,8 +419,8 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
               title="Configurações: equipe, contatos, check-in e notificações"
               aria-label="Configurações"
               aria-pressed={settingsOpen || settingsMenuOpen}
-              /* phones: the ⚙️ opens the menu (or, from a section page, goes back to it); desktop keeps landing on the first page */
-              onClick={() => goTo(isPhone ? "settings" : settingsPages[0].key)}
+              /* phones: the ⚙️ opens the menu (or, from a section page, goes back to it); desktop lands on Notificações (admin) / Geral (organizer) */
+              onClick={() => goTo(isPhone ? "settings" : settingsHome)}
             >
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
                 <path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 .1-1 7.6 7.6 0 0 0-.1-1l2.1-1.6a.5.5 0 0 0 .1-.7l-2-3.4a.5.5 0 0 0-.6-.2l-2.5 1a7.3 7.3 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.5h-4a.5.5 0 0 0-.5.5l-.4 2.6a7.3 7.3 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.4a.5.5 0 0 0 .1.7L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.7l2 3.4c.1.2.4.3.6.2l2.5-1a7.3 7.3 0 0 0 1.7 1l.4 2.6c0 .3.2.5.5.5h4c.3 0 .5-.2.5-.5l.4-2.6a7.3 7.3 0 0 0 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.4a.5.5 0 0 0-.1-.7L19.4 13ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z" />
@@ -503,7 +505,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
             className={`dash-tab dash-menu-settings ${settingsOpen || settingsMenuOpen ? "dash-tab--active dash-tab--root" : ""}`}
             onClick={() => {
               setMobileMenuOpen(false);
-              if (!settingsOpen && !settingsMenuOpen) goTo(isPhone ? "settings" : settingsPages[0].key);
+              if (!settingsOpen && !settingsMenuOpen) goTo(isPhone ? "settings" : settingsHome);
             }}
           >
             <span className="dash-tab__emoji" aria-hidden="true">⚙️</span>

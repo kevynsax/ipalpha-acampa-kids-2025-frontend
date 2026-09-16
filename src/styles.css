@@ -2282,7 +2282,8 @@ select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38
 .notif-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .notif-item { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: var(--radius); background: var(--paper); border: 3px solid #fff; box-shadow: 0 6px 0 rgba(24,61,54,.12); transition: border-color .15s ease, background .15s ease; }
 .notif-item--on { border-color: #b9dfc2; background: #f1f9f3; }
-.notif-item__emoji { flex: none; width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; font-size: 1.6rem; border-radius: 14px; background: #fff; box-shadow: 0 3px 0 rgba(24,61,54,.1); }
+.notif-item__emoji { flex: none; width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; font-size: 1.6rem; border-radius: 14px; background: #fff; box-shadow: 0 3px 0 rgba(24,61,54,.1); }
+.notif-item__icon, .notif-item__emoji img { width: 34px; height: 34px; object-fit: contain; }
 .notif-item__emoji--pair { width: auto; min-width: 48px; padding: 0 8px; font-size: 1.25rem; gap: 4px; }
 .notif-item__emoji--pair .notif-item__icon { width: 28px; height: 28px; }
 .notif-item__plus { font-family: var(--font-display); font-weight: 900; font-size: 1rem; color: var(--forest); }
@@ -2290,7 +2291,13 @@ select.cat-input { appearance: none; -webkit-appearance: none; padding-right: 38
 .notif-item__title { margin: 0; font-family: var(--font-display); font-size: 1.05rem; font-weight: 800; color: var(--forest); }
 .notif-item__text { margin: 0; font-size: .9rem; line-height: 1.45; color: var(--muted); }
 .notif-item .toggle { flex: none; }
-@media (max-width: 560px) { .notif-item { flex-wrap: wrap; } .notif-item .toggle { margin-left: 62px; } }
+/* phones: icon + text on the first row, the switch on its own row under the text.
+   (flex-wrap alone never wrapped — the body just shrank to one word per line) */
+@media (max-width: 560px) {
+  .notif-item { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 10px 14px; padding: 14px; }
+  .notif-item__body { grid-column: 2; }
+  .notif-item .toggle { grid-column: 2; justify-self: start; height: 40px; margin-left: 0; }
+}
 
 /* ── settings › contacts shared with parents ────────────────────────────── */
 .contact-form { gap: 14px; }
