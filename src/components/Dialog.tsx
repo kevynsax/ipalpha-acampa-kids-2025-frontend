@@ -22,12 +22,19 @@ interface DialogProps {
 export default function Dialog({ open, onClose, title, children, width = 640, dismissible = true, fullscreenOnMobile = false, fullscreen = false, className = "" }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+  // the close event fired by our OWN el.close() below is not the user closing
+  // the dialog — without this, hiding one step of a multi-dialog flow (e.g.
+  // escolher → criar função) would report it closed and tear the flow down
+  const ownClose = useRef(false);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     if (open && !el.open) el.showModal();
-    else if (!open && el.open) el.close();
+    else if (!open && el.open) {
+      ownClose.current = true;
+      el.close();
+    }
   }, [open]);
 
   // Render at the document root. Besides avoiding clipping/stacking issues,
@@ -42,7 +49,12 @@ export default function Dialog({ open, onClose, title, children, width = 640, di
       style={{ maxWidth: width }}
       aria-label={title}
       onClose={(e) => {
-        if (e.target === ref.current) onClose();
+        if (e.target !== ref.current) return;
+        if (ownClose.current) {
+          ownClose.current = false;
+          return;
+        }
+        onClose();
       }}
       onCancel={(e) => {
         if (e.target !== ref.current) return;

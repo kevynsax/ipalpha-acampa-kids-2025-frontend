@@ -56,6 +56,17 @@ export function DownloadGlyph({ size = "1.1em", className }: GlyphProps) {
   );
 }
 
+/** an upload arrow out of a tray — the "Enviar fotos" action */
+export function UploadGlyph({ size = "1.1em", className }: GlyphProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 15V4" />
+      <path d="M7 9l5-5 5 5" />
+      <path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2" />
+    </svg>
+  );
+}
+
 /** four arrows pushing into the corners — "open this in full screen" */
 export function ExpandGlyph({ size = "1.1em", className }: GlyphProps) {
   return (

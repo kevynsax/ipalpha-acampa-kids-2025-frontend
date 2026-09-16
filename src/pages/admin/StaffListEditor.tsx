@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import type { Staff } from "../../api/staff";
 import { useCollectionOrEmpty } from "../../store";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import StaffPicker from "./StaffPicker";
 
 interface StaffListEditorProps {
@@ -33,16 +34,23 @@ export default function StaffListEditor({ title, hint, value, onChange, disabled
   const [pickerOpen, setPickerOpen] = useState(false);
   const byId = useMemo(() => new Map(staff.map((s) => [s.id, s])), [staff]);
   const people = value.map((id) => byId.get(id)).filter((s): s is Staff => !!s);
+  /** phones: no count chip and the "add" button lands at the END of the card;
+      the desktop keeps the button top-right with the counter beside the title */
+  const phone = useMediaQuery("(max-width: 760px)");
+
+  const addButton = (
+    <button type="button" className="button button--secondary list-head__add" disabled={disabled} onClick={() => setPickerOpen(true)}>
+      {addLabel}
+    </button>
+  );
 
   return (
     <>
       <div className="list-head">
         <h2 className="cat-form__title">
-          {title} <span className="cat-tab__count">{value.length}</span>
+          {title} {!phone && <span className="cat-tab__count">{value.length}</span>}
         </h2>
-        <button type="button" className="button button--secondary list-head__add" disabled={disabled} onClick={() => setPickerOpen(true)}>
-          {addLabel}
-        </button>
+        {!phone && addButton}
       </div>
       {hint && <p className="cat-hint">{hint}</p>}
       {people.length === 0 ? (
@@ -69,6 +77,7 @@ export default function StaffListEditor({ title, hint, value, onChange, disabled
           ))}
         </ul>
       )}
+      {phone && <div className="list-add">{addButton}</div>}
       <StaffPicker
         open={pickerOpen}
         title={pickerTitle}

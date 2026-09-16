@@ -12,7 +12,6 @@ export interface RoleMeta {
   /** how to call ONE person with this role ("Você entrou como …") */
   personLabel: string;
   description: string;
-  emoji: string;
   /** paper-cut style icon matching the poster */
   icon: string;
   color: string;
@@ -24,7 +23,6 @@ export const ROLE_LIST: RoleMeta[] = [
     label: "Pais & Responsáveis",
     personLabel: "Responsável",
     description: "Acompanhe seu filho na aventura!",
-    emoji: "👨‍👩‍👧‍👦",
     icon: iconParent,
     color: "orange",
   },
@@ -33,7 +31,6 @@ export const ROLE_LIST: RoleMeta[] = [
     label: "Equipe",
     personLabel: "Membro do Staff",
     description: "Monitores e organização do acampamento",
-    emoji: "🎒",
     icon: iconStaff,
     color: "green",
   },
@@ -42,7 +39,6 @@ export const ROLE_LIST: RoleMeta[] = [
     label: "Equipe de Saúde",
     personLabel: "Membro da Equipe de Saúde",
     description: "Cuidando de todos os aventureiros",
-    emoji: "⛑️",
     icon: iconHealth,
     color: "red",
   },
@@ -51,7 +47,6 @@ export const ROLE_LIST: RoleMeta[] = [
     label: "Administração",
     personLabel: "Administrador",
     description: "Gestão completa do acampamento",
-    emoji: "🛠️",
     icon: iconAdmin,
     color: "purple",
   },

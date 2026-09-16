@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { roleDetailOf, type CampEvent, type ScheduleRole } from "../api/schedule";
+import { autoAudienceLabel, autoRoleFor, roleDetailOf, type CampEvent, type ScheduleRole } from "../api/schedule";
 import { speakDay } from "../dates";
 import InstructionsDialog from "../components/InstructionsDialog";
 import type { LoggedUser } from "../roles";
@@ -7,6 +7,7 @@ import { useRoute } from "../router";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import { useCampTiming } from "../campPhase";
 import { ICONS } from "../icons";
+import { staffSex } from "../api/staff";
 
 interface MySchedulePageProps {
   user: LoggedUser;
@@ -52,27 +53,38 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
   const storedEvents = useCollection("events");
   const roles = useCollectionOrEmpty("roles");
   const staff = useCollectionOrEmpty("staff");
+  const bedrooms = useCollectionOrEmpty("bedrooms");
   const teams = useCollectionOrEmpty("teams");
   const { params, navigate } = useRoute();
   const [instructionsFor, setInstructionsFor] = useState<MyEvent | null>(null);
   /** past events are collapsed by default so the first card is what's happening now */
   const [showPast, setShowPast] = useState(false);
   const first = user.name.split(" ")[0];
+  const me = useMemo(() => staff.find((s) => s.phone === user.phone), [staff, user.phone]);
+  const myFaceSrc = me
+    ? me.roomRole === "caretaker"
+      ? staffSex(me, bedrooms) === "M"
+        ? ICONS.leaderFace
+        : ICONS.leaderFaceWoman
+      : staffSex(me, bedrooms) === "M"
+        ? ICONS.helperFace
+        : ICONS.helperFaceWoman
+    : ICONS.helperFaceWoman;
 
   const items = useMemo<MyEvent[] | null>(() => {
     if (!storedEvents) return null;
     const roleById = new Map(roles.map((r) => [r.id, r]));
     // my own team: a "detalhe = time" role is labelled from it
-    const me = staff.find((s) => s.phone === user.phone);
     const myTeam = me?.team ? teams.find((t) => t.id === me.team) : null;
     return storedEvents
       .map((e): MyEvent => {
         const mine = e.assignments[0];
-        const role = mine ? (roleById.get(mine.roleId) ?? null) : (e.roles.map((id) => roleById.get(id)).find((r) => r?.forEveryone) ?? null);
+        // no escala here: the automatic role that covers MY posição no quarto
+        const role = mine ? (roleById.get(mine.roleId) ?? null) : (me ? (autoRoleFor(e.roles, me.roomRole, roleById) ?? null) : null);
         return { event: e, role, detail: roleDetailOf(role, mine, myTeam).detail, implicit: !mine && !!role };
       })
       .sort((a, b) => a.event.date.localeCompare(b.event.date) || a.event.startTime.localeCompare(b.event.startTime) || a.event.title.localeCompare(b.event.title, "pt-BR"));
-  }, [storedEvents, roles, staff, teams, user.phone]);
+  }, [storedEvents, roles, teams, me]);
 
   // "agora" marker — re-evaluated every minute
   const [now, setNow] = useState(clock);
@@ -132,7 +144,7 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
 
       <div className="staff-toolbar__filters" role="tablist" aria-label="Filtro da programação">
         <button type="button" role="tab" aria-selected={filter === "mine"} className={`cat-tab ${filter === "mine" ? "cat-tab--active" : ""}`} onClick={() => setFilter("mine")}>
-          🙋 Minha escala
+          <img className="cat-tab__img" src={myFaceSrc} alt="" aria-hidden="true" /> Minha escala
           <span className="cat-tab__count">{mine.length}</span>
         </button>
         <button type="button" role="tab" aria-selected={filter === "all"} className={`cat-tab ${filter === "all" ? "cat-tab--active" : ""}`} onClick={() => setFilter("all")}>
@@ -144,7 +156,7 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
       {shown.length === 0 && (
         <div className="admin-empty">
           {filter === "mine" ? (
-            <span className="admin-empty__emoji">🙋</span>
+            <img className="admin-empty__icon" src={myFaceSrc} alt="" aria-hidden="true" />
           ) : (
             <img className="admin-empty__icon" src={ICONS.schedule} alt="" aria-hidden="true" />
           )}
@@ -195,7 +207,10 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
                       {e.notes && <p className="staff-card__meta">{e.notes}</p>}
                       {i.role && (
                         <div className="staff-card__tags my-role">
-                          <span className={`staff-tag ${i.implicit ? "staff-tag--everyone" : ""}`} title={i.implicit ? "Função padrão de toda a equipe" : "Você está escalado(a) nesta função"}>
+                          <span
+                            className={`staff-tag ${i.implicit ? "staff-tag--everyone" : ""}`}
+                            title={i.implicit && i.role ? `Função automática de ${autoAudienceLabel(i.role)}` : "Você está escalado(a) nesta função"}
+                          >
                             {i.role.emoji} {i.role.name}
                             {i.detail && <span className="staff-tag__n">{i.detail}</span>}
                           </span>

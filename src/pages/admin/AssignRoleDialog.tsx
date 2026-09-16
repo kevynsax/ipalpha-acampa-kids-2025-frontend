@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { assignStaff, type CampEvent, type ScheduleRole } from "../../api/schedule";
+import { assignStaff, isForWholeTeam, type CampEvent, type ScheduleRole } from "../../api/schedule";
 import { speakDay } from "../../dates";
 import type { Staff } from "../../api/staff";
 import Dialog from "../../components/Dialog";
@@ -84,7 +84,8 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
   const occupied = useMemo(() => (event && events ? occupationsFor(event, events, roleById, roleId || undefined) : new Map<string, Occupation>()), [event, events, roleById, roleId]);
   const occupation = staffId ? occupied.get(staffId) : undefined;
 
-  const pickableRoles = (event?.roles ?? []).map((id) => roleById.get(id)).filter((r): r is ScheduleRole => !!r && !r.forEveryone);
+  // "toda a equipe" já inclui todo mundo: não há quem escalar nela
+  const pickableRoles = (event?.roles ?? []).map((id) => roleById.get(id)).filter((r): r is ScheduleRole => !!r && !isForWholeTeam(r));
   const alreadyInRole = useMemo(() => new Set((event?.assignments ?? []).filter((a) => a.roleId === roleId).map((a) => a.staffId)), [event, roleId]);
   // a role whose detail IS the team can only hold people who have one
   const pickableStaff = useMemo(
@@ -149,8 +150,9 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
   const swapping = step === "confirm" && !!occupation;
 
   return (
-    <Dialog open={open} onClose={() => !busy && onClose()} title={swapping ? "Trocar função" : "Vincular função"} width={560}>
+    <Dialog open={open} onClose={() => !busy && onClose()} title={swapping ? "Trocar função" : "Vincular função"} width={560} className="sheet-dialog">
       <form className="cat-form cat-form--embedded" onSubmit={handleSubmit}>
+        <span className="sheet__handle" aria-hidden="true" />
         <h2 className="cat-form__title">
           {swapping ? (
             <>
@@ -192,7 +194,7 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
         {fromPerson && !swapping && event && (
           <>
             {pickableRoles.length === 0 ? (
-              <p className="cat-hint cat-hint--error">Este evento só tem funções padrão (toda a equipe). Nada a vincular.</p>
+              <p className="cat-hint cat-hint--error">Este evento só tem funções que já valem para toda a equipe. Nada a escalar aqui.</p>
             ) : (
               <fieldset className="cat-fieldset">
                 <legend className="cat-field__label">Função</legend>
@@ -251,7 +253,7 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
         )}
 
         {role?.detailFromTeam && roleId && (
-          <p className="cat-hint">🏳️ O detalhe desta função é o time da pessoa — nada a preencher. Só quem tem time aparece na lista.</p>
+          <p className="cat-hint">🚩 O detalhe desta função é o time da pessoa — nada a preencher. Só quem tem time aparece na lista.</p>
         )}
 
         {role?.hasDetail && !role.detailFromTeam && roleId && (

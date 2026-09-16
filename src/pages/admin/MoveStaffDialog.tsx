@@ -1,7 +1,7 @@
 import RoomRoleIcon from "../../components/RoomRoleIcon";
 import { useEffect, useMemo, useState } from "react";
-import { bedroomLabel } from "../../api/bedrooms";
-import { compareRoomStaff, moveStaff, ROOM_ROLE_META, type MoveKids, type Staff } from "../../api/staff";
+import { bedroomGroupsForSex, bedroomLabel } from "../../api/bedrooms";
+import { canBeCaretaker, compareRoomStaff, moveStaff, ROOM_ROLE_META, staffSex, type MoveKids, type Staff } from "../../api/staff";
 import { BedroomSelect } from "../../components/CategoryFields";
 import Dialog from "../../components/Dialog";
 import { ICONS } from "../../icons";
@@ -15,9 +15,9 @@ interface MoveStaffDialogProps {
 }
 
 const OPTIONS: { key: MoveKids; emoji?: string; icon?: string; label: string; hint: string }[] = [
-  { key: "swap", icon: ICONS.leaderFace, label: "Trocar com alguém", hint: "a outra pessoa vem para cá e assume estas crianças; ela leva as dela" },
+  { key: "swap", icon: ICONS.leaderFaceWoman, label: "Trocar com alguém", hint: "a outra pessoa vem para cá e assume estas crianças; ela leva as dela" },
   { key: "bring", emoji: "🧳", label: "Levar as crianças junto", hint: "as crianças mudam de quarto com a pessoa" },
-  { key: "assign", emoji: "🤝", label: "Passar para outra pessoa", hint: "as crianças ficam e alguém do quarto assume (um auxiliar vira líder)" },
+  { key: "assign", icon: ICONS.handshake, label: "Passar para outra pessoa", hint: "as crianças ficam e alguém do quarto assume (um auxiliar vira líder)" },
   { key: "orphan", emoji: "⚠️", label: "Deixar sem líder", hint: "as crianças ficam no quarto sem líder, para resolver depois" },
 ];
 
@@ -51,14 +51,16 @@ export default function MoveStaffDialog({ token, open, member: s, onClose }: Mov
 
   const myKids = useMemo(() => campers.filter((k) => k.caretakerId === s.id), [campers, s.id]);
   const hasKids = s.roomRole === "caretaker" && myKids.length > 0;
+  /** an admin's roster record never becomes a líder: "bring" / "swap" are not offered */
+  const admin = !canBeCaretaker(s);
   const target = bedroom ? bedrooms.find((b) => b.id === bedroom) : null;
   const sameRoom = bedroom === s.bedroom;
   /** a full destination can still be chosen — but then the only way in is a swap */
   const targetFull = !!target && !sameRoom && target.available <= 0;
-  /** people to swap with: anyone of the TARGET room; to assign: anyone of MY room */
+  /** people to swap with: anyone of the TARGET room; to assign: anyone of MY room (never an admin: they don't take kids over) */
   const candidates = useMemo(() => {
     const room = kids === "swap" ? bedroom : s.bedroom;
-    return room ? staff.filter((x) => x.id !== s.id && x.bedroom === room).sort(compareRoomStaff) : [];
+    return room ? staff.filter((x) => x.id !== s.id && x.bedroom === room && canBeCaretaker(x)).sort(compareRoomStaff) : [];
   }, [staff, kids, bedroom, s.bedroom, s.id]);
   const kidsOf = (id: string) => campers.filter((k) => k.caretakerId === id).length;
 
@@ -101,21 +103,23 @@ export default function MoveStaffDialog({ token, open, member: s, onClose }: Mov
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Trocar de quarto" width={600}>
+    <Dialog open={open} onClose={onClose} title="Trocar de quarto" width={600} dismissible={!busy} className="sheet-dialog">
       <div className="cat-form cat-form--plain">
+        {/* phones: this card is a bottom sheet (see .sheet-dialog) */}
+        <span className="sheet__handle" aria-hidden="true" />
         <h2 className="cat-form__title change-room__title">
           <img className="admin-title__icon" src={ICONS.swap} alt="" aria-hidden="true" /> Trocar de quarto
         </h2>
 
-        <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={chooseRoom} current={s.bedroom} allowFull disabled={busy} />
+        <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={chooseRoom} current={s.bedroom} groups={bedroomGroupsForSex(staffSex(s, bedrooms))} allowFull disabled={busy} />
 
         {askKids && (
           <fieldset className="cat-fieldset change-room__caretaker">
             <legend className="cat-field__label">
-              <RoomRoleIcon role="caretaker" /> E as {myKids.length} criança{myKids.length > 1 ? "s" : ""} sob sua responsabilidade?
+              <RoomRoleIcon role="caretaker" sex={staffSex(s, bedrooms)} /> E as {myKids.length} criança{myKids.length > 1 ? "s" : ""} sob sua responsabilidade?
             </legend>
             <div className="big-options">
-              {OPTIONS.filter((o) => (sameRoom ? o.key === "assign" : targetFull ? o.key === "swap" : true)).map((o) => {
+              {OPTIONS.filter((o) => (sameRoom ? o.key === "assign" : targetFull ? o.key === "swap" : true)).filter((o) => !admin || (o.key !== "bring" && o.key !== "swap")).map((o) => {
                 const on = kids === o.key;
                 return (
                   <button key={o.key} type="button" className={`big-option ${on ? "big-option--on" : ""}`} aria-pressed={on} disabled={busy} onClick={() => setKids(o.key)}>
@@ -143,7 +147,7 @@ export default function MoveStaffDialog({ token, open, member: s, onClose }: Mov
                 const n = kidsOf(x.id);
                 return (
                   <button key={x.id} type="button" className={`big-option ${on ? "big-option--on" : ""}`} aria-pressed={on} disabled={busy} onClick={() => setPerson(x.id)}>
-                    <span className="big-option__emoji" aria-hidden="true"><RoomRoleIcon role={x.roomRole} size={32} /></span>
+                    <span className="big-option__emoji" aria-hidden="true"><RoomRoleIcon role={x.roomRole} size={32} sex={staffSex(x, bedrooms)} /></span>
                     <span className="big-option__label">{x.name}</span>
                     <span className="big-option__hint">
                       {ROOM_ROLE_META[x.roomRole].label}

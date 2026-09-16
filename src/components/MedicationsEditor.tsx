@@ -1,21 +1,26 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { blankMedication, type Medication } from "../api/campers";
+import { ICONS } from "../icons";
 import Toggle from "./Toggle";
 import TimeInput from "./TimeInput";
 
 /** the camp's daily moments — one tap each; anything else goes in the custom time box */
-export const MEDICATION_PRESETS: { time: string; label: string; emoji: string }[] = [
+export const MEDICATION_PRESETS: { time: string; label: string; emoji?: string; icon?: string }[] = [
   { time: "08:30", label: "Café", emoji: "🥐" },
   { time: "12:30", label: "Almoço", emoji: "🍽️" },
   { time: "16:30", label: "Lanche", emoji: "🍎" },
   { time: "19:00", label: "Jantar", emoji: "🌙" },
-  { time: "22:00", label: "Dormir", emoji: "🛏️" },
+  { time: "22:00", label: "Dormir", icon: ICONS.bed },
 ];
 
-/** "08:30" → "🥐 Café 08:30" when it is a preset, else just the time */
+function presetMark(p: { emoji?: string; icon?: string }): ReactNode {
+  return p.icon ? <img className="audience-icon" src={p.icon} alt="" aria-hidden="true" /> : p.emoji;
+}
+
+/** "08:30" → "Café 08:30" when it is a preset, else just the time */
 export function medicationTimeLabel(time: string): string {
   const p = MEDICATION_PRESETS.find((x) => x.time === time);
-  return p ? `${p.emoji} ${p.label} ${time}` : `🕒 ${time}`;
+  return p ? `${p.label} ${time}` : time;
 }
 
 interface MedicationsEditorProps {
@@ -80,7 +85,7 @@ function MedicationCard({ med: m, disabled, onChange, onRemove }: { med: Medicat
             const on = m.times.includes(p.time);
             return (
               <button key={p.time} type="button" className={`chip-toggle chip-toggle--small ${on ? "chip-toggle--on" : ""}`} aria-pressed={on} disabled={disabled || m.asNeeded} onClick={() => toggleTime(p.time)}>
-                {p.emoji} {p.label} <span className="meds__chip-time">{p.time}</span>
+                {presetMark(p)} {p.label} <span className="meds__chip-time">{p.time}</span>
               </button>
             );
           })}

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import BedroomTag from "../../components/BedroomTag";
 import { ageOf, type Camper } from "../../api/campers";
-import type { Staff } from "../../api/staff";
+import { staffSex, type Staff } from "../../api/staff";
 import CamperQr from "../../components/CamperQr";
 import HealthAlerts from "../../components/HealthAlerts";
 import KidIcon from "../../components/KidIcon";
@@ -13,6 +13,7 @@ import TeamTag from "../../components/TeamTag";
 import WhatsAppButton from "../../components/WhatsAppButton";
 import type { ParentAccess } from "../../hooks/useParentWindow";
 import { kidSexOf } from "../../icons";
+import { useCollectionOrEmpty } from "../../store";
 import { formatBrazilPhoneClient } from "../../phoneFormat";
 import type { LoggedUser } from "../../roles";
 import { useLabelOf, useParentHome, type MyKid } from "../../store/derive";
@@ -67,6 +68,7 @@ function TeamContact({ staff: s, title, from, about }: { staff: Staff; title?: R
 function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string; user: LoggedUser; showTeam: boolean }) {
   const { camper: k, bedroom, caretaker, roomStaff } = kid;
   const labelOf = useLabelOf();
+  const bedrooms = useCollectionOrEmpty("bedrooms");
   const [editing, setEditing] = useState(false);
   const age = ageOf(k.birthDate);
   const sex = k.sex === "F" ? "girl" : k.sex === "M" ? "boy" : kidSexOf(bedroom?.group);
@@ -102,7 +104,7 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
           <dt>Transporte</dt>
           <dd>{k.transportation ? <TransportTag transportId={k.transportation} /> : "—"}</dd>
           <dt>Líder</dt>
-          <dd>{showTeam ? (caretaker ? <><RoomRoleIcon role="caretaker" /> {caretaker.name}</> : "—") : <em className="staff-card__missing">disponível a partir do check-in</em>}</dd>
+          <dd>{showTeam ? (caretaker ? <><RoomRoleIcon role="caretaker" sex={staffSex(caretaker, bedrooms)} /> {caretaker.name}</> : "—") : <em className="staff-card__missing">disponível a partir do check-in</em>}</dd>
         </dl>
       </div>
 
@@ -115,7 +117,7 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
             <p className="opt-empty">A equipe do quarto ainda não foi definida.</p>
           ) : (
             <ul className="parent-team">
-              {caretaker && <TeamContact staff={caretaker} title={<><RoomRoleIcon role="caretaker" /> Líder de {first}</>} from={user.name} about={k.name} />}
+              {caretaker && <TeamContact staff={caretaker} title={<><RoomRoleIcon role="caretaker" sex={staffSex(caretaker, bedrooms)} /> Líder de {first}</>} from={user.name} about={k.name} />}
               {roomStaff.map((s) => (
                 <TeamContact key={s.id} staff={s} title={`Equipe do quarto${bedroom ? ` ${bedroom.name}` : ""}`} from={user.name} about={k.name} />
               ))}

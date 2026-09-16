@@ -1,11 +1,10 @@
 import { useState } from "react";
-import Dialog from "../../components/Dialog";
 import EmojiPicker from "../../components/EmojiPicker";
 import TimeInput from "../../components/TimeInput";
-import type { CampEvent, CampEventInput, ScheduleRole, ScheduleRoleInput } from "../../api/schedule";
+import type { CampEvent, CampEventInput } from "../../api/schedule";
 import ParentIcon from "../../components/ParentIcon";
 import Toggle from "../../components/Toggle";
-import RoleForm from "./RoleForm";
+import { useHideScanFab } from "../../scanFab";
 
 const EMOJI_SUGGESTIONS = ["📅", "🌅", "🥐", "🍽️", "🍝", "🏊", "🎯", "🌙", "🎤", "🙏", "🎶", "🔥", "🎬", "🛏️", "🚌", "🎁"];
 
@@ -16,22 +15,19 @@ function todayIso(): string {
 }
 
 interface EventFormProps {
-  token: string;
   event?: CampEvent;
-  roles: ScheduleRole[];
   /** pre-fill the date when creating from a day header */
   defaultDate?: string;
   busy?: boolean;
   onSubmit: (input: CampEventInput) => Promise<void>;
   onCancel: () => void;
-  /** creates a role on the spot (from the inline dialog); the new role is added to the event */
-  onCreateRole: (input: ScheduleRoleInput) => Promise<ScheduleRole>;
 }
 
-/** Create / edit an event: date, time window, title and which roles it needs (roles can be created inline). */
-export default function EventForm({ token, event, roles, defaultDate, busy, onSubmit, onCancel, onCreateRole }: EventFormProps) {
-  const [roleDialog, setRoleDialog] = useState(false);
-  const [creatingRole, setCreatingRole] = useState(false);
+/** Create / edit an event: date, time window, title… The funções are linked
+ *  on the event's own page afterwards — never here. */
+export default function EventForm({ event, defaultDate, busy, onSubmit, onCancel }: EventFormProps) {
+  // the "Ler crachá" FAB would sit on top of Salvar / Cancelar
+  useHideScanFab();
   const editing = !!event;
   const [date, setDate] = useState(event?.date ?? defaultDate ?? todayIso());
   const [title, setTitle] = useState(event?.title ?? "");
@@ -39,36 +35,12 @@ export default function EventForm({ token, event, roles, defaultDate, busy, onSu
   const [startTime, setStartTime] = useState(event?.startTime ?? "08:00");
   const [endTime, setEndTime] = useState(event?.endTime ?? "");
   const [notes, setNotes] = useState(event?.notes ?? "");
-  const [roleIds, setRoleIds] = useState<string[]>(event?.roles ?? []);
   const [visibleToParents, setVisibleToParents] = useState(event?.visibleToParents ?? true);
   const [error, setError] = useState<string | null>(null);
 
   const timeOk = /^\d{2}:\d{2}$/.test(startTime) && (!endTime || endTime > startTime);
   const dateOk = /^\d{4}-\d{2}-\d{2}$/.test(date);
   const valid = title.trim().length > 0 && timeOk && dateOk;
-
-  const byId = new Map(roles.map((r) => [r.id, r]));
-  const chosen = roleIds.map((id) => byId.get(id)).filter((r): r is ScheduleRole => !!r);
-  const available = roles.filter((r) => !roleIds.includes(r.id));
-
-  function addRole(id: string) {
-    if (!id || roleIds.includes(id)) return;
-    setRoleIds((prev) => [...prev, id]);
-  }
-  function removeRole(id: string) {
-    setRoleIds((prev) => prev.filter((x) => x !== id));
-  }
-
-  async function handleCreateRole(input: ScheduleRoleInput) {
-    setCreatingRole(true);
-    try {
-      const created = await onCreateRole(input);
-      setRoleIds((prev) => (prev.includes(created.id) ? prev : [...prev, created.id]));
-      setRoleDialog(false);
-    } finally {
-      setCreatingRole(false);
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -82,7 +54,8 @@ export default function EventForm({ token, event, roles, defaultDate, busy, onSu
         startTime,
         endTime: endTime || null,
         notes: notes.trim(),
-        roles: roleIds,
+        // funções are linked on the event page — an edit must not drop them
+        roles: event?.roles ?? [],
         visibleToParents,
       });
     } catch (err) {
@@ -133,61 +106,6 @@ export default function EventForm({ token, event, roles, defaultDate, busy, onSu
         </div>
         <p className="cat-hint">Aparece na programação dos pais. A equipe sempre vê.</p>
       </div>
-
-      {/* funções só na criação — ao editar, elas são gerenciadas na tela do evento */}
-      {!editing && (
-      <>
-      <section className="form-box form-box--plain" aria-labelledby="event-roles-title">
-        <h3 id="event-roles-title" className="form-box__title">🎯 Funções neste evento</h3>
-        <p className="cat-hint">Quais funções a equipe precisa cumprir neste evento.</p>
-
-        {chosen.length === 0 && <p className="opt-empty">Nenhuma função ainda — escolha abaixo ou crie uma nova.</p>}
-        <ul className="slot-list">
-          {chosen.map((role) => (
-            <li key={role.id} className={`slot-item ${role.forEveryone ? "slot-item--everyone" : ""}`}>
-              <span className="slot-item__emoji" aria-hidden="true">{role.emoji}</span>
-              <span className="slot-item__name">
-                {role.name}
-                {role.forEveryone && <span className="slot-item__badge slot-item__badge--everyone">👥 toda a equipe</span>}
-              </span>
-              <button
-                type="button"
-                className="icon-btn icon-btn--danger slot-item__remove"
-                title="Remover função"
-                disabled={busy}
-                onClick={() => removeRole(role.id)}
-              >
-                ✕
-              </button>
-            </li>
-          ))}
-        </ul>
-
-        <div className="slot-add">
-          {available.length > 0 ? (
-            <select className="cat-input" value="" disabled={busy} onChange={(e) => addRole(e.target.value)} aria-label="Adicionar função existente">
-              <option value="">+ Adicionar função existente…</option>
-              {available.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.emoji} {r.name}
-                  {r.forEveryone ? " (toda a equipe)" : ""}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p className="cat-hint slot-add__hint">{roles.length > 0 ? "Todas as funções já estão neste evento." : "Nenhuma função cadastrada ainda."}</p>
-          )}
-          <button type="button" className="button button--secondary slot-add__new" disabled={busy} onClick={() => setRoleDialog(true)}>
-            + Nova função
-          </button>
-        </div>
-      </section>
-
-      <Dialog open={roleDialog} onClose={() => !creatingRole && setRoleDialog(false)} title="Nova função" width={680} dismissible={false}>
-        <RoleForm embedded token={token} busy={creatingRole} onSubmit={handleCreateRole} onCancel={() => setRoleDialog(false)} />
-      </Dialog>
-      </>
-      )}
 
       <label className="cat-field">
         <span className="cat-field__label">Observações (opcional)</span>

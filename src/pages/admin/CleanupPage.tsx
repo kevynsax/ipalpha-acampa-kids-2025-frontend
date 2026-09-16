@@ -15,6 +15,8 @@ interface Block {
   label: string;
   emoji?: string;
   icon?: string;
+  /** second half of a 📖 + mala pair (emoji is the first half) */
+  pairIcon?: string;
   /** what the button removes, in one line */
   hint: string;
   /** singular / plural of the thing being counted */
@@ -32,15 +34,16 @@ interface Block {
 
 const BLOCKS: readonly Block[] = [
   { key: "campers", label: "Acampantes", icon: ICONS.camper, hint: "As crianças, os check-ins, o histórico dos pais e os pontos lidos no crachá.", unit: ["acampante", "acampantes"] },
-  { key: "staff", label: "Equipe", emoji: "🧑‍🤝‍🧑", hint: "A equipe, suas funções na programação e as listas das configurações.", unit: ["pessoa", "pessoas"] },
-  { key: "bedrooms", label: "Quartos", emoji: "🛏️", hint: "Os quartos; as crianças e a equipe ficam sem quarto, cama e líder.", unit: ["quarto", "quartos"] },
+  { key: "staff", label: "Equipe", icon: ICONS.staffPair, hint: "A equipe, suas funções na programação e as listas das configurações.", unit: ["pessoa", "pessoas"] },
+  { key: "bedrooms", label: "Quartos", icon: ICONS.bed, hint: "Os quartos; as crianças e a equipe ficam sem quarto, cama e líder.", unit: ["quarto", "quartos"] },
   { key: "transports", label: "Transporte", icon: ICONS.transport, hint: "Os ônibus e carros; ninguém fica com veículo e os ajudantes do check-in do ônibus saem da função.", unit: ["veículo", "veículos"] },
   { key: "teams", label: "Times", emoji: "🚩", hint: "Os times, o time de cada pessoa e todo o placar.", unit: ["time", "times"] },
   { key: "schedule", label: "Programação", icon: ICONS.schedule, hint: "Os eventos do acampamento.", unit: ["evento", "eventos"] },
   {
     key: "docs",
     label: "Instruções e Preparação",
-    emoji: "📖 + 🎒",
+    emoji: "📖",
+    pairIcon: ICONS.preparation,
     hint: "Os documentos para todo mundo: Instruções e Preparações.",
     unit: ["documento", "documentos"],
     noun: "documentos",
@@ -218,7 +221,18 @@ export default function CleanupPage({ token }: CleanupPageProps) {
           return (
             <section key={b.key} className="cleanup-card">
               <h2 className="cleanup-card__title">
-                {b.icon ? <img className="cleanup-card__icon" src={b.icon} alt="" aria-hidden="true" /> : <span aria-hidden="true">{b.emoji}</span>} {b.label}
+                {b.pairIcon ? (
+                  <span className="cleanup-card__pair" aria-hidden="true">
+                    <span>{b.emoji}</span>
+                    <i>+</i>
+                    <img className="cleanup-card__icon" src={b.pairIcon} alt="" />
+                  </span>
+                ) : b.icon ? (
+                  <img className="cleanup-card__icon" src={b.icon} alt="" aria-hidden="true" />
+                ) : (
+                  <span aria-hidden="true">{b.emoji}</span>
+                )}{" "}
+                {b.label}
               </h2>
               <p className="cleanup-card__count">{amount(b)}</p>
               <p className="cat-hint">{b.hint}</p>

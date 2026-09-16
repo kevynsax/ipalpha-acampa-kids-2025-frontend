@@ -9,10 +9,10 @@ export type CategoryAudience = (typeof CATEGORY_AUDIENCES)[number];
 export const CATEGORY_SELECTIONS = ["single", "multiple"] as const;
 export type CategorySelection = (typeof CATEGORY_SELECTIONS)[number];
 
-/** `icon` is a paper-cut image (same set as the login page); falls back to `emoji` when absent. */
-export const AUDIENCE_META: Record<CategoryAudience, { label: string; emoji: string; icon?: string }> = {
-  camper: { label: "Acampante", emoji: "🧒", icon: ICONS.camper },
-  staff: { label: "Equipe", emoji: "🎒", icon: roleMeta("staff").icon },
+/** `icon` is a paper-cut image (same set as the login page). */
+export const AUDIENCE_META: Record<CategoryAudience, { label: string; icon?: string }> = {
+  camper: { label: "Acampante", icon: ICONS.camper },
+  staff: { label: "Equipe", icon: roleMeta("staff").icon },
 };
 
 export const SELECTION_META: Record<CategorySelection, { label: string; hint: string; emoji: string }> = {

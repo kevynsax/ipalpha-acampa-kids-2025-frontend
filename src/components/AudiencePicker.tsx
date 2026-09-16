@@ -5,10 +5,10 @@ import iconStaff from "../assets/icons/staff.png";
 /** Who a general document (Instruções / Preparação) is for. */
 export type DocAudience = "all" | "caretaker" | "helper";
 
-export const DOC_AUDIENCE_META: Record<DocAudience, { label: string; emoji: string; icon: string; hint: string }> = {
-  all: { label: "Todos", emoji: "👥", icon: iconStaff, hint: "toda a equipe" },
-  caretaker: { label: ROOM_ROLE_META.caretaker.label + "s", emoji: ROOM_ROLE_META.caretaker.emoji, icon: ROOM_ROLE_META.caretaker.icon!, hint: "só quem cuida de crianças" },
-  helper: { label: ROOM_ROLE_META.helper.label + "es", emoji: ROOM_ROLE_META.helper.emoji, icon: ROOM_ROLE_META.helper.icon!, hint: "só os auxiliares de quarto" },
+export const DOC_AUDIENCE_META: Record<DocAudience, { label: string; icon: string; hint: string }> = {
+  all: { label: "Todos", icon: iconStaff, hint: "toda a equipe" },
+  caretaker: { label: ROOM_ROLE_META.caretaker.label + "s", icon: ROOM_ROLE_META.caretaker.icon!, hint: "só quem cuida de crianças" },
+  helper: { label: ROOM_ROLE_META.helper.label + "es", icon: ROOM_ROLE_META.helper.icon!, hint: "só os auxiliares de quarto" },
 };
 
 /** The paper-cut icon of an audience, at a given pixel size. */
@@ -47,8 +47,8 @@ export default function AudiencePicker({ value, onChange, disabled }: AudiencePi
 
 export type PrepAudience = "parent" | "caretaker" | "helper";
 
-export const PREP_AUDIENCE_META: Record<PrepAudience, { label: string; emoji: string; icon: string; hint: string }> = {
-  parent: { label: "Pais", emoji: "👨‍👩‍👧", icon: roleMeta("parent").icon, hint: "ou responsáveis pelas crianças" },
+export const PREP_AUDIENCE_META: Record<PrepAudience, { label: string; icon: string; hint: string }> = {
+  parent: { label: "Pais", icon: roleMeta("parent").icon, hint: "ou responsáveis pelas crianças" },
   caretaker: { ...DOC_AUDIENCE_META.caretaker, hint: "quem cuida de crianças" },
   helper: { ...DOC_AUDIENCE_META.helper, hint: "os auxiliares de quarto" },
 };

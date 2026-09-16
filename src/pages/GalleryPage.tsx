@@ -4,10 +4,11 @@ import { deleteGalleryPhotos, extractZipImages, galleryUrl, isZip, reorderGaller
 import { type CampEvent } from "../api/schedule";
 import { downloadPhotos, isAbort, safeName, zipsDownloads, type DownloadItem } from "../galleryDownload";
 import { useMarqueeSelect } from "../hooks/useMarqueeSelect";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import { dayKey, speakDay } from "../dates";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import Dialog from "../components/Dialog";
-import { DownloadGlyph, SearchGlyph } from "../components/Glyph";
+import { DownloadGlyph, SearchGlyph, UploadGlyph } from "../components/Glyph";
 import PageFooter from "../components/PageFooter";
 import Toggle from "../components/Toggle";
 import { useConfirm } from "../components/ConfirmDialog";
@@ -286,6 +287,8 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
   }
 
   const eventById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events]);
+  /** phones: the header actions are icons only — the Publicadas switch becomes a globe */
+  const phone = useMediaQuery("(max-width: 700px)");
   /** the album switch: one flag for the whole gallery, not per photo */
   const anyPublished = !!settings?.galleryPublished;
   /** events that actually have photos, in programme order (as they happened) */
@@ -981,7 +984,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       {dragging && !parentMode &&
         createPortal(
           <div className="gallery-drop" aria-hidden="true">
-            <span className="gallery-drop__box">📷 Solte as fotos aqui</span>
+            <span className="gallery-drop__box"><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> Solte as fotos aqui</span>
           </div>,
           document.body,
         )}
@@ -991,7 +994,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
           Fotos
         </h1>
         {(canManage || selected.size > 0 || (visible.length > 0 && !parentLocked)) && (
-        <div className="admin-head__actions">
+        <div className="admin-head__actions admin-head__actions--icons">
           {/* parents: the whole filtered set after a search, or only what they ticked */}
           {visible.length > 0 && (selected.size > 0 || !parentLocked) && (
             <button
@@ -1007,7 +1010,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
                     : "Baixar estas fotos, uma a uma"
               }
             >
-              <DownloadGlyph /> Baixar{selected.size > 0 ? ` (${selected.size})` : ""}
+              <DownloadGlyph /> <span className="admin-head__action-label">Baixar{selected.size > 0 ? ` (${selected.size})` : ""}</span>
             </button>
           )}
           {canManage && (
@@ -1016,11 +1019,31 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
               {/* while the panel is open it IS the upload affordance — no duplicate button */}
               {!panelOpen && (
                 <button type="button" className="button button--secondary admin-head__new" onClick={() => setPickerOpen(true)}>
-                  📷 Enviar fotos
+                  <UploadGlyph /> <span className="admin-head__action-label">Enviar fotos</span>
                 </button>
               )}
               {/* the switch only makes sense once the album has something to show */}
-              {photos.length > 0 && <Toggle checked={anyPublished} onChange={(next) => void toggleAlbum(next)} disabled={albumBusy} label="Publicadas" />}
+              {/* phones: the switch becomes a globe — filled green while the album is out, outlined while it is not */}
+              {photos.length > 0 && (phone ? (
+                <button
+                  type="button"
+                  className={`icon-btn album-globe ${anyPublished ? "album-globe--on" : ""}`}
+                  role="switch"
+                  aria-checked={anyPublished}
+                  title={anyPublished ? "Álbum publicado — os pais veem as fotos" : "Álbum não publicado"}
+                  aria-label={anyPublished ? "Álbum publicado — tocar para despublicar" : "Álbum não publicado — tocar para publicar"}
+                  disabled={albumBusy}
+                  onClick={() => void toggleAlbum(!anyPublished)}
+                >
+                  <svg className="album-globe__icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M3 12h18" />
+                    <path d="M12 3c2.5 2.6 3.8 5.7 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.7-3.8-9S9.5 5.6 12 3Z" />
+                  </svg>
+                </button>
+              ) : (
+                <Toggle checked={anyPublished} onChange={(next) => void toggleAlbum(next)} disabled={albumBusy} label="Publicadas" />
+              ))}
             </>
           )}
         </div>
@@ -1109,7 +1132,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       {panelOpen && (
         <section className="gallery-upload gallery-upload--picker">
           <div className="gallery-upload__head">
-            <h2 className="gallery-upload__title">📷 Arraste as fotos para cá</h2>
+            <h2 className="gallery-upload__title"><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> Arraste as fotos para cá</h2>
             {/* with an empty album there is nothing to go back to */}
             {photos.length > 0 && (
               <button type="button" className="gallery-upload__close" onClick={() => setPickerOpen(false)}>
@@ -1288,8 +1311,14 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       {/* the rubber band itself (fixed to the viewport, like the drop overlay) */}
       {marquee.rect && createPortal(<div className="gallery-marquee" style={marquee.rect} aria-hidden="true" />, document.body)}
 
-      <PageFooter>
-        {parentMode ? "📷 Sua foto de referência não fica salva." : canManage ? "📷 Ao ligar Publicadas, pais e equipe veem na hora." : "📷 Novas fotos aparecem aqui assim que o fotógrafo publica."}
+      <PageFooter className={!parentMode && !canManage ? "footer-note--gallery-publish" : undefined}>
+        {parentMode ? (
+          <><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> Sua foto de referência não fica salva.</>
+        ) : canManage ? (
+          <><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> Ao ligar Publicadas, pais e equipe veem na hora.</>
+        ) : (
+          <><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> Novas fotos aparecem aqui assim que o fotógrafo publica.</>
+        )}
       </PageFooter>
 
       {/* the photo itself: a card on a computer, a bottom sheet on phones */}
@@ -1436,22 +1465,25 @@ function EventPickerDialog({ open, events, selectedId, onClose, onPick }: EventP
   const noHits = !empty && !showGeneral && days.length === 0;
 
   return (
-    <Dialog open={open} onClose={onClose} title="Escolher evento" width={520}>
-      <div className="cat-form cat-form--embedded ev-pick">
-        <h2 className="cat-form__title">Onde entram as fotos?</h2>
+    <Dialog open={open} onClose={onClose} title="Escolher evento" width={520} className="picker-sheet-dialog">
+      <div className="picker picker-sheet">
+        <header className="picker-sheet__head">
+          <span className="picker-sheet__handle" aria-hidden="true" />
+          <h2 className="cat-form__title">Onde entram as fotos?</h2>
+          <label className="ev-pick__search">
+            <SearchGlyph className="ev-pick__search-icon" size="1.15em" />
+            <input
+              className="cat-input"
+              type="search"
+              placeholder="Buscar evento, dia ou horário…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              aria-label="Buscar evento"
+            />
+          </label>
+        </header>
 
-        <label className="ev-pick__search">
-          <SearchGlyph className="ev-pick__search-icon" size="1.15em" />
-          <input
-            className="cat-input"
-            type="search"
-            placeholder="Buscar evento, dia ou horário…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            aria-label="Buscar evento"
-          />
-        </label>
-
+        <div className="picker-sheet__body">
         <div className="ev-pick__list">
           {showGeneral && (
             <button type="button" className={`ev-pick__item ${selectedId === null ? "ev-pick__item--on" : ""}`} onClick={() => onPick(null)}>
@@ -1486,8 +1518,9 @@ function EventPickerDialog({ open, events, selectedId, onClose, onPick }: EventP
           {empty && <p className="cat-hint">Nenhum evento na programação ainda — as fotos ficam como gerais.</p>}
           {noHits && <p className="opt-empty">Nenhum evento encontrado.</p>}
         </div>
+        </div>
 
-        <div className="cat-form__actions">
+        <div className="cat-form__actions picker-sheet__actions">
           <button type="button" className="button button--secondary" onClick={onClose}>
             Cancelar
           </button>

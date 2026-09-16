@@ -2,6 +2,8 @@ import { useState } from "react";
 import { BEDROOM_GROUPS, GROUP_META, type Bedroom, type BedroomGroup, type BedroomInput } from "../../api/bedrooms";
 import BunkIcon from "../../components/BunkIcon";
 import GroupIcon from "../../components/GroupIcon";
+import { ICONS } from "../../icons";
+import { useHideScanFab } from "../../scanFab";
 
 interface BedroomFormProps {
   bedroom?: Bedroom;
@@ -16,6 +18,8 @@ const BEDS_MAX = 50;
 
 /** Create / edit a bedroom: number, wing and bed layout (bunk + single). */
 export default function BedroomForm({ bedroom, defaultGroup, busy, onSubmit, onCancel }: BedroomFormProps) {
+  // the "Ler crachá" FAB would sit on top of Salvar / Cancelar
+  useHideScanFab();
   const editing = !!bedroom;
   const [name, setName] = useState(bedroom?.name ?? "");
   const [group, setGroup] = useState<BedroomGroup>(bedroom?.group ?? defaultGroup ?? "girls");
@@ -108,7 +112,7 @@ export default function BedroomForm({ bedroom, defaultGroup, busy, onSubmit, onC
 
       <div className="cat-form__row staff-form__row">
         {renderCounter(<><BunkIcon size={18} /> Beliches</>, "Beliches", "cada beliche dorme 2", bunkBeds, setBunkBeds)}
-        {renderCounter("🛏️ Camas de solteiro", "Camas de solteiro", "cada cama dorme 1", singleBeds, setSingleBeds)}
+        {renderCounter(<><img className="audience-icon" src={ICONS.bed} alt="" aria-hidden="true" /> Camas de solteiro</>, "Camas de solteiro", "cada cama dorme 1", singleBeds, setSingleBeds)}
         <div className="cat-field capacity-box">
           <span className="cat-field__label">Capacidade</span>
           <span className="capacity-box__value">{capacity}</span>

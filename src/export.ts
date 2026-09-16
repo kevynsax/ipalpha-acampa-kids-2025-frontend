@@ -126,6 +126,7 @@ export function staffRow(s: Staff, roomById: Map<string, Bedroom>, labelOf: Labe
   const room = s.bedroom ? roomById.get(s.bedroom) : null;
   return {
     Nome: s.name,
+    Sexo: s.sex === "F" ? "Feminino" : s.sex === "M" ? "Masculino" : "",
     Celular: phone(s.phone),
     Ativo: s.active ? "Sim" : "Não",
     Equipe: labelOf(s.team) ?? "",
@@ -329,6 +330,7 @@ const blankCamper: Camper = {
 const blankStaff: Staff = {
   id: "",
   name: "",
+  sex: null,
   phone: null,
   active: true,
   team: null,

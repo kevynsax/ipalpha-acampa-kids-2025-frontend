@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { speakDay } from "../../dates";
 import { setMyPrepSectionDone } from "../../api/preparation";
 import RichHtml from "../../components/RichHtml";
@@ -6,6 +6,7 @@ import { useCampTiming } from "../../campPhase";
 import { useSinkingChecklist } from "../../hooks/useSinkingChecklist";
 import type { LoggedUser } from "../../roles";
 import { useCollection } from "../../store";
+import { ICONS } from "../../icons";
 
 interface ParentPreparationPageProps {
   user: LoggedUser;
@@ -13,12 +14,12 @@ interface ParentPreparationPageProps {
 }
 
 /** "Faltam 12 dias" / "É amanhã!" / "É hoje!" / "Acampamento em andamento" */
-function countdownLabel(daysToGo: number | null): { emoji: string; text: string } | null {
+function countdownLabel(daysToGo: number | null): { mark: ReactNode; text: string } | null {
   if (daysToGo === null) return null;
-  if (daysToGo > 1) return { emoji: "⏳", text: `Faltam ${daysToGo} dias` };
-  if (daysToGo === 1) return { emoji: "🎒", text: "É amanhã!" };
-  if (daysToGo === 0) return { emoji: "🚌", text: "É hoje!" };
-  return { emoji: "🏕️", text: "Acampamento em andamento" };
+  if (daysToGo > 1) return { mark: "⏳", text: `Faltam ${daysToGo} dias` };
+  if (daysToGo === 1) return { mark: <img className="prep-countdown__icon" src={ICONS.preparation} alt="" />, text: "É amanhã!" };
+  if (daysToGo === 0) return { mark: "🚌", text: "É hoje!" };
+  return { mark: "🏕️", text: "Acampamento em andamento" };
 }
 
 /**
@@ -73,12 +74,12 @@ export default function ParentPreparationPage({ user, token }: ParentPreparation
   return (
     <div className="admin-page prep-page">
       <header className="admin-head">
-        <h1 className="admin-title">🎒 Preparação</h1>
+        <h1 className="admin-title"><img className="admin-title__icon" src={ICONS.preparation} alt="" aria-hidden="true" /> Preparação</h1>
       </header>
 
       {countdown && (
         <div className="prep-countdown" role="status">
-          <span className="prep-countdown__emoji" aria-hidden="true">{countdown.emoji}</span>
+          <span className="prep-countdown__emoji" aria-hidden="true">{countdown.mark}</span>
           <div className="prep-countdown__text">
             <strong>{countdown.text}</strong>
             {timing.firstDate && <span>{timing.daysToGo !== null && timing.daysToGo < 0 ? "Começou" : "Começa"} {speakDay(timing.firstDate).toLowerCase()}</span>}
@@ -134,7 +135,7 @@ export default function ParentPreparationPage({ user, token }: ParentPreparation
 
       {total === 0 && (
         <div className="admin-empty">
-          <span className="admin-empty__emoji">🎒</span>
+          <img className="admin-empty__icon" src={ICONS.preparation} alt="" aria-hidden="true" />
           <p>Nada para preparar por enquanto. Assim que a organização publicar as orientações, elas aparecem aqui.</p>
         </div>
       )}

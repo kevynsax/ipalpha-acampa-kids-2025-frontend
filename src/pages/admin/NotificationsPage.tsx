@@ -25,6 +25,8 @@ interface NotifOption {
   key: NotifKey;
   emoji?: string;
   icon?: string;
+  /** second half of a 📖 + mala pair (emoji is the first half) */
+  pairIcon?: string;
   title: string;
   text: ReactNode;
   /** switching ON asks for confirmation with a preview of who gets texted right now */
@@ -81,7 +83,8 @@ const GROUPS: NotifGroup[] = [
       },
       {
         key: "contentChanges",
-        emoji: "📖 + 🎒",
+        emoji: "📖",
+        pairIcon: ICONS.preparation,
         title: "Instruções ou Preparação novas / alteradas",
         text: "Quando um documento de Instruções ou uma seção da Preparação é criado ou alterado (a equipe para quem foi publicado), ou as instruções / preparação de uma função mudam (quem tem a função), a pessoa recebe um SMS.",
       },
@@ -138,7 +141,7 @@ const GROUPS: NotifGroup[] = [
       },
       {
         key: "parentContentChanges",
-        emoji: "🎒",
+        icon: ICONS.preparation,
         title: "Preparação nova / alterada para os pais",
         text: "Quando uma seção da Preparação publicada para os pais é criada ou alterada, cada responsável recebe um SMS — só enquanto a janela de acesso dos pais (em Geral) estiver aberta.",
       },
@@ -322,8 +325,18 @@ export default function NotificationsPage({ token }: NotificationsPageProps) {
                 const on = settings.notifications[o.key];
                 return (
                   <li key={o.key} className={`notif-item ${on ? "notif-item--on" : ""}`}>
-                    <span className={`notif-item__emoji ${!o.icon && o.emoji?.includes("+") ? "notif-item__emoji--pair" : ""}`} aria-hidden="true">
-                      {o.icon ? <img src={o.icon} alt="" className="notif-item__icon" /> : o.emoji}
+                    <span className={`notif-item__emoji ${o.pairIcon ? "notif-item__emoji--pair" : ""}`} aria-hidden="true">
+                      {o.pairIcon ? (
+                        <>
+                          <span>{o.emoji}</span>
+                          <i className="notif-item__plus">+</i>
+                          <img src={o.pairIcon} alt="" className="notif-item__icon" />
+                        </>
+                      ) : o.icon ? (
+                        <img src={o.icon} alt="" className="notif-item__icon" />
+                      ) : (
+                        o.emoji
+                      )}
                     </span>
                     <div className="notif-item__body">
                       <h3 className="notif-item__title">{o.title}</h3>

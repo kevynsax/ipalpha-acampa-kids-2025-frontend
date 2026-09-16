@@ -19,17 +19,12 @@ import { formatBrazilPhoneClient } from "../phoneFormat";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import { useLabelOf } from "../store/derive";
 import { useRoute } from "../router";
-import TransportReport from "./TransportReport";
 import { speakTime } from "../dates";
 
 interface CheckinPageProps {
   token: string;
-  /** admin: shows the per-vehicle report (it lists the team too, which helpers don't receive) and links to staff pages */
-  canOpenStaff?: boolean;
   /** the admin route is nested below the merged Check-in landing page */
   adminMerged?: boolean;
-  /** the logged-in person — signs WhatsApp greetings in the per-vehicle report */
-  myName?: string;
 }
 
 type Filter = "pending" | "done" | "all";
@@ -38,7 +33,7 @@ type Filter = "pending" | "done" | "all";
  * Arrival day: search the kid by name, open the check-in dialog, have the
  * parent confirm each piece of health/contact info, then "Confirmar chegada".
  */
-export default function CheckinPage({ token, canOpenStaff, adminMerged = false, myName = "" }: CheckinPageProps) {
+export default function CheckinPage({ token, adminMerged = false }: CheckinPageProps) {
   const campers = useCollection("campers");
   const bedrooms = useCollectionOrEmpty("bedrooms");
   const transports = useCollectionOrEmpty("transports");
@@ -47,9 +42,6 @@ export default function CheckinPage({ token, canOpenStaff, adminMerged = false, 
   const busIds = useMemo(() => new Set(transports.filter((t) => t.kind === "bus").map((t) => t.id)), [transports]);
   const onBus = (k: Camper) => !!k.transportation && busIds.has(k.transportation);
   const { segments, navigate } = useRoute();
-  /** #/checkin/report for helpers; #/checkin/church/report for admins */
-  const reportOpen = segments[adminMerged ? 2 : 1] === "report";
-  const basePath = adminMerged ? "/checkin/church" : "/checkin";
   const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("pending");
@@ -133,19 +125,6 @@ export default function CheckinPage({ token, canOpenStaff, adminMerged = false, 
     }
   }
 
-  if (reportOpen && canOpenStaff) {
-    return (
-      <TransportReport
-        token={token}
-        onBack={() => navigate(basePath)}
-        onHome={adminMerged ? () => navigate("/checkin") : undefined}
-        onOpenStaff={(id) => navigate(`/staff/${id}`)}
-        onOpenCamper={(id) => navigate(`/campers/${id}`)}
-        myName={myName}
-      />
-    );
-  }
-
   if (!campers) {
     return (
       <div className="admin-page">
@@ -164,11 +143,6 @@ export default function CheckinPage({ token, canOpenStaff, adminMerged = false, 
           <span className="checkin-progress" title="Crianças que já chegaram">
             ✅ {counts.done}/{counts.all}
           </span>
-          {canOpenStaff && (
-            <button type="button" className="button button--secondary admin-head__new" disabled={campers.length === 0} title="Chegadas por veículo" onClick={() => navigate(`${basePath}/report`)}>
-              📊 Por veículo
-            </button>
-          )}
         </div>
       </header>
 
@@ -183,7 +157,7 @@ export default function CheckinPage({ token, canOpenStaff, adminMerged = false, 
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <div className="staff-toolbar__filters" role="tablist" aria-label="Filtro">
+        <div className="staff-toolbar__filters checkin-filters" role="tablist" aria-label="Filtro">
           {(
             [
               ["pending", "Aguardando"],

@@ -12,6 +12,7 @@ import {
   type ScheduleRole,
   type ScheduleRoleInput,
 } from "../../api/schedule";
+import AutoRoleBadge, { positionsMeta } from "../../components/AutoRoleBadge";
 import ParentIcon from "../../components/ParentIcon";
 import { speakDay } from "../../dates";
 import { useCollection, useCollectionOrEmpty } from "../../store";
@@ -137,10 +138,6 @@ export default function SchedulePage({ token }: SchedulePageProps) {
     await withBusy(() => createRole(token, input));
     navigate("/schedule/roles", { replace: true });
   }
-  /** used by the inline dialog on the event form — keeps the current mode */
-  async function createRoleInline(input: ScheduleRoleInput): Promise<ScheduleRole> {
-    return createRole(token, input);
-  }
   async function handleEditRole(input: ScheduleRoleInput) {
     if (mode.kind !== "edit-role") return;
     const updated = await withBusy(() => updateRole(token, mode.id, input));
@@ -192,7 +189,6 @@ export default function SchedulePage({ token }: SchedulePageProps) {
         crumbs={[{ label: "Programação", onClick: () => navigate("/schedule") }, ...crumbs, { label: `${ev.emoji} ${ev.title}` }]}
         onEdit={() => navigate(`/schedule/events/${ev.id}/edit`)}
         onOpenStaff={(id) => navigate(detailUrl({ kind: "staff", id }, chain))}
-        onOpenRole={(id) => navigate(detailUrl({ kind: "role", id }, chain))}
       />
     );
   }
@@ -313,11 +309,11 @@ export default function SchedulePage({ token }: SchedulePageProps) {
 
       {/* ── forms ── */}
       {mode.kind === "create-event" && (
-        <EventForm key={mode.date ?? "any"} token={token} roles={roles} defaultDate={mode.date} busy={busy} onSubmit={handleCreateEvent} onCancel={cancel} onCreateRole={createRoleInline} />
+        <EventForm key={mode.date ?? "any"} defaultDate={mode.date} busy={busy} onSubmit={handleCreateEvent} onCancel={cancel} />
       )}
       {mode.kind === "edit-event" && !editingEvent && <p className="opt-empty">Evento não encontrado.</p>}
       {mode.kind === "edit-event" && editingEvent && (
-        <EventForm key={editingEvent.id} token={token} event={editingEvent} roles={roles} busy={busy} onSubmit={handleEditEvent} onCancel={cancel} onCreateRole={createRoleInline} />
+        <EventForm key={editingEvent.id} event={editingEvent} busy={busy} onSubmit={handleEditEvent} onCancel={cancel} />
       )}
       {mode.kind === "create-role" && <RoleForm token={token} busy={busy} onSubmit={handleCreateRole} onCancel={cancel} />}
       {mode.kind === "edit-role" && !editingRole && <p className="opt-empty">Função não encontrada.</p>}
@@ -369,7 +365,8 @@ export default function SchedulePage({ token }: SchedulePageProps) {
                       }}
                     >
                       <h3 className="event-card__title">
-                        <span aria-hidden="true">{e.emoji}</span> {e.title}
+                        <span className="event-card__title-text"><span aria-hidden="true">{e.emoji}</span> {e.title}</span>
+                        {/* pushed to the card's right edge — see .event-card__parents */}
                         <button
                           type="button"
                           className={`event-card__parents ${e.visibleToParents === false ? "event-card__parents--off" : ""}`}
@@ -395,14 +392,23 @@ export default function SchedulePage({ token }: SchedulePageProps) {
                               ev.stopPropagation();
                               navigate(detailUrl({ kind: "role", id }, [{ kind: "event", id: e.id }]));
                             };
-                            if (r.forEveryone) {
+                            const who = positionsMeta(r.forRoomRoles);
+                            /* escalados à mão neste evento — somam com quem pega pela posição */
+                            const n = e.assignments.filter((a) => a.roleId === id).length;
+                            if (who) {
                               return (
-                                <button key={id} type="button" className="staff-tag staff-tag--everyone staff-tag--link" title={`${r.name}: função padrão (toda a equipe) — ver função`} onClick={openRole}>
-                                  {r.emoji} {r.name}
+                                <button
+                                  key={id}
+                                  type="button"
+                                  className="staff-tag staff-tag--everyone staff-tag--link"
+                                  title={`${r.name}: vai sozinha para ${who.label}${n > 0 ? ` + ${n} escalado(s)` : ""} — ver função`}
+                                  onClick={openRole}
+                                >
+                                  <img className="audience-icon" src={who.icon} alt="" aria-hidden="true" /> {r.emoji} {r.name}
+                                  {n > 0 && <span className="staff-tag__n">+{n}</span>}
                                 </button>
                               );
                             }
-                            const n = e.assignments.filter((a) => a.roleId === id).length;
                             return (
                               <button key={id} type="button" className={`staff-tag staff-tag--link ${n === 0 ? "staff-tag--empty" : ""}`} title={n === 0 ? `${r.name}: ninguém escalado — ver função` : `${r.name}: ${n} escalado(s) — ver função`} onClick={openRole}>
                                 {r.emoji} {r.name}
@@ -454,8 +460,8 @@ export default function SchedulePage({ token }: SchedulePageProps) {
                     <span aria-hidden="true">{r.emoji}</span> {r.name}
                   </h3>
                   <p className="staff-card__meta">
-                    {r.forEveryone && <span className="slot-item__badge slot-item__badge--everyone">👥 toda a equipe</span>}
-                    {r.forEveryone && " · "}
+                    <AutoRoleBadge role={r} />
+                    {r.forRoomRoles.length > 0 && " · "}
                     {used === 0 ? "Não usada em nenhum evento" : `Usada em ${used} evento${used > 1 ? "s" : ""}`}
                     {" · "}
                     {r.instructions ? (

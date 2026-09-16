@@ -80,6 +80,10 @@ export function useRoute(): Route & { navigate: typeof navigate } {
 /** Scroll to top when the path changes (like a full page navigation would). */
 export function useScrollTopOnRoute(path: string): void {
   useEffect(() => {
+    for (const selector of [".dash", ".dash-scroll"]) {
+      const scroller = document.querySelector(selector);
+      if (scroller) scroller.scrollTop = 0;
+    }
     window.scrollTo({ top: 0 });
   }, [path]);
 }

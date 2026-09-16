@@ -1,5 +1,6 @@
 import { command } from "./client";
 import { bearer } from "../auth/store";
+import { ROOM_ROLE_META, type RoomRole } from "./staff";
 
 export interface ScheduleRole {
   id: string;
@@ -9,8 +10,15 @@ export interface ScheduleRole {
   instructions: string;
   /** sanitized HTML: what to bring / wear / prepare BEFORE the camp for this role (Preparação page) */
   preparation: string;
-  /** applies to every active staff member of the event — no per-person assignment */
-  forEveryone: boolean;
+  /**
+   * POSITIONS the função falls on by itself, no escala needed (the link is
+   * `Staff.roomRole`): both = toda a equipe, one = só os Líderes / só os
+   * Auxiliares, `[]` = só quem for escalado à mão.
+   *
+   * ADDS UP with the escala: "os líderes + a Ana" is `["caretaker"]` plus one
+   * assignment.
+   */
+  forRoomRoles: RoomRole[];
   /** the assignment carries a per-person detail (team, base, shift…) */
   hasDetail: boolean;
   /**
@@ -31,10 +39,78 @@ export interface ScheduleRoleInput {
   emoji: string;
   instructions: string;
   preparation: string;
-  forEveryone: boolean;
+  forRoomRoles: RoomRole[];
   hasDetail: boolean;
   detailFromTeam: boolean;
   detailPlaceholder: string;
+}
+
+/**
+ * WHO does a função — the ways ADD UP: by POSITION (`forRoomRoles`, no escala
+ * needed) and/or by PERSON (`CampEvent.assignments`). A person does one
+ * função per event: an explicit escala always wins.
+ * Mirrors `backend/src/services/schedule.ts`.
+ */
+
+/** Does it fall on somebody by their position, with no escala? */
+export function isAutomatic(role: Pick<ScheduleRole, "forRoomRoles"> | undefined | null): boolean {
+  return !!role && role.forRoomRoles.length > 0;
+}
+
+/** Does it fall on EVERY position (= toda a equipe)? */
+export function isForWholeTeam(role: Pick<ScheduleRole, "forRoomRoles"> | undefined | null): boolean {
+  return !!role && role.forRoomRoles.length >= 2;
+}
+
+/** Does it reach somebody in that position by itself? */
+export function autoRoleCovers(role: Pick<ScheduleRole, "forRoomRoles"> | undefined | null, roomRole: RoomRole): boolean {
+  return !!role?.forRoomRoles.includes(roomRole);
+}
+
+/**
+ * The função of an event that falls on somebody in that position — what they
+ * do there with no escala. One aimed at a single position wins over the
+ * whole-team one.
+ */
+export function autoRoleFor(roleIds: string[], roomRole: RoomRole, roleById: Map<string, ScheduleRole>): ScheduleRole | undefined {
+  const mine = roleIds.map((id) => roleById.get(id)).filter((r) => autoRoleCovers(r, roomRole)) as ScheduleRole[];
+  return mine.find((r) => !isForWholeTeam(r)) ?? mine[0];
+}
+
+/** What ONE person does in an event: their escala, else their position's função. `null` = nothing. */
+export function dutyOf(
+  e: Pick<CampEvent, "roles" | "assignments">,
+  s: { id: string; active: boolean; roomRole: RoomRole },
+  roleById: Map<string, ScheduleRole>,
+): { role: ScheduleRole | undefined; assignment: EventAssignment | undefined } | null {
+  const assignment = e.assignments.find((a) => a.staffId === s.id);
+  if (assignment) return { role: roleById.get(assignment.roleId), assignment };
+  if (!s.active) return null;
+  const role = autoRoleFor(e.roles, s.roomRole, roleById);
+  return role ? { role, assignment: undefined } : null;
+}
+
+/** Everyone a função reaches in an event: escalados + covered by position (minus whoever does something else). */
+export function peopleInRole<T extends { id: string; active: boolean; roomRole: RoomRole }>(
+  e: Pick<CampEvent, "roles" | "assignments">,
+  role: Pick<ScheduleRole, "id" | "forRoomRoles">,
+  staff: T[],
+  roleById: Map<string, ScheduleRole>,
+): { staff: T; via: "person" | "position"; assignment?: EventAssignment }[] {
+  const out: { staff: T; via: "person" | "position"; assignment?: EventAssignment }[] = [];
+  for (const s of staff) {
+    const duty = dutyOf(e, s, roleById);
+    if (duty?.role?.id !== role.id) continue;
+    out.push({ staff: s, via: duty.assignment ? "person" : "position", assignment: duty.assignment });
+  }
+  return out;
+}
+
+/** The positions it falls on: "toda a equipe" / "os Líderes" / "os Auxiliares" / "" (só escalados). */
+export function autoAudienceLabel(role: Pick<ScheduleRole, "forRoomRoles">): string {
+  if (isForWholeTeam(role)) return "toda a equipe";
+  const one = role.forRoomRoles[0];
+  return one ? `os ${ROOM_ROLE_META[one].plural}` : "";
 }
 
 /** A staff member scaled into one of the event's roles. `detail` = team / base / colour / shift.
@@ -116,8 +192,8 @@ export interface RoleEventUsage {
   endTime: string | null;
   title: string;
   emoji: string;
-  /** who does this role in the event (for "everyone" roles: everyone not doing something else) */
-  people: { staffId: string; name: string; detail: string }[];
+  /** who does this função here — escalados (`via: "person"`) and those it falls on by position */
+  people: { staffId: string; name: string; detail: string; via: "person" | "position" }[];
 }
 
 export interface RoleDetail {

@@ -12,6 +12,8 @@ export const STAFF_CATEGORY_KEYS = {
 export interface Staff {
   id: string;
   name: string;
+  /** "F" | "M" | null — from the room (meninas/meninos) or a GLM guess on the name; never shown on the form */
+  sex: import("./campers").CamperSex | null;
   /** E.164, or null while the person hasn't registered a phone */
   phone: string | null;
   /** an ADMIN's own roster record: can't be deleted, deactivated or have the phone changed */
@@ -60,11 +62,21 @@ export interface VestStatus {
 }
 
 export type RoomRole = "caretaker" | "helper";
-/** `icon` is the head-only paper-cut image (render it with <RoomRoleIcon>); `emoji` is the text fallback for native selects / exports. */
-export const ROOM_ROLE_META: Record<RoomRole, { label: string; emoji: string; icon?: string; hint: string }> = {
-  caretaker: { label: "Líder", emoji: "🧑‍🍼", icon: ICONS.leaderFace, hint: "cuida de crianças específicas do quarto" },
-  helper: { label: "Auxiliar", emoji: "🤝", icon: ICONS.helperFace, hint: "ajuda no quarto, sem crianças próprias" },
+/** `icon` is the head-only paper-cut image (render it with <RoomRoleIcon>). */
+export const ROOM_ROLE_META: Record<RoomRole, { label: string; plural: string; icon?: string; hint: string }> = {
+  caretaker: { label: "Líder", plural: "Líderes", icon: ICONS.leaderFaceWoman, hint: "cuida de crianças específicas do quarto" },
+  helper: { label: "Auxiliar", plural: "Auxiliares", icon: ICONS.helperFaceWoman, hint: "ajuda no quarto, sem crianças próprias" },
 };
+
+/**
+ * An ADMIN's roster record exists only so they have a room, a transport and a
+ * vest like everyone else — it is not a team profile: they never become a
+ * líder, never receive kids and never join a time. Keep them out of every
+ * líder / "who takes the kids" picker.
+ */
+export function canBeCaretaker(s: Pick<Staff, "admin">): boolean {
+  return !s.admin;
+}
 
 /** Room rosters: leaders first, then assistants; alphabetical inside each role. */
 export function compareRoomStaff(a: Pick<Staff, "name" | "roomRole">, b: Pick<Staff, "name" | "roomRole">): number {
@@ -74,6 +86,7 @@ export function compareRoomStaff(a: Pick<Staff, "name" | "roomRole">, b: Pick<St
 
 export interface StaffInput {
   name: string;
+  sex: import("./campers").CamperSex | null;
   phone: string | null;
   active: boolean;
   team: string | null;
@@ -89,13 +102,13 @@ export interface StaffInput {
 }
 
 /**
- * A team member's sex, taken from the wing of the room they sleep in
- * (Meninas → "F", Meninos → "M"). There is no sex field on the roster: null
- * when the person has no room or sleeps in the staff wing — treat as unknown.
+ * A team member's sex: girls/boys room wins, otherwise the stored GLM guess.
  */
-export function staffSex(s: Pick<Staff, "bedroom">, bedrooms: Pick<import("./bedrooms").Bedroom, "id" | "group">[]): import("./campers").CamperSex | null {
+export function staffSex(s: Pick<Staff, "bedroom" | "sex">, bedrooms: Pick<import("./bedrooms").Bedroom, "id" | "group">[]): import("./campers").CamperSex | null {
   const group = s.bedroom ? bedrooms.find((b) => b.id === s.bedroom)?.group : undefined;
-  return group === "girls" ? "F" : group === "boys" ? "M" : null;
+  if (group === "girls") return "F";
+  if (group === "boys") return "M";
+  return s.sex ?? null;
 }
 
 const json = (token: string) => ({ ...bearer(token), "content-type": "application/json" });

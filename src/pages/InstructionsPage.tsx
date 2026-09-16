@@ -1,11 +1,13 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { speakDay } from "../dates";
 import Breadcrumbs from "../components/Breadcrumbs";
 import RichHtml from "../components/RichHtml";
 import type { LoggedUser } from "../roles";
 import { useRoute } from "../router";
-import { useCollection } from "../store";
+import { useCollection, useCollectionOrEmpty } from "../store";
 import { useMyPrepRoles } from "../store/derive";
+import { ICONS } from "../icons";
+import { staffSex } from "../api/staff";
 
 interface InstructionsPageProps {
   user: LoggedUser;
@@ -57,8 +59,20 @@ function eventIsNow(e: { date: string; startTime: string; endTime: string | null
 export default function InstructionsPage({ user, pairedWith }: InstructionsPageProps) {
   const docs = useCollection("instructions");
   const events = useCollection("events");
+  const staff = useCollectionOrEmpty("staff");
+  const bedrooms = useCollectionOrEmpty("bedrooms");
   const myRoles = useMyPrepRoles(user.phone);
   const { segments, navigate } = useRoute();
+  const me = useMemo(() => staff.find((s) => s.phone === user.phone), [staff, user.phone]);
+  const myFaceSrc = me
+    ? me.roomRole === "caretaker"
+      ? staffSex(me, bedrooms) === "M"
+        ? ICONS.leaderFace
+        : ICONS.leaderFaceWoman
+      : staffSex(me, bedrooms) === "M"
+        ? ICONS.helperFace
+        : ICONS.helperFaceWoman
+    : ICONS.helperFaceWoman;
 
   if (!docs || myRoles === null) {
     return (
@@ -140,7 +154,7 @@ export default function InstructionsPage({ user, pairedWith }: InstructionsPageP
               <h1 className="admin-title instruction-doc__title">
                 <span aria-hidden="true">{d.emoji}</span> {d.title}
                 {d.extra}
-                {d.role && <span className="prep-section__tag">sua função</span>}
+                {d.role && <span className="prep-section__tag instruction-doc__role">sua função</span>}
               </h1>
               {d.event && (
                 <div className={`instruction-event${d.event.now ? " instruction-event--now" : ""}`}>
@@ -187,7 +201,7 @@ export default function InstructionsPage({ user, pairedWith }: InstructionsPageP
   );
 
   const empty = roleDocs.length === 0 && generalDocs.length === 0;
-  const roleSection = { key: "roles", title: "🙋 Suas funções", items: [...upcoming, ...done] };
+  const roleSection = { key: "roles", title: <><img className="audience-icon" src={myFaceSrc} alt="" aria-hidden="true" /> Suas funções</>, items: [...upcoming, ...done] };
   const generalSection = { key: "general", title: "🏕️ Geral", items: generalDocs };
   const sections = (camping ? [roleSection, generalSection] : [generalSection, roleSection]).filter((s) => s.items.length > 0);
 
@@ -198,7 +212,7 @@ export default function InstructionsPage({ user, pairedWith }: InstructionsPageP
         {/* only while the bottom bar merges the pair (phones): the way to the other half */}
         {pairedWith && (
           <button type="button" className="dash-pair-link" onClick={pairedWith} title="Ver a Preparação">
-            <span aria-hidden="true">🎒</span> Preparação
+            <img className="dash-pair-link__icon" src={ICONS.preparation} alt="" aria-hidden="true" /> Preparação
           </button>
         )}
       </header>
@@ -208,7 +222,7 @@ export default function InstructionsPage({ user, pairedWith }: InstructionsPageP
       ) : (
         <>
           {sections.map((s) => (
-            <section key={s.key} className="day-group">
+            <section key={s.key} className="day-group instruction-group">
               {sections.length > 1 && (
                 <header className="room-group__head">
                   <h2 className="room-group__title room-group__title--green">{s.title}</h2>

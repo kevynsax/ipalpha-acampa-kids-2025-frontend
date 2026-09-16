@@ -286,9 +286,6 @@ export default function RichTextEditor({ value, onChange, placeholder, disabled,
         <StyleMenu editor={editor} disabled={disabled} />
         {btn("</>", "Editar o HTML do documento", sourceOpen, () => setSourceOpen((v) => !v), "rte__btn--code")}
         {btn("🔗", "Link", editor.isActive("link"), setLink)}
-        {btn("⌸", editor.isActive("table") ? "Remover tabela" : "Tabela (3 colunas no máximo, para dados curtos)", editor.isActive("table"), () =>
-          editor.isActive("table") ? c().deleteTable().run() : c().insertTable({ rows: 3, cols: 2, withHeaderRow: true }).run(),
-        )}
         {token &&
           btn(uploading ? "⏳" : "🖼️", uploading ? "Enviando imagem…" : "Imagem (ou cole / arraste uma foto)", false, () => fileInput.current?.click(), "", uploading)}
         {token && btn("🎨", "Desenhar uma imagem com IA", drawOpen, () => setDrawOpen(true))}

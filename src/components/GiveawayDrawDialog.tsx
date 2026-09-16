@@ -115,7 +115,7 @@ export default function GiveawayDrawDialog({ open, onClose, entries, onRedraw, w
             <>
               <strong className="draw__name">{person.name}</strong>
               <span className="draw__room">
-                {person.group ? <GroupIcon group={person.group} face size={18} /> : "🛏️"} {person.room}
+                {person.group ? <GroupIcon group={person.group} face size={18} /> : null} {person.room}
               </span>
             </>
           )}

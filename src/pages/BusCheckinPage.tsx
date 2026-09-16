@@ -8,6 +8,8 @@ import ScanFab from "../components/ScanFab";
 import BusLogo from "../components/BusLogo";
 import CarLogo from "../components/CarLogo";
 import TeamTag from "../components/TeamTag";
+import TransportTag from "../components/TransportTag";
+import { transportShortLabel } from "../api/transports";
 import { camperIdFromQr } from "../print/camperLabels";
 import { useRoute } from "../router";
 import { otherTrip } from "../hooks/useDefaultBusTrip";
@@ -30,26 +32,28 @@ interface BusCheckinPageProps {
   checkinHomePath?: string;
   /** may this person open the OTHER journey? (helpers only see the trips whose window is open) */
   otherTripAvailable?: boolean;
+  /** admins: route of the per-vehicle report (Por veículo). Absent = no button (helpers / medical) */
+  reportPath?: string;
 }
 
 /**
- * Roll call at the vehicle door: pick the vehicle (kept in the URL,
- * #/bus/:vehicleId), then tap each kid as they board. One tap = checked, tap
- * again = unchecked. A bus helper is locked to the vehicle the admin linked
- * them to (Settings → Check-in) — they stand at its door, they need not ride
- * in it. Read-only for the medical team (same screens, nothing to tap).
+ * Roll call at the vehicle door: one list of every kid, tap to board. Admins
+ * / organizers see everyone (chips filter by vehicle when there is more than
+ * one). A bus helper is locked to the ONE vehicle the admin linked them to
+ * (Settings → Check-in) — no filter, they stand at its door. Read-only for
+ * the medical team (same screens, nothing to tap).
  */
-export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false, basePath = "/bus", trip = "outbound", checkinHomePath, otherTripAvailable = true }: BusCheckinPageProps) {
+export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false, basePath = "/bus", trip = "outbound", checkinHomePath, otherTripAvailable = true, reportPath }: BusCheckinPageProps) {
   const campers = useCollection("campers");
   const bedrooms = useCollectionOrEmpty("bedrooms");
   const transports = useCollectionOrEmpty("transports");
   const labelOf = useLabelOf();
   const confirm = useConfirm();
-  const { segments, navigate } = useRoute();
-  const vehicleSegment = basePath.split("/").filter(Boolean).length;
-  const vehicleId = onlyVehicleId ?? segments[vehicleSegment] ?? null;
+  const { navigate } = useRoute();
   const tripListPath = basePath.endsWith("/outbound") || basePath.endsWith("/return") ? basePath.replace(/\/(outbound|return)$/, "") : basePath;
   const [search, setSearch] = useState("");
+  /** admin / organizer: which vehicle the list is narrowed to — null = every kid */
+  const [vehicleFilter, setVehicleFilter] = useState<string | null>(null);
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   // the door works by QR: the camera opens as soon as there is a vehicle to check in; close it to search by name
@@ -57,28 +61,51 @@ export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false,
   const [scanBusy, setScanBusy] = useState(false);
   const [scanNotice, setScanNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const checkinKind = trip === "return" ? "bus_return" : "bus";
-  const tripTitle = trip === "return" ? "Volta para a igreja" : "Ida para o acampamento";
+  const tripTitle = trip === "return" ? "Volta" : "Ida";
   const tripShort = trip === "return" ? "volta" : "ida";
   /** the app lands on the journey that is happening now; this jumps to the other one when the guess is wrong */
+  const swapTitle = `Ir para o check-in da ${trip === "return" ? "ida para o acampamento" : "volta para a igreja"}`;
   const swap = otherTripAvailable ? (
     <button
       type="button"
       className="button button--secondary trip-swap"
-      title={`Ir para o check-in da ${trip === "return" ? "ida para o acampamento" : "volta para a igreja"}`}
+      title={swapTitle}
+      aria-label={swapTitle}
       onClick={() => navigate(`${tripListPath}/${otherTrip(trip)}`)}
     >
-      <span aria-hidden="true">→</span> {trip === "return" ? "🏕️ Ida" : "⛪ Volta"}
+      <span className="trip-swap__arrow" aria-hidden="true">→</span>
+      <span className="trip-swap__icon" aria-hidden="true">{trip === "return" ? "🏕️" : "⛪"}</span>
+      <span className="admin-head__action-label">{trip === "return" ? "Ida" : "Volta"}</span>
+    </button>
+  ) : null;
+  /** the same report the church check-in opens: chegadas por veículo (admins only) */
+  const report = reportPath ? (
+    <button type="button" className="button button--secondary admin-head__new" title="Chegadas por veículo" aria-label="Chegadas por veículo" onClick={() => navigate(reportPath)}>
+      <img className="admin-head__action-icon" src={ICONS.report} alt="" aria-hidden="true" />
+      <span className="admin-head__action-label">Por veículo</span>
     </button>
   ) : null;
 
   const roomById = useMemo(() => new Map(bedrooms.map((b) => [b.id, b])), [bedrooms]);
   const vehicles = useMemo(() => transports.slice().sort((a, b) => a.order - b.order), [transports]);
-  const vehicle = vehicleId ? vehicles.find((o) => o.id === vehicleId) ?? null : null;
+  const lockedVehicle = onlyVehicleId ? vehicles.find((o) => o.id === onlyVehicleId) ?? null : null;
+  /** chips only when an admin/organizer (or medical) can see more than one vehicle */
+  const showVehicleFilter = onlyVehicleId === undefined && vehicles.length > 1;
+  const activeVehicleId = onlyVehicleId ?? vehicleFilter;
 
-  /** kids per vehicle (for the picker counts) */
+  const roster = useMemo(() => {
+    if (!campers) return [];
+    return campers.filter((k) => {
+      if (!k.transportation) return false;
+      if (onlyVehicleId) return k.transportation === onlyVehicleId;
+      return vehicles.some((v) => v.id === k.transportation);
+    });
+  }, [campers, onlyVehicleId, vehicles]);
+
+  /** kids per vehicle (for the chips) */
   const countIn = useMemo(() => {
     const m = new Map<string, { total: number; boarded: number }>();
-    for (const k of campers ?? []) {
+    for (const k of roster) {
       if (!k.transportation) continue;
       const c = m.get(k.transportation) ?? { total: 0, boarded: 0 };
       c.total++;
@@ -86,19 +113,22 @@ export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false,
       m.set(k.transportation, c);
     }
     return m;
-  }, [campers, trip]);
+  }, [roster, trip]);
 
   const kids = useMemo(() => {
-    if (!campers || !vehicle) return [];
     const q = normalize(search);
-    return campers
-      .filter((k) => k.transportation === vehicle.id)
+    return roster
+      .filter((k) => !activeVehicleId || k.transportation === activeVehicleId)
       .filter((k) => !q || normalize(k.name).includes(q))
       // 1) ready to board  2) already on the bus  3) locked by a missing prerequisite
       .sort((a, b) => rank(a, trip) - rank(b, trip) || a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
-  }, [campers, vehicle, search, trip]);
+  }, [roster, activeVehicleId, search, trip]);
 
-  const counts = vehicle ? countIn.get(vehicle.id) ?? { total: 0, boarded: 0 } : { total: 0, boarded: 0 };
+  const scoped = activeVehicleId ? roster.filter((k) => k.transportation === activeVehicleId) : roster;
+  const counts = {
+    total: scoped.length,
+    boarded: scoped.filter((k) => (trip === "return" ? k.busReturnCheckin : k.busCheckin)).length,
+  };
 
   async function toggle(k: Camper) {
     if (readOnly || pending.has(k.id)) return;
@@ -123,7 +153,7 @@ export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false,
   }
 
   async function scanQr(raw: string) {
-    if (!campers || !vehicle || scanBusy) return;
+    if (!campers || scanBusy) return;
     setScanBusy(true);
     setScanNotice(null);
     try {
@@ -131,9 +161,12 @@ export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false,
       if (!id) throw new Error("Este QR code não é de uma pulseira ou crachá do Acampa Kids.");
       const camper = campers.find((k) => k.id === id);
       if (!camper) throw new Error("Esta criança não está disponível para o seu check-in.");
-      if (camper.transportation !== vehicle.id) {
+      if (onlyVehicleId && camper.transportation !== onlyVehicleId) {
         const assigned = labelOf(camper.transportation);
         throw new Error(`${camper.name} não está neste veículo${assigned ? ` — está em ${assigned}` : ""}.`);
+      }
+      if (!onlyVehicleId && (!camper.transportation || !vehicles.some((v) => v.id === camper.transportation))) {
+        throw new Error(`${camper.name} não tem transporte cadastrado.`);
       }
       const already = trip === "return" ? camper.busReturnCheckin : camper.busCheckin;
       if (already) throw new Error(`${camper.name} já fez o check-in da ${tripShort}.`);
@@ -161,7 +194,7 @@ export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false,
   }
 
   // a bus helper linked to a vehicle that no longer exists / was deactivated
-  if (onlyVehicleId !== undefined && !vehicle) {
+  if (onlyVehicleId !== undefined && !lockedVehicle) {
     return (
       <div className="admin-page">
         <header className="admin-head">
@@ -179,80 +212,28 @@ export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false,
     );
   }
 
-  // ── step 1: choose the vehicle ─────────────────────────────────────
-
-  if (!vehicle) {
-    return (
-      <div className="admin-page">
-        {checkinHomePath && <Breadcrumbs items={[{ label: "Check-in", onClick: () => navigate(checkinHomePath) }, { label: "Ônibus" }]} />}
-        <header className="admin-head">
-          <h1 className="admin-title">
-            <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" />
-            {readOnly ? tripTitle : `Check-in: ${tripTitle}`}
-          </h1>
-          {swap && <div className="admin-head__actions">{swap}</div>}
-        </header>
-        <p className="admin-intro">{readOnly ? "Quem vai em cada veículo e quem já embarcou." : "Na porta de qual veículo você está?"}</p>
-        {vehicles.length === 0 && <p className="opt-empty">Nenhum transporte cadastrado.</p>}
-        <ul className="bus-picker">
-          {vehicles.map((o) => {
-            const c = countIn.get(o.id) ?? { total: 0, boarded: 0 };
-            const done = c.total > 0 && c.boarded === c.total;
-            return (
-              <li key={o.id}>
-                <button type="button" className={`bus-picker__item ${done ? "bus-picker__item--done" : ""}`} onClick={() => navigate(`${basePath}/${o.id}`)}>
-                  <span className="bus-picker__name">
-                    {done && <span aria-hidden="true">✅ </span>}
-                    {o.kind === "bus" ? <BusLogo color={o.color ?? "#0f9a8a"} number={o.number} size={26} /> : <CarLogo size={26} />}
-                    {o.label}
-                  </span>
-                  <span className="bus-picker__foot">
-                    <span className="bus-picker__count">
-                      {c.boarded}/{c.total} crianças
-                    </span>
-                    <span className="bus-picker__bar" role="progressbar" aria-valuemin={0} aria-valuemax={c.total} aria-valuenow={c.boarded}>
-                      <i style={{ width: `${c.total > 0 ? (c.boarded / c.total) * 100 : 0}%` }} />
-                    </span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-    );
-  }
-
-  // ── step 2: the roll call ──────────────────────────────────────────
-
   const pct = counts.total ? Math.round((counts.boarded / counts.total) * 100) : 0;
+  const titleVehicle = lockedVehicle;
 
   return (
     <div className="admin-page">
-      {onlyVehicleId === undefined && (
-        <Breadcrumbs
-          items={[
-            ...(checkinHomePath ? [{ label: "Check-in", onClick: () => navigate(checkinHomePath) }] : []),
-            { label: "Ônibus", onClick: () => navigate(tripListPath) },
-            { label: trip === "return" ? "Volta" : "Ida", onClick: () => navigate(basePath) },
-            { label: vehicle.label },
-          ]}
-        />
+      {checkinHomePath && (
+        <Breadcrumbs items={[{ label: "Check-in", onClick: () => navigate(checkinHomePath) }, { label: "Ônibus" }]} />
       )}
       <header className="admin-head">
-        <h1 className="admin-title admin-title--with-logo">
-          {vehicle.kind === "bus" ? <BusLogo color={vehicle.color ?? "#0f9a8a"} number={vehicle.number} size={30} /> : <CarLogo size={30} />}
-          {vehicle.label} · {trip === "return" ? "Volta" : "Ida"}
+        <h1 className={`admin-title${titleVehicle ? " admin-title--with-logo" : ""}`}>
+          {titleVehicle ? (
+            titleVehicle.kind === "bus" ? <BusLogo color={titleVehicle.color ?? "#0f9a8a"} number={titleVehicle.number} size={30} /> : <CarLogo size={30} />
+          ) : (
+            <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" />
+          )}
+          {titleVehicle ? `${titleVehicle.label} · ${tripTitle}` : (readOnly ? tripTitle : `Check-in: ${tripTitle}`)}
         </h1>
-        <div className="admin-head__actions">
-          <span className="checkin-progress" title="Crianças que já embarcaram">
-            <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> {counts.boarded}/{counts.total}
-          </span>
-          {swap}
-        </div>
+        {(report || swap) && <div className="admin-head__actions bus-head__actions">{report}{swap}</div>}
       </header>
 
       <div className="vehicle__progress" role="progressbar" aria-valuemin={0} aria-valuemax={counts.total} aria-valuenow={counts.boarded} aria-label="Crianças que embarcaram">
+        <span className="vehicle__count" title="Crianças que já embarcaram">{counts.boarded}/{counts.total}</span>
         <span className="vehicle__bar" aria-hidden="true">
           <span className="vehicle__bar-fill" style={{ width: `${pct}%` }} />
         </span>
@@ -263,10 +244,41 @@ export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false,
       {scanNotice && <p className={`message message--${scanNotice.kind}`}>{scanNotice.text}</p>}
       {readOnly && <p className="admin-intro">🔍 Só consulta — a chamada é feita pela organização e pelos ajudantes do ônibus.</p>}
 
+      {showVehicleFilter && (
+        <div className="health-filter" role="group" aria-label="Veículo">
+          <button
+            type="button"
+            className={`chip-toggle chip-toggle--small ${vehicleFilter === null ? "chip-toggle--on" : ""}`}
+            aria-pressed={vehicleFilter === null}
+            onClick={() => setVehicleFilter(null)}
+          >
+            Todos
+            <span className="cat-tab__count">{roster.length}</span>
+          </button>
+          {vehicles.map((o) => {
+            const c = countIn.get(o.id) ?? { total: 0, boarded: 0 };
+            const on = vehicleFilter === o.id;
+            return (
+              <button
+                key={o.id}
+                type="button"
+                className={`chip-toggle chip-toggle--small ${on ? "chip-toggle--on" : ""}`}
+                aria-pressed={on}
+                onClick={() => setVehicleFilter(on ? null : o.id)}
+              >
+                {o.kind === "bus" ? <BusLogo color={o.color ?? "#0f9a8a"} number={o.number} size={22} /> : <CarLogo size={22} />}
+                {transportShortLabel(o)}
+                <span className="cat-tab__count">{c.boarded}/{c.total}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <input className="cat-input" type="search" placeholder="Buscar pelo nome…" value={search} onChange={(e) => setSearch(e.target.value)} />
 
-      {counts.total === 0 && <p className="opt-empty">Nenhuma criança neste veículo.</p>}
-      {counts.total > 0 && kids.length === 0 && <p className="opt-empty">Nenhum resultado. 🔍</p>}
+      {roster.length === 0 && <p className="opt-empty">{vehicles.length === 0 ? "Nenhum transporte cadastrado." : onlyVehicleId ? "Nenhuma criança neste veículo." : "Nenhuma criança com transporte cadastrado."}</p>}
+      {roster.length > 0 && kids.length === 0 && <p className="opt-empty">Nenhum resultado. 🔍</p>}
 
       <ul className="bus-list">
         {kids.map((k) => {
@@ -295,12 +307,18 @@ export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false,
                     {age !== null && <span className="kid-card__age">{age} anos</span>}
                   </span>
                   <span className="bus-row__meta">
+                    {onlyVehicleId === undefined && k.transportation && (
+                      <>
+                        <TransportTag transportId={k.transportation} short className="staff-tag--inline" />
+                        {" · "}
+                      </>
+                    )}
                     {room ? <BedroomTag bedroom={room} className="staff-tag--inline" /> : "sem quarto"}
                     {k.team && (
-                      <>
+                      <span className="bus-row__team">
                         {" · "}
                         <TeamTag teamId={k.team} className="staff-tag--inline" />
-                      </>
+                      </span>
                     )}
                     {locked && <span className="staff-card__missing"> · {trip === "return" ? "não embarcou na ida" : "sem check-in na igreja"}</span>}
                   </span>

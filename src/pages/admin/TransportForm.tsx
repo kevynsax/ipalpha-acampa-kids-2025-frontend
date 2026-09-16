@@ -10,6 +10,7 @@ import {
   type TransportKind,
 } from "../../api/transports";
 import BusLogo from "../../components/BusLogo";
+import { useHideScanFab } from "../../scanFab";
 
 interface TransportFormProps {
   transport?: Transport;
@@ -20,6 +21,8 @@ interface TransportFormProps {
 
 /** Create / edit one vehicle. A BUS carries a colour + number; a CAR does not. */
 export default function TransportForm({ transport, busy, onSubmit, onCancel }: TransportFormProps) {
+  // the "Ler crachá" FAB would sit on top of Salvar / Cancelar
+  useHideScanFab();
   const editing = !!transport;
   const [kind, setKind] = useState<TransportKind>(transport?.kind ?? "bus");
   const [name, setName] = useState(transport?.name ?? "");
@@ -62,11 +65,7 @@ export default function TransportForm({ transport, busy, onSubmit, onCancel }: T
                 aria-pressed={on}
                 onClick={() => setKind(k)}
               >
-                {m.icon ? (
-                  <img className="chip-toggle__icon" src={m.icon} alt="" aria-hidden="true" />
-                ) : (
-                  <span aria-hidden="true">{m.emoji}</span>
-                )}{" "}
+                {m.icon && <img className="chip-toggle__icon" src={m.icon} alt="" aria-hidden="true" />}{" "}
                 {m.label}
               </button>
             );

@@ -1,6 +1,6 @@
 /**
  * An "icon" is 1–2 user-perceived characters (graphemes). A single emoji can
- * be many code units (👨‍👩‍👧 is 8 UTF-16 units), so never limit by `.length`.
+ * be many code units (a family emoji is 8 UTF-16 units), so never limit by `.length`.
  */
 const MAX_GRAPHEMES = 2;
 const MAX_CODE_UNITS = 32;

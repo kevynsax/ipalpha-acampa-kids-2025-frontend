@@ -11,6 +11,7 @@ import {
 } from "../../api/categories";
 import AudienceIcon from "../../components/AudienceIcon";
 import EmojiPicker from "../../components/EmojiPicker";
+import { useHideScanFab } from "../../scanFab";
 
 const EMOJI_SUGGESTIONS = ["🏷️", "🚩", "🛏️", "🤮", "🚫", "💊", "🍽️", "🚌", "👕", "🎒", "🏊", "🎨", "⚽", "🎵", "📚", "🧸"];
 
@@ -28,6 +29,8 @@ interface CategoryFormProps {
  * be typed one per line.
  */
 export default function CategoryForm({ category, busy, onSubmit, onCancel }: CategoryFormProps) {
+  // the "Ler crachá" FAB would sit on top of Salvar / Cancelar
+  useHideScanFab();
   const editing = !!category;
   const [name, setName] = useState(category?.name ?? "");
   const [emoji, setEmoji] = useState(category?.emoji ?? "🏷️");

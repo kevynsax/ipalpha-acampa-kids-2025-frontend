@@ -7,11 +7,11 @@ interface GroupIconProps {
   size?: number;
 }
 
-/** Icon for a bedroom wing: paper-cut image when available, emoji otherwise. */
+/** Icon for a bedroom wing. */
 export default function GroupIcon({ group, face, size }: GroupIconProps) {
   const m = GROUP_META[group];
   const src = face ? (m.face ?? m.icon) : m.icon;
+  if (!src) return null;
   const style = size ? { width: size, height: size } : undefined;
-  if (src) return <img className="audience-icon" src={src} alt="" aria-hidden="true" style={style} />;
-  return <span aria-hidden="true">{m.emoji}</span>;
+  return <img className="audience-icon" src={src} alt="" aria-hidden="true" style={style} />;
 }

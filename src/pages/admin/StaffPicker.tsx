@@ -69,52 +69,64 @@ export default function StaffPicker({ open, title, staff, occupied, onPick, onCl
   const freeCount = results.filter((s) => !occupied.has(s.id)).length;
 
   return (
-    <Dialog open={open} onClose={onClose} title={title} width={520}>
-      <div className="picker">
-        <h2 className="cat-form__title">{title}</h2>
-        <input
-          ref={inputRef}
-          className="cat-input"
-          type="search"
-          placeholder="Digite o nome…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={onKey}
-          aria-label="Buscar pessoa"
-        />
-        <p className="cat-hint">
-          {freeCount} livre{freeCount !== 1 ? "s" : ""}
-          {results.length - freeCount > 0 && ` · ${results.length - freeCount} ocupado${results.length - freeCount !== 1 ? "s" : ""}`}
-        </p>
-        {results.length === 0 ? (
-          <p className="opt-empty">Ninguém encontrado.</p>
-        ) : (
-          <ul className="picker__list" role="listbox">
-            {results.map((s, i) => {
-              const occ = occupied.get(s.id);
-              return (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={i === cursor}
-                    className={`picker__item ${occ ? "picker__item--busy" : ""} ${i === cursor ? "picker__item--cursor" : ""}`}
-                    onMouseEnter={() => setCursor(i)}
-                    onClick={() => onPick(s.id)}
-                  >
-                    <span className="picker__name">{s.name}</span>
-                    {occ && (
-                      <span className="picker__busy" title={`${occ.role} · ${occ.where}`}>
-                        {occ.role}
-                        <span className="picker__busy-where">{occ.where}</span>
-                      </span>
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+    <Dialog open={open} onClose={onClose} title={title} width={520} className="picker-sheet-dialog">
+      <div className="picker picker-sheet">
+        <header className="picker-sheet__head">
+          <span className="picker-sheet__handle" aria-hidden="true" />
+          <h2 className="cat-form__title">{title}</h2>
+          <input
+            ref={inputRef}
+            className="cat-input"
+            type="search"
+            placeholder="Digite o nome…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={onKey}
+            aria-label="Buscar pessoa"
+          />
+          <p className="cat-hint">
+            {freeCount} livre{freeCount !== 1 ? "s" : ""}
+            {results.length - freeCount > 0 && ` · ${results.length - freeCount} ocupado${results.length - freeCount !== 1 ? "s" : ""}`}
+          </p>
+        </header>
+
+        <div className="picker-sheet__body">
+          {results.length === 0 ? (
+            <p className="opt-empty">Ninguém encontrado.</p>
+          ) : (
+            <ul className="picker__list" role="listbox">
+              {results.map((s, i) => {
+                const occ = occupied.get(s.id);
+                return (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={i === cursor}
+                      className={`picker__item ${occ ? "picker__item--busy" : ""} ${i === cursor ? "picker__item--cursor" : ""}`}
+                      onMouseEnter={() => setCursor(i)}
+                      onClick={() => onPick(s.id)}
+                    >
+                      <span className="picker__name">{s.name}</span>
+                      {occ && (
+                        <span className="picker__busy" title={`${occ.role} · ${occ.where}`}>
+                          {occ.role}
+                          <span className="picker__busy-where">{occ.where}</span>
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div className="cat-form__actions picker-sheet__actions">
+          <button type="button" className="button button--secondary" onClick={onClose}>
+            Cancelar
+          </button>
+        </div>
       </div>
     </Dialog>
   );

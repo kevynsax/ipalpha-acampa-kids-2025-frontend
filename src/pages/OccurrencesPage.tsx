@@ -1,13 +1,16 @@
 import { useMemo, useState } from "react";
 import { createOccurrence, type Occurrence } from "../api/occurrences";
 import type { Camper } from "../api/campers";
-import type { Staff } from "../api/staff";
+import type { Bedroom } from "../api/bedrooms";
+import { staffSex, type Staff } from "../api/staff";
 import Dialog from "../components/Dialog";
 import RichHtml from "../components/RichHtml";
 import RichTextEditor from "../components/RichTextEditor";
 import { useCollection } from "../store";
 import { speakDateTime } from "../dates";
 import PageFooter from "../components/PageFooter";
+import { ICONS, kidFaceSrc } from "../icons";
+import { useHideScanFab } from "../scanFab";
 
 type OccurrenceAudience = "admin" | "organizer" | "medical";
 
@@ -29,6 +32,7 @@ export default function OccurrencesPage({ token, audience }: OccurrencesPageProp
   const occurrences = useCollection("occurrences");
   const campers = useCollection("campers");
   const staff = useCollection("staff");
+  const bedrooms = useCollection("bedrooms");
   const [creating, setCreating] = useState(false);
   const [camperIds, setCamperIds] = useState<string[]>([]);
   const [staffIds, setStaffIds] = useState<string[]>([]);
@@ -37,6 +41,8 @@ export default function OccurrencesPage({ token, audience }: OccurrencesPageProp
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  // while the form is open the "Ler crachá" FAB would sit on top of Registrar / Cancelar
+  useHideScanFab(creating);
 
   const camperById = useMemo(() => new Map((campers ?? []).map((person) => [person.id, person])), [campers]);
   const staffById = useMemo(() => new Map((staff ?? []).map((person) => [person.id, person])), [staff]);
@@ -153,7 +159,7 @@ export default function OccurrencesPage({ token, audience }: OccurrencesPageProp
         )
       ) : (
         <section className="occurrence-list" aria-label="Ocorrências registradas">
-          {occurrences.map((occurrence) => <OccurrenceCard key={occurrence.id} occurrence={occurrence} />)}
+          {occurrences.map((occurrence) => <OccurrenceCard key={occurrence.id} occurrence={occurrence} campers={camperById} staff={staffById} bedrooms={bedrooms ?? []} />)}
         </section>
       )}
       <PageFooter>
@@ -225,7 +231,7 @@ function PersonPicker({ open, kind, campers, staff, selectedIds, onPick, onClose
   );
 }
 
-function OccurrenceCard({ occurrence }: { occurrence: Occurrence }) {
+function OccurrenceCard({ occurrence, campers, staff, bedrooms }: { occurrence: Occurrence; campers: Map<string, Camper>; staff: Map<string, Staff>; bedrooms: Bedroom[] }) {
   const [open, setOpen] = useState(false);
   const names = occurrence.campers.map((person) => person.name);
   return (
@@ -239,8 +245,21 @@ function OccurrenceCard({ occurrence }: { occurrence: Occurrence }) {
         <span className="occurrence-card__chevron" aria-hidden="true">{open ? "−" : "+"}</span>
       </button>
       <div className="occurrence-card__people">
-        {occurrence.campers.map((person) => <span key={`c-${person.id}`} className="occurrence-badge occurrence-badge--camper">🧒 {person.name}</span>)}
-        {occurrence.staff.map((person) => <span key={`s-${person.id}`} className="occurrence-badge">🎒 {person.name}</span>)}
+        {occurrence.campers.map((person) => (
+          <span key={`c-${person.id}`} className="occurrence-badge occurrence-badge--camper">
+            <img className="occurrence-badge__face" src={kidFaceSrc(campers.get(person.id)?.sex, person.id)} alt="" aria-hidden="true" /> {person.name}
+          </span>
+        ))}
+        {occurrence.staff.map((person) => {
+          const member = staff.get(person.id);
+          const sex = member ? staffSex(member, bedrooms) : null;
+          const face = sex === "M" ? ICONS.leaderFace : ICONS.leaderFaceWoman;
+          return (
+            <span key={`s-${person.id}`} className="occurrence-badge">
+              <img className="occurrence-badge__face" src={face} alt="" aria-hidden="true" /> {person.name}
+            </span>
+          );
+        })}
         {occurrence.campers.length === 0 && occurrence.staff.length === 0 && <span className="occurrence-badge occurrence-badge--private">Sem pessoas relacionadas</span>}
       </div>
       {open && <RichHtml html={occurrence.description} className="instructions occurrence-card__description" />}

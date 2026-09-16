@@ -86,7 +86,7 @@ export default function CheckinReminderCard({ token, embedded }: CheckinReminder
         Na data e hora abaixo <strong>toda a equipe</strong> recebe um SMS lembrando de fazer o self check-in.
       </p>
       <form
-        className="cat-form__row staff-form__row"
+        className="cat-form__row staff-form__row reminder-save"
         onSubmit={(e) => {
           e.preventDefault();
           void run("date", { checkinReminder: { at: atIso } });
@@ -98,7 +98,7 @@ export default function CheckinReminderCard({ token, embedded }: CheckinReminder
         </label>
         <div className="cat-form__actions">
           <button type="submit" className="button button--primary" disabled={!settings || !dirty || busy !== null}>
-            {busy === "date" ? "Salvando…" : "Salvar data ⏰"}
+            {busy === "date" ? "Salvando…" : <>Salvar<span className="btn-extra"> data ⏰</span></>}
           </button>
         </div>
       </form>

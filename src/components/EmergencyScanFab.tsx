@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { createPortal } from "react-dom";
 import { ApiError } from "../api/client";
 import { lookupCamper, type CamperLookupResult } from "../api/campers";
 import { camperIdFromQr } from "../print/camperLabels";
@@ -44,6 +45,10 @@ export default function EmergencyScanFab({ token, page = false }: EmergencyScanF
         const res = await lookupCamper(token, id);
         setScannerOpen(false);
         setResult(res);
+        for (const selector of [".dash", ".dash-scroll"]) {
+          const scroller = document.querySelector(selector);
+          if (scroller) scroller.scrollTop = 0;
+        }
         window.scrollTo({ top: 0 });
       } catch (e) {
         setScannerOpen(false);
@@ -66,8 +71,15 @@ export default function EmergencyScanFab({ token, page = false }: EmergencyScanF
     goBack("/");
   }
 
+  function closeScanner() {
+    if (busy) return;
+    setScannerOpen(false);
+    // cancel with nothing read → the tab they were on, not the empty "Ler crachá" page
+    if (page && !result && !error) back();
+  }
+
   if (!page) {
-    return (
+    return createPortal(
       <button
         type="button"
         className="fab fab--emergency"
@@ -75,12 +87,13 @@ export default function EmergencyScanFab({ token, page = false }: EmergencyScanF
         aria-label="Ler o crachá de qualquer criança"
         onClick={() => navigate("/badge")}
       >
-        <img className="fab__kid" src={ICONS.camper} alt="" aria-hidden="true" />
+        <img className="fab__kid" src={ICONS.boyFace} alt="" aria-hidden="true" />
         <span className="fab__label">Ler crachá</span>
         <span className="fab__icon" aria-hidden="true">
           <QrGlyph size="1.4em" />
         </span>
-      </button>
+      </button>,
+      document.body,
     );
   }
 
@@ -98,7 +111,7 @@ export default function EmergencyScanFab({ token, page = false }: EmergencyScanF
         </>
       )}
 
-      <QrScannerDialog open={scannerOpen} busy={busy} onScan={(v) => void onScan(v)} onClose={() => !busy && setScannerOpen(false)} />
+      <QrScannerDialog open={scannerOpen} busy={busy} onScan={(v) => void onScan(v)} onClose={closeScanner} />
 
       {error && (
         <Dialog open onClose={() => setError(null)} title="Não deu para ler" width={420}>

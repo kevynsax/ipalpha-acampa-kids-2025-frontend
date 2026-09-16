@@ -16,7 +16,7 @@ export default function KidIcon({ sex, group, size = 18 }: KidIconProps) {
   return <img className="audience-icon" src={src} alt="" aria-hidden="true" style={style} />;
 }
 
-/** The paper-cut adult (equipe) icon — man or woman. */
-export function AdultIcon({ sex = "man", size = 18 }: { sex?: AdultSex; size?: number }) {
-  return <img className="audience-icon" src={sex === "woman" ? ICONS.woman : ICONS.man} alt="" aria-hidden="true" style={{ width: size, height: size }} />;
+/** The paper-cut adult (equipe) icon — woman until a kids' wing says man. */
+export function AdultIcon({ sex = "woman", size = 18 }: { sex?: AdultSex; size?: number }) {
+  return <img className="audience-icon" src={sex === "man" ? ICONS.man : ICONS.woman} alt="" aria-hidden="true" style={{ width: size, height: size }} />;
 }

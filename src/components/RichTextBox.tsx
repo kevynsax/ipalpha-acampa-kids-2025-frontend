@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Dialog from "./Dialog";
 import RichHtml from "./RichHtml";
 import { ExpandGlyph } from "./Glyph";
@@ -6,7 +6,7 @@ import { ICONS } from "../icons";
 
 interface RichTextBoxProps {
   /** small uppercase label above the box, e.g. "📝 Instruções" */
-  label: string;
+  label: ReactNode;
   /** sanitized HTML from the server — may be empty: the section still shows, with a hint */
   html: string;
   /** heading of the full-screen view, e.g. "🏊 Salva-vidas" */
@@ -63,13 +63,13 @@ export default function RichTextBox({ label, html, title, context, emptyHint = "
               type="button"
               className="icon-btn icon-btn--bare rich-box__expand"
               title="Ver em tela cheia"
-              aria-label={`Ver ${label} em tela cheia`}
+              aria-label="Ver em tela cheia"
               onClick={() => setOpen(true)}
             >
               <ExpandGlyph />
             </button>
             {onEdit && (
-              <button type="button" className="icon-btn icon-btn--bare" title={`Editar ${label}`} aria-label={`Editar ${label}`} onClick={onEdit}>
+              <button type="button" className="icon-btn icon-btn--bare" title="Editar" aria-label="Editar" onClick={onEdit}>
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
               </button>
             )}
@@ -108,8 +108,8 @@ export default function RichTextBox({ label, html, title, context, emptyHint = "
                 <button
                   type="button"
                   className="icon-btn icon-btn--bare"
-                  title={`Editar ${label}`}
-                  aria-label={`Editar ${label}`}
+                  title="Editar"
+                  aria-label="Editar"
                   onClick={() => {
                     setOpen(false);
                     onEdit();

@@ -67,7 +67,7 @@ export default function SmsRedirectCard({ token }: SmsRedirectCardProps) {
         continuam recebendo o próprio código.
       </p>
       <form
-        className="cat-form__row staff-form__row"
+        className="cat-form__row staff-form__row sms-form"
         onSubmit={(e) => {
           e.preventDefault();
           void run("save", { smsRedirect: { staffPhone: staffE164 ?? null, parentPhone: parentE164 ?? null } });

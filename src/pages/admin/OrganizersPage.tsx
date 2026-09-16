@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { updateSettings } from "../../api/settings";
 import { useRoute } from "../../router";
 import { useCollection, useCollectionOrEmpty } from "../../store";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { ICONS } from "../../icons";
 import StaffListEditor from "./StaffListEditor";
 import PageFooter from "../../components/PageFooter";
@@ -21,6 +22,8 @@ export default function OrganizersPage({ token }: OrganizersPageProps) {
   const settings = useCollection("settings");
   const staff = useCollectionOrEmpty("staff");
   const { navigate } = useRoute();
+  /** phones: this card's "Editar em Jogos" button shrinks to a bare ✏️ on the title line */
+  const phone = useMediaQuery("(max-width: 760px)");
   const [ids, setIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,11 +83,17 @@ export default function OrganizersPage({ token }: OrganizersPageProps) {
       <section className="cat-form">
         <div className="list-head">
           <h2 className="cat-form__title">
-            🏆 Organizadores dos jogos <span className="cat-tab__count">{gameOrganizers.length}</span>
+            🏆 Organizadores dos jogos {!phone && <span className="cat-tab__count">{gameOrganizers.length}</span>}
           </h2>
-          <button type="button" className="button button--secondary list-head__add" onClick={() => navigate("/game-organizers")}>
-            Editar em Jogos ›
-          </button>
+          {phone ? (
+            <button type="button" className="icon-btn" title="Editar em Jogos" aria-label="Editar em Jogos" onClick={() => navigate("/game-organizers")}>
+              <span className="pencil" aria-hidden="true">✏️</span>
+            </button>
+          ) : (
+            <button type="button" className="button button--secondary list-head__add" onClick={() => navigate("/game-organizers")}>
+              Editar em Jogos ›
+            </button>
+          )}
         </div>
         <p className="cat-hint">Editam a programação e lançam pontos no Placar — sem as outras permissões de organizador.</p>
         {gameOrganizers.length === 0 ? (

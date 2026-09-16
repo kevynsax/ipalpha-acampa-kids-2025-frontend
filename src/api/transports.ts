@@ -5,9 +5,9 @@ import { ICONS } from "../icons";
 export const TRANSPORT_KINDS = ["bus", "car"] as const;
 export type TransportKind = (typeof TRANSPORT_KINDS)[number];
 
-export const TRANSPORT_KIND_META: Record<TransportKind, { label: string; emoji: string; icon?: string }> = {
-  bus: { label: "Ônibus", emoji: "🚌", icon: ICONS.transport },
-  car: { label: "Carro", emoji: "🚗" },
+export const TRANSPORT_KIND_META: Record<TransportKind, { label: string; icon?: string }> = {
+  bus: { label: "Ônibus", icon: ICONS.transport },
+  car: { label: "Carro" },
 };
 
 /**

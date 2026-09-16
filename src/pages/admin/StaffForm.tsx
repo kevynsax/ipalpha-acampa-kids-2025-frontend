@@ -2,10 +2,11 @@ import RoomRoleIcon from "../../components/RoomRoleIcon";
 import { useEffect, useRef, useState } from "react";
 import { useConfirmChoice } from "../../components/ConfirmDialog";
 import type { Category } from "../../api/categories";
+import { bedroomGroupsForSex } from "../../api/bedrooms";
 import { BedroomSelect, CategoryChips, TeamSelect, TransportSelect } from "../../components/CategoryFields";
 import { useCollectionOrEmpty } from "../../store";
 import { ROOM_ROLE_META, STAFF_CATEGORY_KEYS, type RoomRole, type Staff, type StaffInput } from "../../api/staff";
-import { blankMedication, type Medication } from "../../api/campers";
+import { blankMedication, type CamperSex, type Medication } from "../../api/campers";
 import MedicationsEditor from "../../components/MedicationsEditor";
 import PhoneInput from "../../components/PhoneInput";
 import NoPillIcon from "../../components/NoPillIcon";
@@ -13,8 +14,10 @@ import Toggle from "../../components/Toggle";
 import AiNotesField from "../../components/AiNotesField";
 import { useAiNotesSorter } from "../../hooks/useAiNotesSorter";
 import { useFieldDedup } from "../../hooks/useFieldDedup";
+import { useGuessCamperSex } from "../../hooks/useGuessCamperSex";
 import type { DedupField } from "../../api/ai";
 import { maskBrazilPhone, toE164 } from "../../phone";
+import { useHideScanFab } from "../../scanFab";
 
 interface StaffFormProps {
   /** session token — lets the form ask the AI to sort the health observations */
@@ -24,6 +27,8 @@ interface StaffFormProps {
   categories: Category[];
   busy?: boolean;
   onSubmit: (input: StaffInput) => Promise<void>;
+  /** live man/woman guess — drives the "Novo membro" title icon */
+  onSexChange?: (sex: CamperSex | null, busy: boolean) => void;
   /**
    * Set by the form to a guard the parent calls before navigating away (breadcrumbs).
    * Resolves true when navigation may proceed, false to stay on the form.
@@ -36,17 +41,31 @@ interface StaffFormProps {
  * CREATE; when editing they are changed from the detail page (pencil dialogs). Each health
  * topic is a switch — off = nothing to declare (field hidden, cleared on save).
  */
-export default function StaffForm({ token, member, categories, busy, onSubmit, leaveGuardRef }: StaffFormProps) {
+export default function StaffForm({ token, member, categories, busy, onSubmit, onSexChange, leaveGuardRef }: StaffFormProps) {
+  // the "Ler crachá" FAB would sit on top of Salvar / Cancelar
+  useHideScanFab();
   const editing = !!member;
   const byKey = (key: string) => categories.find((c) => c.key === key);
+
+  /** an admin's roster record: room / transport / vest only — never a líder, never in a time */
+  const isAdmin = !!member?.admin;
 
   const [name, setName] = useState(member?.name ?? "");
   const [phone, setPhone] = useState(member?.phone ? maskBrazilPhone(member.phone.replace(/^\+55/, "")) : "");
   const [active, setActive] = useState(member?.active ?? true);
-  const [roomRole, setRoomRole] = useState<RoomRole>(member?.roomRole ?? "helper");
+  const [roomRole, setRoomRole] = useState<RoomRole>(isAdmin ? "helper" : (member?.roomRole ?? "helper"));
   const bedrooms = useCollectionOrEmpty("bedrooms");
   const [team, setTeam] = useState<string | null>(member?.team ?? null);
   const [bedroom, setBedroom] = useState<string | null>(member?.bedroom ?? null);
+  const room = bedroom ? bedrooms.find((b) => b.id === bedroom) : undefined;
+  const roomSex: CamperSex | null = room?.group === "girls" ? "F" : room?.group === "boys" ? "M" : null;
+  const nameChanged = editing && name.trim() !== (member?.name ?? "").trim();
+  const guessed = useGuessCamperSex({ token, name, enabled: !roomSex && (!editing || nameChanged) });
+  const sex: CamperSex | null = roomSex ?? guessed.sex ?? (editing && !nameChanged ? (member?.sex ?? null) : null);
+  const sexBusy = !roomSex && guessed.busy;
+  useEffect(() => {
+    onSexChange?.(sex, sexBusy);
+  }, [sex, sexBusy, onSexChange]);
   const [transportation, setTransportation] = useState<string | null>(member?.transportation ?? null);
   const [allergies, setAllergies] = useState<string[]>(member?.allergies ?? []);
   const [drugAllergies, setDrugAllergies] = useState<string[]>(member?.drugAllergies ?? []);
@@ -85,7 +104,7 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, l
         title: "Salvar alterações?",
         message: "Você fez alterações que ainda não foram salvas.",
         confirmLabel: "Salvar",
-        discardLabel: "Descartar alterações",
+        discardLabel: "Descartar",
         cancelLabel: "Cancelar",
         emoji: "💾",
       });
@@ -161,6 +180,7 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, l
     try {
       await onSubmit({
         name: name.trim(),
+        sex,
         phone: phoneE164 ?? null,
         active,
         roomRole,
@@ -212,9 +232,18 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, l
     <form className="cat-form cat-form--plain" onSubmit={handleSubmit}>
       <div className="cat-form__row staff-form__row">
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Nome</span>
-          <input className="cat-input" placeholder="ex.: Abimael" value={name} maxLength={80} autoFocus disabled={busy} onChange={(e) => setName(e.target.value)} />
+          <span className={`cat-field__label${sexBusy ? " cat-field__label--guessing" : ""}`}>Nome</span>
+          <input
+            className={`cat-input${sexBusy ? " cat-input--busy" : ""}`}
+            placeholder="ex.: Abimael"
+            value={name}
+            maxLength={80}
+            autoFocus
+            disabled={busy}
+            onChange={(e) => setName(e.target.value)}
+          />
         </label>
+        <input type="hidden" name="sex" value={sex ?? ""} />
         <div className="cat-field cat-field--grow">
           <span className="cat-field__label">Celular</span>
           <PhoneInput value={phone} onChange={setPhone} disabled={busy || !!member?.admin} />
@@ -230,11 +259,11 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, l
       <fieldset className="cat-fieldset">
         <legend className="cat-field__label">Função no quarto</legend>
         <div className="big-options big-options--row">
-          {(Object.keys(ROOM_ROLE_META) as RoomRole[]).map((r) => {
+          {(Object.keys(ROOM_ROLE_META) as RoomRole[]).filter((r) => !isAdmin || r !== "caretaker").map((r) => {
             const on = roomRole === r;
             return (
               <button key={r} type="button" className={`big-option ${on ? "big-option--on" : ""}`} aria-pressed={on} disabled={busy} onClick={() => setRoomRole(r)}>
-                <span className="big-option__emoji" aria-hidden="true"><RoomRoleIcon role={r} size={32} /></span>
+                <span className="big-option__emoji" aria-hidden="true"><RoomRoleIcon role={r} size={32} sex={sex ?? "M"} /></span>
                 <span className="big-option__label">{ROOM_ROLE_META[r].label}</span>
                 <span className="big-option__hint">{ROOM_ROLE_META[r].hint}</span>
               </button>
@@ -242,6 +271,7 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, l
           })}
         </div>
         {editing && member?.roomRole === "caretaker" && roomRole === "helper" && <p className="cat-hint cat-hint--error">Ao virar auxiliar, as crianças sob sua responsabilidade ficam sem líder.</p>}
+        {isAdmin && <p className="cat-hint">🔑 Admin do app: tem quarto e transporte, mas não cuida de crianças nem entra em um time.</p>}
       </fieldset>
 
       {!editing && (
@@ -251,13 +281,13 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, l
             <TeamSelect value={team} onChange={setTeam} disabled={busy} />
             <TransportSelect value={transportation} onChange={setTransportation} disabled={busy} audience="staff" />
           </div>
-          <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} disabled={busy} />
+          <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} groups={bedroomGroupsForSex(sex)} disabled={busy} />
         </section>
       )}
 
       <section className="form-box form-box--plain" aria-labelledby="staff-health-title">
         <h3 id="staff-health-title" className="form-box__title">📝 Saúde e observações</h3>
-        {optional("🤧 Alergias", hasAllergies, setHasAllergies, <CategoryChips label="Quais" category={byKey(STAFF_CATEGORY_KEYS.allergies)} value={allergies} onChange={setAllergies} disabled={busy} />)}
+        {optional("🤮 Alergias", hasAllergies, setHasAllergies, <CategoryChips label="Quais" category={byKey(STAFF_CATEGORY_KEYS.allergies)} value={allergies} onChange={setAllergies} disabled={busy} />)}
         {optional(
           <>
             <NoPillIcon /> Alergia a medicamentos

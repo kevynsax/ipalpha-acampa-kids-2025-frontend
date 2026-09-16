@@ -184,6 +184,24 @@ on the same line, chips, `StaffPicker`) is the shared list widget — the
 organizers and medical team pages use it too, so every “add person” button
 sits in the same spot.
 
+**📊 Por veículo** (`pages/TransportReport`) is the admin's per-bus report:
+progress bar per vehicle, the missing kids once most of one is there, and the
+team riding in it. **Only buses** — a car is a family dropping their own kid
+off, not a roll call.
+
+It is about the BUS journey, both ways: a chip strip picks the leg, and each
+reads its own stamp on the kid — **🏕️ Ida** (`busCheckin`) and **⛪ Volta**
+(`busReturnCheckin`). It opens on the trip happening now (`useDefaultBusTrip`).
+The church door (`Camper.checkin`) is not a leg here: it has its own roll call
+(`CheckinPage`). The team is listed per vehicle but never counted as boarded —
+a staff record carries a single arrival stamp, not a per-trip one.
+
+Read-only: every stamp is made at the door (`CheckinPage` / `BusCheckinPage`).
+Reachable from BOTH kid roll calls — `#/checkin/church/report` (button in the
+Igreja header) and `#/checkin/bus/report` (button in the Ônibus header: on the
+vehicle picker and inside a vehicle's roll call). Admins only: it lists the
+team, which helpers never receive.
+
 While the window is open the listed people get the matching tab — **⛪
 Check-in Igreja** (same `CheckinPage` as the admin, minus the per-vehicle
 report, which lists the team) or **🚌 Check-in Ônibus** (`BusCheckinPage`
@@ -289,9 +307,12 @@ server revokes the session and issues a token for that role, the local store
 is wiped and the WebSocket brings the new scope's snapshot.
 
 `user.roles` comes from the server already reconciled with reality (a mãe on
-the team roster gets `staff` even if her account only said `parent` — see the
-backend README, `availableRolesOf`), so the chip is a plain label only when
-there really is a single profile.
+the team roster gets `staff` even if her account only said `parent`; a stored
+`parent` with no kid enrolled is dropped; an admin is never offered "Equipe",
+since their roster record is only a room + transport + vest — see the backend
+README, `availableRolesOf`), so the chip is a plain label only when there
+really is a single profile, and the dialog never offers a profile the person
+can't use.
 
 A responsible with **more than one kid** gets a tab strip
 (`components/ParentKidTabs`, shared by Início and Perfil) to pick whose data

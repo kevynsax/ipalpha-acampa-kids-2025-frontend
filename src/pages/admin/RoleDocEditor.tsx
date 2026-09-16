@@ -1,19 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { updateRole, type ScheduleRole } from "../../api/schedule";
 import RichTextEditor from "../../components/RichTextEditor";
+import { ICONS } from "../../icons";
 
 /** which of the função's two texts is being written */
 export type RoleDocField = "instructions" | "preparation";
 
-export const ROLE_DOC_META: Record<RoleDocField, { label: string; placeholder: string; aiContext: "role_instructions" | "role_preparation" }> = {
+export const ROLE_DOC_META: Record<RoleDocField, { label: ReactNode; placeholder: string; aiContext: "role_instructions" | "role_preparation" }> = {
   instructions: {
     label: "📝 Instruções para a equipe",
     placeholder: "ex.: Fique dentro da área da piscina durante todo o turno…",
     aiContext: "role_instructions",
   },
   preparation: {
-    label: "🎒 Preparação (antes do acampamento)",
+    label: <><img className="audience-icon" src={ICONS.preparation} alt="" aria-hidden="true" /> Preparação (antes do acampamento)</>,
     placeholder: "ex.: Leve uma camiseta verde e um boné — quanto mais parecido com o exército, melhor! 🥣",
     aiContext: "role_preparation",
   },
@@ -85,7 +86,7 @@ export default function RoleDocEditor({ token, role, field, context, onClose }: 
   }
 
   return createPortal(
-    <div className="doc-edit" role="dialog" aria-modal="true" aria-label={`${meta.label} — ${role.name}`}>
+    <div className="doc-edit" role="dialog" aria-modal="true" aria-label={`${field === "preparation" ? "Preparação" : "Instruções"} — ${role.name}`}>
       <header className="doc-edit__head">
         <div className="doc-edit__titles">
           <span className="doc-edit__title">

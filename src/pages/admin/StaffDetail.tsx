@@ -3,15 +3,15 @@ import Breadcrumbs from "../../components/Breadcrumbs";
 import HealthAlerts from "../../components/HealthAlerts";
 import InstructionsDialog from "../../components/InstructionsDialog";
 import KidIcon, { AdultIcon } from "../../components/KidIcon";
-import { ICONS, adultSexOf, kidSexOf } from "../../icons";
+import { ICONS, kidSexOf } from "../../icons";
 import BedroomTag from "../../components/BedroomTag";
 import { useCampTiming } from "../../campPhase";
 import { unassignStaff } from "../../api/schedule";
 import { speakDay, speakStamp } from "../../dates";
 import AssignRoleDialog from "./AssignRoleDialog";
-import { useConfirm } from "../../components/ConfirmDialog";
 import {
   ROOM_ROLE_META,
+  staffSex,
   type Staff,
   type StaffScheduleItem,
 } from "../../api/staff";
@@ -81,7 +81,6 @@ export default function StaffDetail({
   const [assignOpen, setAssignOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [fieldOpen, setFieldOpen] = useState<StaffQuickField | null>(null);
-  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
   const labelOf = useLabelOf();
   const myName = loadAuth()?.user.name ?? "";
@@ -95,23 +94,8 @@ export default function StaffDetail({
     if (data) setTitle(data.staff.name.split(" ")[0]);
   }, [data, setTitle]);
 
+  /** desvincular é um clique só — é fácil de refazer, não pede confirmação */
   async function handleUnassign(x: StaffScheduleItem) {
-    const ok = await confirm({
-      emoji: "⛓️‍💥",
-      title: `Desvincular ${x.role?.name ?? "esta função"} em "${x.title}"?`,
-      message: x.defaultRole ? (
-        <>
-          A pessoa volta para a função padrão do evento:{" "}
-          <strong>
-            {x.defaultRole.emoji} {x.defaultRole.name}
-          </strong>
-          .
-        </>
-      ) : undefined,
-      confirmLabel: "Desvincular",
-      danger: true,
-    });
-    if (!ok) return;
     const eventId = x.eventId;
     setBusy(true);
     try {
@@ -165,6 +149,7 @@ export default function StaffDetail({
   ).length;
   const vestReturned = !!s.vest?.delivered && !!s.vest.returned;
   const vestLate = campOver && !vestReturned;
+  const adultIcon = staffSex(s, bedroom ? [bedroom] : []) === "M" ? "man" : "woman";
 
   /** "Cleves (auxiliar) está no mesmo quarto: 403 (Meninos)" — the colleagues and the room are links */
   const roomSentence = bedroom && (
@@ -204,7 +189,7 @@ export default function StaffDetail({
       <Breadcrumbs items={nav.crumbs} />
       <header className="admin-head">
         <h1 className="admin-title detail-title">
-          <AdultIcon sex={adultSexOf(bedroom?.group)} size={40} />
+          <AdultIcon sex={adultIcon} size={40} />
           {s.name}
           {s.admin && (
             <span className="staff-card__inactive" title="Admin do app">
@@ -252,8 +237,9 @@ export default function StaffDetail({
           </dd>
           <dt>Time</dt>
           <dd>
-            <TeamTag teamId={s.team} fallback="—" />
-            {onEdit && (
+            {/* an admin is on the roster for the room / transport / vest only: no time, no kids */}
+            <TeamTag teamId={s.team} fallback={s.admin ? "— admin não entra em time" : "—"} />
+            {onEdit && !s.admin && (
               <button type="button" className="icon-btn icon-btn--bare" title="Trocar de time" aria-label="Trocar de time" onClick={() => setFieldOpen("team")}>
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
               </button>
@@ -277,12 +263,12 @@ export default function StaffDetail({
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
               </button>
             )}
-            {bedroom && bedroom.group !== "staff" && (
+            {bedroom && bedroom.group !== "staff" && !s.admin && (
               <span
                 className="staff-tag"
                 title={ROOM_ROLE_META[s.roomRole].hint}
               >
-                <RoomRoleIcon role={s.roomRole} /> {ROOM_ROLE_META[s.roomRole].label}
+                <RoomRoleIcon role={s.roomRole} sex={staffSex(s, bedroom ? [bedroom] : [])} /> {ROOM_ROLE_META[s.roomRole].label}
               </span>
             )}
           </dd>

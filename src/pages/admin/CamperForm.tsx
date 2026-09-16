@@ -2,15 +2,20 @@ import RoomRoleIcon from "../../components/RoomRoleIcon";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useConfirmChoice } from "../../components/ConfirmDialog";
 import { CAMPER_CATEGORY_KEYS, blankMedication, type Camper, type CamperInput, type CamperSex, type Medication } from "../../api/campers";
+import { canBeCaretaker } from "../../api/staff";
+import { useHideScanFab } from "../../scanFab";
 import { useCollectionOrEmpty } from "../../store";
 import AiNotesField from "../../components/AiNotesField";
 import { useAiNotesSorter } from "../../hooks/useAiNotesSorter";
 import { useFieldDedup } from "../../hooks/useFieldDedup";
+import { useGuessCamperSex } from "../../hooks/useGuessCamperSex";
 import type { DedupField } from "../../api/ai";
 import MedicationsEditor from "../../components/MedicationsEditor";
 import NoPillIcon from "../../components/NoPillIcon";
 import type { Category } from "../../api/categories";
+import { bedroomGroupsForSex } from "../../api/bedrooms";
 import { BedroomSelect, CategoryChips, CategoryRadio, TeamSelect, TransportSelect } from "../../components/CategoryFields";
+import BunkIcon from "../../components/BunkIcon";
 import ParentIcon from "../../components/ParentIcon";
 import CpfInput from "../../components/CpfInput";
 import PhoneInput from "../../components/PhoneInput";
@@ -25,6 +30,8 @@ interface CamperFormProps {
   categories: Category[];
   busy?: boolean;
   onSubmit: (input: CamperInput) => Promise<void>;
+  /** live boy/girl guess — drives the "Novo acampante" title icon */
+  onSexChange?: (sex: CamperSex | null, busy: boolean) => void;
   /**
    * Set by the form to a guard the parent calls before navigating away (breadcrumbs).
    * Resolves true when navigation may proceed, false to stay on the form.
@@ -33,13 +40,14 @@ interface CamperFormProps {
 }
 
 /** Create / edit a camper (kid). The health block is collapsible; the guardian box is always open. */
-export default function CamperForm({ token, camper, categories, busy, onSubmit, leaveGuardRef }: CamperFormProps) {
+export default function CamperForm({ token, camper, categories, busy, onSubmit, onSexChange, leaveGuardRef }: CamperFormProps) {
+  // the "Ler crachá" FAB would sit on top of Salvar / Cancelar
+  useHideScanFab();
   const editing = !!camper;
   const cat = (key: string) => categories.find((c) => c.key === key);
 
   const [name, setName] = useState(camper?.name ?? "");
   const [birthDate, setBirthDate] = useState(camper?.birthDate ?? "");
-  const [sex, setSex] = useState<CamperSex | null>(camper?.sex ?? null);
   const [cpf, setCpf] = useState(formatCpf(camper?.cpf ?? ""));
   const [rg, setRg] = useState(camper?.rg ?? "");
   const [school, setSchool] = useState(camper?.school ?? "");
@@ -53,11 +61,21 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
   const staff = useCollectionOrEmpty("staff");
   const [team, setTeam] = useState<string | null>(camper?.team ?? null);
   const [bedroom, setBedroom] = useState<string | null>(camper?.bedroom ?? null);
+  const room = bedroom ? bedrooms.find((b) => b.id === bedroom) : undefined;
+  const roomSex: CamperSex | null = room?.group === "girls" ? "F" : room?.group === "boys" ? "M" : null;
+  const nameChanged = editing && name.trim() !== (camper?.name ?? "").trim();
+  const guessed = useGuessCamperSex({ token, name, enabled: !roomSex && (!editing || nameChanged) });
+  // girls/boys room wins; staff room / no room keeps the last GLM guess until a new one lands
+  const sex: CamperSex | null = roomSex ?? guessed.sex ?? (editing && !nameChanged ? (camper?.sex ?? null) : null);
+  const sexBusy = !roomSex && guessed.busy;
+  useEffect(() => {
+    onSexChange?.(sex, sexBusy);
+  }, [sex, sexBusy, onSexChange]);
   const [caretakerId, setCaretakerId] = useState<string | null>(camper?.caretakerId ?? null);
   const [transportation, setTransportation] = useState<string | null>(camper?.transportation ?? null);
-  /** the líderes of the chosen room: the only people who may look after the kid */
+  /** the líderes of the chosen room: the only people who may look after the kid (never an admin — see api/staff#canBeCaretaker) */
   const caretakers = useMemo(
-    () => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "caretaker").sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) : []),
+    () => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "caretaker" && canBeCaretaker(s)).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) : []),
     [staff, bedroom],
   );
   // one líder → picked for you; room changed → a líder from elsewhere is dropped
@@ -118,7 +136,7 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
         title: "Salvar alterações?",
         message: "Você fez alterações que ainda não foram salvas.",
         confirmLabel: "Salvar",
-        discardLabel: "Descartar alterações",
+        discardLabel: "Descartar",
         cancelLabel: "Cancelar",
         emoji: "💾",
       });
@@ -279,7 +297,7 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
   }
 
   /** a labelled text field; pass `dedupAs` to run the background repeat clean-up on blur (pulses while it runs) */
-  const text = (label: string, value: string, set: (v: string) => void, placeholder = "", rows?: number, dedupAs?: DedupField) => {
+  const text = (label: React.ReactNode, value: string, set: (v: string) => void, placeholder = "", rows?: number, dedupAs?: DedupField) => {
     const cls = `cat-input${rows ? " cat-input--area" : ""}${dedupAs && dedup.busy(dedupAs) ? " cat-input--busy" : ""}`;
     const onBlur = dedupAs ? () => void dedup.run(dedupAs, value, set) : undefined;
     return (
@@ -306,28 +324,29 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
 
   return (
     <form className="cat-form cat-form--plain" onSubmit={handleSubmit}>
-      <div className="cat-form__row staff-form__row">
+      <div className="cat-form__row staff-form__row staff-form__row--inline">
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Nome</span>
-          <input className="cat-input" placeholder="ex.: Helena Sparvoli" value={name} maxLength={100} autoFocus disabled={busy} onChange={(e) => setName(e.target.value)} />
+          <span className={`cat-field__label${sexBusy ? " cat-field__label--guessing" : ""}`}>Nome</span>
+          <input
+            className={`cat-input${sexBusy ? " cat-input--busy" : ""}`}
+            placeholder="ex.: Helena Sparvoli"
+            value={name}
+            maxLength={100}
+            autoFocus
+            disabled={busy}
+            onChange={(e) => setName(e.target.value)}
+          />
         </label>
         <label className="cat-field">
           <span className="cat-field__label">Nascimento</span>
           <input className="cat-input" type="date" value={birthDate} disabled={busy} onChange={(e) => setBirthDate(e.target.value)} />
         </label>
-        <label className="cat-field">
-          <span className="cat-field__label">Sexo</span>
-          <select className="cat-input" value={sex ?? ""} disabled={busy} onChange={(e) => setSex((e.target.value || null) as CamperSex | null)}>
-            <option value="">—</option>
-            <option value="F">Feminino</option>
-            <option value="M">Masculino</option>
-          </select>
-        </label>
+        <input type="hidden" name="sex" value={sex ?? ""} />
       </div>
 
       <div className="cat-form__row staff-form__row">
         <CategoryRadio label="Cama" category={cat(CAMPER_CATEGORY_KEYS.bed)} value={bed} onChange={setBed} disabled={busy} />
-        {text("🛏️ Prefere dividir quarto com", bedroomPreference, setBedroomPreference, "ex.: Bernardo Faria, Lucas (primo)", undefined, "bedroomPreference")}
+        {text(<><BunkIcon size={18} /> Prefere dividir quarto com</>, bedroomPreference, setBedroomPreference, "ex.: Bernardo Faria, Lucas (primo)", undefined, "bedroomPreference")}
       </div>
 
       {!editing && (
@@ -338,9 +357,9 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
             <TransportSelect value={transportation} onChange={setTransportation} disabled={busy} />
           </div>
           <div className="cat-form__row staff-form__row">
-            <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} groups={["girls", "boys"]} disabled={busy} />
+            <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} groups={bedroomGroupsForSex(sex)} disabled={busy} />
             <label className="cat-field cat-field--grow">
-              <span className="cat-field__label"><RoomRoleIcon role="caretaker" /> Líder</span>
+              <span className="cat-field__label"><RoomRoleIcon role="caretaker" sex={sex ?? "M"} /> Líder</span>
               <select className="cat-input" value={caretakerId ?? ""} disabled={busy || !bedroom || caretakers.length === 0} onChange={(e) => setCaretakerId(e.target.value || null)}>
                 <option value="">{!bedroom ? "Escolha o quarto primeiro" : caretakers.length ? "Sem líder" : "Nenhum líder neste quarto"}</option>
                 {caretakers.map((s) => (
@@ -406,7 +425,7 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
           <input className="cat-input" inputMode="decimal" placeholder="ex.: 28,5" value={weight} maxLength={6} disabled={busy} onChange={(e) => setWeight(e.target.value)} />
           {weight.trim() && !weightOk && <p className="cat-hint cat-hint--error">Entre 5 e 200 kg.</p>}
         </label>
-        {optional("🤧 Alergias", hasAllergies, setHasAllergies, <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.allergies)} value={allergies} onChange={setAllergies} disabled={busy} />)}
+        {optional("🤮 Alergias", hasAllergies, setHasAllergies, <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.allergies)} value={allergies} onChange={setAllergies} disabled={busy} />)}
         {optional(
           <>
             <NoPillIcon /> Alergia a medicamentos

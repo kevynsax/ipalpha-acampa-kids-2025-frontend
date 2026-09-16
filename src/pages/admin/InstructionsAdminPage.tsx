@@ -91,7 +91,7 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
   // ── read one document ──
   if (mode.kind === "read") {
     return (
-      <div className="admin-page">
+      <div className="admin-page admin-page--edge">
         <Breadcrumbs items={[{ label: "Instruções", onClick: () => navigate("/instructions-admin") }, { label: current?.title ?? "Documento" }]} />
         {!current ? (
           <p className="opt-empty">Documento não encontrado.</p>
@@ -101,7 +101,8 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
               <h1 className="admin-title instruction-doc__title">
                 <span aria-hidden="true">{current.emoji}</span> {current.title}
               </h1>
-              <button type="button" className="icon-btn icon-btn--lg" title="Editar" aria-label="Editar" disabled={busy} onClick={() => navigate(`/instructions-admin/${current.id}/edit`)}>
+              {/* phones pin this at the card's top-right corner (see .instruction-doc__edit) */}
+              <button type="button" className="icon-btn icon-btn--lg instruction-doc__edit" title="Editar" aria-label="Editar" disabled={busy} onClick={() => navigate(`/instructions-admin/${current.id}/edit`)}>
                 <span className="pencil" aria-hidden="true">✏️</span>
               </button>
             </header>

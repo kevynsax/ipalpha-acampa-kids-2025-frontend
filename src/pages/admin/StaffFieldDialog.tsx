@@ -48,16 +48,29 @@ export default function StaffFieldDialog({ token, open, member: s, field, onClos
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title={META[field].title} width={480}>
+    <Dialog open={open} onClose={onClose} title={META[field].title} width={480} dismissible={!busy} className="sheet-dialog">
       <div className="cat-form cat-form--plain">
-        <h2 className="cat-form__title change-room__title">
-          <img className="pencil-icon" src={field === "transportation" ? ICONS.transport : ICONS.pencil} alt="" aria-hidden="true" /> {META[field].title}
-        </h2>
-
+        {/* phones: this card is a bottom sheet (see .sheet-dialog) */}
+        <span className="sheet__handle" aria-hidden="true" />
         {field === "team" ? (
-          <TeamSelect value={value} onChange={setValue} disabled={busy} />
+          <>
+            <h2 className="cat-form__title change-room__title">
+              <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" /> {META.team.title}
+            </h2>
+            <TeamSelect value={value} onChange={setValue} disabled={busy} hideLabel />
+          </>
         ) : (
-          <TransportSelect value={value} onChange={setValue} disabled={busy} audience="staff" />
+          <TransportSelect
+            value={value}
+            onChange={setValue}
+            disabled={busy}
+            audience="staff"
+            title={
+              <>
+                <img className="pencil-icon" src={ICONS.transport} alt="" aria-hidden="true" /> {META.transportation.title}
+              </>
+            }
+          />
         )}
 
         {error && <p className="message message--error">{error}</p>}

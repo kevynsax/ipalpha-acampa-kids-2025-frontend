@@ -115,7 +115,7 @@ export default function GiveawayPage({ who, crumbs }: GiveawayPageProps) {
                 </span>
               )}
               <span className="opt-item__badge opt-item__badge--icon">
-                {r.group ? <GroupIcon group={r.group} face size={16} /> : "🛏️"} {r.room}
+                {r.group ? <GroupIcon group={r.group} face size={16} /> : null} {r.room}
               </span>
             </li>
           ))}

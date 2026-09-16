@@ -1,6 +1,5 @@
 import { bedroomLabel, type Bedroom } from "../api/bedrooms";
-import BunkIcon from "./BunkIcon";
-import GroupIcon from "./GroupIcon";
+import BedIcon from "./BedIcon";
 
 type BedroomRef = Pick<Bedroom, "name" | "group">;
 
@@ -17,7 +16,7 @@ interface BedroomTagProps {
 }
 
 /**
- * A `.staff-tag` chip with the wing face + bunk + room number — the ONE way a
+ * A `.staff-tag` chip with the wing's bed + room number — the ONE way a
  * bedroom is shown wherever a person's tags are listed. Plain-text
  * `bedroomLabel` stays for search, exports, print, and native <select>.
  */
@@ -33,8 +32,7 @@ export default function BedroomTag({ bedroom, fallback = null, title, className 
   const cls = `staff-tag staff-tag--room ${className}`.trim();
   const inner = (
     <>
-      <GroupIcon group={bedroom.group} face size={size} />
-      <BunkIcon size={size} />
+      <BedIcon size={size} group={bedroom.group} />
       {bedroom.name}
     </>
   );

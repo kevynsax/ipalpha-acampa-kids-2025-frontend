@@ -1,6 +1,7 @@
 import QRCode from "qrcode";
 import { bedroomLabel, type Bedroom } from "../api/bedrooms";
 import type { Camper } from "../api/campers";
+import { bedSrc } from "../icons";
 
 /**
  * Printable labels for the kids — the **badge** (crachá, 100 × 62 mm) and the
@@ -57,6 +58,7 @@ interface LabelData {
   team: string;
   bus: string;
   room: string;
+  bed: string;
   marks: string;
   qr: string;
 }
@@ -69,6 +71,7 @@ async function labelData(k: Camper, roomById: Map<string, Bedroom>, labelOf: Lab
     team: (labelOf(k.team) ?? "").toUpperCase(),
     bus: (labelOf(k.transportation) ?? "").toUpperCase(),
     room: room ? bedroomLabel(room).toUpperCase() : "",
+    bed: bedSrc(room?.group),
     marks: healthMarks(k, labelOf),
     qr,
   };
@@ -94,6 +97,7 @@ const COMMON_CSS = `
   .qr svg { width: 100%; height: 100%; display: block; }
   .row { display: flex; align-items: center; gap: 0.6mm; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.01em; }
   .ico { font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; font-weight: 400; line-height: 1; }
+  .ico img { width: 1.15em; height: 1.15em; object-fit: contain; display: block; }
   .marks { position: absolute; letter-spacing: 0.15em; }
   @media screen { body { background: #ccc; padding: 10mm; } .card { margin: 0 auto 6mm; box-shadow: 0 2px 8px rgba(0,0,0,.3); } }
 `;
@@ -123,7 +127,7 @@ function badgeHtml(d: LabelData): string {
     <div class="name" style="font-size:${size}pt">${esc(d.name)}</div>
     ${d.team ? `<div class="row row--team"><span class="ico">🏷️</span><span>${esc(d.team)}</span></div>` : ""}
     ${d.bus ? `<div class="row row--bus"><span class="ico">🚌</span><span>${esc(d.bus)}</span></div>` : ""}
-    ${d.room ? `<div class="row row--room"><span class="ico">🛏️</span><span>${esc(d.room)}</span></div>` : ""}
+    ${d.room ? `<div class="row row--room"><span class="ico"><img src="${esc(d.bed)}" alt=""></span><span>${esc(d.room)}</span></div>` : ""}
     ${d.marks ? `<div class="marks">${esc(d.marks)}</div>` : ""}
   </div>`;
 }
@@ -154,7 +158,7 @@ function braceletHtml(d: LabelData): string {
     <div class="qr">${d.qr}</div>
     <div class="name" style="font-size:${size}pt">${esc(d.name)}</div>
     <div class="cols">
-      <div class="row row--room">${d.room ? `<span class="ico">🛏️</span><span>${esc(d.room)}</span>` : ""}</div>
+      <div class="row row--room">${d.room ? `<span class="ico"><img src="${esc(d.bed)}" alt=""></span><span>${esc(d.room)}</span>` : ""}</div>
       <div class="row row--bus">${d.bus ? `<span class="ico">🚌</span><span>${esc(d.bus)}</span>` : ""}</div>
       <div class="row row--team">${d.team ? `<span class="ico">🏷️</span><span>${esc(d.team)}</span>` : ""}</div>
     </div>

@@ -30,3 +30,16 @@ export function useDefaultBusTrip(): BusTrip {
   if (returnFrom !== null && now >= returnFrom) return "return";
   return "outbound";
 }
+
+/**
+ * Is the kids' CHURCH check-in window open right now? (the arrival door on
+ * departure day). Lets a screen open on the church leg while it is running and
+ * fall back to a bus leg afterwards — see pages/TransportReport.
+ */
+export function useChurchWindowOpen(): boolean {
+  const settings = useCollection("settings") as Windows | null;
+  const now = Date.now();
+  const from = ms(settings?.checkinWindow?.from);
+  const until = ms(settings?.checkinWindow?.until);
+  return from !== null && until !== null && from <= now && now < until;
+}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { updateSettings } from "../../api/settings";
 import Toggle from "../../components/Toggle";
+import { ICONS } from "../../icons";
 import { useCollection } from "../../store";
 
 interface KidsRoomsDraftCardProps {
@@ -34,7 +35,7 @@ export default function KidsRoomsDraftCard({ token }: KidsRoomsDraftCardProps) {
   return (
     <section className="cat-form">
       <div className="cat-form__head">
-        <h2 className="cat-form__title">🛏️ Quartos em rascunho</h2>
+        <h2 className="cat-form__title"><img className="audience-icon" src={ICONS.bed} alt="" aria-hidden="true" /> Quartos em rascunho</h2>
         <Toggle checked={draft} disabled={!settings || busy} label={draft ? "Ainda não definidos" : "Definidos"} onChange={(v) => void toggle(v)} />
       </div>
       <p className="cat-hint">

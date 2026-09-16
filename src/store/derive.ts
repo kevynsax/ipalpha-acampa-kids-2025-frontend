@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import type { Bedroom, BedroomDetail } from "../api/bedrooms";
 import type { Camper, CamperDetail } from "../api/campers";
 import type { Category, CategoryAudience } from "../api/categories";
-import { roleDetailOf, type CampEvent, type RoleDetail, type ScheduleRole } from "../api/schedule";
+import { autoRoleCovers, autoRoleFor, dutyOf, peopleInRole, roleDetailOf, type CampEvent, type RoleDetail, type ScheduleRole } from "../api/schedule";
 import { compareRoomStaff, type Staff, type StaffDetail, type StaffScheduleItem } from "../api/staff";
 import type { Team } from "../api/teams";
 import type { Transport } from "../api/transports";
@@ -73,12 +73,11 @@ export function useStaffDetail(staffId: string): StaffDetail | null | undefined 
 
     const schedule: StaffScheduleItem[] = [];
     for (const e of events) {
-      // explicit assignment wins; otherwise a "for everyone" role of the event applies (active members only)
-      const a = e.assignments.find((x) => x.staffId === s.id);
-      const everyone = !a && s.active ? e.roles.map((id) => roleById.get(id)).find((r) => r?.forEveryone) : undefined;
-      const r = a ? roleById.get(a.roleId) : everyone;
-      if (!a && !everyone) continue;
-      const fallback = e.roles.map((id) => roleById.get(id)).find((x) => x?.forEveryone);
+      // explicit escala wins; otherwise the função that falls on the person's POSITION (active members only)
+      const duty = dutyOf(e, s, roleById);
+      if (!duty) continue;
+      const { role: r, assignment: a } = duty;
+      const fallback = s.active ? autoRoleFor(e.roles, s.roomRole, roleById) : undefined;
       schedule.push({
         eventId: e.id,
         date: e.date,
@@ -195,8 +194,8 @@ export interface MyPrepRole {
 }
 
 /**
- * The roles the logged-in person fulfils in ANY event (explicit assignment,
- * or a "for everyone" default), de-duplicated — what their Preparação page
+ * The roles the logged-in person fulfils in ANY event (their escala, or the
+ * função that falls on their position), de-duplicated — what their Preparação page
  * lists. For non-admins the server already scoped the events to their own
  * roles, but the same computation works on the full data an admin receives.
  * `null` while syncing; empty when the phone isn't a staff member.
@@ -225,7 +224,7 @@ export function useMyPrepRoles(phone: string): MyPrepRole[] | null {
     for (const e of ordered) {
       const a = e.assignments.find((x) => x.staffId === me.id);
       if (a) add(roleById.get(a.roleId), roleDetailOf(roleById.get(a.roleId), a, myTeam).detail, e);
-      else if (me.active) for (const id of e.roles) if (roleById.get(id)?.forEveryone) add(roleById.get(id), "", e);
+      else if (me.active) for (const id of e.roles) if (autoRoleCovers(roleById.get(id), me.roomRole)) add(roleById.get(id), "", e);
     }
     return [...acc.values()].sort((x, y) => byName(x.role, y.role));
   }, [staff, events, roles, teams, phone]);
@@ -240,20 +239,20 @@ export function useRoleDetail(roleId: string): RoleDetail | null | undefined {
     if (!roles) return null;
     const r = roles.find((x) => x.id === roleId);
     if (!r) return undefined;
-    const active = staff.filter((s) => s.active);
+    const roleById = new Map(roles.map((x) => [x.id, x]));
     const teamById = new Map(teams.map((t) => [t.id, t]));
     const usedIn = events
       .filter((e) => e.roles.includes(r.id))
       .map((e) => {
-        const people = r.forEveryone
-          ? active.filter((s) => !e.assignments.some((a) => a.staffId === s.id)).map((s) => ({ staffId: s.id, name: s.name, detail: "" }))
-          : e.assignments
-              .filter((a) => a.roleId === r.id)
-              .map((a) => {
-                const person = staff.find((s) => s.id === a.staffId);
-                return { staffId: a.staffId, name: person?.name ?? "?", detail: roleDetailOf(r, a, person?.team ? teamById.get(person.team) : null).detail };
-              })
-              .sort(byName);
+        // both links at once: escalados by hand + covered by position
+        const people = peopleInRole(e, r, staff, roleById)
+          .map(({ staff: s, via, assignment }) => ({
+            staffId: s.id,
+            name: s.name,
+            via,
+            detail: roleDetailOf(r, assignment, s.team ? teamById.get(s.team) : null).detail,
+          }))
+          .sort((a, b) => (a.via === b.via ? byName(a, b) : a.via === "person" ? -1 : 1));
         return { eventId: e.id, date: e.date, startTime: e.startTime, endTime: e.endTime, title: e.title, emoji: e.emoji, people };
       });
     return { role: r, events: usedIn };

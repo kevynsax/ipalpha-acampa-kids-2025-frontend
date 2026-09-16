@@ -1,6 +1,8 @@
 import RoomRoleIcon from "../../components/RoomRoleIcon";
 import { useEffect, useMemo, useState } from "react";
 import { moveCamper, type Camper } from "../../api/campers";
+import { canBeCaretaker, staffSex } from "../../api/staff";
+import { bedroomGroupsForSex } from "../../api/bedrooms";
 import { BedroomSelect } from "../../components/CategoryFields";
 import Dialog from "../../components/Dialog";
 import { ICONS } from "../../icons";
@@ -38,7 +40,8 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
 
   const room = bedroom ? bedrooms.find((b) => b.id === bedroom) : null;
   const caretakers = useMemo(
-    () => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "caretaker").sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) : []),
+    // an admin sleeping in the room is not a líder: their roster record is only for the room / transport / vest
+    () => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "caretaker" && canBeCaretaker(s)).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) : []),
     [staff, bedroom],
   );
   const helpers = useMemo(() => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "helper") : []), [staff, bedroom]);
@@ -68,19 +71,21 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Trocar de quarto" width={560}>
+    <Dialog open={open} onClose={onClose} title="Trocar de quarto" width={560} dismissible={!busy} className="sheet-dialog">
       <div className="cat-form cat-form--plain">
+        {/* phones: this card is a bottom sheet (see .sheet-dialog) */}
+        <span className="sheet__handle" aria-hidden="true" />
         <h2 className="cat-form__title change-room__title">
           <img className="admin-title__icon" src={ICONS.swap} alt="" aria-hidden="true" /> Trocar de quarto
         </h2>
 
-        <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} current={k.bedroom} groups={["girls", "boys"]} disabled={busy} />
+        <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} current={k.bedroom} groups={bedroomGroupsForSex(k.sex)} disabled={busy} />
 
         {bedroom && (
           <fieldset className="cat-fieldset change-room__caretaker">
             {caretakers.length !== 1 && (
               <legend className="cat-field__label">
-                <RoomRoleIcon role="caretaker" /> Quem vai cuidar {article} {k.name.split(" ")[0]}?
+                <RoomRoleIcon role="caretaker" sex={sex} /> Quem vai cuidar {article} {k.name.split(" ")[0]}?
               </legend>
             )}
             {caretakers.length === 0 && (
@@ -100,7 +105,7 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
                   return (
                     <button key={s.id} type="button" className={`big-option ${on ? "big-option--on" : ""}`} aria-pressed={on} disabled={busy} onClick={() => setCaretakerId(s.id)}>
                       <span className="big-option__emoji" aria-hidden="true">
-                        <RoomRoleIcon role="caretaker" size={32} />
+                        <RoomRoleIcon role="caretaker" size={32} sex={staffSex(s, bedrooms)} />
                       </span>
                       <span className="big-option__label">{s.name}</span>
                     </button>

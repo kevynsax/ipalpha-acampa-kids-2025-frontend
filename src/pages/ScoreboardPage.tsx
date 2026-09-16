@@ -108,7 +108,11 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan }: Scor
           </button>
         )}
       </header>
-      {canScan && <p className="admin-intro">📋 Pontos em massa dá pontos a várias crianças de uma vez — pelo nome ou lendo os crachás.{canSeeHistory && " Toque no nome do time para ver de onde vieram os pontos."}</p>}
+      {canScan && (
+        <p className="admin-intro scoreboard-intro">
+          📋 Pontos em massa dá pontos a várias crianças de uma vez — pelo nome ou lendo os crachás.{canSeeHistory && " Toque no nome do time para ver de onde vieram os pontos."}
+        </p>
+      )}
 
       {error && <p className="message message--error">{error}</p>}
 
@@ -120,16 +124,17 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan }: Scor
           const pct = Math.max(0, Math.min(100, (pts / top) * 100));
           return (
             <li key={t.id} className={`score-card ${i === 0 && pts > 0 ? "score-card--leader" : ""}`} style={{ borderLeftColor: t.color }}>
+              <span className="score-card__wash" aria-hidden="true" style={{ width: `${pct}%`, background: t.color }} />
               <span className="score-card__rank" aria-label={`${i + 1}º lugar`}>
                 {i === 0 && pts > 0 ? "🥇" : i === 1 && pts > 0 ? "🥈" : i === 2 && pts > 0 ? "🥉" : `${i + 1}º`}
               </span>
               <div className="score-card__body">
                 {canSeeHistory ? (
                   <button type="button" className="score-card__name" title="Ver de onde vieram os pontos" onClick={() => goTeam(t.id)}>
-                    {t.name}
+                    {teamCardName(t.name)}
                   </button>
                 ) : (
-                  <span className="score-card__name">{t.name}</span>
+                  <span className="score-card__name">{teamCardName(t.name)}</span>
                 )}
                 <span className="score-card__bar" aria-hidden="true">
                   <span className="score-card__fill" style={{ width: `${pct}%`, background: t.color }} />
@@ -213,6 +218,18 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan }: Scor
 }
 
 const QUICK = [1, 2, 3, 5, 10, 20, 50, 100];
+
+/** Names are stored as "Time Belém"; on phones the word Time is noise next to the score. */
+function teamCardName(name: string) {
+  const m = name.match(/^(times?\s+)/i);
+  if (!m) return name;
+  return (
+    <>
+      <span className="score-card__team-prefix">{m[1]}</span>
+      {name.slice(m[1].length)}
+    </>
+  );
+}
 
 function PointsDialog({ pending, busy, onSubmit, onClose }: { pending: Pending; busy: boolean; onSubmit: (points: number, note: string) => Promise<void>; onClose: () => void }) {
   const { team, sign } = pending;

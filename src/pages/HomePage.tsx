@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
 import { GROUP_META } from "../api/bedrooms";
 import { birthdayDuringCamp, type Camper } from "../api/campers";
-import { ROOM_ROLE_META } from "../api/staff";
+import { ROOM_ROLE_META, staffSex } from "../api/staff";
 import CamperCard from "../components/CamperCard";
 import GroupIcon from "../components/GroupIcon";
 import GuardianWhatsApp from "../components/GuardianWhatsApp";
+import RoomRoleIcon from "../components/RoomRoleIcon";
 import TeamTag from "../components/TeamTag";
 import WhatsAppButton from "../components/WhatsAppButton";
 import { formatBrazilPhoneClient } from "../phoneFormat";
@@ -12,9 +13,9 @@ import { staffGreeting, whatsappLink } from "../whatsapp";
 import KidIcon from "../components/KidIcon";
 import PlayScene from "../components/PlayScene";
 import SelfCheckinCard from "../components/SelfCheckinCard";
-import MedicationsCard from "../components/MedicationsCard";
+import MedicationChecklist from "../components/MedicationChecklist";
 import StaffIcon from "../components/StaffIcon";
-import { ICONS, kidSexOf } from "../icons";
+import { kidSexOf } from "../icons";
 import type { LoggedUser } from "../roles";
 import { useCollection } from "../store";
 import { useLabelOf, useMyRoom } from "../store/derive";
@@ -60,6 +61,15 @@ function useRoomBirthdays(kids: Camper[]): RoomBirthday[] {
   }, [events, kids]);
 }
 
+/**
+ * MEDICAL team, on Início: today's medication checklist — the very same
+ * component the Medicações tab shows, under this page's own heading, so the
+ * experience is identical in both tabs. Other days are only on that tab.
+ */
+function MedicationsToday({ token }: { token: string }) {
+  return <MedicationChecklist token={token} day={todayIso()} variant="card" title="Medicações de hoje" />;
+}
+
 /** 🎂 banner: every kid of the room whose birthday is on a camp day (today highlighted) */
 function BirthdayBanner({ birthdays, onOpen }: { birthdays: RoomBirthday[]; onOpen: (id: string) => void }) {
   if (birthdays.length === 0) return null;
@@ -99,6 +109,7 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
   const data = useMyRoom(user.phone);
   const labelOf = useLabelOf();
   const settings = useCollection("settings");
+  const bedrooms = useCollection("bedrooms") ?? [];
   const { navigate, segments } = useRoute();
   const [showOthers, setShowOthers] = useState(false);
   /** #/home/<camperId> → the kid's page (only the kids the server sent me are in the store) */
@@ -159,7 +170,7 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
         <h1 className="admin-title">Olá, {first}! 👋</h1>
         <SelfCheckinCard token={token} user={user} />
         {/* the medical team works from this list even without a room of their own */}
-        {medical && <MedicationsCard token={token} onOpen={() => navigate("/medications")} />}
+        {medical && <MedicationsToday token={token} />}
         <p className="opt-empty">
           Você ainda não tem um quarto definido.
           <br />
@@ -192,8 +203,8 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
       {/* departure day only: "Cheguei na igreja!" */}
       <SelfCheckinCard token={token} user={user} />
 
-      {/* MEDICAL team: what still has to be given today, one tap to tick (full list on the Medicações tab) */}
-      {medical && <MedicationsCard token={token} onOpen={() => navigate("/medications")} />}
+      {/* MEDICAL team: today's checklist — the same component as the Medicações tab (other days live there) */}
+      {medical && <MedicationsToday token={token} />}
 
       {/* ── my kids (caretaker only) ── */}
       {!isStaffRoom && caretaker && (
@@ -233,7 +244,7 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
             {roommates.map((r) => (
               <li key={r.id} className="roommate-card">
                 <span className={`roommate-card__icon roommate-card__icon--${r.roomRole}`} aria-hidden="true">
-                  <img src={r.roomRole === "caretaker" ? ICONS.leader : ICONS.helper} alt="" />
+                  <RoomRoleIcon role={r.roomRole} sex={staffSex(r, bedrooms)} size={40} />
                 </span>
                 <span className="roommate-card__body">
                   <strong className="roommate-card__name">{r.name}</strong>

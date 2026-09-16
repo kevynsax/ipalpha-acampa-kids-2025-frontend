@@ -1,4 +1,5 @@
-import { ROOM_ROLE_META, type Staff } from "../api/staff";
+import { ROOM_ROLE_META, staffSex, type Staff } from "../api/staff";
+import { useCollectionOrEmpty } from "../store";
 import { loadAuth } from "../auth/store";
 import { staffGreeting, whatsappLink } from "../whatsapp";
 import RoomRoleIcon from "./RoomRoleIcon";
@@ -18,8 +19,9 @@ interface StaffMiniCardProps {
 export default function StaffMiniCard({ staff: s, onOpen }: StaffMiniCardProps) {
   const open = onOpen ? () => onOpen(s.id) : undefined;
   const myName = loadAuth()?.user.name ?? "";
+  const bedrooms = useCollectionOrEmpty("bedrooms");
   return (
-    <li className={`staff-card staff-card--compact ${open ? "staff-card--clickable" : ""} ${s.active ? "" : "staff-card--inactive"}`}>
+    <li className={`staff-card staff-card--compact staff-card--cover ${open ? "staff-card--clickable" : ""} ${s.active ? "" : "staff-card--inactive"}`}>
       <div
         className="staff-card__body"
         role={open ? "link" : undefined}
@@ -42,7 +44,7 @@ export default function StaffMiniCard({ staff: s, onOpen }: StaffMiniCardProps) 
           {!s.active && <span className="staff-card__inactive">inativo</span>}
           {s.bedroom && (
             <span className="staff-tag staff-tag--soft" title={ROOM_ROLE_META[s.roomRole].hint}>
-              <RoomRoleIcon role={s.roomRole} /> {ROOM_ROLE_META[s.roomRole].label}
+              <RoomRoleIcon role={s.roomRole} sex={staffSex(s, bedrooms)} /> {ROOM_ROLE_META[s.roomRole].label}
             </span>
           )}
           <TeamTag teamId={s.team} />
@@ -51,12 +53,11 @@ export default function StaffMiniCard({ staff: s, onOpen }: StaffMiniCardProps) 
       </div>
       {s.phone && (
         <WhatsAppButton
-          className="wa-btn--sm"
+          className="wa-btn--sm staff-card__wa"
           href={whatsappLink(s.phone, staffGreeting({ toName: s.name, fromName: myName }))}
           label={`Falar com ${s.name.split(" ")[0]} no WhatsApp`}
         />
       )}
-      {open && <span className="kid-card__chevron" aria-hidden="true">›</span>}
     </li>
   );
 }

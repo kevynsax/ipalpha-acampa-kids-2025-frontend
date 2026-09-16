@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { TabOverrideContext, type TabKey } from "../dashTab";
+import { HideScanFabContext } from "../scanFab";
 import { useCampTiming, type CampPhase } from "../campPhase";
 import { useRoute, useScrollTopOnRoute } from "../router";
 import Logo from "../components/Logo";
@@ -29,6 +30,7 @@ import InstructionsAdminPage from "./admin/InstructionsAdminPage";
 import StaffPage from "./admin/StaffPage";
 import BusCheckinPage from "./BusCheckinPage";
 import BusTripsPage from "./BusTripsPage";
+import TransportReport from "./TransportReport";
 import CheckinPage from "./CheckinPage";
 import HomePage from "./HomePage";
 import MySchedulePage from "./MySchedulePage";
@@ -45,6 +47,7 @@ import CleanupPage from "./admin/CleanupPage";
 import ScoreboardPage from "./ScoreboardPage";
 import GalleryPage from "./GalleryPage";
 import { useCheckinHelper, type HelperAccess } from "../hooks/useCheckinHelper";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useParentWindow } from "../hooks/useParentWindow";
 import { useCampWindow } from "../hooks/useCampWindow";
 import { useCollection } from "../store";
@@ -62,15 +65,15 @@ interface DashboardProps {
   onSwitchRole: (role: Role) => Promise<void>;
 }
 
-/** "profile" is not a tab: it opens when the user clicks their own name in the header. */
-type View = TabKey | "profile" | "badge" | SettingsKey;
+/** "profile" is not a tab: it opens when the user clicks their own name in the header. "settings" (phones only) is the settings MENU — the big list an entry is chosen from. */
+type View = TabKey | "profile" | "badge" | "settings" | SettingsKey;
 
 /** Admin settings live behind the ⚙️ button; each one is its own URL (#/categories, #/settings). */
 type SettingsKey = "general" | "trials" | "categories" | "cleanup" | "transports" | "teams" | "preparation" | "instructions-admin" | "checkin-settings" | "organizers" | "game-organizers" | "medical" | "vests-settings" | "photographers" | "contacts" | "notifications" | "about";
 /** `adminOnly`: an ORGANIZER (Settings → Organizadores) gets every other page — these four stay with the real admin. */
 const SETTINGS: readonly { key: SettingsKey; label: string; emoji?: string; icon?: string; adminOnly?: boolean }[] = [
   { key: "general", label: "Geral", emoji: "⚙️" },
-  { key: "preparation", label: "Preparação", emoji: "🎒" },
+  { key: "preparation", label: "Preparação", icon: ICONS.preparation },
   { key: "instructions-admin", label: "Instruções", emoji: "📖" },
   { key: "checkin-settings", label: "Check-in", emoji: "✅" },
   { key: "organizers", label: "Organizadores", icon: ICONS.organizer, adminOnly: true },
@@ -118,14 +121,14 @@ interface Tab {
 function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft: boolean, scoreOpen: boolean, galleryOpen: boolean): Tab[] {
   /** the scoreboard only exists while the camp is happening (first day → end of the last event) or in draft (rehearsal) mode */
   const scoreboard: Tab[] = scoreOpen ? [{ key: "scoreboard", label: "Placar", emoji: "🏆" }] : [];
-  const prep: Tab = { key: "prep", label: "Preparação", emoji: "🎒" };
+  const prep: Tab = { key: "prep", label: "Preparação", icon: ICONS.preparation };
   const home: Tab = { key: "home", label: "Início", emoji: "🏠" };
   // rooms still a draft (Settings → Geral): nobody knows their room yet, so Preparação IS the home
   const teamHome: Tab[] = roomsDraft ? [prep] : phase === "before" ? [prep, home] : [home, prep];
   const adminTabs: Tab[] = [
     { key: "campers", label: "Acampantes", icon: ICONS.camper },
     { key: "staff", label: "Equipe", icon: roleMeta("staff").icon },
-    { key: "bedrooms", label: "Quartos", emoji: "🛏️" },
+    { key: "bedrooms", label: "Quartos", icon: ICONS.bed },
     { key: "schedule", label: "Programação", icon: ICONS.schedule },
     { key: "checkin", label: "Check-in", emoji: "✅" },
     ...scoreboard,
@@ -216,7 +219,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   /**
    * PHONES ONLY (the class it drives does nothing above 700px). Six tabs of
    * which two are Preparação + Instruções: the bottom bar merges them into a
-   * single 🎒+📖 entry, so the row fits five. Tapping it opens whichever the camp
+   * single 📖+mala entry, so the row fits five. Tapping it opens whichever the camp
    * phase calls for (before → Preparação, during / after → Instruções); the
    * other one is one tap away, from that page's header.
    */
@@ -235,6 +238,13 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
     return index < bottomHomeIndex ? index : index + 1;
   };
   const { path, segments, navigate } = useRoute();
+  /**
+   * PHONES: the ⚙️ opens an iPhone-style settings MENU first (big list → pick a
+   * section → its page, with a back link on it). 760px is the same query the
+   * settings CSS switches at, so the two always agree. Desktop keeps the
+   * sidebar layout, untouched.
+   */
+  const isPhone = useMediaQuery("(max-width: 760px)");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   useScrollTopOnRoute(path);
@@ -263,11 +273,22 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   /** the settings pages this session may open */
   const settingsPages = SETTINGS.filter((s) => isAdmin || !s.adminOnly);
   const isSettingsKey = (s: string | undefined): s is SettingsKey => settingsPages.some((x) => x.key === s);
-  const isView = (s: string | undefined): s is View => s === "profile" || (s === "badge" && !isParent && during) || (settingsAllowed && isSettingsKey(s)) || tabs.some((t) => t.key === s);
+  const isView = (s: string | undefined): s is View => s === "profile" || (s === "badge" && !isParent && during) || (settingsAllowed && (s === "settings" || isSettingsKey(s))) || tabs.some((t) => t.key === s);
   const view: View = isView(segments[0]) ? segments[0] : tabs[0]?.key ?? "profile";
   /** the tab we auto-landed on BEFORE the programme had arrived (the phase, hence the default, may still change) */
   const provisionalLanding = useRef<string | null>(null);
+  /** login / reopen on #/profile must not show Perfil first; tapping the name later still works */
+  const openedOnProfile = useRef(segments[0] === "profile");
   useEffect(() => {
+    if (openedOnProfile.current && segments[0] === "profile") {
+      const first = tabs[0]?.key;
+      if (first) {
+        openedOnProfile.current = false;
+        navigate(`/${first}`, { replace: true });
+        provisionalLanding.current = synced ? null : first;
+      }
+      return;
+    }
     // no / unknown route → land on the first tab (replace so Back doesn't bounce here)
     if (!isView(segments[0])) {
       navigate(`/${view}`, { replace: true });
@@ -288,20 +309,45 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   const profileOpen = view === "profile";
   /** admin settings (sidebar layout) — never for the team, even if a tab key happens to look alike */
   const settingsOpen = settingsAllowed && isSettingsKey(view);
+  /** phones: the settings MENU (the big list the ⚙️ opens); picking an entry leaves it for that page */
+  const settingsMenuOpen = settingsAllowed && view === "settings";
+  // the phone menu route on a DESKTOP window (resized, or a link pasted around): the
+  // sidebar already IS the menu there, so fall through to the first settings page
+  useEffect(() => {
+    if (settingsMenuOpen && !isPhone) navigate(`/${settingsPages[0].key}`, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsMenuOpen, isPhone]);
   /** pages that carry the yellow ScanFab (the scan IS the page's action): bulk points, church check-in, bus roll call (not the medical read-only view nor the per-vehicle report) */
   const reportOpen = segments[segments.length - 1] === "report";
   const hasOwnScanFab =
     (view === "scoreboard" && segments[1] === "bulk") ||
-    (view === "checkin" && !reportOpen && (!settingsAllowed || segments[1] === "church" || (segments[1] === "bus" && segments.length === 3))) ||
+    (view === "checkin" && !reportOpen && (!settingsAllowed || segments[1] === "church" || (segments[1] === "bus" && (segments[2] === "outbound" || segments[2] === "return")))) ||
     (view === "bus" && helper.bus && (segments.length > 1 || !(helper.busOutbound && helper.busReturn)));
   /** a nested detail (e.g. função opened from a camper) can ask another tab to look active */
   const [tabOverride, setTabOverride] = useState<TabKey | null>(null);
+  /**
+   * How many FORMS are open right now (nova criança, editar equipe, novo
+   * evento, nova ocorrência…). While any is, the "Ler crachá" FAB steps aside:
+   * the bottom-right corner is the form's (Salvar / Cancelar). Counted, not a
+   * flag — a dialog-form may open over a page-form (see scanFab.ts).
+   */
+  const [formsOpen, setFormsOpen] = useState(0);
+  const bumpFormsOpen = useCallback((delta: number) => setFormsOpen((n) => Math.max(0, n + delta)), []);
+  const showEmergencyFab = !isParent && during && view !== "badge" && !settingsOpen && !settingsMenuOpen && !hasOwnScanFab && formsOpen === 0;
+  const hasFab = hasOwnScanFab || showEmergencyFab;
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("has-bottom-nav", useMobileBottomNav);
+    return () => root.classList.remove("has-bottom-nav");
+  }, [useMobileBottomNav]);
   const shownTab: View = !profileOpen && !settingsOpen && tabOverride ? tabOverride : view;
   const currentTab = tabs.find((tab) => tab.key === shownTab);
   const currentSetting = settingsOpen ? settingsPages.find((item) => item.key === view) : undefined;
   const currentView = profileOpen
     ? { label: "Perfil", icon: meta.icon, emoji: undefined }
-    : currentSetting
+    : settingsMenuOpen
+      ? { label: "Configurações", icon: undefined, emoji: "⚙️" }
+      : currentSetting
       ? { label: currentSetting.label, icon: currentSetting.icon, emoji: currentSetting.emoji }
       : view === "badge"
         ? { label: "Ler crachá", icon: undefined, emoji: "🎟️" }
@@ -316,11 +362,13 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
     if (loggingOut) return;
     setLoggingOut(true);
     await logout(token);
+    navigate("/", { replace: true });
     onLoggedOut();
   }
 
   return (
-    <div className={`dash ${useMobileBottomNav ? "dash--bottom-nav" : "dash--drawer-nav"}`}>
+    <div className={`dash ${useMobileBottomNav ? "dash--bottom-nav" : "dash--drawer-nav"}${settingsAllowed ? " dash--has-settings" : ""}${hasFab ? " dash--has-fab" : ""}`}>
+      <div className="dash-chrome">
       <header className="dash-top">
         {tabs.length > 0 && !useMobileBottomNav && (
           <button
@@ -365,18 +413,20 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
           {settingsAllowed && (
             <button
               type="button"
-              className={`dash-iconbtn dash-settings-btn ${settingsOpen ? "dash-iconbtn--active" : ""}`}
+              className={`dash-iconbtn dash-settings-btn ${settingsOpen || settingsMenuOpen ? "dash-iconbtn--active" : ""}`}
               title="Configurações: equipe, contatos, check-in e notificações"
               aria-label="Configurações"
-              aria-pressed={settingsOpen}
-              onClick={() => goTo(settingsPages[0].key)}
+              aria-pressed={settingsOpen || settingsMenuOpen}
+              /* phones: the ⚙️ opens the menu (or, from a section page, goes back to it); desktop keeps landing on the first page */
+              onClick={() => goTo(isPhone ? "settings" : settingsPages[0].key)}
             >
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
                 <path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 .1-1 7.6 7.6 0 0 0-.1-1l2.1-1.6a.5.5 0 0 0 .1-.7l-2-3.4a.5.5 0 0 0-.6-.2l-2.5 1a7.3 7.3 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.5h-4a.5.5 0 0 0-.5.5l-.4 2.6a7.3 7.3 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.4a.5.5 0 0 0 .1.7L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.7l2 3.4c.1.2.4.3.6.2l2.5-1a7.3 7.3 0 0 0 1.7 1l.4 2.6c0 .3.2.5.5.5h4c.3 0 .5-.2.5-.5l.4-2.6a7.3 7.3 0 0 0 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.4a.5.5 0 0 0-.1-.7L19.4 13ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z" />
               </svg>
             </button>
           )}
-          {/* phones, drawer layout: the church logo (no label) closes the app bar */}
+          {/* phones, drawer layout: the church logo (no label) closes the app bar — unless
+              this session has ⚙️, which takes that slot instead (see .dash--has-settings) */}
           <span className="dash-top-logo" aria-hidden="true"><Logo size={34} /></span>
         </div>
       </header>
@@ -384,7 +434,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
       {tabs.length > 0 && (
       <nav id="dashboard-menu" className={`dash-tabs ${mobileMenuOpen ? "dash-tabs--open" : ""}`} role="tablist" aria-label="Seções">
         {tabs.map((t) => {
-          /** the merged 🎒+📖 entry (phone bottom bar only) stands in for BOTH halves */
+          /** the merged 📖+mala entry (phone bottom bar only) stands in for BOTH halves */
           const merged = mergesPrep && t.key === mergedKey;
           const active = t.key === shownTab;
           /** already on this tab's root list → clicking does nothing, so no hover either */
@@ -416,12 +466,12 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
               ) : (
                 <span className="dash-tab__emoji" aria-hidden="true">{t.emoji}</span>
               )}
-              {/* 🎒+📖 — only the phone bottom bar shows this pair glyph */}
+              {/* 📖+mala — only the phone bottom bar shows this pair glyph */}
               {merged && (
                 <span className="dash-tab__pair" aria-hidden="true">
-                  <span>🎒</span>
-                  <i>+</i>
                   <span>📖</span>
+                  <i>+</i>
+                  <img className="dash-tab__pair-icon" src={ICONS.preparation} alt="" />
                 </span>
               )}
               <span className="dash-tab__label">{t.label}</span>
@@ -441,19 +491,19 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
           }}
         >
           <img className="dash-tab__icon" src={meta.icon} alt="" aria-hidden="true" />
-          <span className="dash-tab__label">{user.name.split(" ")[0]}</span>
-          <span className="dash-menu-profile__label">Perfil</span>
+          <span className="dash-tab__label">Perfil</span>
         </button>
-        {/* phones: the ⚙️ leaves the app bar (the logo takes its place) and lives in the drawer */}
+        {/* phones: for everyone else the ⚙️ would live here, in the drawer; admins /
+            organizers keep it in the app bar instead, so this entry is hidden for them */}
         {settingsAllowed && (
           <button
             type="button"
             role="tab"
-            aria-selected={settingsOpen}
-            className={`dash-tab dash-menu-settings ${settingsOpen ? "dash-tab--active dash-tab--root" : ""}`}
+            aria-selected={settingsOpen || settingsMenuOpen}
+            className={`dash-tab dash-menu-settings ${settingsOpen || settingsMenuOpen ? "dash-tab--active dash-tab--root" : ""}`}
             onClick={() => {
               setMobileMenuOpen(false);
-              if (!settingsOpen) goTo(settingsPages[0].key);
+              if (!settingsOpen && !settingsMenuOpen) goTo(isPhone ? "settings" : settingsPages[0].key);
             }}
           >
             <span className="dash-tab__emoji" aria-hidden="true">⚙️</span>
@@ -462,11 +512,40 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
         )}
       </nav>
       )}
+      </div>
+      {mobileMenuOpen && !useMobileBottomNav && (
+        <button type="button" className="dash-menu-backdrop" aria-label="Fechar menu" onClick={() => setMobileMenuOpen(false)} />
+      )}
 
+      <div className="dash-scroll">
       <InstallBanner parent={isParent} />
 
       <main className={`dash-body ${settingsOpen ? "dash-body--settings" : ""}`} role="tabpanel">
-        {settingsOpen && (
+        {/* PHONES: the iPhone-style settings menu — one grouped card, one row per section */}
+        {settingsMenuOpen && isPhone && (
+          <nav className="settings-menu" aria-label="Configurações">
+            <ul className="settings-menu__list">
+              {settingsPages.map((s) => (
+                <li key={s.key} className="settings-menu__row">
+                  <button type="button" className="settings-menu__item" onClick={() => goTo(s.key)}>
+                    <span className="settings-menu__icon" aria-hidden="true">
+                      {s.icon ? <img src={s.icon} alt="" /> : s.emoji}
+                    </span>
+                    <span className="settings-menu__label">{s.label}</span>
+                    <span className="settings-menu__chevron" aria-hidden="true">›</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
+        {/* PHONES: a section page carries a back link to the menu (desktop keeps the sidebar, never this) */}
+        {settingsOpen && isPhone && (
+          <button type="button" className="settings-back" onClick={() => goTo("settings")}>
+            <span className="settings-back__arrow" aria-hidden="true">‹</span> Configurações
+          </button>
+        )}
+        {settingsOpen && !isPhone && (
           <nav className="settings-nav" aria-label="Configurações">
             <h2 className="settings-nav__title">⚙️ Configurações</h2>
             <ul className="settings-nav__list">
@@ -477,8 +556,6 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
                     <button
                       type="button"
                       aria-current={active ? "page" : undefined}
-                      // on phones the menu is a horizontal strip: keep the active item in view
-                      ref={active ? (el) => el?.scrollIntoView({ block: "nearest", inline: "center" }) : undefined}
                       className={`settings-nav__item ${active ? "settings-nav__item--active" : ""}`}
                       onClick={() => !active && goTo(s.key)}
                     >
@@ -496,66 +573,80 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
           </nav>
         )}
         <TabOverrideContext.Provider value={setTabOverride}>
-          {view === "badge" && <EmergencyScanFab token={token} page />}
-          {view === "home" && (isParent ? <ParentHomePage user={user} token={token} access={parentAccess} /> : <HomePage user={user} token={token} medical={helper.medical} />)}
-          {view === "prep" && (isParent ? <ParentPreparationPage user={user} token={token} /> : <PreparationPage user={user} token={token} pairedWith={mergesPrep ? () => goTo("instructions") : undefined} />)}
-          {view === "preparation" && <PreparationAdminPage token={token} />}
-          {view === "instructions-admin" && <InstructionsAdminPage token={token} />}
-          {view === "instructions" && <InstructionsPage user={user} pairedWith={mergesPrep ? () => goTo("prep") : undefined} />}
-          {view === "occurrences" && <OccurrencesPage token={token} audience={isAdmin ? "admin" : helper.organizer ? "organizer" : "medical"} />}
-          {view === "medications" && <MedicationsPage token={token} />}
-          {view === "campers" && <CampersPage token={token} readOnly={!settingsAllowed} />}
-          {view === "staff" && <StaffPage token={token} readOnly={!settingsAllowed} />}
-          {view === "bedrooms" && <BedroomsPage token={token} readOnly={!settingsAllowed} />}
-          {view === "schedule" && (isParent ? <ParentSchedulePage /> : settingsAllowed || helper.gameOrganizer ? <SchedulePage token={token} /> : <MySchedulePage user={user} />)}
-          {view === "categories" && <CategoriesPage token={token} />}
-          {view === "transports" && <TransportsPage token={token} />}
-          {view === "general" && <GeneralSettingsPage token={token} />}
-          {view === "trials" && <TrialsPage token={token} isAdmin={isAdmin} />}
-          {view === "cleanup" && <CleanupPage token={token} />}
-          {view === "checkin-settings" && <CheckinSettingsPage token={token} />}
-          {view === "organizers" && <OrganizersPage token={token} />}
-          {view === "medical" && <MedicalStaffPage token={token} />}
-          {view === "vests-settings" && <VestHelpersPage token={token} />}
-          {view === "photographers" && <PhotographersPage token={token} />}
-          {view === "teams" && <TeamsPage token={token} />}
-          {view === "game-organizers" && <GameOrganizersPage token={token} />}
-          {view === "scoreboard" && <ScoreboardPage token={token} userId={user.id} canEdit={settingsAllowed || helper.gameOrganizer} canScan={settingsAllowed || helper.gameOrganizer || helper.scoreHelper} />}
-          {view === "gallery" && <GalleryPage token={token} canManage={settingsAllowed || helper.photographer} parentMode={isParent} />}
-          {view === "contacts" && <ParentContactsPage token={token} />}
-          {view === "notifications" && <NotificationsPage token={token} />}
-          {view === "about" && <AboutPage token={token} />}
-          {view === "checkin" && !settingsAllowed && <CheckinPage token={token} />}
-          {view === "checkin" && settingsAllowed && segments.length === 1 && <AdminCheckinPage />}
-          {view === "checkin" && settingsAllowed && segments[1] === "church" && <CheckinPage token={token} canOpenStaff adminMerged myName={user.name} />}
-          {view === "checkin" && settingsAllowed && segments[1] === "bus" && segments.length === 2 && <BusTripsPage basePath="/checkin/bus" checkinHomePath="/checkin" />}
-          {view === "checkin" && settingsAllowed && segments[1] === "bus" && segments[2] === "outbound" && <BusCheckinPage token={token} trip="outbound" basePath="/checkin/bus/outbound" checkinHomePath="/checkin" />}
-          {view === "checkin" && settingsAllowed && segments[1] === "bus" && segments[2] === "return" && <BusCheckinPage token={token} trip="return" basePath="/checkin/bus/return" checkinHomePath="/checkin" />}
-          {view === "checkin" && settingsAllowed && segments[1] === "staff" && <StaffCheckinPage token={token} checkinHomePath="/checkin" />}
-          {view === "checkin" && settingsAllowed && segments[1] === "vests" && <VestPage token={token} myName={user.name} checkinHomePath="/checkin" />}
-          {view === "vests" && <VestPage token={token} myName={user.name} />}
-          {view === "bus" && segments.length === 1 && helper.bus && (
-            helper.busOutbound && helper.busReturn
-              ? <BusTripsPage outboundAvailable={helper.busOutbound} returnAvailable={helper.busReturn} />
-              : <BusCheckinPage token={token} trip={helper.busReturn ? "return" : "outbound"} onlyVehicleId={helper.busVehicle ?? undefined} otherTripAvailable={false} />
-          )}
-          {view === "bus" && segments[1] === "outbound" && helper.busOutbound && <BusCheckinPage token={token} trip="outbound" onlyVehicleId={helper.busVehicle ?? undefined} otherTripAvailable={helper.busReturn} />}
-          {view === "bus" && segments[1] === "return" && helper.busReturn && <BusCheckinPage token={token} trip="return" onlyVehicleId={helper.busVehicle ?? undefined} otherTripAvailable={helper.busOutbound} />}
-          {view === "bus" && segments.length > 1 && helper.bus && ((segments[1] === "outbound" && !helper.busOutbound) || (segments[1] === "return" && !helper.busReturn)) && (
-            <BusTripsPage outboundAvailable={helper.busOutbound} returnAvailable={helper.busReturn} />
-          )}
-          {view === "staffcheckin" && <StaffCheckinPage token={token} />}
-          {view === "profile" && (isParent
-            ? <ParentProfile user={user} onLogout={handleLogout} loggingOut={loggingOut} onSwitchRole={onSwitchRole} />
-            : <ProfileView user={user} onLogout={handleLogout} loggingOut={loggingOut} onSwitchRole={onSwitchRole} />)}
+          <HideScanFabContext.Provider value={bumpFormsOpen}>
+            {view === "badge" && <EmergencyScanFab token={token} page />}
+            {view === "home" && (isParent ? <ParentHomePage user={user} token={token} access={parentAccess} /> : <HomePage user={user} token={token} medical={helper.medical} />)}
+            {view === "prep" && (isParent ? <ParentPreparationPage user={user} token={token} /> : <PreparationPage user={user} token={token} pairedWith={mergesPrep ? () => goTo("instructions") : undefined} />)}
+            {view === "preparation" && <PreparationAdminPage token={token} />}
+            {view === "instructions-admin" && <InstructionsAdminPage token={token} />}
+            {view === "instructions" && <InstructionsPage user={user} pairedWith={mergesPrep ? () => goTo("prep") : undefined} />}
+            {view === "occurrences" && <OccurrencesPage token={token} audience={isAdmin ? "admin" : helper.organizer ? "organizer" : "medical"} />}
+            {view === "medications" && <MedicationsPage token={token} />}
+            {view === "campers" && <CampersPage token={token} readOnly={!settingsAllowed} />}
+            {view === "staff" && <StaffPage token={token} readOnly={!settingsAllowed} />}
+            {view === "bedrooms" && <BedroomsPage token={token} readOnly={!settingsAllowed} />}
+            {view === "schedule" && (isParent ? <ParentSchedulePage /> : settingsAllowed || helper.gameOrganizer ? <SchedulePage token={token} /> : <MySchedulePage user={user} />)}
+            {view === "categories" && <CategoriesPage token={token} />}
+            {view === "transports" && <TransportsPage token={token} />}
+            {view === "general" && <GeneralSettingsPage token={token} />}
+            {view === "trials" && <TrialsPage token={token} isAdmin={isAdmin} />}
+            {view === "cleanup" && <CleanupPage token={token} />}
+            {view === "checkin-settings" && <CheckinSettingsPage token={token} />}
+            {view === "organizers" && <OrganizersPage token={token} />}
+            {view === "medical" && <MedicalStaffPage token={token} />}
+            {view === "vests-settings" && <VestHelpersPage token={token} />}
+            {view === "photographers" && <PhotographersPage token={token} />}
+            {view === "teams" && <TeamsPage token={token} />}
+            {view === "game-organizers" && <GameOrganizersPage token={token} />}
+            {view === "scoreboard" && <ScoreboardPage token={token} userId={user.id} canEdit={settingsAllowed || helper.gameOrganizer} canScan={settingsAllowed || helper.gameOrganizer || helper.scoreHelper} />}
+            {view === "gallery" && <GalleryPage token={token} canManage={settingsAllowed || helper.photographer} parentMode={isParent} />}
+            {view === "contacts" && <ParentContactsPage token={token} />}
+            {view === "notifications" && <NotificationsPage token={token} />}
+            {view === "about" && <AboutPage token={token} />}
+            {view === "checkin" && !settingsAllowed && <CheckinPage token={token} />}
+            {view === "checkin" && settingsAllowed && segments.length === 1 && <AdminCheckinPage />}
+            {view === "checkin" && settingsAllowed && segments[1] === "church" && <CheckinPage token={token} adminMerged />}
+            {view === "checkin" && settingsAllowed && segments[1] === "bus" && segments.length === 2 && <BusTripsPage basePath="/checkin/bus" checkinHomePath="/checkin" />}
+            {/* chegadas por veículo — the SAME report the church check-in opens, reachable from the bus roll call too */}
+            {view === "checkin" && settingsAllowed && segments[1] === "bus" && segments[2] === "report" && (
+              <TransportReport
+                onBack={() => navigate("/checkin/bus")}
+                onHome={() => navigate("/checkin")}
+                onOpenStaff={(id) => navigate(`/staff/${id}`)}
+                onOpenCamper={(id) => navigate(`/campers/${id}`)}
+                myName={user.name}
+                via="bus"
+              />
+            )}
+            {view === "checkin" && settingsAllowed && segments[1] === "bus" && segments[2] === "outbound" && <BusCheckinPage token={token} trip="outbound" basePath="/checkin/bus/outbound" checkinHomePath="/checkin" reportPath="/checkin/bus/report" />}
+            {view === "checkin" && settingsAllowed && segments[1] === "bus" && segments[2] === "return" && <BusCheckinPage token={token} trip="return" basePath="/checkin/bus/return" checkinHomePath="/checkin" reportPath="/checkin/bus/report" />}
+            {view === "checkin" && settingsAllowed && segments[1] === "staff" && <StaffCheckinPage token={token} checkinHomePath="/checkin" />}
+            {view === "checkin" && settingsAllowed && segments[1] === "vests" && <VestPage token={token} myName={user.name} checkinHomePath="/checkin" />}
+            {view === "vests" && <VestPage token={token} myName={user.name} />}
+            {view === "bus" && segments.length === 1 && helper.bus && (
+              helper.busOutbound && helper.busReturn
+                ? <BusTripsPage outboundAvailable={helper.busOutbound} returnAvailable={helper.busReturn} />
+                : <BusCheckinPage token={token} trip={helper.busReturn ? "return" : "outbound"} onlyVehicleId={helper.busVehicle ?? undefined} otherTripAvailable={false} />
+            )}
+            {view === "bus" && segments[1] === "outbound" && helper.busOutbound && <BusCheckinPage token={token} trip="outbound" onlyVehicleId={helper.busVehicle ?? undefined} otherTripAvailable={helper.busReturn} />}
+            {view === "bus" && segments[1] === "return" && helper.busReturn && <BusCheckinPage token={token} trip="return" onlyVehicleId={helper.busVehicle ?? undefined} otherTripAvailable={helper.busOutbound} />}
+            {view === "bus" && segments.length > 1 && helper.bus && ((segments[1] === "outbound" && !helper.busOutbound) || (segments[1] === "return" && !helper.busReturn)) && (
+              <BusTripsPage outboundAvailable={helper.busOutbound} returnAvailable={helper.busReturn} />
+            )}
+            {view === "staffcheckin" && <StaffCheckinPage token={token} />}
+            {view === "profile" && (isParent
+              ? <ParentProfile user={user} onLogout={handleLogout} loggingOut={loggingOut} onSwitchRole={onSwitchRole} />
+              : <ProfileView user={user} onLogout={handleLogout} loggingOut={loggingOut} onSwitchRole={onSwitchRole} />)}
+          </HideScanFabContext.Provider>
         </TabOverrideContext.Provider>
       </main>
 
       {/* every page's closing note lands here (see PageFooter) */}
       <footer className="dash-foot" id={PAGE_FOOTER_ID} />
+      </div>
 
-      {/* "Ler crachá" QR lookup — the team, WHILE THE CAMP IS ON (first day → end of the last event), on every page except the settings and the pages whose own yellow ScanFab performs their action */}
-      {!isParent && during && view !== "badge" && !settingsOpen && !hasOwnScanFab && <EmergencyScanFab token={token} />}
+      {/* "Ler crachá" QR lookup — the team, WHILE THE CAMP IS ON (first day → end of the last event), on every page except the settings, the pages whose own yellow ScanFab performs their action, and any page showing a FORM (its Salvar / Cancelar own that corner) */}
+      {showEmergencyFab && <EmergencyScanFab token={token} />}
     </div>
   );
 }

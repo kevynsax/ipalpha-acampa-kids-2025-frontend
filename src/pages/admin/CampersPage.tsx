@@ -1,7 +1,7 @@
 import { useConfirm } from "../../components/ConfirmDialog";
-import { useMemo, useRef, useState } from "react";
-import { ICONS } from "../../icons";
-import { ageOf, createCamper, deleteCamper, updateCamper, type Camper, type CamperInput } from "../../api/campers";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ICONS, kidFaceSrc } from "../../icons";
+import { ageOf, createCamper, deleteCamper, updateCamper, type Camper, type CamperInput, type CamperSex } from "../../api/campers";
 import { useRoute } from "../../router";
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import { useCategories, useLabelOf } from "../../store/derive";
@@ -18,7 +18,7 @@ import TransportTag from "../../components/TransportTag";
 import WhatsAppButton from "../../components/WhatsAppButton";
 import { loadAuth } from "../../auth/store";
 import { staffGreeting, whatsappLink } from "../../whatsapp";
-import { ROOM_ROLE_META } from "../../api/staff";
+import { ROOM_ROLE_META, staffSex } from "../../api/staff";
 
 import Breadcrumbs from "../../components/Breadcrumbs";
 import CamperForm from "./CamperForm";
@@ -73,6 +73,18 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
+  const [createSex, setCreateSex] = useState<CamperSex | null>(null);
+  const [createSexBusy, setCreateSexBusy] = useState(false);
+  const onCreateSex = useCallback((sex: CamperSex | null, guessing: boolean) => {
+    setCreateSex(sex);
+    setCreateSexBusy(guessing);
+  }, []);
+  useEffect(() => {
+    if (mode.kind !== "create") {
+      setCreateSex(null);
+      setCreateSexBusy(false);
+    }
+  }, [mode.kind]);
 
   const roomById = useMemo(() => new Map(bedrooms.map((b) => [b.id, b])), [bedrooms]);
   const teams = useCollectionOrEmpty("teams");
@@ -198,51 +210,75 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
         <Breadcrumbs items={[{ label: "Acampantes", onClick: () => guardedNav("/campers") }, { label: editing.name.split(" ")[0], onClick: () => guardedNav(`/campers/${editing.id}`) }, { label: "Editar" }]} />
       )}
       <header className="admin-head">
-        <h1 className="admin-title">{mode.kind === "create" ? "🧒 Novo acampante" : mode.kind === "edit" ? "✏️ Editar acampante" : "Acampantes"}</h1>
+        <h1 className="admin-title">
+          {mode.kind === "create" ? (
+            <>
+              <img className={`admin-title__icon${createSexBusy ? " admin-title__icon--busy" : ""}`} src={createSex ? kidFaceSrc(createSex) : ICONS.camper} alt="" aria-hidden="true" /> Novo acampante
+            </>
+          ) : mode.kind === "edit" ? (
+            "✏️ Editar acampante"
+          ) : (
+            "Acampantes"
+          )}
+        </h1>
         {mode.kind === "view" && !readOnly && (
-          <div className="admin-head__actions">
+          <div className="admin-head__actions admin-head__actions--icons">
             <button
               type="button"
               className="button button--secondary admin-head__new"
               title="Sorteio"
+              aria-label="Sorteio"
               onClick={() => navigate("/campers/giveaway")}
             >
-              <img className="admin-head__action-icon" src={ICONS.giveaway} alt="" aria-hidden="true" /> Sorteio
+              <img className="admin-head__action-icon" src={ICONS.giveaway} alt="" aria-hidden="true" />
+              <span className="admin-head__action-label">Sorteio</span>
             </button>
             <button
               type="button"
               className="button button--secondary admin-head__new"
               disabled={busy || campers.length === 0}
               title="Baixar todos os acampantes em Excel"
+              aria-label="Baixar todos os acampantes em Excel"
               onClick={() => downloadCampersXlsx(campers, bedrooms, labelOf, staff)}
             >
-              <DownloadGlyph /> Download
+              <DownloadGlyph />
+              <span className="admin-head__action-label">Download</span>
             </button>
             <button
               type="button"
-              className="button button--secondary admin-head__new"
+              className="button button--secondary admin-head__new admin-head__print"
               disabled={busy || campers.length === 0}
               title="Imprimir crachás ou pulseiras"
               onClick={() => setPrintOpen(true)}
             >
-              🖨️ Imprimir
+              🖨️ <span className="admin-head__action-label">Imprimir</span>
             </button>
-            <button type="button" className="button button--primary admin-head__new" disabled={busy} onClick={() => navigate("/campers/new")}>
-              + Novo
+            <button
+              type="button"
+              className="button button--primary admin-head__new"
+              disabled={busy}
+              title="Novo acampante"
+              aria-label="Novo acampante"
+              onClick={() => navigate("/campers/new")}
+            >
+              <span className="admin-head__action-plus" aria-hidden="true">+</span>
+              <span className="admin-head__action-label">Novo</span>
             </button>
           </div>
         )}
         {/* medical team: the health sheet of every camper (no documents / bus roll calls) */}
         {mode.kind === "view" && readOnly && (
-          <div className="admin-head__actions">
+          <div className="admin-head__actions admin-head__actions--icons">
             <button
               type="button"
               className="button button--secondary admin-head__new"
               disabled={campers.length === 0}
               title="Baixar a planilha de saúde de todos os acampantes"
+              aria-label="Baixar a planilha de saúde de todos os acampantes"
               onClick={() => downloadMedicalCampersXlsx(campers, bedrooms, labelOf, staff)}
             >
-              <DownloadGlyph /> Download
+              <DownloadGlyph />
+              <span className="admin-head__action-label">Download</span>
             </button>
           </div>
         )}
@@ -267,7 +303,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
       )}
 
       {mode.kind === "create" && (
-        <CamperForm token={token} categories={categories} busy={busy} onSubmit={handleCreate} leaveGuardRef={leaveGuardRef} />
+        <CamperForm token={token} categories={categories} busy={busy} onSubmit={handleCreate} onSexChange={onCreateSex} leaveGuardRef={leaveGuardRef} />
       )}
       {mode.kind === "edit" && !editing && <p className="opt-empty">Acampante não encontrado.</p>}
       {mode.kind === "edit" && editing && (
@@ -314,7 +350,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
                   title="Filtrar por time"
                   onClick={() => setTeamDialogOpen(true)}
                 >
-                  🏳️ {teamChipLabel}
+                  🚩 {teamChipLabel}
                   {teamFilter.size > 0 && (
                     <span className="cat-tab__count">{visible.length}</span>
                   )}
@@ -327,11 +363,11 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
             <div className="stat-grid" role="group" aria-label="Resumo de saúde">
               {(
                 [
-                  [null, "🧒", "Crianças", campers.length],
+                  [null, <img src={kidFaceSrc()} alt="" />, "Crianças", campers.length],
                   ["medicines", "💊", "Tomam medicação", healthCounts.medicines ?? 0],
                   ["allergies", "🤮", "Têm alergias", healthCounts.allergies ?? 0],
                   ["foodRestrictions", "🍽️", "Restrição alimentar", healthCounts.foodRestrictions ?? 0],
-                ] as [HealthKey | null, string, string, number][]
+                ] as [HealthKey | null, ReactNode, string, number][]
               ).map(([key, emoji, label, n]) => {
                 const on = key ? health.has(key) : health.size === 0;
                 return (
@@ -376,7 +412,8 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
               const attention = orphan || noRoom;
 
               return (
-                <li key={k.id} className={`staff-card staff-card--clickable ${attention ? "staff-card--orphan" : ""}`}>
+                // `staff-card--cover`: every blank spot of the row opens the kid — only the WhatsApp button keeps its own action
+                <li key={k.id} className={`staff-card staff-card--clickable staff-card--cover ${attention ? "staff-card--orphan" : ""}`}>
                   <div
                     className="staff-card__body"
                     role="link"
@@ -409,7 +446,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
                         {room && <BedroomTag bedroom={room} />}
                         {caretaker && (
                           <span className="staff-tag" title={ROOM_ROLE_META.caretaker.label}>
-                            <RoomRoleIcon role="caretaker" /> {caretaker.name.split(" ")[0]}
+                            <RoomRoleIcon role="caretaker" sex={staffSex(caretaker, bedrooms)} /> {caretaker.name.split(" ")[0]}
                           </span>
                         )}
                         <TeamTag teamId={k.team} />
@@ -420,7 +457,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
                   </div>
                   {k.guardianPhone && (
                     <WhatsAppButton
-                      className="wa-btn--sm"
+                      className="wa-btn--sm staff-card__wa"
                       href={whatsappLink(k.guardianPhone, staffGreeting({ toName: k.guardianName, fromName: myName, about: k.name }))}
                       label={`Falar com ${k.guardianName.split(" ")[0] || "o responsável"} no WhatsApp`}
                     />

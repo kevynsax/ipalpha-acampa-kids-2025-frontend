@@ -33,7 +33,7 @@ export default function TeamFilterDialog({ open, teams, value, counts, onChange,
   return (
     <Dialog open={open} onClose={onClose} title="Filtrar por time" width={480}>
       <div className="cat-form cat-form--plain">
-        <h2 className="cat-form__title">🏳️ Filtrar por time</h2>
+        <h2 className="cat-form__title">🚩 Filtrar por time</h2>
         <p className="admin-intro">Escolha um ou mais times. Nenhum marcado = todos.</p>
         <div className="team-filter__list" role="group" aria-label="Times">
           <button type="button" className={`chip-toggle chip-toggle--small ${all ? "chip-toggle--on" : ""}`} aria-pressed={all} onClick={() => setDraft(new Set())}>

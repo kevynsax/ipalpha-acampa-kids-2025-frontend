@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { QrGlyph } from "./Glyph";
 
 interface ScanFabProps {
@@ -12,11 +13,12 @@ interface ScanFabProps {
  * show it must not also show the app-wide EmergencyScanFab.
  */
 export default function ScanFab({ label, onClick }: ScanFabProps) {
-  return (
+  return createPortal(
     <button type="button" className="fab fab--icon" title={label} aria-label={label} onClick={onClick}>
       <span className="fab__icon" aria-hidden="true">
         <QrGlyph size="1.5em" />
       </span>
-    </button>
+    </button>,
+    document.body,
   );
 }

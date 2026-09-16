@@ -23,6 +23,7 @@ import { useCollection, useCollectionOrEmpty } from "../../store";
 import { useLabelOf } from "../../store/derive";
 import { downloadBedroomsXlsx } from "../../export";
 import { DownloadGlyph } from "../../components/Glyph";
+import { ICONS } from "../../icons";
 
 interface BedroomsPageProps {
   token: string;
@@ -123,7 +124,7 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
         <Breadcrumbs items={[{ label: "Quartos", onClick: () => navigate("/bedrooms") }, { label: bedroomLabel(editing), onClick: () => navigate(`/bedrooms/${editing.id}`) }, { label: "Editar" }]} />
       )}
       <header className="admin-head">
-        <h1 className="admin-title">{mode.kind === "create" ? "🛏️ Novo quarto" : mode.kind === "edit" ? "✏️ Editar quarto" : "Quartos"}</h1>
+        <h1 className="admin-title">{mode.kind === "create" ? <><img className="admin-title__icon" src={ICONS.bed} alt="" aria-hidden="true" /> Novo quarto</> : mode.kind === "edit" ? "✏️ Editar quarto" : <><img className="admin-title__icon" src={ICONS.bed} alt="" aria-hidden="true" /> Quartos</>}</h1>
         {mode.kind === "view" && !readOnly && (
           <div className="admin-head__actions">
             <button
@@ -177,7 +178,7 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
 
       {mode.kind === "view" && bedrooms.length === 0 && (
         <div className="admin-empty">
-          <span className="admin-empty__emoji">🛏️</span>
+          <img className="admin-empty__icon" src={ICONS.bed} alt="" aria-hidden="true" />
           <p>Nenhum quarto ainda.{!readOnly && " Cadastre o primeiro com seus beliches e camas!"}</p>
           {!readOnly && (
             <button type="button" className="button button--primary" onClick={() => navigate("/bedrooms/new")}>

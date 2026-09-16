@@ -6,6 +6,7 @@ import Dialog from "../../components/Dialog";
 import BusLogo from "../../components/BusLogo";
 import CarLogo from "../../components/CarLogo";
 import { useCollectionOrEmpty } from "../../store";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { ICONS } from "../../icons";
 import StaffPicker from "./StaffPicker";
 
@@ -34,6 +35,8 @@ export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpe
   const staff = useCollectionOrEmpty("staff");
   const transports = useCollectionOrEmpty("transports");
   const [adding, setAdding] = useState<Adding>(null);
+  /** the "add" buttons sit at the END of the card on phones; the desktop keeps them in the title row */
+  const atEnd = useMediaQuery("(max-width: 760px)");
 
   const vehicles = useMemo(() => transports.slice().sort((a, b) => a.order - b.order), [transports]);
   const staffById = useMemo(() => new Map(staff.map((s) => [s.id, s])), [staff]);
@@ -58,9 +61,9 @@ export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpe
     <>
       <div className="list-head">
         <h2 className="cat-form__title">
-          <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> Ajudantes do check-in no ônibus <span className="cat-tab__count">{value.length}</span>
+          <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> Ajudantes do check-in no ônibus {!atEnd && <span className="cat-tab__count">{value.length}</span>}
         </h2>
-        {addButton()}
+        {!atEnd && addButton()}
       </div>
       <p className="cat-hint">
         Quem fica <strong>na porta de cada veículo</strong> conferindo que a criança entregue pelos pais chegou até a nossa equipe
@@ -81,9 +84,9 @@ export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpe
               <li key={v.id} className="bus-helpers__vehicle">
                 <header className="list-head">
                   <h3 className="bus-helpers__vehicle-name">
-                    {vehicleMark(v)} {v.label} <span className="cat-tab__count">{people.length}</span>
+                    {vehicleMark(v)} {v.label} {!atEnd && <span className="cat-tab__count">{people.length}</span>}
                   </h3>
-                  {addButton(v.id, "➕ Adicionar")}
+                  {!atEnd && addButton(v.id, "➕ Adicionar")}
                 </header>
                 <ul className="staff-card__tags helpers-list" aria-label={`Na porta: ${v.label}`}>
                   {people.map((s) => (
@@ -95,11 +98,15 @@ export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpe
                     </li>
                   ))}
                 </ul>
+                {/* the vehicle's own add lands at the END of its list of people — phones only */}
+                {atEnd && <div className="list-add">{addButton(v.id, "➕ Adicionar")}</div>}
               </li>
             );
           })}
         </ul>
       )}
+      {/* the section's "add" lands at the END of the card, under the vehicles — phones only */}
+      {atEnd && <div className="list-add">{addButton()}</div>}
 
       {/* step 1 (section button only): which vehicle? */}
       <Dialog

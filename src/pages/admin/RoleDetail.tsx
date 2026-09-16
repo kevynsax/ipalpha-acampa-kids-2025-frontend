@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { type RoleEventUsage, type ScheduleRole } from "../../api/schedule";
 import { speakDay } from "../../dates";
 import { useRoleDetail } from "../../store/derive";
+import { positionsMeta } from "../../components/AutoRoleBadge";
+import { isForWholeTeam } from "../../api/schedule";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import RichHtml from "../../components/RichHtml";
 import StaffIcon from "../../components/StaffIcon";
@@ -67,7 +69,7 @@ export default function RoleDetail({ token, roleId, nav, onEdit, onOpenStaff, on
             </button>
           </p>
         )}
-        <span className="cat-field__label">🎒 Preparação (antes do acampamento)</span>
+        <span className="cat-field__label"><img className="audience-icon" src={ICONS.preparation} alt="" aria-hidden="true" /> Preparação (antes do acampamento)</span>
         {r.preparation ? (
           <RichHtml html={r.preparation} />
         ) : (
@@ -78,11 +80,17 @@ export default function RoleDetail({ token, roleId, nav, onEdit, onOpenStaff, on
             </button>
           </p>
         )}
-        {r.forEveryone && (
-          <p className="cat-hint">
-            Função padrão: vale para <strong>todos</strong> os voluntários ativos nos eventos abaixo, exceto quem tiver outra função no evento.
-          </p>
-        )}
+        <p className="cat-hint">
+          {positionsMeta(r.forRoomRoles) ? (
+            <>
+              <img className="audience-icon" src={positionsMeta(r.forRoomRoles)!.icon} alt="" aria-hidden="true" /> Vai sozinha para{" "}
+              <strong>{positionsMeta(r.forRoomRoles)!.label}</strong> nos eventos abaixo, exceto quem tiver outra função lá.
+              {" Dá para acrescentar pessoas específicas em cada evento."}
+            </>
+          ) : (
+            <>🎯 Só quem for escalado — pessoa por pessoa, em cada evento.</>
+          )}
+        </p>
       </section>
 
       <section className="detail-section">
@@ -101,9 +109,15 @@ export default function RoleDetail({ token, roleId, nav, onEdit, onOpenStaff, on
             <ul className="escala-list">
               {usage
                 .filter((e) => e.date === d)
-                .map((e) => (
-                  <li key={e.eventId} className={`escala-item ${r.forEveryone ? "" : "escala-item--addable"}`}>
-                    {!r.forEveryone && (
+                .map((e) => {
+                  const positions = positionsMeta(r.forRoomRoles);
+                  /* quem pega pela posição vira um chip com a contagem; só os escalados à mão são citados */
+                  const picked = e.people.filter((p) => p.via === "person");
+                  const byPosition = e.people.length - picked.length;
+                  return (
+                  <li key={e.eventId} className={`escala-item ${isForWholeTeam(r) ? "" : "escala-item--addable"}`}>
+                    {/* "toda a equipe" já é todo mundo: não há quem acrescentar */}
+                    {!isForWholeTeam(r) && (
                       <div className="escala-item__corner">
                         <button
                           type="button"
@@ -128,22 +142,24 @@ export default function RoleDetail({ token, roleId, nav, onEdit, onOpenStaff, on
                             <span aria-hidden="true">{e.emoji}</span> {e.title}
                           </span>
                         )}
-                        <span className="cat-hint">{e.people.length === 0 ? "ninguém escalado" : `${e.people.length} pessoa${e.people.length > 1 ? "s" : ""}`}</span>
+                        <span className="cat-hint">{e.people.length === 0 ? "ninguém ainda" : `${e.people.length} pessoa${e.people.length > 1 ? "s" : ""}`}</span>
                       </span>
-                      {r.forEveryone ? (
-                        <p className="cat-hint escala-item__everyone">
-                          👥 Toda a equipe — os <strong>{e.people.length}</strong> voluntários ativos sem outra função neste evento.
-                        </p>
-                      ) : e.people.length > 0 && (
+                      {(positions || picked.length > 0) && (
                         <div className="staff-card__tags">
-                          {e.people.map((p) =>
+                          {positions && (
+                            <span className="staff-tag staff-tag--everyone" title={`${byPosition} ${byPosition === 1 ? "pessoa" : "pessoas"}: ${positions.hint}, sem escalar uma por uma`}>
+                              <img className="audience-icon" src={positions.icon} alt="" aria-hidden="true" /> {positions.label}
+                              <span className="staff-tag__n">{byPosition}</span>
+                            </span>
+                          )}
+                          {picked.map((p) =>
                             onOpenStaff ? (
-                              <button key={p.staffId} type="button" className="staff-tag staff-tag--soft staff-tag--link" title={`Ver ${p.name}`} onClick={() => onOpenStaff(p.staffId)}>
+                              <button key={p.staffId} type="button" className="staff-tag staff-tag--soft staff-tag--link" title={`${p.name} foi escalado(a) à mão — ver`} onClick={() => onOpenStaff(p.staffId)}>
                                 {p.name}
                                 {p.detail && <span className="staff-tag__n">{p.detail}</span>}
                               </button>
                             ) : (
-                              <span key={p.staffId} className="staff-tag staff-tag--soft">
+                              <span key={p.staffId} className="staff-tag staff-tag--soft" title={`${p.name} foi escalado(a) à mão`}>
                                 {p.name}
                                 {p.detail && <span className="staff-tag__n">{p.detail}</span>}
                               </span>
@@ -153,7 +169,8 @@ export default function RoleDetail({ token, roleId, nav, onEdit, onOpenStaff, on
                       )}
                     </div>
                   </li>
-                ))}
+                  );
+                })}
             </ul>
           </div>
         ))}

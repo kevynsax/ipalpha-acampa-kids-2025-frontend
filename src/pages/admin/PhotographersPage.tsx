@@ -83,7 +83,7 @@ export default function PhotographersPage({ token }: PhotographersPageProps) {
 
       <section className="cat-form">
         <div className="cat-form__head">
-          <h2 className="cat-form__title">📷 Álbum publicado</h2>
+          <h2 className="cat-form__title"><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> Álbum publicado</h2>
           <Toggle checked={published} disabled={!settings || albumBusy} label={published ? "Publicado" : "Só os fotógrafos"} onChange={(v) => void toggleAlbum(v)} />
         </div>
         <p className="cat-hint">
@@ -100,7 +100,7 @@ export default function PhotographersPage({ token }: PhotographersPageProps) {
         <StaffListEditor title="Quem pode enviar fotos" value={ids} onChange={(nextIds) => void saveIds(nextIds)} disabled={busy} pickerTitle="Adicionar fotógrafo" empty="Ninguém escolhido ainda." />
       </section>
 
-      <PageFooter>📷 Ao entrar na lista a pessoa recebe um SMS avisando — e ganha a aba Fotos com o botão de enviar. O mesmo botão de publicar está lá.</PageFooter>
+      <PageFooter><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> Ao entrar na lista a pessoa recebe um SMS avisando — e ganha a aba Fotos com o botão de enviar. O mesmo botão de publicar está lá.</PageFooter>
     </div>
   );
 }

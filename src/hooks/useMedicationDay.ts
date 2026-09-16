@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import { MEDICATION_PRESETS, medicationTimeLabel } from "../components/MedicationsEditor";
+import { MEDICATION_PRESETS } from "../components/MedicationsEditor";
 import { medKeyOf, SOS_SLOT, type MedicationDose } from "../api/medications";
 import type { Camper, Medication } from "../api/campers";
-import { useCollection } from "../store";
+import { useCollection, useCollectionOrEmpty } from "../store";
 
 /**
  * One line of the checklist: a kid × a medicine × a prescribed moment.
@@ -49,15 +49,12 @@ export function minutesOf(time: string): number {
   return h * 60 + m;
 }
 
-/** "08:30" → "🥐 Café 08:30"; "sos" → "🆘 Quando necessário" */
-export function slotLabel(slot: string): string {
-  return slot === SOS_SLOT ? "🆘 Quando necessário" : medicationTimeLabel(slot);
-}
-
-/** the preset emoji of a moment (plain clock for a custom time) */
-export function slotEmoji(slot: string): string {
-  if (slot === SOS_SLOT) return "🆘";
-  return MEDICATION_PRESETS.find((p) => p.time === slot)?.emoji ?? "🕒";
+/** the same label split up, for headings that style the icon and the hour apart */
+export function slotParts(slot: string): { emoji?: string; icon?: string; text: string } {
+  if (slot === SOS_SLOT) return { emoji: "🆘", text: "Quando necessário" };
+  const p = MEDICATION_PRESETS.find((x) => x.time === slot);
+  if (!p) return { emoji: "🕒", text: slot };
+  return { emoji: p.emoji, icon: p.icon, text: `${p.label} ${slot}` };
 }
 
 /** "HH:MM" of now on the device clock */
@@ -76,8 +73,16 @@ export function nowTime(now = new Date()): string {
 export function useMedicationDay(day: string, search = ""): MedicationDay {
   const campers = useCollection("campers");
   const doses = useCollection("medications");
+  const bedrooms = useCollectionOrEmpty("bedrooms");
 
   const { slots, sos, unscheduled, kidsWithMeds } = useMemo(() => {
+    /** room id → sort key: the room number when it has one, so 2 < 10 < 103 */
+    const roomOrder = new Map(
+      bedrooms.map((b) => {
+        const n = Number(b.name.replace(/\D/g, ""));
+        return [b.id, { n: Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER, name: b.name }] as const;
+      }),
+    );
     const list = campers ?? [];
     const q = normalizeName(search.trim());
     const withMeds = list.filter((k) => k.medications.length > 0);
@@ -99,14 +104,26 @@ export function useMedicationDay(day: string, search = ""): MedicationDay {
           }
       }
     }
-    const byName = (a: MedEntry, b: MedEntry) => a.kid.name.localeCompare(b.kid.name, "pt-BR", { sensitivity: "base" });
+    /**
+     * Room first (by its number), then the kid's name — the team walks the
+     * rooms in order, so the checklist has to read in that same order. Kids
+     * with no room yet come last.
+     */
+    const byRoomThenName = (a: MedEntry, b: MedEntry) => {
+      const ra = roomOrder.get(a.kid.bedroom ?? "");
+      const rb = roomOrder.get(b.kid.bedroom ?? "");
+      if (ra?.n !== rb?.n) return (ra?.n ?? Number.MAX_SAFE_INTEGER) - (rb?.n ?? Number.MAX_SAFE_INTEGER);
+      const byRoomName = (ra?.name ?? "").localeCompare(rb?.name ?? "", "pt-BR", { sensitivity: "base" });
+      if (byRoomName !== 0) return byRoomName;
+      return a.kid.name.localeCompare(b.kid.name, "pt-BR", { sensitivity: "base" });
+    };
     return {
-      slots: [...bySlot.entries()].sort((a, b) => minutesOf(a[0]) - minutesOf(b[0])).map(([slot, rows]) => ({ slot, rows: rows.sort(byName) })),
-      sos: sosList.sort(byName),
-      unscheduled: missing.sort(byName),
+      slots: [...bySlot.entries()].sort((a, b) => minutesOf(a[0]) - minutesOf(b[0])).map(([slot, rows]) => ({ slot, rows: rows.sort(byRoomThenName) })),
+      sos: sosList.sort(byRoomThenName),
+      unscheduled: missing.sort(byRoomThenName),
       kidsWithMeds: withMeds.length,
     };
-  }, [campers, search]);
+  }, [campers, bedrooms, search]);
 
   const given = useMemo(() => {
     const map = new Map<string, MedicationDose>();

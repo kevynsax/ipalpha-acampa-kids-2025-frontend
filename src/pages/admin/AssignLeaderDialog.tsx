@@ -2,8 +2,9 @@ import RoomRoleIcon from "../../components/RoomRoleIcon";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { bedroomLabel } from "../../api/bedrooms";
 import BedroomTag from "../../components/BedroomTag";
+import BedIcon from "../../components/BedIcon";
 import { moveCamper, updateCamper, type Camper, type CamperSex } from "../../api/campers";
-import { ROOM_ROLE_META, staffSex, updateStaff, type Staff } from "../../api/staff";
+import { canBeCaretaker, ROOM_ROLE_META, staffSex, updateStaff, type Staff } from "../../api/staff";
 import { useConfirm } from "../../components/ConfirmDialog";
 import Dialog from "../../components/Dialog";
 import { useCollectionOrEmpty } from "../../store";
@@ -67,8 +68,9 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
   const results = useMemo(() => {
     const nq = normalize(q.trim());
     const byName = (a: Staff, b: Staff) => a.name.localeCompare(b.name, "pt-BR");
-    // anyone with a room; the staff wing (no sex) is the exception at the end — a parent on the team, say
-    const pool = staff.filter((s) => !s.redacted && !!s.bedroom && s.id !== k.caretakerId && (!nq || normalize(s.name).includes(nq)));
+    // anyone with a room; the staff wing (no sex) is the exception at the end — a parent on the team, say.
+    // admins are on the roster only for the room / transport / vest: they never look after kids
+    const pool = staff.filter((s) => !s.redacted && canBeCaretaker(s) && !!s.bedroom && s.id !== k.caretakerId && (!nq || normalize(s.name).includes(nq)));
     const sexOf = (s: Staff) => staffSex(s, bedrooms);
     const compatible = (s: Staff) => !kidSex || sexOf(s) === kidSex;
     const same = pool.filter(compatible);
@@ -116,7 +118,7 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
       const toStaffWing = sRoom.group === "staff";
       const from = room ? `${kid} sai do quarto ${bedroomLabel(room)}` : `${kid} ainda não tem quarto`;
       const ok = await confirm({
-        emoji: toStaffWing ? "⚠️" : "🛏️",
+        emoji: toStaffWing ? "⚠️" : <BedIcon size={22} group={sRoom.group} />,
         danger: toStaffWing,
         title: `Mudar ${kid} para o quarto ${bedroomLabel(sRoom)}?`,
         message: toStaffWing ? "Este é um quarto da EQUIPE, não de crianças." : `${from} e vai para o quarto de ${first}.`,
@@ -156,29 +158,36 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
 
   let index = -1;
   return (
-    <Dialog open={open} onClose={onClose} title="Escolher líder" width={520}>
-      <div className="picker">
-        <h2 className="cat-form__title">
-          <RoomRoleIcon role="caretaker" /> Quem vai cuidar {kidSex === "F" ? "da" : kidSex === "M" ? "do" : "do(a)"} {k.name.split(" ")[0]}?
-        </h2>
-        <input
-          ref={inputRef}
-          className="cat-input"
-          type="search"
-          placeholder="Digite o nome…"
-          value={q}
-          disabled={busy}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={onKey}
-          aria-label="Buscar pessoa"
-        />
-        {kidSex && (
-          <p className="cat-hint">
-            Equipe do sexo {SEX_LABEL[kidSex]}
-            {room ? <> · <BedroomTag bedroom={room} className="staff-tag--inline" /></> : " · sem quarto"}
-          </p>
-        )}
-        {error && <p className="message message--error">{error}</p>}
+    <Dialog open={open} onClose={onClose} title="Escolher líder" width={520} dismissible={!busy} className="picker-sheet-dialog">
+      <div className="picker picker-sheet">
+        {/* head · body · actions: on phones this becomes a bottom sheet (see .picker-sheet) */}
+        <header className="picker-sheet__head">
+          <span className="picker-sheet__handle" aria-hidden="true" />
+          <h2 className="cat-form__title">
+            <RoomRoleIcon role="caretaker" sex={kidSex} /> Quem vai cuidar {kidSex === "F" ? "da" : kidSex === "M" ? "do" : "do(a)"} {k.name.split(" ")[0]}?
+          </h2>
+          <input
+            ref={inputRef}
+            className="cat-input"
+            type="search"
+            placeholder="Digite o nome…"
+            value={q}
+            disabled={busy}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={onKey}
+            aria-label="Buscar pessoa"
+          />
+          {kidSex && (
+            <p className="cat-hint">
+              Equipe do sexo {SEX_LABEL[kidSex]}
+              {/* the kid's OWN room, in the hint: keeps the green pill — it is a fact about the kid, not a row of the list */}
+              {room ? <> · <BedroomTag bedroom={room} className="staff-tag--inline" /></> : " · sem quarto"}
+            </p>
+          )}
+          {error && <p className="message message--error">{error}</p>}
+        </header>
+
+        <div className="picker-sheet__body">
         {flat.length === 0 ? (
           <p className="opt-empty">Ninguém encontrado.</p>
         ) : (
@@ -207,10 +216,17 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
                           onMouseEnter={() => setCursor(i)}
                           onClick={() => void pick(s)}
                         >
-                          <span className="picker__name">{s.name}</span>
+                          <span className="picker__name">
+                            {s.name}
+                            {/* · Líder / Auxiliar, right after the name */}
+                            <span className="picker__role">
+                              <span className="picker__dot" aria-hidden="true">·</span>
+                              <RoomRoleIcon role={s.roomRole} sex={staffSex(s, bedrooms)} size={16} /> {ROOM_ROLE_META[s.roomRole].label}
+                            </span>
+                          </span>
+                          {/* just the room: bunk + number, no pill and no wing face — the list is already filtered to the kid's wing */}
                           <span className="picker__meta">
-                            <RoomRoleIcon role={s.roomRole} /> {ROOM_ROLE_META[s.roomRole].label}
-                            {g.group !== "roomLeaders" && g.group !== "roomHelpers" && (sRoom ? <BedroomTag bedroom={sRoom} className="staff-tag--inline" /> : <span className="picker__busy-where">sem quarto</span>)}
+                            {g.group !== "roomLeaders" && g.group !== "roomHelpers" && (sRoom ? <BedroomTag bedroom={sRoom} className="staff-tag--inline staff-tag--bare" /> : <span className="picker__busy-where">sem quarto</span>)}
                           </span>
                         </button>
                       </li>
@@ -221,7 +237,9 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
             ))}
           </ul>
         )}
-        <div className="cat-form__actions">
+        </div>
+
+        <div className="cat-form__actions picker-sheet__actions">
           <button type="button" className="button button--secondary" onClick={onClose} disabled={busy}>
             Cancelar
           </button>

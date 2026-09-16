@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { updateSettings, type Settings } from "../../api/settings";
 import { useCollection } from "../../store";
 import { useRoute } from "../../router";
 import { speakWhen } from "../../dates";
+import { ICONS } from "../../icons";
 
 interface AccessWindowCardProps {
   token: string;
@@ -27,7 +28,7 @@ function fromLocalInput(v: string): string | null {
 
 const sameMinute = (a: string | null, b: string | null) => (a ? Math.floor(new Date(a).getTime() / 60_000) : null) === (b ? Math.floor(new Date(b).getTime() / 60_000) : null);
 
-const META = {
+const META: Record<AccessWindowCardProps["which"], { title: ReactNode; hint: string; who: string; toggle: "enrolments" | "parentWelcome"; toggleLabel: string }> = {
   staffAccessWindow: {
     title: "🕒 Janela de acesso da equipe",
     hint: "Nesse período a equipe tem acesso ao app e recebe os SMS.",
@@ -36,7 +37,11 @@ const META = {
     toggleLabel: "Boas-vindas e novas responsabilidades",
   },
   parentAccessWindow: {
-    title: "👨‍👩‍👧 Janela de acesso dos pais",
+    title: (
+      <>
+        <img className="admin-title__icon" src={ICONS.parent} alt="" aria-hidden="true" /> Janela de acesso dos pais
+      </>
+    ),
     hint: "Nesse período os pais conseguem entrar no app. Os contatos da equipe eles só veem a partir do horário do check-in até o fim do acampamento.",
     who: "os pais",
     toggle: "parentWelcome" as const,
@@ -134,7 +139,7 @@ export default function AccessWindowCard({ token, which }: AccessWindowCardProps
           </p>
         ) : (
           <p className="message message--warn">
-            ⚠️ {m.who.charAt(0).toUpperCase() + m.who.slice(1)} <strong>não vão receber</strong> o SMS de boas-vindas quando a janela abrir — a notificação "{m.toggleLabel}" está desligada.{" "}
+            O SMS de boas-vindas está desligado.{" "}
             <a href="#/notifications" onClick={(e) => { e.preventDefault(); navigate("/notifications"); }}>Ligar em Notificações</a>
           </p>
         ))}
@@ -142,7 +147,7 @@ export default function AccessWindowCard({ token, which }: AccessWindowCardProps
       {saved && <p className="message message--ok">✅ Janela de acesso salva.</p>}
       <div className="cat-form__actions">
         <button type="submit" className="button button--primary" disabled={!orderOk || !dirty || busy}>
-          {busy ? "Salvando…" : "Salvar horário 🕒"}
+          {busy ? "Salvando…" : <>Salvar<span className="btn-extra"> horário 🕒</span></>}
         </button>
       </div>
     </form>

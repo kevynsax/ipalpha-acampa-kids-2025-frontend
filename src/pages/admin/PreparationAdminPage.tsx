@@ -10,6 +10,7 @@ import RichTextEditor from "../../components/RichTextEditor";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import { goBack, useRoute } from "../../router";
 import { useCollection, useCollectionOrEmpty } from "../../store";
+import { ICONS } from "../../icons";
 import { AiGlyph } from "../../components/Glyph";
 
 interface PreparationAdminPageProps {
@@ -92,7 +93,7 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
         <Breadcrumbs items={[{ label: "Preparação", onClick: () => navigate("/preparation") }, ...(editing ? [{ label: editing.title }] : []), { label: mode.kind === "new" ? "Nova comunicação" : "Editar" }]} />
       )}
       <header className="admin-head">
-        <h1 className="admin-title">{mode.kind === "new" ? "🎒 Nova comunicação" : mode.kind === "edit" ? "✏️ Editar comunicação" : "🎒 Preparação"}</h1>
+        <h1 className="admin-title">{mode.kind === "new" ? <><img className="admin-title__icon" src={ICONS.preparation} alt="" aria-hidden="true" /> Nova comunicação</> : mode.kind === "edit" ? "✏️ Editar comunicação" : <><img className="admin-title__icon" src={ICONS.preparation} alt="" aria-hidden="true" /> Preparação</>}</h1>
         {mode.kind === "list" && (
           <button type="button" className="button button--primary admin-head__new" disabled={busy} onClick={() => navigate("/preparation/new")}>
             + Comunicação
@@ -136,7 +137,7 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
 
       {mode.kind === "list" && sections.length === 0 && (
         <div className="admin-empty">
-          <span className="admin-empty__emoji">🎒</span>
+          <img className="admin-empty__icon" src={ICONS.preparation} alt="" aria-hidden="true" />
           <p>Nenhuma comunicação ainda. Comece com “O que levar”, “Chegada na igreja” ou “Uniforme da equipe”.</p>
           <button type="button" className="button button--primary" onClick={() => navigate("/preparation/new")}>
             + Criar comunicação
@@ -147,10 +148,10 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
       {mode.kind === "list" && sections.length > 0 && (
         <div className="prep-sections">
           {sections.map((s, i) => (
-            <article key={s.id} className="detail-card prep-section">
-              <header className="prep-section__head">
+            <article key={s.id} className="detail-card prep-section prep-section--admin">
+              <header className="prep-section__head prep-section__head--admin">
                 <h3 className="prep-section__title">
-                  <span aria-hidden="true">{s.emoji}</span> {s.title} <PrepAudienceTags audiences={s.audiences} />
+                  <span aria-hidden="true">{s.emoji}</span> {s.title}
                 </h3>
                 <div className="opt-item__actions">
                   <button type="button" className="icon-btn" title="Subir" aria-label="Subir" disabled={busy || i === 0} onClick={() => move(s, -1)}>
@@ -164,6 +165,10 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
                   </button>
                 </div>
               </header>
+              {/* who receives it — second line: all the pills together, wrapping only when they don't fit */}
+              <div className="prep-section__audiences">
+                <PrepAudienceTags audiences={s.audiences} />
+              </div>
               {s.content ? <RichHtml html={s.content} /> : <p className="opt-empty">Sem conteúdo.</p>}
             </article>
           ))}

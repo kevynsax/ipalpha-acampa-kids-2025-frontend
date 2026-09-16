@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CheckGlyph, UndoGlyph } from "../components/Glyph";
-import { setStaffVest, type Staff, type VestAction } from "../api/staff";
+import { setStaffVest, staffSex, type Staff, type VestAction } from "../api/staff";
 import Breadcrumbs from "../components/Breadcrumbs";
-import { ICONS } from "../icons";
+import { ICONS, vestSrc } from "../icons";
 import { formatBrazilPhoneClient } from "../phoneFormat";
 import { useRoute } from "../router";
-import { useCollection } from "../store";
+import { useCollection, useCollectionOrEmpty } from "../store";
 import { staffGreeting, whatsappLink } from "../whatsapp";
 import { speakStamp } from "../dates";
 
@@ -55,7 +55,7 @@ function defaultTab(w: { from: string | null; until: string | null } | undefined
 }
 
 /** status mark: bare shoulders → wearing the vest → ticked box */
-function StepIcon({ step, className = "" }: { step: Step; className?: string }) {
+function StepIcon({ step, sex, className = "" }: { step: Step; sex?: "F" | "M" | null; className?: string }) {
   const label = STEP_META[step].label;
   if (step === "back") {
     return (
@@ -64,7 +64,7 @@ function StepIcon({ step, className = "" }: { step: Step; className?: string }) 
       </span>
     );
   }
-  return <img className={`vest-row__icon ${className}`} src={step === "out" ? ICONS.vest : ICONS.noVest} alt={label} title={label} />;
+  return <img className={`vest-row__icon ${className}`} src={vestSrc(step === "out", sex)} alt={label} title={label} />;
 }
 
 /**
@@ -81,6 +81,7 @@ function StepIcon({ step, className = "" }: { step: Step; className?: string }) 
  */
 export default function VestPage({ token, myName, checkinHomePath }: VestPageProps) {
   const staff = useCollection("staff");
+  const bedrooms = useCollectionOrEmpty("bedrooms");
   const settings = useCollection("settings");
   const { navigate } = useRoute();
   const [search, setSearch] = useState("");
@@ -101,7 +102,7 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
   const filter: Tab = tab ?? "all";
 
   const TABS: { key: Tab; label: string; icon: ReactNode }[] = [
-    { key: "all", label: "Todos", icon: "👥" },
+    { key: "all", label: "Todos", icon: <img className="cat-tab__img" src={ICONS.staffPair} alt="" /> },
     { key: "deliver", label: "Entregar", icon: "📦" },
     { key: "return", label: "Com o tio", icon: <img className="cat-tab__img" src={ICONS.vest} alt="" /> },
   ];
@@ -259,7 +260,7 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
     const busy = pending.has(s.id);
     return (
       <li key={s.id} className={rowClass(s, step)}>
-        <StepIcon step={step} />
+        <StepIcon step={step} sex={staffSex(s, bedrooms)} />
         <span className="bus-row__body">
           <span className="bus-row__name">
             <span className={`strike ${step === "back" ? "strike--on" : ""}`}>{s.name}</span>
@@ -324,8 +325,8 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
           <span className="bus-row__meta">{phoneOf(s)}</span>
         </span>
         <span className={`vest-row__swap ${on ? "vest-row__swap--next" : ""}`}>
-          <StepIcon step={step} className="vest-row__swap-now" />
-          <StepIcon step={tabKey === "deliver" ? "out" : "back"} className="vest-row__swap-then" />
+          <StepIcon step={step} sex={staffSex(s, bedrooms)} className="vest-row__swap-now" />
+          <StepIcon step={tabKey === "deliver" ? "out" : "back"} sex={staffSex(s, bedrooms)} className="vest-row__swap-then" />
         </span>
         {tabKey === "return" && (
           <button type="button" className="icon-btn vest-row__undo" title="Desfazer entrega" aria-label={`Desfazer entrega de ${s.name}`} disabled={going} onClick={() => undo(s)}>

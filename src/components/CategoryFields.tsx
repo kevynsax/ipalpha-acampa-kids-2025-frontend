@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { BEDROOM_GROUPS, GROUP_META, type Bedroom, type BedroomGroup } from "../api/bedrooms";
 import type { Category, CategoryOption } from "../api/categories";
 import type { Team } from "../api/teams";
@@ -9,6 +9,7 @@ import CarLogo from "./CarLogo";
 import NoPillIcon from "./NoPillIcon";
 import { teamTagStyle } from "./TeamTag";
 import { ICONS } from "../icons";
+import BedIcon from "./BedIcon";
 
 /** the drug-allergy category is drawn with the "must not take" icon everywhere, whatever emoji the admin typed */
 function categoryIcon(cat: Category | undefined) {
@@ -82,14 +83,26 @@ interface TeamProps {
   onChange: (v: string | null) => void;
   disabled?: boolean;
   label?: string;
+  /** omit the legend (the parent already titled the dialog) */
+  hideLabel?: boolean;
+}
+
+/**
+ * The chips always sit under something that already says TIME (the 🚩 legend, or
+ * the "Trocar de time" dialog title), so the word every name starts with —
+ * "Time Belém" — is noise on the chip: show just "Belém". Only the label is
+ * trimmed; the team's real name is never touched.
+ */
+function chipName(name: string): string {
+  return name.replace(/^times?\s+/i, "").trim() || name;
 }
 
 /** Team (Configurações → Times) → coloured chips, all visible at once. */
-export function TeamSelect({ value, onChange, disabled, label = "Time" }: TeamProps) {
+export function TeamSelect({ value, onChange, disabled, label = "Time", hideLabel }: TeamProps) {
   const teams: Team[] = useCollectionOrEmpty("teams");
   return (
     <fieldset className="cat-fieldset" role="radiogroup">
-      <legend className="cat-field__label">🏳️ {label}</legend>
+      {!hideLabel && <legend className="cat-field__label">🚩 {label}</legend>}
       {teams.length === 0 && <p className="cat-hint">Nenhum time cadastrado.</p>}
       <div className="team-filter__list" role="presentation">
         <button
@@ -116,7 +129,7 @@ export function TeamSelect({ value, onChange, disabled, label = "Time" }: TeamPr
               onClick={() => onChange(on ? null : t.id)}
             >
               {!on && <span className="score-swatch" style={{ background: t.color }} aria-hidden="true" />}
-              {t.name}
+              {chipName(t.name)}
             </button>
           );
         })}
@@ -130,6 +143,10 @@ interface TransportProps {
   onChange: (v: string | null) => void;
   disabled?: boolean;
   label?: string;
+  /** omit the legend (the parent already titled the dialog) */
+  hideLabel?: boolean;
+  /** when set, rendered as the fieldset heading with "Outros" on the right */
+  title?: ReactNode;
   /**
    * Who is filling the form. A KID almost always comes on a bus, so cars sit
    * behind the "Outros" link; a TEAM member driving their own car is perfectly
@@ -145,13 +162,19 @@ interface TransportProps {
  * when a car is already selected), since most kids come on a bus; for the team
  * every vehicle is listed — going by car is just as usual as the bus.
  */
-export function TransportSelect({ value, onChange, disabled, label = "Transporte", audience = "camper" }: TransportProps) {
+export function TransportSelect({ value, onChange, disabled, label = "Transporte", hideLabel, title, audience = "camper" }: TransportProps) {
   const transports: Transport[] = useCollectionOrEmpty("transports");
   const buses = transports.filter((t) => t.kind === "bus");
   const cars = transports.filter((t) => t.kind === "car");
   const selectedIsCar = cars.some((c) => c.id === value);
   const [showCars, setShowCars] = useState(selectedIsCar);
   const carsOpen = audience === "staff" || showCars || selectedIsCar;
+  const others =
+    cars.length > 0 && !carsOpen ? (
+      <button type="button" className="link-btn cat-field__link" disabled={disabled} onClick={() => setShowCars(true)}>
+        Outros
+      </button>
+    ) : null;
 
   const chip = (t: Transport) => {
     const on = value === t.id;
@@ -172,18 +195,20 @@ export function TransportSelect({ value, onChange, disabled, label = "Transporte
     );
   };
 
-  return (
-    <fieldset className="cat-fieldset" role="radiogroup">
-      <legend className="cat-field__label cat-field__label--split">
+  const heading = hideLabel && !title ? null : (
+    <legend className={title ? "cat-form__title change-room__title" : "cat-field__label cat-field__label--split"}>
+      {title ?? (
         <span className="cat-field__label--icon">
           <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> {label}
         </span>
-        {cars.length > 0 && !carsOpen && (
-          <button type="button" className="link-btn cat-field__link" disabled={disabled} onClick={() => setShowCars(true)}>
-            Outros
-          </button>
-        )}
-      </legend>
+      )}
+      {others}
+    </legend>
+  );
+
+  return (
+    <fieldset className="cat-fieldset" role="radiogroup">
+      {heading}
       {transports.length === 0 && <p className="cat-hint">Nenhum transporte cadastrado.</p>}
       <div className="team-filter__list" role="presentation">
         <button
@@ -258,16 +283,19 @@ interface BedroomProps {
 
 /** Bedroom picker grouped by wing, showing free places. */
 export function BedroomSelect({ bedrooms, value, onChange, current, groups = BEDROOM_GROUPS, allowFull, disabled }: BedroomProps) {
+  const picked = bedrooms.find((b) => b.id === value);
+  const only = groups.length === 1 ? groups[0] : undefined;
+  const wing = picked?.group ?? only;
   return (
     <label className="cat-field cat-field--grow">
-      <span className="cat-field__label">🛏️ Quarto</span>
+      <span className="cat-field__label cat-field__label--icon"><BedIcon size={16} group={wing} /> Quarto</span>
       <select className="cat-input" value={value ?? ""} disabled={disabled || bedrooms.length === 0} onChange={(e) => onChange(e.target.value || null)}>
         <option value="">{bedrooms.length ? "Sem quarto" : "Nenhum quarto cadastrado"}</option>
         {groups.map((g) => {
           const rooms = bedrooms.filter((b) => b.group === g);
           if (!rooms.length) return null;
           return (
-            <optgroup key={g} label={`${GROUP_META[g].emoji} ${GROUP_META[g].label}`}>
+            <optgroup key={g} label={GROUP_META[g].label}>
               {rooms.map((b) => {
                 const mine = b.id === current;
                 const free = b.available + (mine ? 1 : 0);

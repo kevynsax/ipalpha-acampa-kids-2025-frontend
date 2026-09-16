@@ -1,10 +1,11 @@
 import { useConfirm } from "../../components/ConfirmDialog";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GROUP_META, bedroomLabel } from "../../api/bedrooms";
 import {
   ROOM_ROLE_META,
   createStaff,
   deleteStaff,
+  staffSex,
   updateStaff,
   type Staff,
   type StaffInput,
@@ -18,6 +19,7 @@ import { useRoute } from "../../router";
 import HealthAlerts from "../../components/HealthAlerts";
 import HealthFilter, { matchesHealth, hasHealth, type HealthKey } from "../../components/HealthFilter";
 import { downloadStaffXlsx } from "../../export";
+import type { CamperSex } from "../../api/campers";
 import { ICONS } from "../../icons";
 
 import Breadcrumbs from "../../components/Breadcrumbs";
@@ -84,7 +86,18 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
   const [noRoomFirst, setNoRoomFirst] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const [createSex, setCreateSex] = useState<CamperSex | null>(null);
+  const [createSexBusy, setCreateSexBusy] = useState(false);
+  const onCreateSex = useCallback((sex: CamperSex | null, guessing: boolean) => {
+    setCreateSex(sex);
+    setCreateSexBusy(guessing);
+  }, []);
+  useEffect(() => {
+    if (mode.kind !== "create") {
+      setCreateSex(null);
+      setCreateSexBusy(false);
+    }
+  }, [mode.kind]);
 
   /** bedroom id → "Meninos - 403" */
   const bedroomOf = useMemo(() => {
@@ -212,33 +225,50 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
         <Breadcrumbs items={[{ label: "Equipe", onClick: () => guardedNav("/staff") }, { label: editing.name.split(" ")[0], onClick: () => guardedNav(`/staff/${editing.id}`) }, { label: "Editar" }]} />
       )}
       <header className="admin-head">
-        <h1 className="admin-title">{mode.kind === "create" ? "🙋 Novo membro da equipe" : mode.kind === "edit" ? "✏️ Editar membro da equipe" : "Equipe"}</h1>
+        <h1 className="admin-title">
+          {mode.kind === "create" ? (
+            <>
+              <img className={`admin-title__icon${createSexBusy ? " admin-title__icon--busy" : ""}`} src={createSex === "M" ? ICONS.man : ICONS.woman} alt="" aria-hidden="true" /> <span>Novo membro da equipe</span>
+            </>
+          ) : mode.kind === "edit" ? (
+            "✏️ Editar membro da equipe"
+          ) : (
+            "Equipe"
+          )}
+        </h1>
         {mode.kind === "view" && !readOnly && (
-          <div className="admin-head__actions">
+          <div className="admin-head__actions admin-head__actions--icons">
             <button
               type="button"
               className="button button--secondary admin-head__new"
               title="Sorteio"
+              aria-label="Sorteio"
               onClick={() => navigate("/staff/giveaway")}
             >
-              <img className="admin-head__action-icon" src={ICONS.giveaway} alt="" aria-hidden="true" /> Sorteio
+              <img className="admin-head__action-icon" src={ICONS.giveaway} alt="" aria-hidden="true" />
+              <span className="admin-head__action-label">Sorteio</span>
             </button>
             <button
               type="button"
               className="button button--secondary admin-head__new"
               disabled={busy || staff.length === 0}
               title="Baixar toda a equipe em Excel"
+              aria-label="Baixar toda a equipe em Excel"
               onClick={() => downloadStaffXlsx(staff, bedrooms, labelOf)}
             >
-              <DownloadGlyph /> Download
+              <DownloadGlyph />
+              <span className="admin-head__action-label">Download</span>
             </button>
             <button
               type="button"
               className="button button--primary admin-head__new"
               disabled={busy}
+              title="Novo membro da equipe"
+              aria-label="Novo membro da equipe"
               onClick={() => navigate("/staff/new")}
             >
-              + Novo
+              <span className="admin-head__action-plus" aria-hidden="true">+</span>
+              <span className="admin-head__action-label">Novo</span>
             </button>
           </div>
         )}
@@ -264,6 +294,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
           categories={categories}
           busy={busy}
           onSubmit={handleCreate}
+          onSexChange={onCreateSex}
           leaveGuardRef={leaveGuardRef}
         />
       )}
@@ -307,7 +338,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
             ))}
             {teams.length > 0 && (
               <button type="button" className={`chip-toggle chip-toggle--small ${teamFilter.size > 0 ? "chip-toggle--on" : ""}`} aria-pressed={teamFilter.size > 0} title="Filtrar por time" onClick={() => setTeamDialogOpen(true)}>
-                🏳️ {teamChipLabel}
+                🚩 {teamChipLabel}
                 {teamFilter.size > 0 && <span className="cat-tab__count">{visible.length}</span>}
               </button>
             )}
@@ -353,7 +384,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
               const noRoom = !s.bedroom;
 
               return (
-                <li key={s.id} className={`staff-card staff-card--clickable ${noRoom ? "staff-card--orphan" : ""} ${s.active ? "" : "staff-card--inactive"}`}>
+                <li key={s.id} className={`staff-card staff-card--clickable staff-card--cover ${noRoom ? "staff-card--orphan" : ""} ${s.active ? "" : "staff-card--inactive"}`}>
                   <div
                     className="staff-card__body"
                     role="link"
@@ -381,7 +412,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
                         {room && <BedroomTag bedroom={room} />}
                         {room && (
                           <span className="staff-tag" title="Função no quarto">
-                            <RoomRoleIcon role={s.roomRole} /> {ROOM_ROLE_META[s.roomRole].label}
+                            <RoomRoleIcon role={s.roomRole} sex={staffSex(s, bedrooms)} /> {ROOM_ROLE_META[s.roomRole].label}
                           </span>
                         )}
                         <TeamTag teamId={s.team} />
@@ -392,14 +423,14 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
                   </div>
                   {s.phone && (
                     <WhatsAppButton
-                      className="wa-btn--sm"
+                      className="wa-btn--sm staff-card__wa"
                       href={whatsappLink(s.phone, staffGreeting({ toName: s.name, fromName: myName }))}
                       label={`Falar com ${s.name.split(" ")[0]} no WhatsApp`}
                     />
                   )}
                   <button
                     type="button"
-                    className="icon-btn icon-btn--lg"
+                    className="icon-btn icon-btn--lg staff-card__edit"
                     title="Editar"
                     aria-label={`Editar ${s.name}`}
                     disabled={busy}

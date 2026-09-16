@@ -8,6 +8,7 @@ import { useSinkingChecklist } from "../hooks/useSinkingChecklist";
 import type { LoggedUser } from "../roles";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import { useMyPrepRoles } from "../store/derive";
+import { ICONS } from "../icons";
 
 interface PreparationPageProps {
   user: LoggedUser;
@@ -17,12 +18,12 @@ interface PreparationPageProps {
 }
 
 /** "Faltam 12 dias" / "É amanhã!" / "É hoje!" / "Acampamento em andamento" */
-function countdownLabel(daysToGo: number | null): { emoji: string; text: string } | null {
+function countdownLabel(daysToGo: number | null): { mark: ReactNode; text: string } | null {
   if (daysToGo === null) return null;
-  if (daysToGo > 1) return { emoji: "⏳", text: `Faltam ${daysToGo} dias` };
-  if (daysToGo === 1) return { emoji: "🎒", text: "É amanhã!" };
-  if (daysToGo === 0) return { emoji: "🚌", text: "É hoje!" };
-  return { emoji: "🏕️", text: "Acampamento em andamento" };
+  if (daysToGo > 1) return { mark: "⏳", text: `Faltam ${daysToGo} dias` };
+  if (daysToGo === 1) return { mark: <img className="prep-countdown__icon" src={ICONS.preparation} alt="" />, text: "É amanhã!" };
+  if (daysToGo === 0) return { mark: "🚌", text: "É hoje!" };
+  return { mark: "🏕️", text: "Acampamento em andamento" };
 }
 
 /** one card of the checklist (a role's preparation or a general section) */
@@ -155,7 +156,7 @@ export default function PreparationPage({ user, token, pairedWith }: Preparation
   return (
     <div className="admin-page prep-page">
       <header className="admin-head">
-        <h1 className="admin-title">🎒 Preparação</h1>
+        <h1 className="admin-title"><img className="admin-title__icon" src={ICONS.preparation} alt="" aria-hidden="true" /> Preparação</h1>
         {/* only while the bottom bar merges the pair (phones): the way to the other half */}
         {pairedWith && (
           <button type="button" className="dash-pair-link" onClick={pairedWith} title="Ver as Instruções">
@@ -168,7 +169,7 @@ export default function PreparationPage({ user, token, pairedWith }: Preparation
 
       {countdown && (
         <div className="prep-countdown" role="status">
-          <span className="prep-countdown__emoji" aria-hidden="true">{countdown.emoji}</span>
+          <span className="prep-countdown__emoji" aria-hidden="true">{countdown.mark}</span>
           <div className="prep-countdown__text">
             <strong>{countdown.text}</strong>
             {timing.firstDate && <span>{timing.daysToGo !== null && timing.daysToGo < 0 ? "Começou" : "Começa"} {speakDay(timing.firstDate).toLowerCase()}</span>}
@@ -194,7 +195,7 @@ export default function PreparationPage({ user, token, pairedWith }: Preparation
 
       {total === 0 && (
         <div className="admin-empty">
-          <span className="admin-empty__emoji">🎒</span>
+          <img className="admin-empty__icon" src={ICONS.preparation} alt="" aria-hidden="true" />
           <p>Nada para preparar por enquanto. Assim que a organização publicar as orientações, elas aparecem aqui.</p>
         </div>
       )}
