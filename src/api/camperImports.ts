@@ -2,7 +2,7 @@ import { api, command } from "./client";
 import { bearer } from "../auth/store";
 
 export type ImportField =
-  | "name" | "birthDate" | "bed" | "bedroomPreference" | "team" | "transportation" | "bedroom" | "leader"
+  | "name" | "birthDate" | "probableGender" | "bed" | "bedroomPreference" | "team" | "transportation" | "bedroom" | "leader"
   | "cpf" | "guardianCpf" | "rg" | "school" | "schoolGrade" | "church" | "invitedBy" | "guardianName"
   | "guardianPhone" | "guardianEmail" | "emergencyContact" | "insurance" | "insuranceCard" | "weightKg"
   | "allergies" | "drugAllergies" | "healthIssues" | "neurodivergent" | "dailyMedication" | "foodRestrictions" | "healthNotes" | "generalNotes";
@@ -14,7 +14,7 @@ export interface ImportColumn {
   samples: string[];
 }
 
-export type ImportReviewKind = "leader" | "date" | "guardianName" | "phone" | "cpf" | "email";
+export type ImportReviewKind = "leader" | "date" | "guardianName" | "phone" | "cpf" | "email" | "duplicate";
 
 export interface ImportReviewItem {
   id: string;
@@ -32,6 +32,11 @@ export interface ImportReviewItem {
   resolved: boolean;
   affectedRows?: number[];
   options?: { id: string; label: string }[];
+  existingId?: string;
+  existingData?: Record<string, unknown>;
+  incomingData?: Record<string, unknown>;
+  mergedData?: Record<string, unknown>;
+  mergeAvailable?: boolean;
 }
 
 export interface CamperImport {
@@ -57,10 +62,11 @@ export async function listImportFields(token: string): Promise<{ key: ImportFiel
   return res.fields;
 }
 
-export async function analyzeCamperFile(token: string, file: File, mapping?: Record<string, string | null>): Promise<CamperImport> {
+export async function analyzeCamperFile(token: string, file: File, mapping?: Record<string, string | null>, progressId?: string): Promise<CamperImport> {
   const data = new FormData();
   data.append("file", file);
   if (mapping) data.append("mapping", JSON.stringify(mapping));
+  if (progressId) data.append("progress", progressId);
   const res = await api<{ import: CamperImport }>("/api/camper-imports/analyze", { method: "POST", headers: bearer(token), body: data });
   return res.import;
 }
@@ -73,13 +79,23 @@ export async function createImportLeader(token: string, importId: string, review
   }, ["staff"]);
 }
 
-export async function applyCamperImport(token: string, importId: string, file: File, delta: Record<string, { value?: string; skip?: boolean }>): Promise<{ inserted: number; skipped: number; import: CamperImport }> {
+export async function applyCamperImport(token: string, importId: string, file: File, delta: Record<string, { value?: string; skip?: boolean }>, declinedCategoryIds: string[] = [], duplicateChoice:"update"|"keep"|"merge"|""=""): Promise<{ inserted: number; updated:number; skipped: number; import: CamperImport }> {
   const data = new FormData();
   data.append("file", file);
   data.append("delta", JSON.stringify(delta));
+  data.append("declinedCategoryIds", JSON.stringify(declinedCategoryIds));
+  data.append("duplicateChoice",duplicateChoice);
   return command(`/api/camper-imports/${importId}/apply`, {
     method: "POST",
     headers: bearer(token),
     body: data,
   }, ["campers", "bedrooms", "staff", "teams", "transports", "categories"]);
+}
+
+export interface ImportPhaseInfo { key: string; pct: number }
+
+/** live phase of a running analysis — the token was generated for the analyze request */
+export async function getCamperImportProgress(tokenId: string, progressId: string): Promise<ImportPhaseInfo | null> {
+  const res = await api<{ progress: ImportPhaseInfo | null }>(`/api/camper-imports/progress/${progressId}`, { headers: bearer(tokenId) });
+  return res.progress;
 }

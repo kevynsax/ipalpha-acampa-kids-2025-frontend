@@ -53,7 +53,7 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
   }, [caretakers, caretakerId]);
 
   const changed = bedroom !== k.bedroom || caretakerId !== k.caretakerId;
-  const sex = k.sex ?? (room?.group === "girls" ? "F" : room?.group === "boys" ? "M" : null);
+  const sex = (room?.group === "girls" ? "F" : room?.group === "boys" ? "M" : null) ?? k.sex ?? k.probableGender;
   const article = sex === "F" ? "da" : sex === "M" ? "do" : "do(a)";
   const needsPick = caretakers.length > 1 && !caretakerId;
 
@@ -79,7 +79,7 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
           <img className="admin-title__icon" src={ICONS.swap} alt="" aria-hidden="true" /> Trocar de quarto
         </h2>
 
-        <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} current={k.bedroom} groups={bedroomGroupsForSex(k.sex)} disabled={busy} />
+        <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} current={k.bedroom} groups={bedroomGroupsForSex(k.sex, k.probableGender)} disabled={busy} />
 
         {bedroom && (
           <fieldset className="cat-fieldset change-room__caretaker">

@@ -6,6 +6,9 @@ import { createEvent, createRole } from "../api/schedule";
 import { createInstruction } from "../api/instructions";
 import { createPrepSection } from "../api/preparation";
 import { fetchSeeds, type SeedBus, type SeedDocs, type Seeds } from "../api/seeds";
+import { loadSampleCamp, type SampleLoad } from "../api/wizard";
+import { applySampleSchedule } from "./sampleSchedule";
+import { sampleSchedulePlan } from "./sampleScheduleDates";
 import { mapsLink, updateSettings, type NotificationSettings } from "../api/settings";
 import PhoneInput from "../components/PhoneInput";
 import SpotMap from "../components/SpotMap";
@@ -147,7 +150,7 @@ export default function WizardPage({ token, user, onExit }: WizardPageProps) {
       </nav>
 
       <div className="wizard__body">
-        {step === "intro" && <IntroStep onNext={next} onSkip={close} />}
+        {step === "intro" && <IntroStep token={token} onNext={next} onSkip={close} />}
         {step === "admins" && <AdminsStep token={token} user={user} />}
         {step === "staff" && (
           <StepShell
@@ -190,7 +193,28 @@ export default function WizardPage({ token, user, onExit }: WizardPageProps) {
 
 // ── intro ───────────────────────────────────────────────────────────────────
 
-function IntroStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) {
+function IntroStep({ token, onNext, onSkip }: { token: string; onNext: () => void; onSkip: () => void }) {
+  const [testing, setTesting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState<(SampleLoad & { events: number }) | null>(null);
+  const roles = useCollectionOrEmpty("roles");
+  const events = useCollectionOrEmpty("events");
+
+  async function loadSample() {
+    if (testing || loaded) return;
+    setTesting(true);
+    setError(null);
+    try {
+      const r = await loadSampleCamp(token);
+      const applied = await applySampleSchedule(token, sampleSchedulePlan(), { roles, events });
+      setLoaded({ ...r, events: applied.events });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Algo deu errado.");
+    } finally {
+      setTesting(false);
+    }
+  }
+
   return (
     <section className="wizard-card wizard-card--intro">
       <div className="confetti" aria-hidden="true">🏕️ 🚌 🛏️ 📅 🎉</div>
@@ -209,14 +233,53 @@ function IntroStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void 
         <li>🛏️ Organizar os <strong>quartos</strong> e os <strong>ônibus</strong> (4 já vêm prontos)</li>
       </ul>
       <p className="cat-hint">Dá para pular etapas, voltar e reabrir este assistente depois (Limpeza ou Perfil).</p>
-      <div className="cat-form__actions">
-        <button type="button" className="button button--secondary" onClick={onSkip}>
-          Agora não
-        </button>
-        <button type="button" className="button button--primary" onClick={onNext}>
-          Começar 🚀
-        </button>
-      </div>
+
+      {error && <p className="message message--error">{error}</p>}
+      {loaded ? (
+        <div className="wizard-test">
+          <p className="message message--ok">
+            ✅ Camp de exemplo carregado: <strong>{loaded.campers} acampantes</strong>, <strong>{loaded.staff} pessoas na equipe</strong>,{" "}
+            {loaded.bedrooms} quartos, {loaded.transports} veículos, {loaded.teams} times e {loaded.events} eventos — tudo <strong>fictício</strong>,
+            {" "}com a programação e as janelas (equipe, pais, check-in e volta) valendo a partir de hoje. Continue o passo a passo ou vá direto
+            explorar as abas.
+          </p>
+          <div className="cat-form__actions">
+            <button type="button" className="button button--secondary" onClick={onSkip}>
+              Explorar o app
+            </button>
+            <button type="button" className="button button--primary" onClick={onNext}>
+              Continuar o assistente ›
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="wizard-test">
+          <div className="wizard-test__head">
+            <h3 className="cat-form__title">🧪 Testar o sistema</h3>
+          </div>
+          <p className="cat-hint">
+            Carrega um acampamento de exemplo com 154 acampantes e 72 pessoas na equipe — baseado no acampamento real, mas{" "}
+            <strong>fictício</strong>: nomes embaralhados dentro do mesmo gênero e celulares, CPFs, RGs e e-mails aleatórios. A programação e as
+            janelas vêm ancoradas em hoje (primeiro dia amanhã). Só funciona com o app zerado.
+          </p>
+          <div className="cat-form__actions">
+            <button type="button" className="button button--secondary" disabled={testing} onClick={() => void loadSample()}>
+              {testing ? "Carregando… 🧪" : "Carregar dados de exemplo"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!loaded && (
+        <div className="cat-form__actions">
+          <button type="button" className="button button--secondary" onClick={onSkip}>
+            Agora não
+          </button>
+          <button type="button" className="button button--primary" onClick={onNext}>
+            Começar do zero 🚀
+          </button>
+        </div>
+      )}
     </section>
   );
 }

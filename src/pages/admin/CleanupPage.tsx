@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { fetchCleanupMarks, runCleanup, type CleanupGroup, type StaffKeepGroup } from "../../api/cleanup";
+import { fetchCleanupMarks, fetchImportCacheCount, runCleanup, wipeImportCache, type CleanupGroup, type StaffKeepGroup } from "../../api/cleanup";
 import { useConfirm } from "../../components/ConfirmDialog";
 import { useCollection } from "../../store";
 import type { Settings } from "../../api/settings";
@@ -109,10 +109,14 @@ export default function CleanupPage({ token }: CleanupPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [marks, setMarks] = useState({ welcomes: 0, notices: 0 });
+  const [importCache, setImportCache] = useState<number | null>(null);
   const keepRef = useRef<StaffKeepGroup[]>([]);
   /** Programação only: the admin asked for the funções (and their texts) to go too */
   const rolesRef = useRef(false);
   const [reload, setReload] = useState(0);
+
+  const settings = useCollection("settings");
+  const isSuper = !!settings?.superAdmin;
 
   useEffect(() => {
     let alive = true;
@@ -125,6 +129,50 @@ export default function CleanupPage({ token }: CleanupPageProps) {
       alive = false;
     };
   }, [token, reload]);
+
+  // the import dictionary cache count is super-admin-only (its own endpoint)
+  useEffect(() => {
+    if (!isSuper) return;
+    let alive = true;
+    void fetchImportCacheCount(token)
+      .then((r) => {
+        if (alive) setImportCache(r.count);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [token, isSuper, reload]);
+
+  async function cleanImportCache() {
+    if (busy) return;
+    const ok = await confirm({
+      emoji: "🧹",
+      title: "Limpar o cache de importação?",
+      message: (
+        <>
+          Apaga as {importCache ?? 0} correspondências que a importação de equipe e de acampantes guardou (coluna da planilha → valor do app).
+          <br />
+          A próxima importação vai remontar o mapeamento do zero. Não apaga nenhum cadastro.
+        </>
+      ),
+      confirmLabel: "Limpar cache",
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy("import-cache" as CleanupGroup);
+    setError(null);
+    setDone(null);
+    try {
+      const { removed } = await wipeImportCache(token);
+      setReload((r) => r + 1);
+      setDone(`${removed} correspondência(s) do cache apagada(s).`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Algo deu errado.");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   const counts: Record<CleanupGroup, number> = {
     campers: useCollection("campers")?.length ?? 0,
@@ -144,8 +192,6 @@ export default function CleanupPage({ token }: CleanupPageProps) {
   // "Limpar tudo" leaves the reused texts alone, so they are out of its total
   const total = BLOCKS.filter((b) => !b.keptOnAll).reduce((a, b) => a + counts[b.key], 0);
   const roles = useCollection("roles")?.length ?? 0;
-
-  const settings = useCollection("settings");
 
   /** the admin lists that still have someone on them — the only ones worth sparing */
   function keepSwitches() {
@@ -289,6 +335,27 @@ export default function CleanupPage({ token }: CleanupPageProps) {
           {busy === "all" ? "Limpando tudo…" : "🧹 Limpar tudo"}
         </button>
       </section>
+      {isSuper && (
+        <section className="cleanup-all">
+          <h2 className="cleanup-all__title">🧹 Cache de importação</h2>
+          <p className="cleanup-all__text">
+            As correspondências que a importação de equipe e de acampantes guarda (coluna da planilha → valor do app) para reaproveitar de um ano para o outro.
+            Só o dono da implantação vê isto. Limpar não apaga nenhum cadastro — só faz a próxima importação remontar o mapeamento do zero.
+          </p>
+          <button
+            type="button"
+            className="button button--danger cleanup-all__button"
+            disabled={busy !== null || importCache === 0}
+            onClick={() => void cleanImportCache()}
+          >
+            {busy === ("import-cache" as CleanupGroup)
+              ? "Limpando…"
+              : importCache === 0
+                ? "Cache vazio"
+                : `🧹 Limpar cache${importCache != null ? ` (${importCache})` : ""}`}
+          </button>
+        </section>
+      )}
       <section className="cleanup-all cleanup-next">
         <h2 className="cleanup-all__title">
           <img className="audience-icon" src={ICONS.wizard} alt="" aria-hidden="true" /> Próximo acampamento

@@ -14,7 +14,7 @@ import Breadcrumbs from "../components/Breadcrumbs";
 import { healthLines } from "../components/HealthAlerts";
 import KidIcon from "../components/KidIcon";
 import ParentIcon from "../components/ParentIcon";
-import { ICONS, kidSexOf } from "../icons";
+import { ICONS, kidIconSex } from "../icons";
 import { formatBrazilPhoneClient } from "../phoneFormat";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import { useLabelOf } from "../store/derive";
@@ -241,7 +241,7 @@ export default function CheckinPage({ token, adminMerged = false }: CheckinPageP
             key={open.id}
             camper={open}
             bedroom={openRoom}
-            sex={kidSexOf(openRoom?.group)}
+            sex={kidIconSex(openRoom?.group, open?.sex, open?.probableGender)}
             labelOf={labelOf}
             busy={busy}
             onConfirm={() => handleConfirm(open)}

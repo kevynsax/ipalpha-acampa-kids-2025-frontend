@@ -13,6 +13,8 @@ interface AboutPageProps {
 const VENDOR_NAMES: Record<string, string> = {
   anthropic: "Anthropic",
   openai: "OpenAI",
+  // the real OpenAI API (voice assistant), billed directly — not the gateway's GPT models above
+  openai_api: "OpenAI API",
   xai: "xAI",
   meta: "Meta",
   zhipu: "Zhipu AI",
@@ -23,6 +25,7 @@ const VENDOR_NAMES: Record<string, string> = {
 const VENDOR_COLORS: Record<string, string> = {
   anthropic: "var(--sun)",
   openai: "var(--panel)",
+  openai_api: "var(--forest-dark)",
   xai: "var(--red)",
   meta: "var(--pine)",
   zhipu: "var(--sage)",

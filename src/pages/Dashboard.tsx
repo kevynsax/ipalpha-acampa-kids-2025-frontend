@@ -374,9 +374,10 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
    * flag — a dialog-form may open over a page-form (see scanFab.ts).
    */
   const [formsOpen, setFormsOpen] = useState(0);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const bumpFormsOpen = useCallback((delta: number) => setFormsOpen((n) => Math.max(0, n + delta)), []);
-  const showEmergencyFab = !isParent && during && view !== "badge" && !wizardOpen && !settingsOpen && !settingsMenuOpen && !hasOwnScanFab && formsOpen === 0;
-  const hasFab = hasOwnScanFab || showEmergencyFab;
+  const showEmergencyFab = !assistantOpen && !isParent && during && view !== "badge" && !wizardOpen && !settingsOpen && !settingsMenuOpen && !hasOwnScanFab && formsOpen === 0;
+  const hasFab = !assistantOpen && (hasOwnScanFab || showEmergencyFab);
   useEffect(() => {
     const root = document.documentElement;
     root.classList.toggle("has-bottom-nav", useMobileBottomNav);
@@ -697,7 +698,16 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
 
       {/* "Ler crachá" QR lookup — the team, WHILE THE CAMP IS ON (first day → end of the last event), on every page except the settings, the pages whose own yellow ScanFab performs their action, and any page showing a FORM (its Salvar / Cancelar own that corner) */}
       {showEmergencyFab && <EmergencyScanFab token={token} />}
-      {settingsAllowed && <CampAssistant token={token} avoidFab={hasFab} />}
+      {(settingsAllowed || helper.medical) && (
+        <CampAssistant
+          token={token}
+          userName={user.name}
+          availableTabs={tabs.map((tab) => tab.key)}
+          availableSettings={settingsPages.map((page) => page.key)}
+          avoidFab={hasFab}
+          onOpenChange={setAssistantOpen}
+        />
+      )}
     </div>
   );
 }

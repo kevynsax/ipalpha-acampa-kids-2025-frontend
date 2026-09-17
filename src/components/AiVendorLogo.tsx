@@ -15,6 +15,9 @@ const LOGOS: Record<AiVendor, { src: string; name: string }> = {
   google: { src: google, name: "Google" },
 };
 
+/** Usage-only vendor tags that share a company logo (e.g. the direct OpenAI API and the gateway's OpenAI models). */
+const VENDOR_ALIASES: Record<string, AiVendor> = { openai_api: "openai" };
+
 /** Fallback when the server didn't send a vendor: guess it from the model id. */
 export function guessVendor(modelId?: string): AiVendor | undefined {
   const id = (modelId ?? "").toLowerCase();
@@ -29,7 +32,8 @@ export function guessVendor(modelId?: string): AiVendor | undefined {
 
 /** Company mark shown beside a model name. Renders nothing for unknown vendors. */
 export default function AiVendorLogo({ vendor, modelId, size = 16 }: { vendor?: AiVendor; modelId?: string; size?: number }) {
-  const logo = LOGOS[vendor ?? guessVendor(modelId) ?? ("" as AiVendor)];
+  const resolved = vendor ? VENDOR_ALIASES[vendor] ?? vendor : guessVendor(modelId);
+  const logo = LOGOS[resolved ?? ("" as AiVendor)];
   if (!logo) return null;
   return <img className="ai-vendor-logo" src={logo.src} alt={logo.name} title={logo.name} width={size} height={size} />;
 }

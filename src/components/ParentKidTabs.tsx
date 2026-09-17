@@ -1,5 +1,5 @@
 import KidIcon from "./KidIcon";
-import { kidSexOf } from "../icons";
+import { kidIconSex } from "../icons";
 import type { MyKid } from "../store/derive";
 
 interface ParentKidTabsProps {
@@ -56,7 +56,7 @@ export default function ParentKidTabs({ kids, selectedId, onSelect, idPrefix, pa
               requestAnimationFrame(() => document.getElementById(tabId(next))?.focus());
             }}
           >
-            <KidIcon sex={kid.camper.sex === "F" ? "girl" : kid.camper.sex === "M" ? "boy" : kidSexOf(kid.bedroom?.group)} size={28} />
+            <KidIcon sex={kidIconSex(kid.bedroom?.group, kid.camper.sex, kid.camper.probableGender)} size={28} />
             {/* phones only have room for the first name; the surname is dropped by CSS */}
             <span>
               {firstName(kid.camper.name)}

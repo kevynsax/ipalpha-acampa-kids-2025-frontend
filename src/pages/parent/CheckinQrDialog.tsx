@@ -3,6 +3,7 @@ import type { Camper } from "../../api/campers";
 import CamperQr from "../../components/CamperQr";
 import Dialog from "../../components/Dialog";
 import KidIcon from "../../components/KidIcon";
+import { kidIconSex } from "../../icons";
 
 interface CheckinQrDialogProps {
   kids: Camper[];
@@ -83,7 +84,7 @@ export default function CheckinQrDialog({ kids, active }: CheckinQrDialogProps) 
                     requestAnimationFrame(() => document.getElementById(`checkin-qr-tab-${next}`)?.focus());
                   }}
                 >
-                  <KidIcon sex={kid.sex === "F" ? "girl" : kid.sex === "M" ? "boy" : null} size={26} />
+                  <KidIcon sex={kidIconSex(undefined, kid.sex, kid.probableGender) ?? "girl"} size={26} />
                   <span>{kid.name}</span>
                 </button>
               );

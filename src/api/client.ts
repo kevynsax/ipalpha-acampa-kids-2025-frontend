@@ -36,10 +36,16 @@ export const OFFLINE_MESSAGE = "Sem conexão com o servidor. Verifique o Wi-Fi d
 
 export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   let res: Response;
+  // FormData bodies must keep the browser-generated multipart boundary, so we
+  // only default to JSON when the caller isn't uploading a file.
+  const isFormData = typeof FormData !== "undefined" && options?.body instanceof FormData;
   try {
     res = await fetch(`${BASE}${path}`, {
-      headers: { "content-type": "application/json" },
       ...options,
+      headers: {
+        ...(isFormData ? {} : { "content-type": "application/json" }),
+        ...((options?.headers as Record<string, string> | undefined) ?? {}),
+      },
     });
   } catch {
     throw new ApiError(0, "OFFLINE", OFFLINE_MESSAGE);

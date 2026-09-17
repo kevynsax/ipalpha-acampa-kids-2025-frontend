@@ -68,6 +68,17 @@ export function CheckGlyph({ size = "1.1em", className }: GlyphProps) {
   );
 }
 
+/** a floppy disk — "Salvar" actions */
+export function SaveGlyph({ size = "1.1em", className }: GlyphProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+      <path d="M8 3v5h7V3" />
+      <rect x="8" y="13" width="8" height="6" />
+    </svg>
+  );
+}
+
 /** a download arrow into a tray — used on the "Download" (Excel) buttons */
 export function DownloadGlyph({ size = "1.1em", className }: GlyphProps) {
   return (
@@ -98,6 +109,36 @@ export function ExpandGlyph({ size = "1.1em", className }: GlyphProps) {
       <path d="M3 3l7 7" />
       <path d="M15 21h6v-6" />
       <path d="M21 21l-7-7" />
+    </svg>
+  );
+}
+
+/** an eye — toggles visibility of preview content */
+export function EyeGlyph({ size = "1.1em", className }: GlyphProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z" />
+      <circle cx="12" cy="12" r="2.8" />
+    </svg>
+  );
+}
+
+/** three horizontal dots — reveals hidden or truncated content */
+export function EllipsisGlyph({ size = "1.1em", className }: GlyphProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="5" cy="12" r="2" />
+      <circle cx="12" cy="12" r="2" />
+      <circle cx="19" cy="12" r="2" />
+    </svg>
+  );
+}
+
+/** a double chevron pointing right — "Pular": skip forward past this record (goes on the yellow skip button) */
+export function SkipGlyph({ size = "1.1em", className }: GlyphProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true">
+      <path d="M383-480 200-664l56-56 240 240-240 240-56-56 183-184Zm264 0L464-664l56-56 240 240-240 240-56-56 183-184Z" />
     </svg>
   );
 }

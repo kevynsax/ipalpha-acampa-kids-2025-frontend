@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import ChipTip from "../../components/ChipTip";
+import DesktopBoardNotice from "../../components/DesktopBoardNotice";
 import Dialog from "../../components/Dialog";
 import RoomRoleIcon from "../../components/RoomRoleIcon";
+import { SaveGlyph, UndoGlyph } from "../../components/Glyph";
 import { ageOf, type Camper, type CamperSex } from "../../api/campers";
 import { staffSex, type Staff } from "../../api/staff";
 import { applyRooms, BEDROOM_GROUPS, GROUP_META, previewRooms, type Bedroom, type BedroomGroup, type RoomsAppliedMessage } from "../../api/bedrooms";
@@ -620,24 +622,25 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
   const roomMatches = nq ? roomsForWing.filter(roomHasMatch) : [];
   const roomsOnShow: Bedroom[] = roomMatches.length ? roomMatches : roomsForWing;
 
-  const genderPoolCount = (g: CamperSex) => poolKids.filter((k) => k.sex === g).length;
+  const genderPoolCount = (g: CamperSex) => poolKids.filter((k) => (k.sex ?? k.probableGender) === g).length;
   const hoverValid = hover && dragUnit ? canDrop(dragUnit, hover) : false;
 
   return (
     <div className="admin-page">
+      <DesktopBoardNotice what="montar os quartos" />
       <Breadcrumbs items={[{ label: "Quartos", onClick: onBack }, { label: "Montar" }]} />
       <header className="admin-head">
         <h1 className="admin-title">
           <img className="admin-title__icon" src={ICONS.roomAssign} alt="" aria-hidden="true" /> Montar quartos
         </h1>
-        <div className="admin-head__actions">
+        <div className="admin-head__actions admin-head__actions--icons">
           {hasChanges && (
             <button type="button" className="button button--warn admin-head__new" onClick={discard} disabled={submitting}>
-              Descartar alterações
+              <UndoGlyph /> <span className="admin-head__action-label">Descartar alterações</span>
             </button>
           )}
           <button type="button" className="button button--primary admin-head__new" onClick={() => void concluir()} disabled={submitting}>
-            {submitting ? "Aplicando…" : "Concluir"}
+            <SaveGlyph /> <span className="admin-head__action-label">{submitting ? "Aplicando…" : "Salvar"}</span>
           </button>
         </div>
       </header>
@@ -721,7 +724,7 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
 
           <ul className="assign-pool__list">
             {wing !== "staff" && poolUnits(units, wing).map((u) => {
-              const members = u.members.filter((k) => !k.bedroom && (wing === "all" || k.sex === wing) && (!nq || normName(k.name).includes(nq)));
+              const members = u.members.filter((k) => !k.bedroom && (wing === "all" || (k.sex ?? k.probableGender) === wing) && (!nq || normName(k.name).includes(nq)));
               if (!members.length) return null;
               const group = members.length > 1;
               const ids = members.map((m) => m.id);
@@ -1179,7 +1182,7 @@ function roomUnitIds(units: { id: string; members: Camper[] }[], kid: Camper, in
 /** pool units: groups first (biggest first), then single kids, both by name */
 function poolUnits(units: { id: string; members: Camper[] }[], wing: WingFilter) {
   return units
-    .map((u) => ({ unit: u, free: u.members.filter((k) => !k.bedroom && (wing === "all" || k.sex === wing)).length }))
+    .map((u) => ({ unit: u, free: u.members.filter((k) => !k.bedroom && (wing === "all" || (k.sex ?? k.probableGender) === wing)).length }))
     .filter((x) => x.free > 0)
     .sort((a, b) => Number(b.free > 1) - Number(a.free > 1) || b.free - a.free || a.unit.members[0].name.localeCompare(b.unit.members[0].name, "pt-BR"))
     .map((x) => x.unit);

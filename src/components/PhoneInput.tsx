@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, type RefObject } from "react";
 import { digitsOnly, maskBrazilPhone } from "../phone";
 
 interface PhoneInputProps {
@@ -6,10 +6,12 @@ interface PhoneInputProps {
   onChange: (masked: string) => void;
   disabled?: boolean;
   autoFocus?: boolean;
+  /** lets screens like the import review focus the input when the step changes */
+  inputRef?: RefObject<HTMLInputElement | null>;
 }
 
 /** Brazilian mobile input: user types DDD + number (+55 is added on submit). */
-export default function PhoneInput({ value, onChange, disabled, autoFocus }: PhoneInputProps) {
+export default function PhoneInput({ value, onChange, disabled, autoFocus, inputRef }: PhoneInputProps) {
   const ref = useRef<HTMLInputElement>(null);
 
   return (
@@ -18,7 +20,10 @@ export default function PhoneInput({ value, onChange, disabled, autoFocus }: Pho
       onClick={() => ref.current?.focus()}
     >
       <input
-        ref={ref}
+        ref={(node) => {
+          ref.current = node;
+          if (inputRef) inputRef.current = node;
+        }}
         type="tel"
         inputMode="numeric"
         autoComplete="tel-national"

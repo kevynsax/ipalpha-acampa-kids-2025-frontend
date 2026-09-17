@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import Dialog from "../../components/Dialog";
+import DesktopBoardNotice from "../../components/DesktopBoardNotice";
 import RoomRoleIcon from "../../components/RoomRoleIcon";
 import Toggle from "../../components/Toggle";
 import { useConfirm } from "../../components/ConfirmDialog";
@@ -354,6 +355,7 @@ export default function BusAssignPage({ token }: BusAssignPageProps) {
 
   return (
     <div className="admin-page" onPointerDown={boardPointerDown}>
+      <DesktopBoardNotice what="alocar os ônibus" icon={ICONS.desktopBetterBus} />
       <header className="admin-head">
         <h1 className="admin-title">
           <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> Ônibus

@@ -244,6 +244,16 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
             <button
               type="button"
               className="button button--secondary admin-head__new"
+              title="Sorteio"
+              aria-label="Sorteio"
+              onClick={() => navigate("/staff/giveaway")}
+            >
+              <img className="admin-head__action-icon" src={ICONS.giveaway} alt="" aria-hidden="true" />
+              <span className="admin-head__action-label">Sorteio</span>
+            </button>
+            <button
+              type="button"
+              className="button button--secondary admin-head__new"
               disabled={busy}
               title="Importar equipe de uma planilha"
               aria-label="Importar equipe de uma planilha"
@@ -251,16 +261,6 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
             >
               <img className="admin-head__action-icon" src={ICONS.importCampers} alt="" aria-hidden="true" />
               <span className="admin-head__action-label">Importar</span>
-            </button>
-            <button
-              type="button"
-              className="button button--secondary admin-head__new"
-              title="Sorteio"
-              aria-label="Sorteio"
-              onClick={() => navigate("/staff/giveaway")}
-            >
-              <img className="admin-head__action-icon" src={ICONS.giveaway} alt="" aria-hidden="true" />
-              <span className="admin-head__action-label">Sorteio</span>
             </button>
             <button
               type="button"

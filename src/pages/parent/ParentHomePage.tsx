@@ -12,7 +12,7 @@ import RoomRoleIcon from "../../components/RoomRoleIcon";
 import TeamTag from "../../components/TeamTag";
 import WhatsAppButton from "../../components/WhatsAppButton";
 import type { ParentAccess } from "../../hooks/useParentWindow";
-import { kidSexOf } from "../../icons";
+import { kidIconSex } from "../../icons";
 import { useCollectionOrEmpty } from "../../store";
 import { formatBrazilPhoneClient } from "../../phoneFormat";
 import type { LoggedUser } from "../../roles";
@@ -71,7 +71,7 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
   const bedrooms = useCollectionOrEmpty("bedrooms");
   const [editing, setEditing] = useState(false);
   const age = ageOf(k.birthDate);
-  const sex = k.sex === "F" ? "girl" : k.sex === "M" ? "boy" : kidSexOf(bedroom?.group);
+  const sex = kidIconSex(bedroom?.group, k.sex, k.probableGender);
   const first = k.name.split(" ")[0];
 
   return (
@@ -204,7 +204,7 @@ export default function ParentHomePage({ user, token, access }: ParentHomePagePr
 
   const kids: Camper[] = data.kids.map((k) => k.camper);
   const selectedKid = data.kids.find((kid) => kid.camper.id === selectedKidId) ?? data.kids[0];
-  const sex = kidSexOf(selectedKid.bedroom?.group);
+  const sex = kidIconSex(selectedKid.bedroom?.group, selectedKid.camper.sex, selectedKid.camper.probableGender);
 
   return (
     <div className="admin-page">

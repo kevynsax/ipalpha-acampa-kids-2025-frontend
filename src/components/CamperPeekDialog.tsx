@@ -3,7 +3,7 @@ import BedroomTag from "./BedroomTag";
 import GuardianWhatsApp from "./GuardianWhatsApp";
 import HealthAlerts from "./HealthAlerts";
 import KidIcon from "./KidIcon";
-import { kidSexOf } from "../icons";
+import { kidIconSex } from "../icons";
 import { ageOf } from "../api/campers";
 import { navigate } from "../router";
 import { formatBrazilPhoneClient } from "../phoneFormat";
@@ -30,7 +30,7 @@ export default function CamperPeekDialog({ camperId, name, onClose }: CamperPeek
   const labelOf = useLabelOf();
   const k = data?.camper;
   const age = k ? ageOf(k.birthDate) : null;
-  const sex = k ? (k.sex === "F" ? "girl" : k.sex === "M" ? "boy" : kidSexOf(data?.bedroom?.group)) : "girl";
+  const sex = k ? kidIconSex(data?.bedroom?.group, k.sex, k.probableGender) ?? "girl" : "girl";
 
   return (
     <Dialog open={!!camperId} onClose={onClose} title={name ?? "Criança"} width={520}>

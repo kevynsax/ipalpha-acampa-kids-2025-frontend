@@ -9,6 +9,8 @@ import { useGlowVar } from "../hooks/useGlowVar";
  */
 interface LanternMarkProps {
   size?: number | string;
+  /** leave the glass completely open so another visual can sit inside */
+  emptyCenter?: boolean;
   /** live 0–1 loudness, read once per frame */
   glowRef?: RefObject<{ level: number } | null>;
   /** fixed 0–1 glow; left out, the star follows the `--lantern-glow` it inherits */
@@ -20,7 +22,7 @@ interface LanternMarkProps {
 
 const STAR = "M126.5 121c1.12 15.68 12.32 26.88 28 28-15.68 1.12-26.88 12.32-28 28-1.12-15.68-12.32-26.88-28-28 15.68-1.12 26.88-12.32 28-28Z";
 
-export default function LanternMark({ size = "1em", glowRef, glow, live = false, className = "" }: LanternMarkProps) {
+export default function LanternMark({ size = "1em", emptyCenter = false, glowRef, glow, live = false, className = "" }: LanternMarkProps) {
   const haloId = `lantern-halo-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const svgRef = useRef<SVGSVGElement>(null);
   useGlowVar(svgRef, glowRef);
@@ -53,10 +55,16 @@ export default function LanternMark({ size = "1em", glowRef, glow, live = false,
       <rect x="90" y="198" width="74" height="26" rx="9" fill="#155c53" />
       <rect x="72" y="221" width="110" height="29" rx="12" fill="#155c53" />
 
-      <circle cx="126.5" cy="149" r="38.5" fill="#f3efe3" />
-      <circle className="lantern-mark__halo" cx="126.5" cy="149" r="38.5" fill={`url(#${haloId})`} />
-      <circle className="lantern-mark__ring" cx="126.5" cy="149" r="36" fill="none" stroke="#f7c33f" strokeWidth="3" />
-      <path className="lantern-mark__star" d={STAR} fill="#f2bb32" />
+      {emptyCenter ? (
+        <circle cx="126.5" cy="149" r="38.5" fill="#071b17" />
+      ) : (
+        <>
+          <circle cx="126.5" cy="149" r="38.5" fill="#f3efe3" />
+          <circle className="lantern-mark__halo" cx="126.5" cy="149" r="38.5" fill={`url(#${haloId})`} />
+          <circle className="lantern-mark__ring" cx="126.5" cy="149" r="36" fill="none" stroke="#f7c33f" strokeWidth="3" />
+          <path className="lantern-mark__star" d={STAR} fill="#f2bb32" />
+        </>
+      )}
     </svg>
   );
 }

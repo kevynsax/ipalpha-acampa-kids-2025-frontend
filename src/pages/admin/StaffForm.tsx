@@ -63,6 +63,7 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
   const nameChanged = editing && name.trim() !== (member?.name ?? "").trim();
   const guessed = useGuessCamperSex({ token, name, enabled: !roomSex && (!editing || nameChanged) });
   const sex: CamperSex | null = roomSex ?? guessed.sex ?? (editing && !nameChanged ? (member?.sex ?? null) : null);
+  const probableGender: CamperSex | null = guessed.sex ?? (editing && !nameChanged ? (member?.probableGender ?? null) : null);
   const sexBusy = !roomSex && guessed.busy;
   useEffect(() => {
     onSexChange?.(sex, sexBusy);
@@ -192,6 +193,7 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
       await onSubmit({
         name: name.trim(),
         sex,
+        probableGender,
         phone: phoneE164 ?? null,
         active,
         roomRole,
@@ -299,7 +301,7 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
             <TeamSelect value={team} onChange={setTeam} disabled={busy} />
             <TransportSelect value={transportation} onChange={setTransportation} disabled={busy} audience="staff" />
           </div>
-          <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} groups={bedroomGroupsForSex(sex)} disabled={busy} />
+          <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} groups={bedroomGroupsForSex(sex, probableGender)} disabled={busy} />
         </section>
       )}
 

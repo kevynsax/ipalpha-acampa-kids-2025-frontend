@@ -245,11 +245,14 @@ function OccurrenceCard({ occurrence, campers, staff, bedrooms }: { occurrence: 
         <span className="occurrence-card__chevron" aria-hidden="true">{open ? "−" : "+"}</span>
       </button>
       <div className="occurrence-card__people">
-        {occurrence.campers.map((person) => (
-          <span key={`c-${person.id}`} className="occurrence-badge occurrence-badge--camper">
-            <img className="occurrence-badge__face" src={kidFaceSrc(campers.get(person.id)?.sex, person.id)} alt="" aria-hidden="true" /> {person.name}
-          </span>
-        ))}
+        {occurrence.campers.map((person) => {
+          const kid = campers.get(person.id);
+          return (
+            <span key={`c-${person.id}`} className="occurrence-badge occurrence-badge--camper">
+              <img className="occurrence-badge__face" src={kidFaceSrc(kid?.sex ?? kid?.probableGender, person.id)} alt="" aria-hidden="true" /> {person.name}
+            </span>
+          );
+        })}
         {occurrence.staff.map((person) => {
           const member = staff.get(person.id);
           const sex = member ? staffSex(member, bedrooms) : null;

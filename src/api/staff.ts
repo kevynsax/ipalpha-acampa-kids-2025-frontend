@@ -12,8 +12,10 @@ export const STAFF_CATEGORY_KEYS = {
 export interface Staff {
   id: string;
   name: string;
-  /** "F" | "M" | null — from the room (meninas/meninos) or a GLM guess on the name; never shown on the form */
+  /** "F" | "M" | null — from the room (meninas/meninos); never shown on the form */
   sex: import("./campers").CamperSex | null;
+  /** "F" | "M" | null — GLM guess on the name; internal, never shown; icon + ordering fallback when the room has no wing */
+  probableGender: import("./campers").CamperSex | null;
   /** E.164, or null while the person hasn't registered a phone */
   phone: string | null;
   /** an ADMIN's own roster record: can't be deleted, deactivated or have the phone changed */
@@ -81,6 +83,7 @@ export function compareRoomStaff(a: Pick<Staff, "name" | "roomRole">, b: Pick<St
 export interface StaffInput {
   name: string;
   sex: import("./campers").CamperSex | null;
+  probableGender: import("./campers").CamperSex | null;
   phone: string | null;
   active: boolean;
   team: string | null;
@@ -96,13 +99,13 @@ export interface StaffInput {
 }
 
 /**
- * A team member's sex: girls/boys room wins, otherwise the stored GLM guess.
+ * A team member's sex: girls/boys room wins, otherwise the stored sex, otherwise the probable gender.
  */
-export function staffSex(s: Pick<Staff, "bedroom" | "sex">, bedrooms: Pick<import("./bedrooms").Bedroom, "id" | "group">[]): import("./campers").CamperSex | null {
+export function staffSex(s: Pick<Staff, "bedroom" | "sex" | "probableGender">, bedrooms: Pick<import("./bedrooms").Bedroom, "id" | "group">[]): import("./campers").CamperSex | null {
   const group = s.bedroom ? bedrooms.find((b) => b.id === s.bedroom)?.group : undefined;
   if (group === "girls") return "F";
   if (group === "boys") return "M";
-  return s.sex ?? null;
+  return s.sex ?? s.probableGender ?? null;
 }
 
 const json = (token: string) => ({ ...bearer(token), "content-type": "application/json" });

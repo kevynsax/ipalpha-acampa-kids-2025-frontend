@@ -66,6 +66,7 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
   const guessed = useGuessCamperSex({ token, name, enabled: !roomSex && (!editing || nameChanged) });
   // girls/boys room wins; staff room / no room keeps the last GLM guess until a new one lands
   const sex: CamperSex | null = roomSex ?? guessed.sex ?? (editing && !nameChanged ? (camper?.sex ?? null) : null);
+  const probableGender: CamperSex | null = guessed.sex ?? (editing && !nameChanged ? (camper?.probableGender ?? null) : null);
   const sexBusy = !roomSex && guessed.busy;
   useEffect(() => {
     onSexChange?.(sex, sexBusy);
@@ -256,6 +257,7 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
         name: name.trim(),
         birthDate: birthDate || null,
         sex,
+        probableGender,
         cpf: formatCpf(cpf),
         rg: rg.trim(),
         school: school.trim(),
@@ -356,7 +358,7 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
             <TransportSelect value={transportation} onChange={setTransportation} disabled={busy} />
           </div>
           <div className="cat-form__row staff-form__row">
-            <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} groups={bedroomGroupsForSex(sex)} disabled={busy} />
+            <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} groups={bedroomGroupsForSex(sex, probableGender)} disabled={busy} />
             <label className="cat-field cat-field--grow">
               <span className="cat-field__label"><RoomRoleIcon role="caretaker" sex={sex ?? "M"} /> Líder</span>
               <select className="cat-input" value={caretakerId ?? ""} disabled={busy || !bedroom || caretakers.length === 0} onChange={(e) => setCaretakerId(e.target.value || null)}>

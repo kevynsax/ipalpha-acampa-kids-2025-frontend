@@ -6,10 +6,11 @@ import { ICONS } from "../icons";
 export const BEDROOM_GROUPS = ["girls", "boys", "staff"] as const;
 export type BedroomGroup = (typeof BEDROOM_GROUPS)[number];
 
-/** Room picker order: the kid's wing first (boy → meninos, girl → meninas). */
-export function bedroomGroupsForSex(sex: "F" | "M" | null | undefined): readonly BedroomGroup[] {
-  if (sex === "M") return ["boys", "girls", "staff"];
-  if (sex === "F") return ["girls", "boys", "staff"];
+/** Room picker order: the kid's wing first (boy → meninos, girl → meninas); without one, the probable gender. */
+export function bedroomGroupsForSex(sex: "F" | "M" | null | undefined, probable?: "F" | "M" | null | undefined): readonly BedroomGroup[] {
+  const g = sex ?? probable;
+  if (g === "M") return ["boys", "girls", "staff"];
+  if (g === "F") return ["girls", "boys", "staff"];
   return BEDROOM_GROUPS;
 }
 

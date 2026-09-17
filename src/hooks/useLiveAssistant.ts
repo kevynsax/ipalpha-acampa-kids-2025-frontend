@@ -30,8 +30,9 @@ export interface LiveLevels {
 /** transcript fragments this far apart (ms) start a new bubble instead of growing the last one */
 const TURN_GAP_MS = 2500;
 const SPEAKING_FLOOR = 0.05;
-const SPEAKING_HOLD_MS = 400;
+const SPEAKING_HOLD_MS = 650;
 const CONNECT_TIMEOUT_MS = 15_000;
+const ICE_TIMEOUT_MS = 10_000;
 
 interface Delegation {
   calls: number;
@@ -53,21 +54,26 @@ function readLevel(analyser: AnalyserNode | null, buffer: Uint8Array): number {
 /** No trickle ICE on an HTTP offer/answer: the offer has to carry every candidate. */
 function waitForIce(pc: RTCPeerConnection): Promise<void> {
   if (pc.iceGatheringState === "complete") return Promise.resolve();
-  return new Promise((resolve) => {
-    const finish = () => {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
       pc.removeEventListener("icegatheringstatechange", check);
       clearTimeout(timer);
-      resolve();
     };
     const check = () => {
-      if (pc.iceGatheringState === "complete") finish();
+      if (pc.iceGatheringState !== "complete") return;
+      cleanup();
+      resolve();
     };
-    const timer = setTimeout(finish, 2500);
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("Não foi possível preparar a conexão de áudio. Tente novamente."));
+    }, ICE_TIMEOUT_MS);
     pc.addEventListener("icegatheringstatechange", check);
+    check();
   });
 }
 
-export function useLiveAssistant(token: string) {
+export function useLiveAssistant(token: string, userName = "", onNavigate?: (rawArgs: string) => string) {
   const [status, setStatus] = useState<LiveStatus>("idle");
   const statusRef = useRef<LiveStatus>("idle");
   const [error, setError] = useState("");
@@ -92,6 +98,7 @@ export function useLiveAssistant(token: string) {
   const delegationsRef = useRef(new Map<string, Delegation>());
   const turnId = useRef(1);
   const eventId = useRef(1);
+  const greetedRef = useRef(false);
 
   const applyStatus = useCallback((next: LiveStatus) => {
     statusRef.current = next;
@@ -103,6 +110,7 @@ export function useLiveAssistant(token: string) {
     frameRef.current = 0;
     analysersRef.current = { user: null, assistant: null };
     delegationsRef.current.clear();
+    greetedRef.current = false;
     dcRef.current?.close();
     dcRef.current = null;
     pcRef.current?.close();
@@ -160,14 +168,16 @@ export function useLiveAssistant(token: string) {
     setThinking(true);
     let output = JSON.stringify({ error: "A consulta não pôde ser feita agora." });
     try {
-      output = (await assistantTool(token, call.name, call.arguments ?? "{}")).output;
+      output = call.name === "navigate_app" && onNavigate
+        ? onNavigate(call.arguments ?? "{}")
+        : (await assistantTool(token, call.name, call.arguments ?? "{}")).output;
     } catch (failure) {
       console.error("live assistant tool failed", failure);
     }
     send({ type: "response.item.create", item: { type: "function_call_output", call_id: call.call_id, output } });
     delegation.calls -= 1;
     resumeDelegation(id);
-  }, [delegationOf, resumeDelegation, send, token]);
+  }, [delegationOf, onNavigate, resumeDelegation, send, token]);
 
   const handleEvent = useCallback((raw: string) => {
     let message: Record<string, any>;
@@ -179,6 +189,25 @@ export function useLiveAssistant(token: string) {
     switch (message.type) {
       case "session.started":
         applyStatus("live");
+        if (!greetedRef.current) {
+          greetedRef.current = true;
+          const firstName = userName.trim().split(/\s+/)[0]?.replace(/[^\p{L}'’-]/gu, "") ?? "";
+          send({
+            type: "session.instructions.append",
+            event_id: "acampa_greeting_instruction",
+            delegation_id: null,
+            content: `Sua primeira fala deve ser somente: "Oi, tudo bem${firstName ? ` ${firstName}` : ""}?" Não acrescente apresentação nem explicação.`,
+          });
+        }
+        break;
+      case "session.instructions.appended":
+        if (message.client_event_id === "acampa_greeting_instruction") {
+          send({
+            type: "session.commentary.append",
+            delegation_id: null,
+            content: "Comece a conversa agora, seguindo a saudação curta que acabou de receber.",
+          });
+        }
         break;
       case "session.input_transcript.delta":
         appendTurn("user", message.delta, message.start_ms ?? 0, message.end_ms ?? 0);
@@ -210,7 +239,7 @@ export function useLiveAssistant(token: string) {
       default:
         break;
     }
-  }, [appendTurn, applyStatus, delegationOf, resumeDelegation, runTool]);
+  }, [appendTurn, applyStatus, delegationOf, resumeDelegation, runTool, send, userName]);
 
   const watchLevels = useCallback(() => {
     const tick = () => {

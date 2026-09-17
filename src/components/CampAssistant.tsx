@@ -1,65 +1,204 @@
-import { useEffect, useRef, useState } from "react";
-import { assistantChat, assistantStatus, type AssistantMessage, type AssistantStatus } from "../api/assistant";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import flame from "../assets/flame.gif";
+import { assistantStatus, type AssistantStatus } from "../api/assistant";
+import { getState } from "../store";
+import { navigate } from "../router";
 import { useGlowVar } from "../hooks/useGlowVar";
 import { useLiveAssistant } from "../hooks/useLiveAssistant";
-import { AiGlyph, MicGlyph, MicOffGlyph } from "./Glyph";
 import LanternMark from "./LanternMark";
 
 interface CampAssistantProps {
   token: string;
-  /** Keep both floating actions visible by stacking above the badge scanner. */
+  userName: string;
+  availableTabs: readonly string[];
+  availableSettings: readonly string[];
+  /** Keep the launcher above another floating action while the assistant is closed. */
   avoidFab?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-interface ChatItem extends AssistantMessage {
-  id: number;
-  pending?: boolean;
-  lookups?: string[];
-  error?: string;
+const SCREEN_REQUEST = /\b(?:mostr(?:a|e|ar)|exib(?:a|e|ir)|coloc(?:a|ar|que)|p(?:õe|oe|onha))\b[^.!?]{0,40}\b(?:tela|visual|escrito)|\bescrev(?:a|e|er)\b|\bna tela\b|\bshow\b[^.!?]{0,30}\bscreen\b/i;
+const DISMISS_REQUEST = /\b(?:tchau|até mais|era só isso|é só isso|obrigad[oa],? era só isso|pode (?:fechar|encerrar|parar|ir|se retirar)|fech(?:a|e|ar)(?: o assistente| a conversa)?|encerr(?:a|e|ar)(?: o assistente| a conversa)?|dispensad[oa])\b/i;
+const KEEP_OPEN_REQUEST = /\b(?:não|nao)\s+(?:fech(?:a|e|ar)|encerr(?:a|e|ar)|par(?:a|e|ar))\b/i;
+const HANDOFF_CORRECTION = /\b(?:não|nao|errad[oa]|outr[oa]|volta|voltar|espera|pera|calma|continua|quis dizer|eu queria|abre|abra|mostra|mostre|vai para|vá para)\b/i;
+
+type NavigationArgs = { destination?: unknown; record_id?: unknown; name?: unknown };
+
+function normalized(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-const SUGGESTIONS = [
-  "Quantas crianças estão em cada quarto?",
-  "Quem ainda não fez check-in?",
-  "Quais quartos estão acima da capacidade?",
-  "Resuma os dados disponíveis no sistema.",
-];
+/** Conservative fuzzy match for voice transcription variants such as Kevin/Kevyn. */
+function editDistance(a: string, b: string): number {
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i++) {
+    let diagonal = previous[0];
+    previous[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const above = previous[j];
+      previous[j] = Math.min(previous[j] + 1, previous[j - 1] + 1, diagonal + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diagonal = above;
+    }
+  }
+  return previous[b.length];
+}
 
-export default function CampAssistant({ token, avoidFab = false }: CampAssistantProps) {
+function fuzzyRecord<T extends { id: string; name?: string; title?: string }>(list: readonly T[] | undefined, spoken: string): T | null {
+  if (!list?.length) return null;
+  const wanted = normalized(spoken);
+  if (!wanted) return null;
+  const exact = list.filter((item) => normalized(item.name ?? item.title ?? "") === wanted);
+  if (exact.length === 1) return exact[0];
+  const partial = list.filter((item) => normalized(item.name ?? item.title ?? "").includes(wanted));
+  if (partial.length === 1) return partial[0];
+
+  const score = (item: T) => {
+    const label = normalized(item.name ?? item.title ?? "");
+    const choices = [label, ...label.split(" ")];
+    return Math.min(...choices.map((choice) => editDistance(wanted, choice)));
+  };
+  const ranked = list.map((item) => ({ item, distance: score(item) })).sort((a, b) => a.distance - b.distance);
+  const limit = wanted.length <= 4 ? 1 : wanted.length <= 8 ? 2 : 3;
+  if (ranked[0].distance > limit) return null;
+  // Never guess between equally plausible people. The assistant can ask which one.
+  if (ranked[1]?.distance === ranked[0].distance) return null;
+  return ranked[0].item;
+}
+
+function meaningfulHandoffSpeech(value: string): boolean {
+  const text = value.trim();
+  if (!text) return false;
+  if (HANDOFF_CORRECTION.test(text)) return true;
+  const words = text.match(/[\p{L}\p{N}]+/gu) ?? [];
+  return words.length >= 3 && words.join("").length >= 10;
+}
+
+export default function CampAssistant({ token, userName, availableTabs, availableSettings, avoidFab = false, onOpenChange }: CampAssistantProps) {
   const [open, setOpen] = useState(false);
+  const [handoff, setHandoff] = useState(false);
+  const [resuming, setResuming] = useState(false);
+  const [fabReturning, setFabReturning] = useState(false);
+  const [showConnecting, setShowConnecting] = useState(false);
   const [service, setService] = useState<AssistantStatus | null>(null);
-  const [items, setItems] = useState<ChatItem[]>([]);
-  const [draft, setDraft] = useState("");
-  const [busy, setBusy] = useState(false);
   const [statusError, setStatusError] = useState("");
-  const [mode, setMode] = useState<"voice" | "text">("voice");
-  const nextId = useRef(1);
-  const abortRef = useRef<AbortController | null>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const drawerRef = useRef<HTMLElement>(null);
+  const stageRef = useRef<HTMLElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
+  const dismissedTurnRef = useRef(0);
+  const handoffStartedRef = useRef(0);
+  const handoffSpokeRef = useRef(false);
+  const handoffBaselineRef = useRef({ id: 0, text: "" });
+  const latestUserTurnRef = useRef({ id: 0, text: "" });
+  const handoffCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fabReturnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const live = useLiveAssistant(token);
-  const enabled = service ? service.enabled : null;
-  const voiceReady = !!service?.voice && !!service.enabled;
-  const speaking = live.status === "live" || live.status === "connecting";
+  const navigateFromAssistant = useCallback((rawArgs: string): string => {
+    let args: NavigationArgs;
+    try {
+      args = JSON.parse(rawArgs) as NavigationArgs;
+    } catch {
+      return JSON.stringify({ error: "Não entendi qual tela abrir." });
+    }
+    const destination = typeof args.destination === "string" ? args.destination : "";
+    const recordId = typeof args.record_id === "string" ? args.record_id.trim() : "";
+    const name = typeof args.name === "string" ? args.name.trim() : "";
+    const data = getState().data;
+    let matchedLabel = "";
+    const findId = (list: readonly { id: string; name?: string; title?: string }[] | undefined) => {
+      if (recordId) {
+        const found = list?.find((item) => item.id === recordId);
+        if (found) {
+          matchedLabel = found.name ?? found.title ?? "";
+          return found.id;
+        }
+      }
+      if (!name) return "";
+      const found = fuzzyRecord(list, name);
+      if (!found) return "";
+      matchedLabel = found.name ?? found.title ?? "";
+      return found.id;
+    };
+    const detail = (base: string, list: readonly { id: string; name?: string; title?: string }[] | undefined) => {
+      const id = findId(list);
+      if (!id) return "";
+      return `${base}/${encodeURIComponent(id)}`;
+    };
 
-  useGlowVar(drawerRef, live.levelRef);
+    const tabs = new Set(availableTabs);
+    const settings = new Set(availableSettings);
+    const tabRoutes: Record<string, { tab: string; path: string }> = {
+      home: { tab: "home", path: "/home" }, campers: { tab: "campers", path: "/campers" }, staff: { tab: "staff", path: "/staff" },
+      bedrooms: { tab: "bedrooms", path: "/bedrooms" }, buses: { tab: "buses", path: "/buses" }, schedule: { tab: "schedule", path: "/schedule" },
+      preparation: { tab: "prep", path: "/prep" }, instructions: { tab: "instructions", path: "/instructions" },
+      occurrences: { tab: "occurrences", path: "/occurrences" }, medications: { tab: "medications", path: "/medications" },
+      checkin: { tab: "checkin", path: "/checkin" }, scoreboard: { tab: "scoreboard", path: "/scoreboard" }, gallery: { tab: "gallery", path: "/gallery" },
+    };
+    const settingRoutes: Record<string, { setting: string; path: string }> = {
+      general_settings: { setting: "general", path: "/general" }, trials: { setting: "trials", path: "/trials" },
+      categories: { setting: "categories", path: "/categories" }, cleanup: { setting: "cleanup", path: "/cleanup" }, teams: { setting: "teams", path: "/teams" },
+      preparation_settings: { setting: "preparation", path: "/preparation" }, instructions_settings: { setting: "instructions-admin", path: "/instructions-admin" },
+      checkin_settings: { setting: "checkin-settings", path: "/checkin-settings" }, organizers: { setting: "organizers", path: "/organizers" },
+      game_organizers: { setting: "game-organizers", path: "/game-organizers" }, medical_staff: { setting: "medical", path: "/medical" },
+      vest_helpers: { setting: "vests-settings", path: "/vests-settings" }, photographers: { setting: "photographers", path: "/photographers" },
+      contacts: { setting: "contacts", path: "/contacts" }, notifications: { setting: "notifications", path: "/notifications" },
+      seeds: { setting: "seeds", path: "/seeds" }, about: { setting: "about", path: "/about" },
+    };
+
+    let path = destination === "profile" ? "/profile" : "";
+    const tabRoute = tabRoutes[destination];
+    if (tabRoute && tabs.has(tabRoute.tab)) path = tabRoute.path;
+    const settingRoute = settingRoutes[destination];
+    if (settingRoute && settings.has(settingRoute.setting)) path = settingRoute.path;
+    if (destination === "settings" && settings.size) path = "/settings";
+    if (destination === "schedule_roles" && tabs.has("schedule") && settings.size) path = "/schedule/roles";
+    if (destination === "camper" && tabs.has("campers")) path = detail("/campers", data.campers);
+    if (destination === "staff_member" && tabs.has("staff")) path = detail("/staff", data.staff);
+    if (destination === "bedroom" && tabs.has("bedrooms")) path = detail("/bedrooms", data.bedrooms);
+    if (destination === "event" && tabs.has("schedule") && settings.size) path = detail("/schedule/events", data.events);
+    if (destination === "instruction") {
+      if (tabs.has("instructions")) path = detail("/instructions", data.instructions);
+      else if (settings.has("instructions-admin")) path = detail("/instructions-admin", data.instructions);
+    }
+    if (destination === "scoreboard_team" && tabs.has("scoreboard")) path = detail("/scoreboard/team", data.teams);
+    if (destination === "scoreboard_event" && tabs.has("scoreboard")) path = detail("/scoreboard/event", data.events);
+
+    if (!path) return JSON.stringify({ error: name ? `Não encontrei uma única ficha chamada ${name}, ou ela não está disponível para este perfil.` : "Essa tela não está disponível para este perfil." });
+    navigate(path);
+    if (handoffCloseTimerRef.current) clearTimeout(handoffCloseTimerRef.current);
+    handoffStartedRef.current = performance.now();
+    handoffSpokeRef.current = false;
+    handoffBaselineRef.current = { ...latestUserTurnRef.current };
+    setResuming(false);
+    setHandoff(true);
+    return JSON.stringify({
+      ok: true,
+      path,
+      message: `Tela aberta${matchedLabel ? `: ${matchedLabel}` : ""}. Diga uma despedida muito curta, como 'Pronto, até mais', e não faça outra pergunta. Se a pessoa corrigir a navegação antes da sessão fechar, escute e continue ajudando.`,
+    });
+  }, [availableSettings, availableTabs]);
+
+  const live = useLiveAssistant(token, userName, navigateFromAssistant);
+  const voiceReady = !!service?.enabled;
+  const active = live.status === "live" || live.status === "connecting";
+
+  useGlowVar(stageRef, live.levelRef);
   useGlowVar(launcherRef, live.levelRef);
+
+  useEffect(() => () => {
+    if (handoffCloseTimerRef.current) clearTimeout(handoffCloseTimerRef.current);
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    if (fabReturnTimerRef.current) clearTimeout(fabReturnTimerRef.current);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     assistantStatus(token)
       .then((status) => {
-        if (cancelled) return;
-        setService(status);
-        if (!status.voice) setMode("text");
+        if (!cancelled) setService(status);
       })
       .catch((error) => {
         if (cancelled) return;
-        setService({ enabled: false, model: "", voice: false, voiceModel: "" });
-        setMode("text");
+        setService({ enabled: false, voiceModel: "" });
         setStatusError(error instanceof Error ? error.message : "Assistente indisponível.");
       });
     return () => {
@@ -69,71 +208,154 @@ export default function CampAssistant({ token, avoidFab = false }: CampAssistant
 
   useEffect(() => {
     if (!open) return;
+    const root = document.documentElement;
+    root.classList.toggle("assistant-is-open", !handoff);
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") close();
     };
     document.addEventListener("keydown", onKey);
-    if (mode === "text") setTimeout(() => inputRef.current?.focus(), 40);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, mode]);
+    return () => {
+      root.classList.remove("assistant-is-open");
+      document.removeEventListener("keydown", onKey);
+    };
+    // close is intentionally read from the current render while this overlay is open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handoff, open]);
 
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-  }, [items, live.turns]);
+    if (open && voiceReady && live.status === "idle") void live.start();
+  }, [live.start, live.status, open, voiceReady]);
 
-  /** Closing the drawer hangs up: the conversation is billed by the minute. */
-  function close() {
-    setOpen(false);
-    live.stop();
-  }
-
-  function patch(id: number, change: Partial<ChatItem>) {
-    setItems((list) => list.map((item) => item.id === id ? { ...item, ...change } : item));
-  }
-
-  async function send(text = draft) {
-    const content = text.trim();
-    if (!content || busy || enabled !== true) return;
-    const history: AssistantMessage[] = items
-      .filter((item) => !item.pending && !item.error)
-      .map(({ role, content: message }) => ({ role, content: message }));
-    const user: ChatItem = { id: nextId.current++, role: "user", content };
-    const replyId = nextId.current++;
-    setItems((list) => [...list, user, { id: replyId, role: "assistant", content: "", pending: true }]);
-    setDraft("");
-    setBusy(true);
-    const controller = new AbortController();
-    abortRef.current = controller;
-    try {
-      const full = await assistantChat(
-        token,
-        [...history, { role: "user", content }],
-        (progress) => patch(replyId, { content: progress.reply, lookups: progress.lookups }),
-        controller.signal,
-      );
-      patch(replyId, { content: full.reply || "Não encontrei uma resposta.", lookups: full.lookups, pending: false });
-    } catch (error) {
-      patch(replyId, {
-        pending: false,
-        error: (error as Error)?.name === "AbortError" ? "Consulta cancelada." : error instanceof Error ? error.message : "O assistente não respondeu.",
-      });
-    } finally {
-      abortRef.current = null;
-      setBusy(false);
-      inputRef.current?.focus();
+  useEffect(() => {
+    if (!open || live.status !== "connecting") {
+      setShowConnecting(false);
+      return;
     }
+    const timer = setTimeout(() => setShowConnecting(true), 2000);
+    return () => clearTimeout(timer);
+  }, [live.status, open]);
+
+  useEffect(() => {
+    const lastUser = [...live.turns].reverse().find((turn) => turn.role === "user");
+    if (lastUser) latestUserTurnRef.current = { id: lastUser.id, text: lastUser.text };
+    if (!handoff || !lastUser || performance.now() - handoffStartedRef.current < 350) return;
+    const baseline = handoffBaselineRef.current;
+    let fresh = "";
+    if (lastUser.id > baseline.id) fresh = lastUser.text;
+    else if (lastUser.id === baseline.id && lastUser.text !== baseline.text) {
+      fresh = lastUser.text.startsWith(baseline.text) ? lastUser.text.slice(baseline.text.length) : lastUser.text;
+    }
+    if (!meaningfulHandoffSpeech(fresh)) return;
+    if (handoffCloseTimerRef.current) clearTimeout(handoffCloseTimerRef.current);
+    handoffCloseTimerRef.current = null;
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    setHandoff(false);
+    setResuming(true);
+    resumeTimerRef.current = setTimeout(() => {
+      resumeTimerRef.current = null;
+      setResuming(false);
+    }, 620);
+  }, [handoff, live.turns]);
+
+  useEffect(() => {
+    if (!handoff) return;
+    if (live.talking === "assistant") {
+      handoffSpokeRef.current = true;
+      if (handoffCloseTimerRef.current) clearTimeout(handoffCloseTimerRef.current);
+      return;
+    }
+    // Microphone energy alone only pauses shutdown. The overlay returns only
+    // after a meaningful transcript, so coughs and nearby speech cannot reopen it.
+    if (live.talking === "user") {
+      if (handoffCloseTimerRef.current) clearTimeout(handoffCloseTimerRef.current);
+      handoffCloseTimerRef.current = null;
+      return;
+    }
+    if (!handoffSpokeRef.current || live.talking !== null || handoffCloseTimerRef.current) return;
+    handoffCloseTimerRef.current = setTimeout(() => {
+      handoffCloseTimerRef.current = null;
+      live.stop();
+      setHandoff(false);
+      setResuming(false);
+      setOpen(false);
+      setFabReturning(true);
+      if (fabReturnTimerRef.current) clearTimeout(fabReturnTimerRef.current);
+      fabReturnTimerRef.current = setTimeout(() => {
+        fabReturnTimerRef.current = null;
+        setFabReturning(false);
+      }, 720);
+      onOpenChange?.(false);
+    }, 1400);
+    return () => {
+      if (handoffCloseTimerRef.current) clearTimeout(handoffCloseTimerRef.current);
+      handoffCloseTimerRef.current = null;
+    };
+  }, [handoff, live.stop, live.talking, onOpenChange]);
+
+  useEffect(() => {
+    if (!open) return;
+    const lastUser = [...live.turns].reverse().find((turn) => turn.role === "user");
+    if (!lastUser || lastUser.id === dismissedTurnRef.current) return;
+    if (!DISMISS_REQUEST.test(lastUser.text) || KEEP_OPEN_REQUEST.test(lastUser.text)) return;
+    dismissedTurnRef.current = lastUser.id;
+    live.stop();
+    setHandoff(false);
+    setResuming(false);
+    setOpen(false);
+    setFabReturning(true);
+    if (fabReturnTimerRef.current) clearTimeout(fabReturnTimerRef.current);
+    fabReturnTimerRef.current = setTimeout(() => {
+      fabReturnTimerRef.current = null;
+      setFabReturning(false);
+    }, 720);
+    onOpenChange?.(false);
+  }, [live.stop, live.turns, onOpenChange, open]);
+
+  const screenText = useMemo(() => {
+    let requestAt = -1;
+    for (let index = live.turns.length - 1; index >= 0; index--) {
+      const turn = live.turns[index];
+      if (turn.role !== "user") continue;
+      if (SCREEN_REQUEST.test(turn.text)) requestAt = index;
+      break;
+    }
+    if (requestAt < 0) return "";
+    for (let index = live.turns.length - 1; index > requestAt; index--) {
+      const turn = live.turns[index];
+      if (turn.role === "assistant") return turn.text;
+    }
+    return "";
+  }, [live.turns]);
+
+  function openAssistant() {
+    dismissedTurnRef.current = 0;
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    if (fabReturnTimerRef.current) clearTimeout(fabReturnTimerRef.current);
+    setFabReturning(false);
+    setResuming(false);
+    setHandoff(false);
+    setOpen(true);
+    onOpenChange?.(true);
+    if (voiceReady && live.status !== "connecting" && live.status !== "live") void live.start();
   }
 
-  function statusLine() {
-    if (mode === "text") return "Consulta somente leitura";
-    if (live.status === "connecting") return "Conectando…";
-    if (live.status === "error") return "Conversa encerrada";
-    if (live.status !== "live") return "Toque para conversar";
-    if (live.thinking) return "Consultando os dados…";
-    if (live.muted) return "Microfone desligado";
-    if (live.talking === "user") return "Ouvindo você…";
-    if (live.talking === "assistant") return "Respondendo…";
-    return "No ar — pode falar";
+  /** Closing the focus view also hangs up because voice sessions are billed by duration. */
+  function close() {
+    if (handoffCloseTimerRef.current) clearTimeout(handoffCloseTimerRef.current);
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    handoffCloseTimerRef.current = null;
+    resumeTimerRef.current = null;
+    setHandoff(false);
+    setResuming(false);
+    setOpen(false);
+    setFabReturning(true);
+    if (fabReturnTimerRef.current) clearTimeout(fabReturnTimerRef.current);
+    fabReturnTimerRef.current = setTimeout(() => {
+      fabReturnTimerRef.current = null;
+      setFabReturning(false);
+    }, 720);
+    onOpenChange?.(false);
+    live.stop();
   }
 
   return (
@@ -141,148 +363,51 @@ export default function CampAssistant({ token, avoidFab = false }: CampAssistant
       <button
         ref={launcherRef}
         type="button"
-        className={`assistant-launcher ${avoidFab ? "assistant-launcher--with-fab" : ""} ${open ? "assistant-launcher--open" : ""} ${speaking ? "assistant-launcher--live" : ""}`}
-        title="Abrir assistente de consulta"
-        aria-label="Abrir assistente de consulta"
+        className={`assistant-launcher ${avoidFab ? "assistant-launcher--with-fab" : ""} ${open ? "assistant-launcher--open" : ""} ${active ? "assistant-launcher--live" : ""} ${fabReturning ? "assistant-launcher--returning" : ""}`}
+        title="Conversar com o assistente"
+        aria-label="Conversar com o assistente"
         aria-expanded={open}
-        onClick={() => setOpen(true)}
+        onClick={openAssistant}
       >
-        <LanternMark size="100%" live={live.status === "live"} />
-        <span className="assistant-launcher__live" aria-hidden="true" />
+        <LanternMark size="100%" />
       </button>
 
-      {open && <button type="button" className="assistant-backdrop" aria-label="Fechar assistente" onClick={close} />}
-      <aside ref={drawerRef} className={`assistant-drawer ${open ? "assistant-drawer--open" : ""}`} aria-hidden={!open} aria-label="Assistente do acampamento">
-        <header className="assistant-drawer__head">
-          <span className="assistant-drawer__identity">
-            <LanternMark size={42} live={live.status === "live"} />
-            <span>
-              <strong>Assistente</strong>
-              <small className={live.status === "live" ? "assistant-drawer__state--live" : ""}><i /> {statusLine()}</small>
-            </span>
-          </span>
-          {voiceReady && (
-            <div className="assistant-mode" role="group" aria-label="Como falar com o assistente">
-              <button type="button" className={mode === "voice" ? "is-on" : ""} aria-pressed={mode === "voice"} onClick={() => setMode("voice")}>Voz</button>
-              <button type="button" className={mode === "text" ? "is-on" : ""} aria-pressed={mode === "text"} onClick={() => { setMode("text"); live.stop(); }}>Escrever</button>
-            </div>
-          )}
-          <button type="button" className="assistant-drawer__close" aria-label="Fechar assistente" onClick={close}>×</button>
-        </header>
+      {open && (
+        <>
+          <div className={`assistant-backdrop ${screenText ? "assistant-backdrop--display" : ""} ${handoff ? "assistant-backdrop--handoff" : ""} ${resuming ? "assistant-backdrop--resuming" : ""}`} aria-hidden="true" />
+          <section ref={stageRef} className={`assistant-stage ${screenText ? "assistant-stage--display" : ""} ${handoff ? "assistant-stage--handoff" : ""} ${resuming ? "assistant-stage--resuming" : ""}`} role="dialog" aria-modal="true" aria-label="Assistente do acampamento">
+            <button type="button" className="assistant-stage__close" aria-label="Encerrar conversa" title="Encerrar conversa" onClick={close} autoFocus>
+              <span aria-hidden="true">×</span>
+            </button>
 
-        <div className="assistant-drawer__messages" ref={listRef}>
-          {mode === "voice" ? (
-            live.turns.length === 0 ? (
-              <div className="assistant-welcome">
-                <span className="assistant-welcome__lantern"><LanternMark size={92} live={live.status === "live"} /></span>
-                <h2>Vamos conversar</h2>
-                <p>Pergunte em voz alta sobre participantes, quartos, equipe, programação e check-ins. Pode falar naturalmente e me interromper no meio da resposta.</p>
-                <ul className="assistant-spoken">
-                  {SUGGESTIONS.map((suggestion) => <li key={suggestion}>“{suggestion}”</li>)}
-                </ul>
-                <p className="assistant-welcome__privacy">Dados pessoais e de saúde ficam disponíveis apenas para administradores e organizadores.</p>
-              </div>
-            ) : (
-              live.turns.map((turn) => (
-                <article key={turn.id} className={`assistant-message assistant-message--${turn.role}`}>
-                  {turn.role === "assistant" && <span className="assistant-message__avatar"><AiGlyph /></span>}
-                  <div className="assistant-message__bubble"><p>{turn.text}</p></div>
-                </article>
-              ))
-            )
-          ) : (
-            <>
-              {items.length === 0 && (
-                <div className="assistant-welcome">
-                  <span className="assistant-welcome__lantern"><LanternMark size={92} /></span>
-                  <h2>O que você quer saber?</h2>
-                  <p>Consulte participantes, quartos, equipe, programação, check-ins e os outros dados do acampamento.</p>
-                  <p className="assistant-welcome__privacy">Dados pessoais e de saúde ficam disponíveis apenas para administradores e organizadores.</p>
-                  <div className="assistant-suggestions">
-                    {SUGGESTIONS.map((suggestion) => (
-                      <button key={suggestion} type="button" disabled={enabled !== true} onClick={() => void send(suggestion)}>{suggestion}</button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {items.map((item) => (
-                <article key={item.id} className={`assistant-message assistant-message--${item.role} ${item.error ? "assistant-message--error" : ""}`}>
-                  {item.role === "assistant" && <span className="assistant-message__avatar"><AiGlyph /></span>}
-                  <div className="assistant-message__bubble">
-                    {item.error ? <p>{item.error}</p> : item.content ? <p>{item.content}</p> : null}
-                    {item.pending && (
-                      <span className="assistant-message__working" role="status">
-                        <i /><i /><i /> {item.lookups?.length ? "Consultando dados…" : "Pensando…"}
-                      </span>
-                    )}
-                    {!item.pending && !!item.lookups?.length && <small>Consultou {item.lookups.join(", ")}</small>}
-                  </div>
-                </article>
-              ))}
-            </>
-          )}
-
-          {mode === "voice" && live.thinking && (
-            <span className="assistant-message__working assistant-message__working--voice" role="status"><i /><i /><i /> Consultando dados…</span>
-          )}
-        </div>
-
-        {mode === "voice" ? (
-          <div className="assistant-talk">
-            {enabled === false && <p className="assistant-composer__error">{statusError || "Assistente não configurado no servidor."}</p>}
-            {!!live.error && <p className="assistant-composer__error">{live.error}</p>}
-            {live.status === "live" ? (
-              <div className="assistant-talk__row">
-                <button type="button" className={`assistant-talk__mute ${live.muted ? "is-off" : ""}`} aria-pressed={live.muted} onClick={live.toggleMute}>
-                  {live.muted ? <MicOffGlyph size="1.3em" /> : <MicGlyph size="1.3em" />}
-                  {live.muted ? "Microfone desligado" : "Microfone ligado"}
-                </button>
-                <button type="button" className="assistant-talk__end" onClick={live.stop}>
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="3" /></svg>
-                  Encerrar
-                </button>
-              </div>
-            ) : (
-              <button type="button" className={`assistant-talk__start ${live.status === "connecting" ? "is-connecting" : ""}`} disabled={!voiceReady || live.status === "connecting"} onClick={() => void live.start()}>
-                <span className="assistant-talk__halo" aria-hidden="true" />
-                <MicGlyph size="1.5em" />
-                {live.status === "connecting" ? "Conectando…" : live.status === "ended" ? "Conversar de novo" : "Conversar"}
-              </button>
+            {screenText && (
+              <section className="assistant-stage__display" aria-label="Resposta exibida">
+                <p>{screenText}</p>
+              </section>
             )}
-            <small>{voiceReady ? "Fale à vontade — a conversa é por voz, nos dois sentidos." : "Conversa por voz não configurada no servidor."}</small>
-            <audio ref={live.audioRef} autoPlay playsInline />
-          </div>
-        ) : (
-          <div className="assistant-composer">
-            {enabled === false && <p className="assistant-composer__error">{statusError || "Assistente não configurado no servidor."}</p>}
-            <div className="assistant-composer__box">
-              <textarea
-                ref={inputRef}
-                rows={2}
-                value={draft}
-                placeholder="Pergunte sobre o acampamento"
-                disabled={busy || enabled !== true}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    void send();
-                  }
-                }}
-              />
-              {busy ? (
-                <button type="button" className="assistant-composer__send" aria-label="Parar resposta" onClick={() => abortRef.current?.abort()}>■</button>
+
+            {(statusError || live.error) && (
+              <p className="assistant-stage__error">{live.error || statusError}</p>
+            )}
+
+            <div className={`assistant-stage__lantern ${live.status === "connecting" ? "is-connecting" : "is-lit"}`} aria-hidden="true">
+              <span className="assistant-stage__warmth" />
+              <LanternMark size="100%" emptyCenter />
+              {live.status === "connecting" ? (
+                <span className="assistant-stage__ember">
+                  <i className="assistant-stage__spark assistant-stage__spark--one" />
+                  <i className="assistant-stage__spark assistant-stage__spark--two" />
+                </span>
               ) : (
-                <button type="button" className="assistant-composer__send" aria-label="Enviar pergunta" disabled={!draft.trim() || enabled !== true} onClick={() => void send()}>
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 20.4 21.8 12 3.4 3.6l.1 6.6L15 12 3.5 13.8z" /></svg>
-                </button>
+                <img className="assistant-stage__flame" src={flame} alt="" />
               )}
             </div>
-            <small>O assistente pode cometer erros. Confirme informações críticas na ficha.</small>
-          </div>
-        )}
-      </aside>
+
+            {showConnecting && <p className="assistant-stage__connecting" role="status">Conectando...</p>}
+            <audio ref={live.audioRef} autoPlay playsInline />
+          </section>
+        </>
+      )}
     </>
   );
 }

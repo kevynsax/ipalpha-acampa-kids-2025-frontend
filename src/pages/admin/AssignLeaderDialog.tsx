@@ -63,7 +63,7 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
   }, [open]);
 
   const room = k.bedroom ? bedrooms.find((b) => b.id === k.bedroom) : undefined;
-  const kidSex: CamperSex | null = k.sex ?? (room?.group === "girls" ? "F" : room?.group === "boys" ? "M" : null);
+  const kidSex: CamperSex | null = (room?.group === "girls" ? "F" : room?.group === "boys" ? "M" : null) ?? k.sex ?? k.probableGender;
 
   const results = useMemo(() => {
     const nq = normalize(q.trim());

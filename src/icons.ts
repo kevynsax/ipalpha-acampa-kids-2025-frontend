@@ -34,6 +34,7 @@ import iconNotifyOff from "./assets/icons/notify-off.png";
 import iconCleanup from "./assets/icons/cleanup.png";
 import iconPreparation from "./assets/icons/preparation.png";
 import iconSwap from "./assets/icons/swap.png";
+import iconTeam from "./assets/icons/team.png";
 import iconHandshake from "./assets/icons/handshake.png";
 import iconBadge from "./assets/icons/badge.png";
 import iconMedications from "./assets/icons/medications.png";
@@ -44,7 +45,10 @@ import iconCreateNew from "./assets/icons/create-new.png";
 import iconImportCampers from "./assets/icons/import-campers.png";
 import iconRoomAssign from "./assets/icons/room-assign.png";
 import iconAssistant from "./assets/icons/assistant.png";
+import iconAssistantEmpty from "./assets/icons/assistant-empty.png";
 import iconWizard from "./assets/icons/wizard.png";
+import iconDesktopBetter from "./assets/icons/desktop-better.png";
+import iconDesktopBetterBus from "./assets/icons/desktop-better-bus.png";
 
 export const ICONS = {
   camper: iconCamper,
@@ -109,6 +113,8 @@ export const ICONS = {
   preparation: iconPreparation,
   /** two thick curved arrows in a circle (teal over orange) — "trocar": move room, hand over, swap role */
   swap: iconSwap,
+  /** three rounded figures in teal, orange and sun yellow — team topic chip */
+  team: iconTeam,
   /** light-skin hand clasping a brown-skin hand — pass kids / responsibility to someone else */
   handshake: iconHandshake,
   /** smiling woman holding her lanyard ID card up beside her face — "quem você é aqui": choosing / showing a profile */
@@ -129,20 +135,39 @@ export const ICONS = {
   roomAssign: iconRoomAssign,
   /** teal camping lantern shaped like a chat bubble, with a cream AI sparkle — read-only camp assistant */
   assistant: iconAssistant,
+  /** same lantern with a transparent center opening for the animated flame */
+  assistantEmpty: iconAssistantEmpty,
   /** wooden trail signpost with three direction boards and an orange pennant — the setup wizard */
   wizard: iconWizard,
+  /** a desktop monitor showing a room-assignment board next to a crossed-out phone — "use a computer for this" */
+  desktopBetter: iconDesktopBetter,
+  /** a desktop monitor showing a bus-seating board next to a crossed-out phone — "use a computer for the buses" */
+  desktopBetterBus: iconDesktopBetterBus,
 } as const;
 
-/** A kid's sex is not stored: it follows the wing of the bedroom (meninas / meninos). */
+/** A kid's icon follows the wing of the bedroom (meninas / meninos); without a wing, the probable gender. */
 export type KidSex = "girl" | "boy";
 export type AdultSex = "man" | "woman";
 
+/** "F" | "M" | null as stored on campers and staff (sex or probableGender). */
+export type StoredSex = "F" | "M" | null | undefined;
+
 type Wing = "girls" | "boys" | "staff" | null | undefined;
 
-export function kidSexOf(group: Wing): KidSex | null {
+export function kidSexOf(group: Wing, probable?: StoredSex): KidSex | null {
   if (group === "girls") return "girl";
   if (group === "boys") return "boy";
+  if (probable === "F") return "girl";
+  if (probable === "M") return "boy";
   return null;
+}
+
+/**
+ * Icon rule: the bedroom wing decides; without a wing, the stored sex, then
+ * the probable gender. Unknown → null (the generic camper icon).
+ */
+export function kidIconSex(group: Wing, sex: StoredSex, probable?: StoredSex): KidSex | null {
+  return kidSexOf(group) ?? (sex === "F" ? "girl" : sex === "M" ? "boy" : null) ?? kidSexOf(undefined, probable);
 }
 
 function hashParity(seed: string): boolean {
@@ -167,10 +192,17 @@ export function kidFaceSrc(sex?: KidSex | "F" | "M" | null, seed?: string): stri
 
 /**
  * Staff sleeping in a kids' room share the wing's sex. No room / staff wing
- * → assume woman (icons), until a kids' wing is assigned.
+ * → the stored sex, then the probable gender, else woman (icons).
  */
-export function adultSexOf(group: Wing): AdultSex {
-  return group === "boys" ? "man" : "woman";
+export function adultSexOf(group: Wing, sex?: StoredSex, probable?: StoredSex): AdultSex {
+  if (group === "boys") return "man";
+  if (group === "girls") return "woman";
+  return (sex ?? probable) === "M" ? "man" : "woman";
+}
+
+/** Icon rule for staff: wing first, then stored sex, then probable gender, else woman. */
+export function adultIconSex(group: Wing, sex: StoredSex, probable?: StoredSex): AdultSex {
+  return adultSexOf(group, sex, probable);
 }
 
 /** Top-down bed. Girls wing → pink; boys / staff / unknown → teal. */

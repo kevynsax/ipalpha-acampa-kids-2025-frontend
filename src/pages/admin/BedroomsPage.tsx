@@ -126,7 +126,7 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
       <header className="admin-head">
         <h1 className="admin-title">{mode.kind === "create" ? <><img className="admin-title__icon" src={ICONS.bed} alt="" aria-hidden="true" /> Novo quarto</> : mode.kind === "edit" ? "✏️ Editar quarto" : <><img className="admin-title__icon" src={ICONS.bed} alt="" aria-hidden="true" /> Quartos</>}</h1>
         {mode.kind === "view" && !readOnly && (
-          <div className="admin-head__actions">
+          <div className="admin-head__actions admin-head__actions--icons">
             <button
               type="button"
               className="button button--secondary admin-head__new"
@@ -144,7 +144,7 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
               title="Baixar todos os quartos em Excel (uma aba por quarto)"
               onClick={() => downloadBedroomsXlsx(bedrooms, campers, staff, labelOf)}
             >
-              <DownloadGlyph /> Download
+              <DownloadGlyph /> <span className="admin-head__action-label">Download</span>
             </button>
             <button
               type="button"
@@ -152,7 +152,8 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
               disabled={busy}
               onClick={() => navigate("/bedrooms/new")}
             >
-              + Novo
+              <span className="admin-head__action-icon" aria-hidden="true">+</span>
+              <span className="admin-head__action-label">Novo</span>
             </button>
           </div>
         )}

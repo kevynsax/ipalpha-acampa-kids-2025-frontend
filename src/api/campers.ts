@@ -19,8 +19,10 @@ export interface Camper {
   contactsHidden?: boolean;
   /** "YYYY-MM-DD" or null */
   birthDate: string | null;
-  /** "F" | "M" | null — from the room (meninas/meninos) or a GLM guess on the name; never shown on the form */
+  /** "F" | "M" | null — from the room (meninas/meninos); never shown on the form */
   sex: CamperSex | null;
+  /** "F" | "M" | null — GLM guess on the name; internal, never shown; icon + ordering fallback when the room has no wing */
+  probableGender: CamperSex | null;
   cpf: string;
   rg: string;
   school: string;

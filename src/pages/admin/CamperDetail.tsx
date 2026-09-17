@@ -10,7 +10,7 @@ import HealthEditDialog from "../../components/HealthEditDialog";
 import CamperCard from "../../components/CamperCard";
 import KidIcon from "../../components/KidIcon";
 import PlayScene from "../../components/PlayScene";
-import { ICONS, kidSexOf } from "../../icons";
+import { ICONS, kidIconSex } from "../../icons";
 import BedroomTag from "../../components/BedroomTag";
 import { ageOf, type Camper } from "../../api/campers";
 import ParentIcon from "../../components/ParentIcon";
@@ -101,7 +101,7 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
 
   const { camper: k, bedroom, caretaker, caretakers, roommates } = resolved;
   const age = ageOf(k.birthDate);
-  const sex = k.sex === "F" ? "girl" : k.sex === "M" ? "boy" : kidSexOf(bedroom?.group);
+  const sex = kidIconSex(bedroom?.group, k.sex, k.probableGender);
   const reviewing = k.aiReviewStatus === "pending" || k.aiReviewStatus === "processing";
 
   return (
