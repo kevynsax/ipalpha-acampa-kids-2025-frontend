@@ -47,7 +47,8 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
         ...((options?.headers as Record<string, string> | undefined) ?? {}),
       },
     });
-  } catch {
+  } catch (err) {
+    if ((err as Error)?.name === "AbortError") throw err;
     throw new ApiError(0, "OFFLINE", OFFLINE_MESSAGE);
   }
 

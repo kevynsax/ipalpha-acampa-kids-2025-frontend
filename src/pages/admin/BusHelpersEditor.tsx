@@ -8,6 +8,7 @@ import CarLogo from "../../components/CarLogo";
 import { useCollectionOrEmpty } from "../../store";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { ICONS } from "../../icons";
+import { useI18n } from "../../i18n";
 import StaffPicker from "./StaffPicker";
 
 /** The vehicle's coloured mark: the bus logo in its colour, or a car emoji. */
@@ -32,6 +33,7 @@ type Adding = { step: "vehicle" } | { step: "person"; vehicleId: string } | null
  * Pure UI: the parent owns the list and saves it.
  */
 export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpersEditorProps) {
+  const { tx } = useI18n();
   const staff = useCollectionOrEmpty("staff");
   const transports = useCollectionOrEmpty("transports");
   const [adding, setAdding] = useState<Adding>(null);
@@ -51,7 +53,7 @@ export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpe
   }
   const remove = (staffId: string) => onChange(value.filter((h) => h.staffId !== staffId));
 
-  const addButton = (vehicleId?: string, label = "➕ Adicionar pessoa") => (
+  const addButton = (vehicleId?: string, label = tx("➕ Adicionar pessoa")) => (
     <button type="button" className="button button--secondary list-head__add" disabled={disabled || vehicles.length === 0} onClick={() => setAdding(vehicleId ? { step: "person", vehicleId } : { step: "vehicle" })}>
       {label}
     </button>
@@ -61,18 +63,18 @@ export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpe
     <>
       <div className="list-head">
         <h2 className="cat-form__title">
-          <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> Ajudantes do check-in no ônibus {!atEnd && <span className="cat-tab__count">{value.length}</span>}
+          <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> {tx("Ajudantes do check-in no ônibus")} {!atEnd && <span className="cat-tab__count">{value.length}</span>}
         </h2>
         {!atEnd && addButton()}
       </div>
       <p className="cat-hint">
-        Quem fica <strong>na porta de cada veículo</strong> conferindo que a criança entregue pelos pais chegou até a nossa equipe
+        {tx("Quem fica")} <strong>{tx("na porta de cada veículo")}</strong> {tx("conferindo que a criança entregue pelos pais chegou até a nossa equipe")}
       </p>
 
       {vehicles.length === 0 ? (
-        <p className="opt-empty">Nenhum transporte cadastrado. Crie os veículos em Configurações → Transporte.</p>
+        <p className="opt-empty">{tx("Nenhum transporte cadastrado. Crie os veículos em Configurações → Transporte.")}</p>
       ) : shown.length === 0 ? (
-        <p className="opt-empty">Ninguém na porta de nenhum veículo. Só o admin faz a chamada no ônibus.</p>
+        <p className="opt-empty">{tx("Ninguém na porta de nenhum veículo. Só o admin faz a chamada no ônibus.")}</p>
       ) : (
         <ul className="bus-helpers">
           {shown.map((v) => {
@@ -86,20 +88,20 @@ export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpe
                   <h3 className="bus-helpers__vehicle-name">
                     {vehicleMark(v)} {v.label} {!atEnd && <span className="cat-tab__count">{people.length}</span>}
                   </h3>
-                  {!atEnd && addButton(v.id, "➕ Adicionar")}
+                  {!atEnd && addButton(v.id, tx("➕ Adicionar"))}
                 </header>
-                <ul className="staff-card__tags helpers-list" aria-label={`Na porta: ${v.label}`}>
+                <ul className="staff-card__tags helpers-list" aria-label={tx("Na porta: {label}", { label: v.label })}>
                   {people.map((s) => (
-                    <li key={s.id} className={`staff-tag helpers-tag ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
+                    <li key={s.id} className={`staff-tag helpers-tag ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? tx("Cadastro em revisão pela IA") : undefined}>
                       <span className="helpers-tag__name">{s.name}</span>
-                      <button type="button" className="helpers-tag__x" aria-label={`Remover ${s.name}`} title="Remover" disabled={disabled} onClick={() => remove(s.id)}>
+                      <button type="button" className="helpers-tag__x" aria-label={tx("Remover {name}", { name: s.name })} title={tx("Remover")} disabled={disabled} onClick={() => remove(s.id)}>
                         ✕
                       </button>
                     </li>
                   ))}
                 </ul>
                 {/* the vehicle's own add lands at the END of its list of people — phones only */}
-                {atEnd && <div className="list-add">{addButton(v.id, "➕ Adicionar")}</div>}
+                {atEnd && <div className="list-add">{addButton(v.id, tx("➕ Adicionar"))}</div>}
               </li>
             );
           })}
@@ -112,11 +114,11 @@ export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpe
       <Dialog
         open={adding?.step === "vehicle"}
         onClose={() => setAdding((current) => (current?.step === "vehicle" ? null : current))}
-        title="Qual veículo?"
+        title={tx("Qual veículo?")}
         width={520}
       >
         <div className="picker">
-          <h2 className="cat-form__title">Na porta de qual veículo?</h2>
+          <h2 className="cat-form__title">{tx("Na porta de qual veículo?")}</h2>
           <ul className="picker__list" role="listbox">
             {vehicles.map((v) => {
               const n = value.filter((h) => h.vehicleId === v.id).length;
@@ -138,7 +140,7 @@ export default function BusHelpersEditor({ value, onChange, disabled }: BusHelpe
       {/* step 2: who? */}
       <StaffPicker
         open={adding?.step === "person"}
-        title={target ? `Na porta: ${target.label}` : ""}
+        title={target ? tx("Na porta: {label}", { label: target.label }) : ""}
         staff={staff.filter((s) => !placed.has(s.id))}
         occupied={new Map()}
         onPick={(id) => adding?.step === "person" && add(adding.vehicleId, id)}

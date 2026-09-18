@@ -3,6 +3,7 @@ import { updateSettings } from "../../api/settings";
 import { useCollection } from "../../store";
 import StaffListEditor from "./StaffListEditor";
 import PageFooter from "../../components/PageFooter";
+import { useI18n } from "../../i18n";
 
 interface VestHelpersPageProps {
   token: string;
@@ -16,6 +17,7 @@ interface VestHelpersPageProps {
  * delivery / return of each vest.
  */
 export default function VestHelpersPage({ token }: VestHelpersPageProps) {
+  const { tx } = useI18n();
   const settings = useCollection("settings");
   const [ids, setIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -35,7 +37,7 @@ export default function VestHelpersPage({ token }: VestHelpersPageProps) {
       await updateSettings(token, { vestHelpers: { staffIds: nextIds } });
     } catch (err) {
       setIds(previous);
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -44,7 +46,7 @@ export default function VestHelpersPage({ token }: VestHelpersPageProps) {
   if (!settings && !error) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Carregando configurações… ⚙️</p>
+        <p className="opt-empty">{tx("Carregando configurações… ⚙️")}</p>
       </div>
     );
   }
@@ -52,28 +54,27 @@ export default function VestHelpersPage({ token }: VestHelpersPageProps) {
   return (
     <div className="admin-page">
       <header className="admin-head">
-        <h1 className="admin-title">🦺 Coletes</h1>
+        <h1 className="admin-title">🦺 {tx("Coletes")}</h1>
       </header>
       <p className="admin-intro">
-        Pessoas da equipe que <strong>entregam e recolhem os coletes</strong> durante o acampamento. Veem só nome e celular da equipe.
+        {tx("Pessoas da equipe que")} <strong>{tx("entregam e recolhem os coletes")}</strong> {tx("durante o acampamento. Veem só nome e celular da equipe.")}
       </p>
 
       {error && <p className="message message--error">{error}</p>}
 
       <section className="cat-form">
         <StaffListEditor
-          title="Quem cuida dos coletes"
+          title={tx("Quem cuida dos coletes")}
           value={ids}
           onChange={(nextIds) => void saveIds(nextIds)}
           disabled={busy}
-          pickerTitle="Adicionar responsável pelos coletes"
-          empty="Ninguém escolhido ainda."
+          pickerTitle={tx("Adicionar responsável pelos coletes")}
+          empty={tx("Ninguém escolhido ainda.")}
         />
       </section>
 
       <PageFooter>
-        🔒 Quem cuida dos coletes vê da equipe apenas <strong>nome e celular</strong>: nada de quarto, time, saúde ou check-in. Ao entrar na
-        lista a pessoa recebe um SMS avisando (Notificações → Boas-vindas e novas responsabilidades).
+        🔒 {tx("Quem cuida dos coletes vê da equipe apenas")} <strong>{tx("nome e celular")}</strong>{tx(": nada de quarto, time, saúde ou check-in. Ao entrar na lista a pessoa recebe um SMS avisando (Notificações → Boas-vindas e novas responsabilidades).")}
       </PageFooter>
     </div>
   );

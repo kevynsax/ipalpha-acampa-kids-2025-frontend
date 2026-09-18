@@ -36,6 +36,7 @@ import WhatsAppButton from "../../components/WhatsAppButton";
 import { loadAuth } from "../../auth/store";
 import { staffGreeting, whatsappLink } from "../../whatsapp";
 import StaffImportPage from "./StaffImportPage";
+import { collatorLocale, useI18n } from "../../i18n";
 
 interface StaffPageProps {
   token: string;
@@ -60,6 +61,7 @@ type Wing = "all" | "girls" | "boys";
 
 /** The camp staff (equipe) list + create/edit form (admin); read-only for programme organizers. */
 export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
+  const { tx } = useI18n();
   const myName = loadAuth()?.user.name ?? "";
   // everything comes from the local store (localStorage + live WebSocket feed)
   const staff = useCollection("staff");
@@ -137,12 +139,12 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
   }
 
   async function handleDelete(member: Staff) {
-    if (!(await confirm({ emoji: "🗑️", title: `Excluir ${member.name} da equipe?`, message: "Isso não pode ser desfeito.", confirmLabel: "Excluir", danger: true }))) return;
+    if (!(await confirm({ emoji: "🗑️", title: tx("Excluir {name} da equipe?", { name: member.name }), message: tx("Isso não pode ser desfeito."), confirmLabel: tx("Excluir"), danger: true }))) return;
     try {
       await withBusy(() => deleteStaff(token, member.id));
       navigate("/staff", { replace: true });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     }
   }
 
@@ -191,20 +193,20 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
     for (const s of staff ?? []) if (s.team) m.set(s.team, (m.get(s.team) ?? 0) + 1);
     return m;
   }, [staff]);
-  const teamChipLabel = teamFilter.size === 0 ? "Todos os times" : [...teamFilter].map((id) => teamById.get(id)?.name).filter(Boolean).join(", ");
+  const teamChipLabel = teamFilter.size === 0 ? tx("Todos os times") : [...teamFilter].map((id) => teamById.get(id)?.name).filter(Boolean).join(", ");
 
   // ── render ─────────────────────────────────────────────────────────────
 
   if (!staff) {
     return (
       <div className="admin-page">
-        {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>}
+        {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>}
       </div>
     );
   }
 
   if (mode.kind === "giveaway") {
-    return <GiveawayPage who="staff" crumbs={[{ label: "Equipe", onClick: () => navigate("/staff") }, { label: "Sorteio" }]} />;
+    return <GiveawayPage who="staff" crumbs={[{ label: tx("Equipe"), onClick: () => navigate("/staff") }, { label: tx("Sorteio") }]} />;
   }
   if (mode.kind === "import") return <StaffImportPage token={token} onBack={() => navigate("/staff")} />;
 
@@ -213,7 +215,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
       <DetailStack
         token={token}
         current={{ kind: "staff", id: mode.id }}
-        rootCrumbs={[{ label: "Equipe", onClick: () => navigate("/staff") }]}
+        rootCrumbs={[{ label: tx("Equipe"), onClick: () => navigate("/staff") }]}
         onEditStaff={readOnly ? undefined : (member) => navigate(`/staff/${member.id}/edit`)}
       />
     );
@@ -223,20 +225,20 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
 
   return (
     <div className="admin-page">
-      {mode.kind === "create" && <Breadcrumbs items={[{ label: "Equipe", onClick: () => guardedNav("/staff") }, { label: "Novo" }]} />}
+      {mode.kind === "create" && <Breadcrumbs items={[{ label: tx("Equipe"), onClick: () => guardedNav("/staff") }, { label: tx("Novo") }]} />}
       {mode.kind === "edit" && editing && (
-        <Breadcrumbs items={[{ label: "Equipe", onClick: () => guardedNav("/staff") }, { label: editing.name.split(" ")[0], onClick: () => guardedNav(`/staff/${editing.id}`) }, { label: "Editar" }]} />
+        <Breadcrumbs items={[{ label: tx("Equipe"), onClick: () => guardedNav("/staff") }, { label: editing.name.split(" ")[0], onClick: () => guardedNav(`/staff/${editing.id}`) }, { label: tx("Editar") }]} />
       )}
       <header className="admin-head">
         <h1 className="admin-title">
           {mode.kind === "create" ? (
             <>
-              <img className={`admin-title__icon${createSexBusy ? " admin-title__icon--busy" : ""}`} src={createSex === "M" ? ICONS.man : ICONS.woman} alt="" aria-hidden="true" /> <span>Novo membro da equipe</span>
+              <img className={`admin-title__icon${createSexBusy ? " admin-title__icon--busy" : ""}`} src={createSex === "M" ? ICONS.man : ICONS.woman} alt="" aria-hidden="true" /> <span>{tx("Novo membro da equipe")}</span>
             </>
           ) : mode.kind === "edit" ? (
-            "✏️ Editar membro da equipe"
+            tx("✏️ Editar membro da equipe")
           ) : (
-            "Equipe"
+            tx("Equipe")
           )}
         </h1>
         {mode.kind === "view" && !readOnly && (
@@ -244,45 +246,45 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
             <button
               type="button"
               className="button button--secondary admin-head__new"
-              title="Sorteio"
-              aria-label="Sorteio"
+              title={tx("Sorteio")}
+              aria-label={tx("Sorteio")}
               onClick={() => navigate("/staff/giveaway")}
             >
               <img className="admin-head__action-icon" src={ICONS.giveaway} alt="" aria-hidden="true" />
-              <span className="admin-head__action-label">Sorteio</span>
+              <span className="admin-head__action-label">{tx("Sorteio")}</span>
             </button>
             <button
               type="button"
               className="button button--secondary admin-head__new"
               disabled={busy}
-              title="Importar equipe de uma planilha"
-              aria-label="Importar equipe de uma planilha"
+              title={tx("Importar equipe de uma planilha")}
+              aria-label={tx("Importar equipe de uma planilha")}
               onClick={() => navigate("/staff/import")}
             >
               <img className="admin-head__action-icon" src={ICONS.importCampers} alt="" aria-hidden="true" />
-              <span className="admin-head__action-label">Importar</span>
+              <span className="admin-head__action-label">{tx("Importar")}</span>
             </button>
             <button
               type="button"
               className="button button--secondary admin-head__new"
               disabled={busy || staff.length === 0}
-              title="Baixar toda a equipe em Excel"
-              aria-label="Baixar toda a equipe em Excel"
+              title={tx("Baixar toda a equipe em Excel")}
+              aria-label={tx("Baixar toda a equipe em Excel")}
               onClick={() => downloadStaffXlsx(staff, bedrooms, labelOf)}
             >
               <DownloadGlyph />
-              <span className="admin-head__action-label">Download</span>
+              <span className="admin-head__action-label">{tx("Download")}</span>
             </button>
             <button
               type="button"
               className="button button--primary admin-head__new"
               disabled={busy}
-              title="Novo membro da equipe"
-              aria-label="Novo membro da equipe"
+              title={tx("Novo membro da equipe")}
+              aria-label={tx("Novo membro da equipe")}
               onClick={() => navigate("/staff/new")}
             >
               <span className="admin-head__action-plus" aria-hidden="true">+</span>
-              <span className="admin-head__action-label">Novo</span>
+              <span className="admin-head__action-label">{tx("Novo")}</span>
             </button>
           </div>
         )}
@@ -290,8 +292,8 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
           <button
             type="button"
             className="icon-btn icon-btn--lg icon-btn--danger"
-            title={`Excluir ${editing.name} da equipe`}
-            aria-label={`Excluir ${editing.name} da equipe`}
+            title={tx("Excluir {name} da equipe", { name: editing.name })}
+            aria-label={tx("Excluir {name} da equipe", { name: editing.name })}
             disabled={busy}
             onClick={() => handleDelete(editing)}
           >
@@ -312,7 +314,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
           leaveGuardRef={leaveGuardRef}
         />
       )}
-      {mode.kind === "edit" && !editing && <p className="opt-empty">Pessoa não encontrada.</p>}
+      {mode.kind === "edit" && !editing && <p className="opt-empty">{tx("Pessoa não encontrada.")}</p>}
       {mode.kind === "edit" && editing && (
         <>
           <StaffForm
@@ -324,7 +326,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
             onSubmit={handleEdit}
             leaveGuardRef={leaveGuardRef}
           />
-          {editing.admin && <p className="cat-hint">🔑 {editing.name} é admin: não pode ser excluído da equipe.</p>}
+          {editing.admin && <p className="cat-hint">🔑 {tx("{name} é admin: não pode ser excluído da equipe.", { name: editing.name })}</p>}
         </>
       )}
 
@@ -333,25 +335,25 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
           <div className="staff-toolbar">
             <label className="staff-toolbar__search">
               <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
-              <input className="cat-input" type="search" placeholder="Buscar por nome, celular, time, quarto…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar" />
+              <input className="cat-input" type="search" placeholder={tx("Buscar por nome, celular, time, quarto…")} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tx("Buscar")} />
             </label>
           </div>
-          <div className="health-filter" role="group" aria-label="Ala e time">
+          <div className="health-filter" role="group" aria-label={tx("Ala e time")}>
             {(
               [
-                ["all", "Todos"],
-                ["girls", "Tia de meninas"],
-                ["boys", "Tio de meninos"],
+                ["all", tx("Todos")],
+                ["girls", tx("Tia de meninas")],
+                ["boys", tx("Tio de meninos")],
               ] as [Wing, string][]
             ).map(([key, label]) => (
-              <button key={key} type="button" className={`chip-toggle chip-toggle--small ${wing === key ? "chip-toggle--on" : ""}`} aria-pressed={wing === key} title={key === "all" ? undefined : `Dorme no quarto de ${GROUP_META[key].label.toLowerCase()}`} onClick={() => setWing(key)}>
+              <button key={key} type="button" className={`chip-toggle chip-toggle--small ${wing === key ? "chip-toggle--on" : ""}`} aria-pressed={wing === key} title={key === "all" ? undefined : tx("Dorme no quarto de {group}", { group: GROUP_META[key].label.toLowerCase() })} onClick={() => setWing(key)}>
                 {key !== "all" && <GroupIcon group={key} face />}
                 {label}
                 <span className="cat-tab__count">{wingCounts[key]}</span>
               </button>
             ))}
             {teams.length > 0 && (
-              <button type="button" className={`chip-toggle chip-toggle--small ${teamFilter.size > 0 ? "chip-toggle--on" : ""}`} aria-pressed={teamFilter.size > 0} title="Filtrar por time" onClick={() => setTeamDialogOpen(true)}>
+              <button type="button" className={`chip-toggle chip-toggle--small ${teamFilter.size > 0 ? "chip-toggle--on" : ""}`} aria-pressed={teamFilter.size > 0} title={tx("Filtrar por time")} onClick={() => setTeamDialogOpen(true)}>
                 🚩 {teamChipLabel}
                 {teamFilter.size > 0 && <span className="cat-tab__count">{visible.length}</span>}
               </button>
@@ -363,19 +365,19 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
           {staff.length === 0 && (
             <div className="admin-empty">
               <img className="admin-empty__icon" src={roleMeta("staff").icon} alt="" aria-hidden="true" />
-              <p>Ninguém na equipe ainda.{!readOnly && " Cadastre o primeiro voluntário!"}</p>
+              <p>{tx("Ninguém na equipe ainda.")}{!readOnly && ` ${tx("Cadastre o primeiro voluntário!")}`}</p>
               {!readOnly && (
                 <button type="button" className="button button--primary" onClick={() => navigate("/staff/new")}>
-                  + Adicionar membro
+                  {tx("+ Adicionar membro")}
                 </button>
               )}
             </div>
           )}
 
-          {staff.length > 0 && visible.length === 0 && <p className="opt-empty">Nenhum resultado. 🔍</p>}
+          {staff.length > 0 && visible.length === 0 && <p className="opt-empty">{tx("Nenhum resultado. 🔍")}</p>}
 
           <p className="admin-intro">
-            {visible.length === staff.length ? `${staff.length} pessoas` : `${visible.length} de ${staff.length} pessoas`}
+            {visible.length === staff.length ? tx("{count} pessoas", { count: staff.length }) : tx("{visible} de {total} pessoas", { visible: visible.length, total: staff.length })}
             {noRoomCount > 0 && (
               <>
                 {" · "}
@@ -383,10 +385,10 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
                   type="button"
                   className={`orphan-tag orphan-tag--btn ${noRoomFirst ? "orphan-tag--on" : ""}`}
                   aria-pressed={noRoomFirst}
-                  title={noRoomFirst ? "Voltar à ordem alfabética" : "Mostrar sem quarto no topo"}
+                  title={noRoomFirst ? tx("Voltar à ordem alfabética") : tx("Mostrar sem quarto no topo")}
                   onClick={() => setNoRoomFirst((v) => !v)}
                 >
-                  ⚠️ {noRoomCount} sem quarto
+                  ⚠️ {tx("{count} sem quarto", { count: noRoomCount })}
                 </button>
               </>
             )}
@@ -398,12 +400,12 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
               const noRoom = !s.bedroom;
 
               return (
-                <li key={s.id} className={`staff-card staff-card--clickable staff-card--cover ${noRoom ? "staff-card--orphan" : ""} ${s.active ? "" : "staff-card--inactive"} ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
+                <li key={s.id} className={`staff-card staff-card--clickable staff-card--cover ${noRoom ? "staff-card--orphan" : ""} ${s.active ? "" : "staff-card--inactive"} ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? tx("Cadastro em revisão pela IA") : undefined}>
                   <div
                     className="staff-card__body"
                     role="link"
                     tabIndex={0}
-                    title={`Ver ${s.name}`}
+                    title={tx("Ver {name}", { name: s.name })}
                     onClick={() => navigate(`/staff/${s.id}`)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
@@ -414,19 +416,19 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
                   >
                     <h3 className="staff-card__name">
                       {s.name}
-                      {s.admin && <span className="staff-card__inactive" title="Admin do app">admin</span>}
-                      {!s.active && <span className="staff-card__inactive">inativo</span>}
+                      {s.admin && <span className="staff-card__inactive" title={tx("Admin do app")}>admin</span>}
+                      {!s.active && <span className="staff-card__inactive">{tx("inativo")}</span>}
                     </h3>
-                    {noRoom && <p className="staff-card__meta orphan-msg">⚠️ Esta pessoa está sem quarto.</p>}
+                    {noRoom && <p className="staff-card__meta orphan-msg">⚠️ {tx("Esta pessoa está sem quarto.")}</p>}
                     <p className="staff-card__meta">
-                      {s.phone ? formatBrazilPhoneClient(s.phone) : <em className="staff-card__missing">sem celular</em>}
+                      {s.phone ? formatBrazilPhoneClient(s.phone) : <em className="staff-card__missing">{tx("sem celular")}</em>}
                     </p>
                     {(room || s.team || s.transportation) && (
                       <div className="staff-card__tags">
                         {room && <BedroomTag bedroom={room} />}
                         {room && (
-                          <span className="staff-tag" title="Função no quarto">
-                            <RoomRoleIcon role={s.roomRole} sex={staffSex(s, bedrooms)} /> {ROOM_ROLE_META[s.roomRole].label}
+                          <span className="staff-tag" title={tx("Função no quarto")}>
+                            <RoomRoleIcon role={s.roomRole} sex={staffSex(s, bedrooms)} /> {tx(ROOM_ROLE_META[s.roomRole].label)}
                           </span>
                         )}
                         <TeamTag teamId={s.team} />
@@ -439,14 +441,14 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
                     <WhatsAppButton
                       className="wa-btn--sm staff-card__wa"
                       href={whatsappLink(s.phone, staffGreeting({ toName: s.name, fromName: myName }))}
-                      label={`Falar com ${s.name.split(" ")[0]} no WhatsApp`}
+                      label={tx("Falar com {name} no WhatsApp", { name: s.name.split(" ")[0] })}
                     />
                   )}
                   <button
                     type="button"
                     className="icon-btn icon-btn--lg staff-card__edit"
-                    title="Editar"
-                    aria-label={`Editar ${s.name}`}
+                    title={tx("Editar")}
+                    aria-label={tx("Editar {name}", { name: s.name })}
                     disabled={busy}
                     onClick={() => navigate(`/staff/${s.id}/edit`)}
                   >
@@ -470,5 +472,5 @@ function normalize(s: string): string {
 }
 
 function sortByName(list: Staff[]): Staff[] {
-  return list.slice().sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+  return list.slice().sort((a, b) => a.name.localeCompare(b.name, collatorLocale(), { sensitivity: "base" }));
 }

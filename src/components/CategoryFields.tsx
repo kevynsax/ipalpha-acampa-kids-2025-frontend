@@ -3,6 +3,7 @@ import { BEDROOM_GROUPS, GROUP_META, type Bedroom, type BedroomGroup } from "../
 import type { Category, CategoryOption } from "../api/categories";
 import type { Team } from "../api/teams";
 import { transportShortLabel, type Transport } from "../api/transports";
+import { useI18n } from "../i18n";
 import { useCollectionOrEmpty } from "../store";
 import BusLogo from "./BusLogo";
 import CarLogo from "./CarLogo";
@@ -34,6 +35,7 @@ interface SingleProps {
 
 /** Single-choice category → <select>. */
 export function CategorySelect({ label, category: cat, value, onChange, disabled }: SingleProps) {
+  const { tx } = useI18n();
   const options = pickable(cat, value);
   return (
     <label className="cat-field cat-field--grow">
@@ -41,11 +43,11 @@ export function CategorySelect({ label, category: cat, value, onChange, disabled
         {categoryIcon(cat)} {label}
       </span>
       <select className="cat-input" value={value ?? ""} disabled={disabled || !cat} onChange={(e) => onChange(e.target.value || null)}>
-        <option value="">{cat ? "Não definido" : "Categoria não cadastrada"}</option>
+        <option value="">{cat ? tx("Não definido") : tx("Categoria não cadastrada")}</option>
         {options.map((o) => (
           <option key={o.id} value={o.id}>
             {o.label}
-            {!o.active ? " (inativo)" : ""}
+            {!o.active ? tx(" (inativo)") : ""}
           </option>
         ))}
       </select>
@@ -55,21 +57,22 @@ export function CategorySelect({ label, category: cat, value, onChange, disabled
 
 /** Single-choice category → one row of chips acting as radios (tap the selected one again to clear). */
 export function CategoryRadio({ label, category: cat, value, onChange, disabled }: SingleProps) {
+  const { tx } = useI18n();
   const options = pickable(cat, value);
   return (
     <fieldset className="cat-fieldset" role="radiogroup">
       <legend className="cat-field__label">
         {categoryIcon(cat)} {label}
       </legend>
-      {!cat && <p className="cat-hint">Categoria não cadastrada.</p>}
-      {cat && options.length === 0 && <p className="cat-hint">Nenhuma opção cadastrada.</p>}
+      {!cat && <p className="cat-hint">{tx("Categoria não cadastrada.")}</p>}
+      {cat && options.length === 0 && <p className="cat-hint">{tx("Nenhuma opção cadastrada.")}</p>}
       <div className="chip-group">
         {options.map((o) => {
           const on = value === o.id;
           return (
             <button key={o.id} type="button" role="radio" aria-checked={on} className={`chip-toggle chip-toggle--small ${on ? "chip-toggle--on" : ""}`} disabled={disabled} onClick={() => onChange(on ? null : o.id)}>
               {o.label}
-              {!o.active ? " (inativo)" : ""}
+              {!o.active ? tx(" (inativo)") : ""}
             </button>
           );
         })}
@@ -99,11 +102,12 @@ function chipName(name: string): string {
 
 /** Team (Configurações → Times) → coloured chips, all visible at once. */
 export function TeamSelect({ value, onChange, disabled, label = "Time", hideLabel }: TeamProps) {
+  const { tx } = useI18n();
   const teams: Team[] = useCollectionOrEmpty("teams");
   return (
     <fieldset className="cat-fieldset" role="radiogroup">
-      {!hideLabel && <legend className="cat-field__label">🚩 {label}</legend>}
-      {teams.length === 0 && <p className="cat-hint">Nenhum time cadastrado.</p>}
+      {!hideLabel && <legend className="cat-field__label">🚩 {tx(label)}</legend>}
+      {teams.length === 0 && <p className="cat-hint">{tx("Nenhum time cadastrado.")}</p>}
       <div className="team-filter__list" role="presentation">
         <button
           type="button"
@@ -113,7 +117,7 @@ export function TeamSelect({ value, onChange, disabled, label = "Time", hideLabe
           disabled={disabled || teams.length === 0}
           onClick={() => onChange(null)}
         >
-          Não definido
+          {tx("Não definido")}
         </button>
         {teams.map((t) => {
           const on = value === t.id;
@@ -163,6 +167,7 @@ interface TransportProps {
  * every vehicle is listed — going by car is just as usual as the bus.
  */
 export function TransportSelect({ value, onChange, disabled, label = "Transporte", hideLabel, title, audience = "camper" }: TransportProps) {
+  const { tx } = useI18n();
   const transports: Transport[] = useCollectionOrEmpty("transports");
   const buses = transports.filter((t) => t.kind === "bus");
   const cars = transports.filter((t) => t.kind === "car");
@@ -172,7 +177,7 @@ export function TransportSelect({ value, onChange, disabled, label = "Transporte
   const others =
     cars.length > 0 && !carsOpen ? (
       <button type="button" className="link-btn cat-field__link" disabled={disabled} onClick={() => setShowCars(true)}>
-        Outros
+        {tx("Outros")}
       </button>
     ) : null;
 
@@ -199,7 +204,7 @@ export function TransportSelect({ value, onChange, disabled, label = "Transporte
     <legend className={title ? "cat-form__title change-room__title" : "cat-field__label cat-field__label--split"}>
       {title ?? (
         <span className="cat-field__label--icon">
-          <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> {label}
+          <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> {tx(label)}
         </span>
       )}
       {others}
@@ -209,7 +214,7 @@ export function TransportSelect({ value, onChange, disabled, label = "Transporte
   return (
     <fieldset className="cat-fieldset" role="radiogroup">
       {heading}
-      {transports.length === 0 && <p className="cat-hint">Nenhum transporte cadastrado.</p>}
+      {transports.length === 0 && <p className="cat-hint">{tx("Nenhum transporte cadastrado.")}</p>}
       <div className="team-filter__list" role="presentation">
         <button
           type="button"
@@ -219,7 +224,7 @@ export function TransportSelect({ value, onChange, disabled, label = "Transporte
           disabled={disabled || transports.length === 0}
           onClick={() => onChange(null)}
         >
-          Não definido
+          {tx("Não definido")}
         </button>
         {buses.map(chip)}
         {carsOpen && cars.map(chip)}
@@ -238,6 +243,7 @@ interface MultiProps {
 
 /** Multi-choice category → toggle chips. */
 export function CategoryChips({ label, category: cat, value, onChange, disabled }: MultiProps) {
+  const { tx } = useI18n();
   const options = pickable(cat, value);
   const toggle = (id: string) => onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
   return (
@@ -245,8 +251,8 @@ export function CategoryChips({ label, category: cat, value, onChange, disabled 
       <legend className="cat-field__label">
         {categoryIcon(cat)} {label}
       </legend>
-      {!cat && <p className="cat-hint">Categoria não cadastrada.</p>}
-      {cat && options.length === 0 && <p className="cat-hint">Nenhuma opção cadastrada.</p>}
+      {!cat && <p className="cat-hint">{tx("Categoria não cadastrada.")}</p>}
+      {cat && options.length === 0 && <p className="cat-hint">{tx("Nenhuma opção cadastrada.")}</p>}
       <div className="chip-group">
         {options.map((o) => {
           const on = value.includes(o.id);
@@ -283,26 +289,27 @@ interface BedroomProps {
 
 /** Bedroom picker grouped by wing, showing free places. */
 export function BedroomSelect({ bedrooms, value, onChange, current, groups = BEDROOM_GROUPS, allowFull, disabled }: BedroomProps) {
+  const { tx } = useI18n();
   const picked = bedrooms.find((b) => b.id === value);
   const only = groups.length === 1 ? groups[0] : undefined;
   const wing = picked?.group ?? only;
   return (
     <label className="cat-field cat-field--grow">
-      <span className="cat-field__label cat-field__label--icon"><BedIcon size={16} group={wing} /> Quarto</span>
+      <span className="cat-field__label cat-field__label--icon"><BedIcon size={16} group={wing} /> {tx("Quarto")}</span>
       <select className="cat-input" value={value ?? ""} disabled={disabled || bedrooms.length === 0} onChange={(e) => onChange(e.target.value || null)}>
-        <option value="">{bedrooms.length ? "Sem quarto" : "Nenhum quarto cadastrado"}</option>
+        <option value="">{bedrooms.length ? tx("Sem quarto") : tx("Nenhum quarto cadastrado")}</option>
         {groups.map((g) => {
           const rooms = bedrooms.filter((b) => b.group === g);
           if (!rooms.length) return null;
           return (
-            <optgroup key={g} label={GROUP_META[g].label}>
+            <optgroup key={g} label={tx(GROUP_META[g].label)}>
               {rooms.map((b) => {
                 const mine = b.id === current;
                 const free = b.available + (mine ? 1 : 0);
                 const full = free <= 0;
                 return (
                   <option key={b.id} value={b.id} disabled={full && !mine && !allowFull}>
-                    {b.name} · {full ? "lotado" : `${free} de ${b.capacity} livre${free > 1 ? "s" : ""}`}
+                    {b.name} · {full ? tx("lotado") : free > 1 ? tx("{free} de {capacity} livres", { free, capacity: b.capacity }) : tx("{free} de {capacity} livre", { free, capacity: b.capacity })}
                   </option>
                 );
               })}

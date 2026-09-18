@@ -4,6 +4,7 @@ import { useRoute } from "../../router";
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { ICONS } from "../../icons";
+import { useI18n } from "../../i18n";
 import StaffListEditor from "./StaffListEditor";
 import PageFooter from "../../components/PageFooter";
 
@@ -19,6 +20,7 @@ interface OrganizersPageProps {
  * they only edit the programme and the scoreboard.
  */
 export default function OrganizersPage({ token }: OrganizersPageProps) {
+  const { tx } = useI18n();
   const settings = useCollection("settings");
   const staff = useCollectionOrEmpty("staff");
   const { navigate } = useRoute();
@@ -47,7 +49,7 @@ export default function OrganizersPage({ token }: OrganizersPageProps) {
       await updateSettings(token, { organizers: { staffIds: nextIds } });
     } catch (err) {
       setIds(previous);
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -56,7 +58,7 @@ export default function OrganizersPage({ token }: OrganizersPageProps) {
   if (!settings && !error) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Carregando configurações… ⚙️</p>
+        <p className="opt-empty">{tx("Carregando configurações… ⚙️")}</p>
       </div>
     );
   }
@@ -66,42 +68,49 @@ export default function OrganizersPage({ token }: OrganizersPageProps) {
       <header className="admin-head">
         <h1 className="admin-title detail-title">
           <img className="audience-icon" src={ICONS.organizer} alt="" aria-hidden="true" />
-          Organizadores
+          {tx("Organizadores")}
         </h1>
       </header>
       <p className="admin-intro">
-        Pessoas da equipe com <strong>acesso de administração</strong>: acampantes, equipe, quartos, programação, check-ins, ocorrências e
-        configurações. Veem dados de saúde. Nas ocorrências, só as que os organizadores registraram.
+        {tx("Pessoas da equipe com")} <strong>{tx("acesso de administração")}</strong>
+        {tx(": acampantes, equipe, quartos, programação, check-ins, ocorrências e configurações. Veem dados de saúde. Nas ocorrências, só as que os organizadores registraram.")}
       </p>
 
       {error && <p className="message message--error">{error}</p>}
 
       <section className="cat-form">
-        <StaffListEditor title="Quem organiza" value={ids} onChange={(nextIds) => void saveIds(nextIds)} disabled={busy} pickerTitle="Adicionar organizador" empty="Ninguém escolhido ainda. Só o admin administra o app." />
+        <StaffListEditor
+          title={tx("Quem organiza")}
+          value={ids}
+          onChange={(nextIds) => void saveIds(nextIds)}
+          disabled={busy}
+          pickerTitle={tx("Adicionar organizador")}
+          empty={tx("Ninguém escolhido ainda. Só o admin administra o app.")}
+        />
       </section>
 
       <section className="cat-form">
         <div className="list-head">
           <h2 className="cat-form__title">
-            🏆 Organizadores dos jogos {!phone && <span className="cat-tab__count">{gameOrganizers.length}</span>}
+            🏆 {tx("Organizadores dos jogos")} {!phone && <span className="cat-tab__count">{gameOrganizers.length}</span>}
           </h2>
           {phone ? (
-            <button type="button" className="icon-btn" title="Editar em Jogos" aria-label="Editar em Jogos" onClick={() => navigate("/game-organizers")}>
+            <button type="button" className="icon-btn" title={tx("Editar em Jogos")} aria-label={tx("Editar em Jogos")} onClick={() => navigate("/game-organizers")}>
               <span className="pencil" aria-hidden="true">✏️</span>
             </button>
           ) : (
             <button type="button" className="button button--secondary list-head__add" onClick={() => navigate("/game-organizers")}>
-              Editar em Jogos ›
+              {tx("Editar em Jogos ›")}
             </button>
           )}
         </div>
-        <p className="cat-hint">Editam a programação e lançam pontos no Placar — sem as outras permissões de organizador.</p>
+        <p className="cat-hint">{tx("Editam a programação e lançam pontos no Placar — sem as outras permissões de organizador.")}</p>
         {gameOrganizers.length === 0 ? (
-          <p className="opt-empty">Ninguém ainda.</p>
+          <p className="opt-empty">{tx("Ninguém ainda.")}</p>
         ) : (
-          <ul className="staff-card__tags helpers-list" aria-label="Organizadores dos jogos">
+          <ul className="staff-card__tags helpers-list" aria-label={tx("Organizadores dos jogos")}>
             {gameOrganizers.map((s) => (
-              <li key={s.id} className={`staff-tag helpers-tag ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
+              <li key={s.id} className={`staff-tag helpers-tag ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? tx("Cadastro em revisão pela IA") : undefined}>
                 <span className="helpers-tag__name">{s.name}</span>
               </li>
             ))}
@@ -110,7 +119,7 @@ export default function OrganizersPage({ token }: OrganizersPageProps) {
       </section>
 
       <PageFooter>
-        🔒 Organizadores não mexem nesta lista nem em Categorias, Notificações e Sobre — só o admin.
+        {tx("🔒 Organizadores não mexem nesta lista nem em Categorias, Notificações e Sobre — só o admin.")}
       </PageFooter>
     </div>
   );

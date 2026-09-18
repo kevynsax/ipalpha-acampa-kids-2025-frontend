@@ -11,11 +11,14 @@ import {
 } from "../../api/categories";
 import AudienceIcon from "../../components/AudienceIcon";
 import EmojiPicker from "../../components/EmojiPicker";
+import { useAiAutoFill } from "../../hooks/useAiAutoFill";
 import { useHideScanFab } from "../../scanFab";
+import { useI18n } from "../../i18n";
 
 const EMOJI_SUGGESTIONS = ["🏷️", "🚩", "🛏️", "🤮", "🚫", "💊", "🍽️", "🚌", "👕", "🎒", "🏊", "🎨", "⚽", "🎵", "📚", "🧸"];
 
 interface CategoryFormProps {
+  token: string;
   /** when editing, the existing category; when creating, undefined */
   category?: Category;
   busy?: boolean;
@@ -28,9 +31,10 @@ interface CategoryFormProps {
  * in the tab itself). When creating, an optional first batch of options can
  * be typed one per line.
  */
-export default function CategoryForm({ category, busy, onSubmit, onCancel }: CategoryFormProps) {
+export default function CategoryForm({ token, category, busy, onSubmit, onCancel }: CategoryFormProps) {
   // the "Ler crachá" FAB would sit on top of Salvar / Cancelar
   useHideScanFab();
+  const { tx } = useI18n();
   const editing = !!category;
   const [name, setName] = useState(category?.name ?? "");
   const [emoji, setEmoji] = useState(category?.emoji ?? "🏷️");
@@ -45,6 +49,17 @@ export default function CategoryForm({ category, busy, onSubmit, onCancel }: Cat
   }
 
   const valid = name.trim().length > 0 && appliesTo.length > 0;
+  const ai = useAiAutoFill({
+    token,
+    context: "category",
+    title: name,
+    setTitle: setName,
+    emoji,
+    setEmoji,
+    defaultEmoji: "🏷️",
+    existing: editing,
+    html: [description, optionsText].filter(Boolean).join("\n"),
+  });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -67,24 +82,24 @@ export default function CategoryForm({ category, busy, onSubmit, onCancel }: Cat
     try {
       await onSubmit(input);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     }
   }
 
   return (
     <form className="cat-form cat-form--plain" onSubmit={handleSubmit}>
-      <h2 className="cat-form__title change-room__title">{editing ? "✏️ Editar categoria" : "Nova categoria"}</h2>
+      <h2 className="cat-form__title change-room__title">{editing ? tx("✏️ Editar categoria") : tx("Nova categoria")}</h2>
 
       <div className="cat-form__row">
         <div className="cat-field cat-field--emoji">
-          <span className="cat-field__label">Ícone</span>
-          <EmojiPicker value={emoji} onChange={setEmoji} suggestions={EMOJI_SUGGESTIONS} disabled={busy} />
+          <span className="cat-field__label">{tx("Ícone")}</span>
+          <EmojiPicker value={emoji} onChange={ai.pickEmoji} suggestions={EMOJI_SUGGESTIONS} disabled={busy} guessing={ai.suggestingEmoji} />
         </div>
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Nome</span>
+          <span className="cat-field__label">{tx("Nome")}</span>
           <input
             className="cat-input"
-            placeholder="ex.: Transporte"
+            placeholder={tx("ex.: Transporte")}
             value={name}
             maxLength={60}
             autoFocus
@@ -94,10 +109,10 @@ export default function CategoryForm({ category, busy, onSubmit, onCancel }: Cat
       </div>
 
       <label className="cat-field">
-        <span className="cat-field__label">Descrição (opcional)</span>
+        <span className="cat-field__label">{tx("Descrição (opcional)")}</span>
         <input
           className="cat-input"
-          placeholder="ex.: Como a pessoa chega ao acampamento"
+          placeholder={tx("ex.: Como a pessoa chega ao acampamento")}
           value={description}
           maxLength={200}
           onChange={(e) => setDescription(e.target.value)}
@@ -105,7 +120,7 @@ export default function CategoryForm({ category, busy, onSubmit, onCancel }: Cat
       </label>
 
       <fieldset className="cat-fieldset">
-        <legend className="cat-field__label">Vale para quem?</legend>
+        <legend className="cat-field__label">{tx("Vale para quem?")}</legend>
         <div className="chip-group">
           {CATEGORY_AUDIENCES.map((a) => {
             const m = AUDIENCE_META[a];
@@ -118,16 +133,16 @@ export default function CategoryForm({ category, busy, onSubmit, onCancel }: Cat
                 aria-pressed={on}
                 onClick={() => toggleAudience(a)}
               >
-                <AudienceIcon audience={a} /> {m.label}
+                <AudienceIcon audience={a} /> {tx(m.label)}
               </button>
             );
           })}
         </div>
-        {appliesTo.length === 0 && <p className="cat-hint cat-hint--error">Escolha ao menos um.</p>}
+        {appliesTo.length === 0 && <p className="cat-hint cat-hint--error">{tx("Escolha ao menos um.")}</p>}
       </fieldset>
 
       <fieldset className="cat-fieldset">
-        <legend className="cat-field__label">Como se responde?</legend>
+        <legend className="cat-field__label">{tx("Como se responde?")}</legend>
         <div className="chip-group">
           {CATEGORY_SELECTIONS.map((s) => {
             const m = SELECTION_META[s];
@@ -141,9 +156,9 @@ export default function CategoryForm({ category, busy, onSubmit, onCancel }: Cat
                 onClick={() => setSelection(s)}
               >
                 <span className="chip-toggle__main">
-                  <span aria-hidden="true">{m.emoji}</span> {m.label}
+                  <span aria-hidden="true">{m.emoji}</span> {tx(m.label)}
                 </span>
-                <span className="chip-toggle__hint">{m.hint}</span>
+                <span className="chip-toggle__hint">{tx(m.hint)}</span>
               </button>
             );
           })}
@@ -152,11 +167,11 @@ export default function CategoryForm({ category, busy, onSubmit, onCancel }: Cat
 
       {!editing && (
         <label className="cat-field">
-          <span className="cat-field__label">Opções iniciais (uma por linha, opcional)</span>
+          <span className="cat-field__label">{tx("Opções iniciais (uma por linha, opcional)")}</span>
           <textarea
             className="cat-input cat-input--area"
             rows={4}
-            placeholder={"Ônibus da igreja\nCarro próprio\nCarona"}
+            placeholder={tx("Ônibus da igreja\nCarro próprio\nCarona")}
             value={optionsText}
             onChange={(e) => setOptionsText(e.target.value)}
           />
@@ -167,10 +182,10 @@ export default function CategoryForm({ category, busy, onSubmit, onCancel }: Cat
 
       <div className="cat-form__actions">
         <button type="button" className="button button--secondary" onClick={onCancel} disabled={busy}>
-          Cancelar
+          {tx("Cancelar")}
         </button>
         <button type="submit" className="button button--primary" disabled={!valid || busy}>
-          {busy ? "Salvando…" : editing ? "Salvar" : "Criar categoria 🎉"}
+          {busy ? tx("Salvando…") : editing ? tx("Salvar") : tx("Criar categoria 🎉")}
         </button>
       </div>
     </form>

@@ -2,6 +2,7 @@ import { StrictMode, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ConfirmProvider } from "./components/ConfirmDialog";
+import { I18nProvider } from "./i18n";
 import { registerSW } from "virtual:pwa-register";
 import "./styles.css";
 
@@ -20,9 +21,11 @@ createRoot(document.getElementById("root")!).render(
         <ScenePreview sex={scene === "girl" ? "girl" : "boy"} />
       </Suspense>
     ) : (
-      <ConfirmProvider>
-        <App />
-      </ConfirmProvider>
+      <I18nProvider>
+        <ConfirmProvider>
+          <App />
+        </ConfirmProvider>
+      </I18nProvider>
     )}
   </StrictMode>,
 );

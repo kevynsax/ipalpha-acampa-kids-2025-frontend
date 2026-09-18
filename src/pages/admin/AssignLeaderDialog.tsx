@@ -7,7 +7,9 @@ import { moveCamper, updateCamper, type Camper, type CamperSex } from "../../api
 import { ROOM_ROLE_META, staffSex, updateStaff, type Staff } from "../../api/staff";
 import { useConfirm } from "../../components/ConfirmDialog";
 import Dialog from "../../components/Dialog";
+import { SearchGlyph } from "../../components/Glyph";
 import { useCollectionOrEmpty } from "../../store";
+import { collatorLocale, useI18n } from "../../i18n";
 
 interface AssignLeaderDialogProps {
   token: string;
@@ -23,15 +25,6 @@ const normalize = (s: string) =>
     .toLowerCase();
 
 type Group = "roomLeaders" | "roomHelpers" | "others" | "staffWing" | "otherSex";
-const GROUP_LABEL: Record<Group, string> = {
-  roomLeaders: "Líderes do quarto",
-  roomHelpers: "Auxiliares do quarto",
-  others: "Resto da equipe",
-  staffWing: "Ala da equipe",
-  otherSex: "Outro sexo",
-};
-
-const SEX_LABEL: Record<CamperSex, string> = { F: "feminino", M: "masculino" };
 
 /**
  * Admin: pick a kid's líder. Search-as-you-type over the team of the kid's
@@ -44,6 +37,7 @@ const SEX_LABEL: Record<CamperSex, string> = { F: "feminino", M: "masculino" };
  * the KID changes room (asked first).
  */
 export default function AssignLeaderDialog({ token, open, camper: k, onClose }: AssignLeaderDialogProps) {
+  const { tx } = useI18n();
   const staff = useCollectionOrEmpty("staff");
   const bedrooms = useCollectionOrEmpty("bedrooms");
   const confirm = useConfirm();
@@ -52,6 +46,16 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const GROUP_LABEL: Record<Group, string> = {
+    roomLeaders: tx("Líderes do quarto"),
+    roomHelpers: tx("Auxiliares do quarto"),
+    others: tx("Resto da equipe"),
+    staffWing: tx("Ala da equipe"),
+    otherSex: tx("Outro sexo"),
+  };
+
+  const SEX_LABEL: Record<CamperSex, string> = { F: tx("feminino"), M: tx("masculino") };
 
   useEffect(() => {
     if (open) {
@@ -67,7 +71,7 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
 
   const results = useMemo(() => {
     const nq = normalize(q.trim());
-    const byName = (a: Staff, b: Staff) => a.name.localeCompare(b.name, "pt-BR");
+    const byName = (a: Staff, b: Staff) => a.name.localeCompare(b.name, collatorLocale());
     // anyone with a room; the staff wing (no sex) is the exception at the end — a parent on the team, say.
     // admins are on the roster only for the room / transport / vest: they never look after kids
     const pool = staff.filter((s) => !s.redacted && !!s.bedroom && s.id !== k.caretakerId && (!nq || normalize(s.name).includes(nq)));
@@ -104,9 +108,9 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
       const ok = await confirm({
         emoji: "⚠️",
         danger: true,
-        title: `${first} é do sexo ${SEX_LABEL[sSex]}. Confirmar como líder de ${kid}?`,
-        message: `${kid} é do sexo ${SEX_LABEL[kidSex]}. Confira se é isso mesmo antes de continuar.`,
-        confirmLabel: "Sim, confirmar",
+        title: tx("{name} é do sexo {sex}. Confirmar como líder de {kid}?", { name: first, sex: SEX_LABEL[sSex], kid }),
+        message: tx("{kid} é do sexo {sex}. Confira se é isso mesmo antes de continuar.", { kid, sex: SEX_LABEL[kidSex] }),
+        confirmLabel: tx("Sim, confirmar"),
       });
       if (!ok) return;
     }
@@ -116,13 +120,13 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
     const changeRoom = s.bedroom !== k.bedroom;
     if (changeRoom) {
       const toStaffWing = sRoom.group === "staff";
-      const from = room ? `${kid} sai do quarto ${bedroomLabel(room)}` : `${kid} ainda não tem quarto`;
+      const from = room ? tx("{kid} sai do quarto {room}", { kid, room: bedroomLabel(room) }) : tx("{kid} ainda não tem quarto", { kid });
       const ok = await confirm({
         emoji: toStaffWing ? "⚠️" : <BedIcon size={22} group={sRoom.group} />,
         danger: toStaffWing,
-        title: `Mudar ${kid} para o quarto ${bedroomLabel(sRoom)}?`,
-        message: toStaffWing ? "Este é um quarto da EQUIPE, não de crianças." : `${from} e vai para o quarto de ${first}.`,
-        confirmLabel: "Mudar de quarto",
+        title: tx("Mudar {name} para o quarto {room}?", { name: kid, room: bedroomLabel(sRoom) }),
+        message: toStaffWing ? tx("Este é um quarto da EQUIPE, não de crianças.") : tx("{from} e vai para o quarto de {name}.", { from, name: first }),
+        confirmLabel: tx("Mudar de quarto"),
       });
       if (!ok) return;
     }
@@ -136,7 +140,7 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
       else await updateCamper(token, k.id, { caretakerId: s.id });
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -156,32 +160,42 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
     }
   }
 
+  const whoCares =
+    kidSex === "F"
+      ? tx("Quem vai cuidar da {name}?", { name: k.name.split(" ")[0] })
+      : kidSex === "M"
+        ? tx("Quem vai cuidar do {name}?", { name: k.name.split(" ")[0] })
+        : tx("Quem vai cuidar do(a) {name}?", { name: k.name.split(" ")[0] });
+
   let index = -1;
   return (
-    <Dialog open={open} onClose={onClose} title="Escolher líder" width={520} dismissible={!busy} autofocus className="picker-sheet-dialog">
+    <Dialog open={open} onClose={onClose} title={tx("Escolher líder")} width={520} dismissible={!busy} autofocus className="picker-sheet-dialog">
       <div className="picker picker-sheet">
         {/* head · body · actions: on phones this becomes a bottom sheet (see .picker-sheet) */}
         <header className="picker-sheet__head">
           <span className="picker-sheet__handle" aria-hidden="true" />
           <h2 className="cat-form__title">
-            <RoomRoleIcon role="caretaker" sex={kidSex} /> Quem vai cuidar {kidSex === "F" ? "da" : kidSex === "M" ? "do" : "do(a)"} {k.name.split(" ")[0]}?
+            <RoomRoleIcon role="caretaker" sex={kidSex} /> {whoCares}
           </h2>
-          <input
-            ref={inputRef}
-            className="cat-input"
-            type="search"
-            placeholder="Digite o nome…"
-            value={q}
-            disabled={busy}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={onKey}
-            aria-label="Buscar pessoa"
-          />
+          <label className="staff-toolbar__search">
+            <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
+            <input
+              ref={inputRef}
+              className="cat-input"
+              type="search"
+              placeholder={tx("Digite o nome…")}
+              value={q}
+              disabled={busy}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={onKey}
+              aria-label={tx("Buscar pessoa")}
+            />
+          </label>
           {kidSex && (
             <p className="cat-hint">
-              Equipe do sexo {SEX_LABEL[kidSex]}
+              {tx("Equipe do sexo {sex}", { sex: SEX_LABEL[kidSex] })}
               {/* the kid's OWN room, in the hint: keeps the green pill — it is a fact about the kid, not a row of the list */}
-              {room ? <> · <BedroomTag bedroom={room} className="staff-tag--inline" /></> : " · sem quarto"}
+              {room ? <> · <BedroomTag bedroom={room} className="staff-tag--inline" /></> : tx(" · sem quarto")}
             </p>
           )}
           {error && <p className="message message--error">{error}</p>}
@@ -189,7 +203,7 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
 
         <div className="picker-sheet__body">
         {flat.length === 0 ? (
-          <p className="opt-empty">Ninguém encontrado.</p>
+          <p className="opt-empty">{tx("Ninguém encontrado.")}</p>
         ) : (
           <ul className="picker__list" role="listbox">
             {results.map((g) => (
@@ -197,7 +211,7 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
                 <p className="picker__group-title">
                   {g.group === "otherSex" ? "⚠️ " : ""}
                   {GROUP_LABEL[g.group]}
-                  {g.group === "otherSex" && kidSex && <span className="picker__group-hint">ninguém do sexo {SEX_LABEL[kidSex]} encontrado</span>}
+                  {g.group === "otherSex" && kidSex && <span className="picker__group-hint">{tx("ninguém do sexo {sex} encontrado", { sex: SEX_LABEL[kidSex] })}</span>}
                 </p>
                 <ul className="picker__list">
                   {g.items.map((s) => {
@@ -221,12 +235,12 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
                             {/* · Líder / Auxiliar, right after the name */}
                             <span className="picker__role">
                               <span className="picker__dot" aria-hidden="true">·</span>
-                              <RoomRoleIcon role={s.roomRole} sex={staffSex(s, bedrooms)} size={16} /> {ROOM_ROLE_META[s.roomRole].label}
+                              <RoomRoleIcon role={s.roomRole} sex={staffSex(s, bedrooms)} size={16} /> {tx(ROOM_ROLE_META[s.roomRole].label)}
                             </span>
                           </span>
                           {/* just the room: bunk + number, no pill and no wing face — the list is already filtered to the kid's wing */}
                           <span className="picker__meta">
-                            {g.group !== "roomLeaders" && g.group !== "roomHelpers" && (sRoom ? <BedroomTag bedroom={sRoom} className="staff-tag--inline staff-tag--bare" /> : <span className="picker__busy-where">sem quarto</span>)}
+                            {g.group !== "roomLeaders" && g.group !== "roomHelpers" && (sRoom ? <BedroomTag bedroom={sRoom} className="staff-tag--inline staff-tag--bare" /> : <span className="picker__busy-where">{tx("sem quarto")}</span>)}
                           </span>
                         </button>
                       </li>
@@ -241,7 +255,7 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
 
         <div className="cat-form__actions picker-sheet__actions">
           <button type="button" className="button button--secondary" onClick={onClose} disabled={busy}>
-            Cancelar
+            {tx("Cancelar")}
           </button>
         </div>
       </div>

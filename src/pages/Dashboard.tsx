@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { TabOverrideContext, type TabKey } from "../dashTab";
 import { HideScanFabContext } from "../scanFab";
 import { useCampTiming, type CampPhase } from "../campPhase";
+import { useI18n } from "../i18n";
 import { useRoute, useScrollTopOnRoute } from "../router";
 import Logo from "../components/Logo";
 import { logout } from "../auth/store";
@@ -42,6 +43,7 @@ import VestPage from "./VestPage";
 import VestHelpersPage from "./admin/VestHelpersPage";
 import PhotographersPage from "./admin/PhotographersPage";
 import TeamsPage from "./admin/TeamsPage";
+import AssignToTeamsPage from "./admin/AssignToTeamsPage";
 import GameOrganizersPage from "./admin/GameOrganizersPage";
 import TrialsPage from "./admin/TrialsPage";
 import CleanupPage from "./admin/CleanupPage";
@@ -74,7 +76,7 @@ interface DashboardProps {
 type View = TabKey | "profile" | "badge" | "settings" | "wizard" | SettingsKey;
 
 /** Admin settings live behind the ⚙️ button; each one is its own URL (#/categories, #/settings). `superOnly`: just the deployment owner (SUPER_ADMIN_PHONE) — Sementes. */
-type SettingsKey = "general" | "trials" | "categories" | "cleanup" | "teams" | "preparation" | "instructions-admin" | "checkin-settings" | "organizers" | "game-organizers" | "medical" | "vests-settings" | "photographers" | "contacts" | "notifications" | "seeds" | "about";
+type SettingsKey = "general" | "trials" | "categories" | "cleanup" | "preparation" | "instructions-admin" | "checkin-settings" | "organizers" | "game-organizers" | "medical" | "vests-settings" | "photographers" | "contacts" | "notifications" | "seeds" | "about";
 /** `adminOnly`: an ORGANIZER (Settings → Organizadores) gets every other page — these four stay with the real admin. `superOnly`: only the deployment owner. */
 const SETTINGS: readonly { key: SettingsKey; label: string; emoji?: string; icon?: string; adminOnly?: boolean; superOnly?: boolean }[] = [
   { key: "general", label: "Geral", emoji: "⚙️" },
@@ -86,9 +88,8 @@ const SETTINGS: readonly { key: SettingsKey; label: string; emoji?: string; icon
   { key: "photographers", label: "Fotógrafos", icon: ICONS.camera },
   { key: "medical", label: "Equipe médica", icon: roleMeta("health_staff").icon },
   { key: "vests-settings", label: "Coletes", emoji: "🦺" },
-  { key: "contacts", label: "Important contacts", emoji: "📞" },
+  { key: "contacts", label: "Contatos importantes", emoji: "📞" },
   { key: "notifications", label: "Notificações", icon: ICONS.notifications, adminOnly: true },
-  { key: "teams", label: "Times", emoji: "🚩" },
   { key: "trials", label: "Testes", emoji: "🚧" },
   { key: "categories", label: "Categorias", emoji: "🗂️", adminOnly: true },
   { key: "cleanup", label: "Limpeza", icon: ICONS.cleanup, adminOnly: true },
@@ -123,9 +124,10 @@ interface Tab {
  * "Fotos" only shows up for the TEAM once the album is published (`galleryOpen`):
  * before that there is nothing to see, so the tab would just be an empty page.
  */
-function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft: boolean, scoreOpen: boolean, galleryOpen: boolean): Tab[] {
-  /** the scoreboard only exists while the camp is happening (first day → end of the last event) or in draft (rehearsal) mode */
+function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft: boolean, scoreOpen: boolean, galleryOpen: boolean, during: boolean): Tab[] {
+  /** ordinary staff + score helpers keep Placar only while scoring is open. Managers always have one entry: Times before/after camp, Placar during it. */
   const scoreboard: Tab[] = scoreOpen ? [{ key: "scoreboard", label: "Placar", emoji: "🏆" }] : [];
+  const managerTeamsTab: Tab = during ? { key: "scoreboard", label: "Placar", emoji: "🏆" } : { key: "teams", label: "Times", icon: ICONS.team };
   const prep: Tab = { key: "prep", label: "Preparação", icon: ICONS.preparation };
   const home: Tab = { key: "home", label: "Início", emoji: "🏠" };
   // rooms still a draft (Settings → Geral): nobody knows their room yet, so Preparação IS the home
@@ -138,7 +140,7 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
     { key: "buses", label: "Ônibus", icon: ICONS.transport },
     { key: "schedule", label: "Programação", icon: ICONS.schedule },
     { key: "checkin", label: "Check-in", emoji: "✅" },
-    ...scoreboard,
+    managerTeamsTab,
     { key: "occurrences", label: "Ocorrências", emoji: "📋" },
     // what the medical team ticked as given (they own the page; the admin follows it)
     { key: "medications", label: "Medicações", icon: ICONS.medications },
@@ -184,8 +186,8 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
         ...teamHome,
         { key: "schedule", label: "Programação", icon: ICONS.schedule },
         { key: "instructions", label: "Instruções", emoji: "📖" },
-        // the whole team follows the games (while the camp is on); only the game organizers write the points
-        ...scoreboard,
+        // game organizers get Times before/after camp and Placar during it; ordinary staff and score helpers keep Placar.
+        ...(helper.gameOrganizer ? [managerTeamsTab] : scoreboard),
         ...(helper.gameOrganizer ? [{ key: "staff" as const, label: "Equipe", icon: roleMeta("staff").icon }] : []),
         ...(helper.church ? [{ key: "checkin" as const, label: "Check-in Igreja", emoji: "⛪" }] : []),
         // a bus helper rolls-call inside the window
@@ -209,6 +211,7 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
  * land on the profile.
  */
 export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: DashboardProps) {
+  const { tx } = useI18n();
   const meta = roleMeta(user.activeRole);
   const { phase, synced, during, endsAt } = useCampTiming();
   const isTeam = user.activeRole === "staff" || user.activeRole === "health_staff";
@@ -222,7 +225,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   const scoreOpen = during || (!!settings?.scoreDraft && (user.activeRole === "admin" || helper.organizer || helper.gameOrganizer || helper.scoreHelper));
   /** the album shows up for the team once it is published; whoever manages it (organizer / photographer) always has the tab */
   const galleryOpen = !!settings?.galleryPublished || helper.organizer || helper.photographer;
-  const tabs = tabsFor(user.activeRole, phase, helper, roomsDraft, scoreOpen, galleryOpen);
+  const tabs = tabsFor(user.activeRole, phase, helper, roomsDraft, scoreOpen, galleryOpen, during);
   /**
    * PHONES ONLY (the class it drives does nothing above 700px). Six tabs of
    * which two are Preparação + Instruções: the bottom bar merges them into a
@@ -282,7 +285,8 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   /** desktop ⚙️ landing — Notificações for the admin; organizers have no such page, so Geral */
   const settingsHome: SettingsKey = settingsPages.find((s) => s.key === "notifications")?.key ?? settingsPages[0].key;
   const isSettingsKey = (s: string | undefined): s is SettingsKey => settingsPages.some((x) => x.key === s);
-  const isView = (s: string | undefined): s is View => s === "profile" || (s === "wizard" && isAdmin) || (s === "badge" && !isParent && during) || (settingsAllowed && (s === "settings" || isSettingsKey(s))) || tabs.some((t) => t.key === s);
+  const managesTeams = settingsAllowed || helper.gameOrganizer;
+  const isView = (s: string | undefined): s is View => s === "profile" || (s === "wizard" && isAdmin) || (s === "badge" && !isParent && during) || (settingsAllowed && (s === "settings" || isSettingsKey(s))) || (managesTeams && (s === "teams" || s === "scoreboard")) || tabs.some((t) => t.key === s);
   const view: View = isView(segments[0]) ? segments[0] : tabs[0]?.key ?? "profile";
   /** the tab we auto-landed on BEFORE the programme had arrived (the phase, hence the default, may still change) */
   const provisionalLanding = useRef<string | null>(null);
@@ -383,7 +387,8 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
     root.classList.toggle("has-bottom-nav", useMobileBottomNav);
     return () => root.classList.remove("has-bottom-nav");
   }, [useMobileBottomNav]);
-  const shownTab: View = !profileOpen && !settingsOpen && tabOverride ? tabOverride : view;
+  const routeTab: View = managesTeams && view === "teams" && during ? "scoreboard" : managesTeams && view === "scoreboard" && !during ? "teams" : view;
+  const shownTab: View = !profileOpen && !settingsOpen && tabOverride ? tabOverride : routeTab;
   const currentTab = tabs.find((tab) => tab.key === shownTab);
   const currentSetting = settingsOpen ? settingsPages.find((item) => item.key === view) : undefined;
   const currentView = profileOpen
@@ -402,6 +407,11 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
     setTabOverride(null);
     navigate(`/${next}`);
   }
+  function goToTab(tab: Tab) {
+    setTabOverride(null);
+    // While camp is running the visible management tab is Placar; outside it is Times.
+    navigate(`/${tab.key}`);
+  }
 
   async function handleLogout() {
     if (loggingOut) return;
@@ -419,8 +429,8 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
           <button
             type="button"
             className={`dash-iconbtn dash-menu-toggle ${mobileMenuOpen ? "dash-menu-toggle--open" : ""}`}
-            title={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
-            aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+            title={mobileMenuOpen ? tx("Fechar menu") : tx("Abrir menu")}
+            aria-label={mobileMenuOpen ? tx("Fechar menu") : tx("Abrir menu")}
             aria-expanded={mobileMenuOpen}
             aria-controls="dashboard-menu"
             onClick={() => setMobileMenuOpen((open) => !open)}
@@ -440,7 +450,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
           ) : currentView.emoji ? (
             <span className="dash-current-view__emoji" aria-hidden="true">{currentView.emoji}</span>
           ) : null}
-          <span className="dash-current-view__label">{currentView.label}</span>
+          <span className="dash-current-view__label">{tx(currentView.label)}</span>
         </span>
 
         <div className="dash-user">
@@ -448,7 +458,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
           <button
             type="button"
             className={`role-chip dash-user__chip ${profileOpen ? "dash-user__chip--active" : ""}`}
-            title={`Você entrou como ${meta.personLabel} — ver perfil`}
+            title={tx("Você entrou como {role} — ver perfil", { role: tx(meta.personLabel) })}
             aria-pressed={profileOpen}
             onClick={() => goTo("profile")}
           >
@@ -459,8 +469,8 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
             <button
               type="button"
               className={`dash-iconbtn dash-settings-btn ${settingsOpen || settingsMenuOpen ? "dash-iconbtn--active" : ""}`}
-              title="Configurações: equipe, contatos, check-in e notificações"
-              aria-label="Configurações"
+              title={tx("Configurações: equipe, contatos, check-in e notificações")}
+              aria-label={tx("Configurações")}
               aria-pressed={settingsOpen || settingsMenuOpen}
               /* phones: the ⚙️ opens the menu (or, from a section page, goes back to it); desktop lands on Notificações (admin) / Geral (organizer) */
               onClick={() => goTo(isPhone ? "settings" : settingsHome)}
@@ -477,7 +487,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
       </header>
 
       {tabs.length > 0 && !wizardOpen && (
-      <nav id="dashboard-menu" className={`dash-tabs ${mobileMenuOpen ? "dash-tabs--open" : ""}`} role="tablist" aria-label="Seções">
+      <nav id="dashboard-menu" className={`dash-tabs ${mobileMenuOpen ? "dash-tabs--open" : ""}`} role="tablist" aria-label={tx("Seções")}>
         {tabs.map((t) => {
           /** the merged 📖+mala entry (phone bottom bar only) stands in for BOTH halves */
           const merged = mergesPrep && t.key === mergedKey;
@@ -503,7 +513,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
               style={{ "--mobile-nav-order": bottomNavOrder(t.key) } as CSSProperties}
               onClick={() => {
                 setMobileMenuOpen(false);
-                if (!atRoot) goTo(t.key);
+                if (!atRoot) goToTab(t);
               }}
             >
               {t.icon ? (
@@ -519,8 +529,8 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
                   <img className="dash-tab__pair-icon" src={ICONS.preparation} alt="" />
                 </span>
               )}
-              <span className="dash-tab__label">{t.label}</span>
-              {merged && <span className="dash-tab__pair-label">Instruções</span>}
+              <span className="dash-tab__label">{tx(t.label)}</span>
+              {merged && <span className="dash-tab__pair-label">{tx("Instruções")}</span>}
             </button>
           );
         })}
@@ -536,7 +546,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
           }}
         >
           <img className="dash-tab__icon" src={meta.icon} alt="" aria-hidden="true" />
-          <span className="dash-tab__label">Perfil</span>
+          <span className="dash-tab__label">{tx("Perfil")}</span>
         </button>
         {/* phones: for everyone else the ⚙️ would live here, in the drawer; admins /
             organizers keep it in the app bar instead, so this entry is hidden for them */}
@@ -552,14 +562,14 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
             }}
           >
             <span className="dash-tab__emoji" aria-hidden="true">⚙️</span>
-            <span className="dash-tab__label">Configurações</span>
+            <span className="dash-tab__label">{tx("Configurações")}</span>
           </button>
         )}
       </nav>
       )}
       </div>
       {mobileMenuOpen && !useMobileBottomNav && (
-        <button type="button" className="dash-menu-backdrop" aria-label="Fechar menu" onClick={() => setMobileMenuOpen(false)} />
+        <button type="button" className="dash-menu-backdrop" aria-label={tx("Fechar menu")} onClick={() => setMobileMenuOpen(false)} />
       )}
 
       <div className="dash-scroll">
@@ -568,7 +578,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
       <main className={`dash-body ${settingsOpen ? "dash-body--settings" : ""}`} role="tabpanel">
         {/* PHONES: the iPhone-style settings menu — one grouped card, one row per section */}
         {settingsMenuOpen && isPhone && (
-          <nav className="settings-menu" aria-label="Configurações">
+          <nav className="settings-menu" aria-label={tx("Configurações")}>
             <ul className="settings-menu__list">
               {settingsPages.map((s) => (
                 <li key={s.key} className="settings-menu__row">
@@ -576,7 +586,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
                     <span className="settings-menu__icon" aria-hidden="true">
                       {s.icon ? <img src={s.icon} alt="" /> : s.emoji}
                     </span>
-                    <span className="settings-menu__label">{s.label}</span>
+                    <span className="settings-menu__label">{tx(s.label)}</span>
                     <span className="settings-menu__chevron" aria-hidden="true">›</span>
                   </button>
                 </li>
@@ -587,12 +597,12 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
         {/* PHONES: a section page carries a back link to the menu (desktop keeps the sidebar, never this) */}
         {settingsOpen && isPhone && (
           <button type="button" className="settings-back" onClick={() => goTo("settings")}>
-            <span className="settings-back__arrow" aria-hidden="true">‹</span> Configurações
+            <span className="settings-back__arrow" aria-hidden="true">‹</span> {tx("Configurações")}
           </button>
         )}
         {settingsOpen && !isPhone && (
-          <nav className="settings-nav" aria-label="Configurações">
-            <h2 className="settings-nav__title">⚙️ Configurações</h2>
+          <nav className="settings-nav" aria-label={tx("Configurações")}>
+            <h2 className="settings-nav__title">⚙️ {tx("Configurações")}</h2>
             <ul className="settings-nav__list">
               {settingsPages.map((s) => {
                 const active = s.key === view;
@@ -609,7 +619,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
                       ) : (
                         <span className="settings-nav__emoji" aria-hidden="true">{s.emoji}</span>
                       )}
-                      <span className="settings-nav__label">{s.label}</span>
+                      <span className="settings-nav__label">{tx(s.label)}</span>
                     </button>
                   </li>
                 );
@@ -647,9 +657,10 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
             {view === "medical" && <MedicalStaffPage token={token} />}
             {view === "vests-settings" && <VestHelpersPage token={token} />}
             {view === "photographers" && <PhotographersPage token={token} />}
-            {view === "teams" && <TeamsPage token={token} />}
             {view === "game-organizers" && <GameOrganizersPage token={token} />}
-            {view === "scoreboard" && <ScoreboardPage token={token} userId={user.id} canEdit={settingsAllowed || helper.gameOrganizer} canScan={settingsAllowed || helper.gameOrganizer || helper.scoreHelper} />}
+            {view === "teams" && segments[1] === "assign" && <AssignToTeamsPage token={token} onBack={() => navigate("/teams")} onScoreboard={during ? () => navigate("/scoreboard") : undefined} />}
+            {view === "teams" && segments[1] !== "assign" && <TeamsPage token={token} onAssign={() => navigate("/teams/assign")} onScoreboard={!during ? () => navigate("/scoreboard") : undefined} onScoreboardBack={during ? () => navigate("/scoreboard") : undefined} />}
+            {view === "scoreboard" && <ScoreboardPage token={token} userId={user.id} canEdit={scoreOpen && (settingsAllowed || helper.gameOrganizer)} canScan={scoreOpen && (settingsAllowed || helper.gameOrganizer || helper.scoreHelper)} showTeamsButton={managesTeams && during} onTeams={() => navigate("/teams")} teamsParent={!during && managesTeams} />}
             {view === "gallery" && <GalleryPage token={token} canManage={settingsAllowed || helper.photographer} parentMode={isParent} />}
             {view === "contacts" && <ParentContactsPage token={token} />}
             {view === "notifications" && <NotificationsPage token={token} />}
@@ -713,6 +724,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
 }
 
 function ProfileView({ user, onLogout, loggingOut, onSwitchRole, onOpenWizard }: { user: LoggedUser; onLogout: () => void; loggingOut: boolean; onSwitchRole: (role: Role) => Promise<void>; /** admin only: reopen the setup wizard */ onOpenWizard?: () => void }) {
+  const { tx } = useI18n();
   const meta = roleMeta(user.activeRole);
   const otherRoles = user.roles.filter((r) => r !== user.activeRole);
   const [switchingTo, setSwitchingTo] = useState<Role | null>(null);
@@ -726,7 +738,7 @@ function ProfileView({ user, onLogout, loggingOut, onSwitchRole, onOpenWizard }:
     try {
       await onSwitchRole(role);
     } catch (err) {
-      setSwitchError(err instanceof Error ? err.message : "Não foi possível trocar de perfil.");
+      setSwitchError(err instanceof Error ? err.message : tx("Não foi possível trocar de perfil."));
       setSwitchingTo(null);
     }
   }
@@ -735,30 +747,30 @@ function ProfileView({ user, onLogout, loggingOut, onSwitchRole, onOpenWizard }:
     <div className="screen screen--narrow">
       <div className="confetti" aria-hidden="true">🎉 🏕️ ✨ 🌲 🎈</div>
 
-      <h1 className="title title--small">Boas-vindas, {user.name.split(" ")[0]}! 🎉</h1>
+      <h1 className="title title--small">{tx("Boas-vindas, {name}! 🎉", { name: user.name.split(" ")[0] })}</h1>
       <p className="subtitle">
-        Você entrou como <strong>{meta.personLabel}</strong>
+        {tx("Você entrou como {role}", { role: tx(meta.personLabel) })}
       </p>
 
       <div className="user-card">
         <div className="user-card__row">
-          <span className="user-card__label">Nome</span>
+          <span className="user-card__label">{tx("Nome")}</span>
           <span className="user-card__value">{user.name}</span>
         </div>
         <div className="user-card__row">
-          <span className="user-card__label">Celular</span>
+          <span className="user-card__label">{tx("Celular")}</span>
           <span className="user-card__value">{user.phone}</span>
         </div>
         <div className="user-card__row">
-          <span className="user-card__label">Perfil</span>
+          <span className="user-card__label">{tx("Perfil")}</span>
           {/* the one they are already in: a plain label, nothing to tap */}
           <span className="role-chip role-chip--small role-chip--bare">
-            <img className="role-chip__icon" src={meta.icon} alt="" aria-hidden="true" /> {meta.label}
+            <img className="role-chip__icon" src={meta.icon} alt="" aria-hidden="true" /> {tx(meta.label)}
           </span>
         </div>
         {otherRoles.length > 0 && (
           <div className="user-card__row">
-            <span className="user-card__label">Outros perfis</span>
+            <span className="user-card__label">{tx("Outros perfis")}</span>
             <span className="user-card__roles">
               {otherRoles.map((r) => {
                 const m = roleMeta(r);
@@ -769,9 +781,9 @@ function ProfileView({ user, onLogout, loggingOut, onSwitchRole, onOpenWizard }:
                     className={`role-chip role-chip--${m.color} role-chip--small role-chip--switch`}
                     disabled={!!switchingTo}
                     onClick={() => void enterAs(r)}
-                    title={`Entrar como ${m.label}`}
+                    title={tx("Entrar como {role}", { role: tx(m.label) })}
                   >
-                    <img className="role-chip__icon" src={m.icon} alt="" aria-hidden="true" /> {switchingTo === r ? "Entrando…" : m.label}
+                    <img className="role-chip__icon" src={m.icon} alt="" aria-hidden="true" /> {switchingTo === r ? tx("Entrando…") : tx(m.label)}
                   </button>
                 );
               })}
@@ -785,11 +797,11 @@ function ProfileView({ user, onLogout, loggingOut, onSwitchRole, onOpenWizard }:
       <div className="profile-actions">
         {onOpenWizard && (
           <button type="button" className="button button--secondary profile-wizard" onClick={onOpenWizard}>
-            <img className="audience-icon" src={ICONS.wizard} alt="" aria-hidden="true" /> Assistente de configuração
+            <img className="audience-icon" src={ICONS.wizard} alt="" aria-hidden="true" /> {tx("Assistente de configuração")}
           </button>
         )}
         <button type="button" className="button button--danger profile-logout" onClick={onLogout} disabled={loggingOut}>
-          {loggingOut ? "Saindo…" : "Sair do aplicativo"}
+          {loggingOut ? tx("Saindo…") : tx("Sair do aplicativo")}
         </button>
       </div>
     </div>

@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { deleteScore, type ScoreEntry } from "../../api/scores";
 import Breadcrumbs from "../../components/Breadcrumbs";
+import { SearchGlyph } from "../../components/Glyph";
 import { useConfirm } from "../../components/ConfirmDialog";
 import { useCollectionOrEmpty } from "../../store";
 import { canDeleteLine, eventLabel, fmtPoints, KIND_META, lineKind, normalize, ScoreLogList, useEventMap, useTeamMap, type KindFilter, type LineKind } from "./scoreLog";
+import { collatorLocale, useI18n } from "../../i18n";
 
 interface Props {
   token: string;
@@ -24,6 +26,7 @@ const KINDS: LineKind[] = ["scan", "add", "remove", "reset"];
  * kind, team, event, person or free text.
  */
 export default function ScoreHistoryPage({ token, userId, canEdit, canScan, onBack, onTeam, onEvent }: Props) {
+  const { tx } = useI18n();
   const scores = useCollectionOrEmpty("scores");
   const teams = useCollectionOrEmpty("teams");
   const events = useCollectionOrEmpty("events");
@@ -42,7 +45,7 @@ export default function ScoreHistoryPage({ token, userId, canEdit, canScan, onBa
   const people = useMemo(() => {
     const m = new Map<string, string>();
     for (const e of scores) if (e.by.id && !m.has(e.by.id)) m.set(e.by.id, e.by.name);
-    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], collatorLocale()));
   }, [scores]);
   const eventsWithScans = useMemo(() => {
     const ids = new Set(scores.map((e) => e.eventId).filter(Boolean));
@@ -74,15 +77,24 @@ export default function ScoreHistoryPage({ token, userId, canEdit, canScan, onBa
   const filtering = kind !== "all" || !!teamId || !!eventId || !!byId || !!search.trim();
 
   async function remove(e: ScoreEntry) {
-    const team = teamMap.get(e.teamId)?.name ?? "o time";
+    const team = teamMap.get(e.teamId)?.name ?? tx("o time");
     const who = e.camperName ? `${e.camperName} (${team})` : team;
-    if (!(await confirm({ title: "Apagar este lançamento?", message: `${fmtPoints(e.points)} para ${who} será desfeito. O placar muda na hora.`, confirmLabel: "Apagar", danger: true, emoji: "🗑️" }))) return;
+    if (
+      !(await confirm({
+        title: tx("Apagar este lançamento?"),
+        message: tx("{pts} para {who} será desfeito. O placar muda na hora.", { pts: fmtPoints(e.points), who }),
+        confirmLabel: tx("Apagar"),
+        danger: true,
+        emoji: "🗑️",
+      }))
+    )
+      return;
     setDeletingId(e.id);
     setError(null);
     try {
       await deleteScore(token, e.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setDeletingId(null);
     }
@@ -90,53 +102,57 @@ export default function ScoreHistoryPage({ token, userId, canEdit, canScan, onBa
 
   return (
     <div className="admin-page">
-      <Breadcrumbs items={[{ label: "Placar", onClick: onBack }, { label: "Histórico" }]} />
+      <Breadcrumbs items={[{ label: tx("Placar"), onClick: onBack }, { label: tx("Histórico") }]} />
       <header className="admin-head">
-        <h1 className="admin-title">📜 Histórico do placar</h1>
+        <h1 className="admin-title">📜 {tx("Histórico do placar")}</h1>
       </header>
-      <p className="admin-intro">Cada ponto do placar vem de um lançamento: quem lançou, para qual time, por qual evento e por quê. Nada é apagado ao zerar — só ao apagar uma linha.</p>
+      <p className="admin-intro">{tx("Cada ponto do placar vem de um lançamento: quem lançou, para qual time, por qual evento e por quê. Nada é apagado ao zerar — só ao apagar uma linha.")}</p>
 
-      <div className="cat-tabs" role="tablist" aria-label="Tipo de lançamento">
+      <div className="cat-tabs" role="tablist" aria-label={tx("Tipo de lançamento")}>
         <button type="button" role="tab" className={`cat-tab ${kind === "all" ? "cat-tab--active" : ""}`} aria-selected={kind === "all"} onClick={() => setKind("all")}>
-          Tudo <span className="cat-tab__count">{counts.all}</span>
+          {tx("Tudo")} <span className="cat-tab__count">{counts.all}</span>
         </button>
         {KINDS.map((k) => (
           <button key={k} type="button" role="tab" className={`cat-tab ${kind === k ? "cat-tab--active" : ""}`} aria-selected={kind === k} onClick={() => setKind(k)}>
-            <span className="cat-tab__emoji">{KIND_META[k].emoji}</span> {KIND_META[k].plural} <span className="cat-tab__count">{counts[k]}</span>
+            <span className="cat-tab__emoji">{KIND_META[k].emoji}</span> {tx(KIND_META[k].plural)} <span className="cat-tab__count">{counts[k]}</span>
           </button>
         ))}
       </div>
 
       <div className="score-filters">
-        <select className="cat-input" value={teamId} onChange={(e) => setTeamId(e.target.value)} aria-label="Time">
-          <option value="">Todos os times</option>
+        <select className="cat-input" value={teamId} onChange={(e) => setTeamId(e.target.value)} aria-label={tx("Time")}>
+          <option value="">{tx("Todos os times")}</option>
           {teams.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name}
             </option>
           ))}
         </select>
-        <select className="cat-input" value={eventId} onChange={(e) => setEventId(e.target.value)} aria-label="Evento">
-          <option value="">Todos os eventos</option>
+        <select className="cat-input" value={eventId} onChange={(e) => setEventId(e.target.value)} aria-label={tx("Evento")}>
+          <option value="">{tx("Todos os eventos")}</option>
           {eventsWithScans.map((e) => (
             <option key={e.id} value={e.id}>
               {eventLabel(e)}
             </option>
           ))}
         </select>
-        <select className="cat-input" value={byId} onChange={(e) => setById(e.target.value)} aria-label="Lançado por">
-          <option value="">Qualquer pessoa</option>
+        <select className="cat-input" value={byId} onChange={(e) => setById(e.target.value)} aria-label={tx("Lançado por")}>
+          <option value="">{tx("Qualquer pessoa")}</option>
           {people.map(([id, name]) => (
             <option key={id} value={id}>
               {name}
             </option>
           ))}
         </select>
-        <input className="cat-input" type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar criança, observação, pessoa…" aria-label="Buscar" />
+        <label className="staff-toolbar__search">
+          <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
+          <input className="cat-input" type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tx("Buscar criança, observação, pessoa…")} aria-label={tx("Buscar")} />
+        </label>
       </div>
 
       <p className="scan-points__summary" aria-live="polite">
-        <strong>{filtered.length}</strong> lançamento{filtered.length !== 1 ? "s" : ""} · saldo <strong className={net < 0 ? "score-neg" : "score-pos"}>{fmtPoints(net)}</strong>
+        <strong>{filtered.length}</strong> {filtered.length === 1 ? tx("lançamento") : tx("lançamentos")} · {tx("saldo")}{" "}
+        <strong className={net < 0 ? "score-neg" : "score-pos"}>{fmtPoints(net)}</strong>
         {filtering && (
           <>
             {" "}
@@ -152,7 +168,7 @@ export default function ScoreHistoryPage({ token, userId, canEdit, canScan, onBa
                 setSearch("");
               }}
             >
-              Limpar filtros
+              {tx("Limpar filtros")}
             </button>
           </>
         )}
@@ -169,7 +185,7 @@ export default function ScoreHistoryPage({ token, userId, canEdit, canScan, onBa
         canDelete={(e) => canDeleteLine(e, { canEdit, canScan, userId })}
         onDelete={remove}
         deletingId={deletingId}
-        emptyText={filtering ? "Nenhum lançamento com esses filtros." : "Ainda não há lançamentos no placar."}
+        emptyText={filtering ? tx("Nenhum lançamento com esses filtros.") : tx("Ainda não há lançamentos no placar.")}
       />
     </div>
   );

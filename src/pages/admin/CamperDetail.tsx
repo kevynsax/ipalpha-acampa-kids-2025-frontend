@@ -28,6 +28,7 @@ import { useCamperDetail, useLabelOf } from "../../store/derive";
 import TransportTag from "../../components/TransportTag";
 import type { DetailNav } from "./DetailStack";
 import { speakBirth } from "../../dates";
+import { useI18n } from "../../i18n";
 
 interface CamperDetailProps {
   token: string;
@@ -55,6 +56,7 @@ interface CamperDetailProps {
 
 /** One kid: full registration info, the room + caretakers, and roommates. */
 export default function CamperDetail({ token, camperId, nav, camperOverride, bedroomOverride, caretakerOverride, onEdit, canEditHealth, onOpenStaff, onOpenCamper, onOpenBedroom }: CamperDetailProps) {
+  const { tx } = useI18n();
   const [moveOpen, setMoveOpen] = useState(false);
   const [leaderOpen, setLeaderOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -94,7 +96,7 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
     return (
       <div className="admin-page">
         <Breadcrumbs items={nav.crumbs} />
-        {data === undefined && !camperOverride ? <p className="message message--error">Acampante não encontrado.</p> : <p className="opt-empty">Sincronizando… 🏕️</p>}
+        {data === undefined && !camperOverride ? <p className="message message--error">{tx("Acampante não encontrado.")}</p> : <p className="opt-empty">{tx("Sincronizando… 🏕️")}</p>}
       </div>
     );
   }
@@ -111,16 +113,16 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
         <h1 className="admin-title detail-title">
           <KidIcon sex={sex} size={40} />
           {k.name}
-          {age !== null && <span className="kid-card__age">{age} anos</span>}
+          {age !== null && <span className="kid-card__age">{tx("{age} anos", { age })}</span>}
         </h1>
         {onEdit && (
           <>
             {k.parentEditedAt && (
-              <button type="button" className="icon-btn icon-btn--lg" title="Histórico de alterações feitas pelos pais" aria-label="Histórico de alterações" onClick={() => setHistoryOpen(true)}>
+              <button type="button" className="icon-btn icon-btn--lg" title={tx("Histórico de alterações feitas pelos pais")} aria-label={tx("Histórico de alterações")} onClick={() => setHistoryOpen(true)}>
                 🕓
               </button>
             )}
-            <button type="button" className="icon-btn icon-btn--lg" title="Editar" aria-label="Editar" onClick={() => onEdit(k)}>
+            <button type="button" className="icon-btn icon-btn--lg" title={tx("Editar")} aria-label={tx("Editar")} onClick={() => onEdit(k)}>
               <span className="pencil" aria-hidden="true">✏️</span>
             </button>
           </>
@@ -129,11 +131,11 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
 
       <section className="detail-card">
         <dl className="detail-grid">
-          <dt>Líder</dt>
+          <dt>{tx("Líder")}</dt>
           <dd>
             {caretaker ? (
               onOpenStaff ? (
-                <button type="button" className="link-btn" title="Ver líder" onClick={() => onOpenStaff(caretaker.id)}>
+                <button type="button" className="link-btn" title={tx("Ver líder")} onClick={() => onOpenStaff(caretaker.id)}>
                   {caretaker.name}
                 </button>
               ) : (
@@ -142,28 +144,28 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
             ) : k.caretakerId ? (
               "—"
             ) : (
-              <span className="orphan-tag">⚠️ Sem líder</span>
+              <span className="orphan-tag">⚠️ {tx("Sem líder")}</span>
             )}
             {onEdit && (
-              <button type="button" className="icon-btn icon-btn--bare" title={caretaker ? "Trocar líder" : "Escolher líder"} aria-label={caretaker ? "Trocar líder" : "Escolher líder"} onClick={() => setLeaderOpen(true)}>
+              <button type="button" className="icon-btn icon-btn--bare" title={caretaker ? tx("Trocar líder") : tx("Escolher líder")} aria-label={caretaker ? tx("Trocar líder") : tx("Escolher líder")} onClick={() => setLeaderOpen(true)}>
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
               </button>
             )}
           </dd>
-          <dt>Nascimento</dt>
+          <dt>{tx("Nascimento")}</dt>
           <dd>{speakBirth(k.birthDate) ?? "—"}</dd>
-          <dt>Peso</dt>
-          <dd>{k.weightKg != null ? `${String(k.weightKg).replace(".", ",")} kg` : "—"}</dd>
-          <dt>Time</dt>
+          <dt>{tx("Peso")}</dt>
+          <dd>{k.weightKg != null ? tx("{weight} kg", { weight: String(k.weightKg).replace(".", ",") }) : "—"}</dd>
+          <dt>{tx("Time")}</dt>
           <dd>
             <TeamTag teamId={k.team} fallback="—" />
             {onEdit && (
-              <button type="button" className="icon-btn icon-btn--bare" title="Trocar de time" aria-label="Trocar de time" onClick={() => setFieldOpen("team")}>
+              <button type="button" className="icon-btn icon-btn--bare" title={tx("Trocar de time")} aria-label={tx("Trocar de time")} onClick={() => setFieldOpen("team")}>
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
               </button>
             )}
           </dd>
-          <dt>Quarto</dt>
+          <dt>{tx("Quarto")}</dt>
           <dd>
             {bedroom ? (
               <BedroomTag bedroom={bedroom} onClick={onOpenBedroom ? () => onOpenBedroom(bedroom.id) : undefined} />
@@ -171,66 +173,66 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
               "—"
             )}
             {onEdit && (
-              <button type="button" className="icon-btn icon-btn--bare" title="Trocar de quarto / líder" aria-label="Trocar de quarto ou líder" onClick={() => setMoveOpen(true)}>
+              <button type="button" className="icon-btn icon-btn--bare" title={tx("Trocar de quarto / líder")} aria-label={tx("Trocar de quarto ou líder")} onClick={() => setMoveOpen(true)}>
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
               </button>
             )}
-            {labelOf(k.bed) && <span className="staff-tag">Cama {labelOf(k.bed)!.toLowerCase()}</span>}
+            {labelOf(k.bed) && <span className="staff-tag">{tx("Cama {bed}", { bed: labelOf(k.bed)!.toLowerCase() })}</span>}
           </dd>
-          <dt>Transporte</dt>
+          <dt>{tx("Transporte")}</dt>
           <dd>
             {k.transportation ? <TransportTag transportId={k.transportation} /> : "—"}
             {onEdit && (
-              <button type="button" className="icon-btn icon-btn--bare" title="Trocar o transporte" aria-label="Trocar o transporte" onClick={() => setFieldOpen("transportation")}>
+              <button type="button" className="icon-btn icon-btn--bare" title={tx("Trocar o transporte")} aria-label={tx("Trocar o transporte")} onClick={() => setFieldOpen("transportation")}>
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
               </button>
             )}
           </dd>
           {k.bedroomPreference && (
             <>
-              <dt>Quer ficar com</dt>
+              <dt>{tx("Quer ficar com")}</dt>
               <dd>{k.bedroomPreference}</dd>
             </>
           )}
           {(k.school || k.schoolGrade) && (
             <>
-              <dt>Escola</dt>
+              <dt>{tx("Escola")}</dt>
               <dd>{[k.school, k.schoolGrade].filter(Boolean).join(" · ")}</dd>
             </>
           )}
           {k.church && (
             <>
-              <dt>Igreja</dt>
+              <dt>{tx("Igreja")}</dt>
               <dd>{k.church}</dd>
             </>
           )}
           {k.invitedBy && (
             <>
-              <dt>Convidado por</dt>
+              <dt>{tx("Convidado por")}</dt>
               <dd>{k.invitedBy}</dd>
             </>
           )}
           {(k.rg || k.cpf) && (
             <>
-              <dt>Documentos</dt>
-              <dd>{[k.rg && `RG ${k.rg}`, k.cpf && `CPF ${formatCpf(k.cpf)}`].filter(Boolean).join(" · ")}</dd>
+              <dt>{tx("Documentos")}</dt>
+              <dd>{[k.rg && tx("RG {rg}", { rg: k.rg }), k.cpf && tx("CPF {cpf}", { cpf: formatCpf(k.cpf) })].filter(Boolean).join(" · ")}</dd>
             </>
           )}
         </dl>
         {canEditHealth ? (
           <div className="detail-health">
             <div className="detail-health__head">
-              <h3 className="detail-health__title">🩺 Saúde</h3>
-              <button type="button" className="icon-btn icon-btn--bare" title="Editar saúde" aria-label="Editar saúde" onClick={() => setHealthOpen(true)}>
+              <h3 className="detail-health__title">{tx("🩺 Saúde")}</h3>
+              <button type="button" className="icon-btn icon-btn--bare" title={tx("Editar saúde")} aria-label={tx("Editar saúde")} onClick={() => setHealthOpen(true)}>
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
               </button>
             </div>
-            {healthLines(k, labelOf).length > 0 ? <HealthAlerts person={k} labelOf={labelOf} boxed /> : <p className="staff-card__alert staff-card__alert--soft">Nada de saúde declarado.</p>}
+            {healthLines(k, labelOf).length > 0 ? <HealthAlerts person={k} labelOf={labelOf} boxed /> : <p className="staff-card__alert staff-card__alert--soft">{tx("Nada de saúde declarado.")}</p>}
           </div>
         ) : (
           <HealthAlerts person={k} labelOf={labelOf} boxed />
         )}
-        {(k.generalNotes || reviewing) && <p className={`detail-note ${reviewing ? "camper-ai-observation" : ""}`} title={reviewing ? "Este campo está sendo revisado pela IA" : undefined}>📝 {k.generalNotes || "Observações em revisão pela IA…"}</p>}
+        {(k.generalNotes || reviewing) && <p className={`detail-note ${reviewing ? "camper-ai-observation" : ""}`} title={reviewing ? tx("Este campo está sendo revisado pela IA") : undefined}>📝 {k.generalNotes || tx("Observações em revisão pela IA…")}</p>}
       </section>
 
       {/* a CARE record (room team) carries the guardian's name + phone only; the rest is admin / medical / check-in.
@@ -238,13 +240,13 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
       {!k.redacted && (!k.contactsHidden || k.guardianName || k.guardianPhone) && (
         <section className="detail-section">
           <h2 className="detail-h2">
-            <ParentIcon size={24} /> Pai ou Responsável
+            <ParentIcon size={24} /> {tx("Pai ou Responsável")}
           </h2>
           <div className="detail-card">
             <dl className="detail-grid">
-              <dt>Nome</dt>
+              <dt>{tx("Nome")}</dt>
               <dd>{k.guardianName || "—"}</dd>
-              <dt>Telefone</dt>
+              <dt>{tx("Telefone")}</dt>
               <dd>
                 {k.guardianPhone ? (
                   <>
@@ -252,18 +254,18 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
                     <WhatsAppButton
                       className="wa-btn--sm"
                       href={whatsappLink(k.guardianPhone, staffGreeting({ toName: k.guardianName, fromName: myName, about: k.name }))}
-                      label={`Falar com ${k.guardianName.split(" ")[0] || "o responsável"} no WhatsApp`}
+                      label={k.guardianName.split(" ")[0] ? tx("Falar com {name} no WhatsApp", { name: k.guardianName.split(" ")[0] }) : tx("Falar com o responsável no WhatsApp")}
                     />
                   </>
                 ) : (
-                  <em className="staff-card__missing">não informado</em>
+                  <em className="staff-card__missing">{tx("não informado")}</em>
                 )}
               </dd>
               {!k.contactsHidden && (
                 <>
                   {k.guardianEmail && (
                     <>
-                      <dt>E-mail</dt>
+                      <dt>{tx("E-mail")}</dt>
                       <dd>
                         <a href={`mailto:${k.guardianEmail}`}>{k.guardianEmail}</a>
                       </dd>
@@ -271,13 +273,13 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
                   )}
                   {k.guardianCpf && (
                     <>
-                      <dt>CPF</dt>
+                      <dt>{tx("CPF")}</dt>
                       <dd>{formatCpf(k.guardianCpf)}</dd>
                     </>
                   )}
-                  <dt>Emergência</dt>
+                  <dt>{tx("Emergência")}</dt>
                   <dd>{k.emergencyContact || "—"}</dd>
-                  <dt>Convênio</dt>
+                  <dt>{tx("Convênio")}</dt>
                   <dd>
                     {k.insurance || "—"}
                     {k.insuranceCard && <span className="cat-hint">· {k.insuranceCard}</span>}
@@ -291,10 +293,10 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
 
       <section className="detail-section">
         <h2 className="detail-h2">
-          <StaffIcon size={24} /> Equipe no quarto <span className="cat-tab__count">{caretakers.length}</span>
+          <StaffIcon size={24} /> {tx("Equipe no quarto")} <span className="cat-tab__count">{caretakers.length}</span>
         </h2>
-        {!bedroom && <p className="opt-empty">Sem quarto definido.</p>}
-        {bedroom && caretakers.length === 0 && <p className="opt-empty">⚠️ Ninguém da equipe no quarto {bedroom.name}.</p>}
+        {!bedroom && <p className="opt-empty">{tx("Sem quarto definido.")}</p>}
+        {bedroom && caretakers.length === 0 && <p className="opt-empty">⚠️ {tx("Ninguém da equipe no quarto {name}.", { name: bedroom.name })}</p>}
         {caretakers.length > 0 && (
           <ul className="staff-list">
             {caretakers.map((s) => (
@@ -307,10 +309,10 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
       {bedroom && (
         <section className="detail-section">
           <h2 className="detail-h2">
-            <KidIcon sex={sex} group size={26} /> No mesmo quarto <BedroomTag bedroom={bedroom} /> <span className="cat-tab__count">{roommates.length}</span>
+            <KidIcon sex={sex} group size={26} /> {tx("No mesmo quarto")} <BedroomTag bedroom={bedroom} /> <span className="cat-tab__count">{roommates.length}</span>
           </h2>
           {roommates.length === 0 ? (
-            <p className="opt-empty">Sozinho(a) no quarto por enquanto.</p>
+            <p className="opt-empty">{tx("Sozinho(a) no quarto por enquanto.")}</p>
           ) : (
             <ul className="kid-list">
               {roommates.map((r) => (

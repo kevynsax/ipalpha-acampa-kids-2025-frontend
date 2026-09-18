@@ -6,14 +6,8 @@ import Dialog from "../../components/Dialog";
 import { ICONS } from "../../icons";
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import StaffPicker, { type Occupation } from "./StaffPicker";
+import { useI18n } from "../../i18n";
 
-/**
- * Two ways in, one dialog:
- *  - from a PERSON: pick the event, then the role  (`staff` given)
- *  - from a ROLE in an EVENT: pick the person       (`event` + `role` given)
- * Both end in the same confirmation when the person is already busy at that
- * time, then the optional detail, then save.
- */
 type Entry = { staff: Pick<Staff, "id" | "name"> } | { eventId: string; roleId: string };
 
 interface AssignRoleDialogProps {
@@ -25,7 +19,6 @@ interface AssignRoleDialogProps {
 }
 
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
-/** same date and intersecting time windows (open-ended = 1h) */
 export function eventsOverlap(a: CampEvent, b: CampEvent): boolean {
   if (a.date !== b.date) return false;
   const aS = toMin(a.startTime), aE = a.endTime ? toMin(a.endTime) : aS + 60;
@@ -33,8 +26,9 @@ export function eventsOverlap(a: CampEvent, b: CampEvent): boolean {
   return aS < bE && bS < aE;
 }
 
-/** staffId → what they are doing during `event` (in it or in an overlapping one), ignoring `ignoreRoleId` in the event itself */
-export function occupationsFor(event: CampEvent, events: CampEvent[], roleById: Map<string, ScheduleRole>, ignoreRoleId?: string): Map<string, Occupation> {
+export function occupationsFor(event: CampEvent, events: CampEvent[], roleById: Map<string, ScheduleRole>, ignoreRoleId?: string, labels?: { otherRole: string; inThisEvent: string }): Map<string, Occupation> {
+  const otherRole = labels?.otherRole ?? "outra função";
+  const inThisEvent = labels?.inThisEvent ?? "neste evento";
   const m = new Map<string, Occupation>();
   for (const other of events) {
     const here = other.id === event.id;
@@ -42,14 +36,14 @@ export function occupationsFor(event: CampEvent, events: CampEvent[], roleById: 
     for (const a of other.assignments) {
       if (here && a.roleId === ignoreRoleId) continue;
       const r = roleById.get(a.roleId);
-      if (!m.has(a.staffId)) m.set(a.staffId, { role: r ? `${r.emoji} ${r.name}` : "outra função", where: here ? "neste evento" : `${other.emoji} ${other.title} ${other.startTime}` });
+      if (!m.has(a.staffId)) m.set(a.staffId, { role: r ? `${r.emoji} ${r.name}` : otherRole, where: here ? inThisEvent : `${other.emoji} ${other.title} ${other.startTime}` });
     }
   }
   return m;
 }
 
 export default function AssignRoleDialog({ token, open, entry, onClose, onAssigned }: AssignRoleDialogProps) {
-  // lists come from the local store (offline-ready, live)
+  const { tx } = useI18n();
   const events = useCollection("events");
   const roles = useCollectionOrEmpty("roles");
   const staffList = useCollectionOrEmpty("staff");
@@ -57,7 +51,6 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
   const [roleId, setRoleId] = useState("");
   const [staffId, setStaffId] = useState("");
   const [detail, setDetail] = useState("");
-  /** the person was busy → user must confirm the swap before we save */
   const [step, setStep] = useState<"choose" | "confirm">("choose");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,14 +73,14 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
   const role = roleById.get(roleId) ?? null;
   const person: Pick<Staff, "id" | "name"> | null = fromPerson ? entry.staff : (staffList.find((s) => s.id === staffId) ?? null);
 
-  /** who is busy at this event's time (excluding people already in the chosen role of this event) */
-  const occupied = useMemo(() => (event && events ? occupationsFor(event, events, roleById, roleId || undefined) : new Map<string, Occupation>()), [event, events, roleById, roleId]);
+  const occupied = useMemo(
+    () => (event && events ? occupationsFor(event, events, roleById, roleId || undefined, { otherRole: tx("outra função"), inThisEvent: tx("neste evento") }) : new Map<string, Occupation>()),
+    [event, events, roleById, roleId, tx],
+  );
   const occupation = staffId ? occupied.get(staffId) : undefined;
 
-  // "toda a equipe" já inclui todo mundo: não há quem escalar nela
   const pickableRoles = (event?.roles ?? []).map((id) => roleById.get(id)).filter((r): r is ScheduleRole => !!r && !isForWholeTeam(r));
   const alreadyInRole = useMemo(() => new Set((event?.assignments ?? []).filter((a) => a.roleId === roleId).map((a) => a.staffId)), [event, roleId]);
-  // a role whose detail IS the team can only hold people who have one
   const pickableStaff = useMemo(
     () => staffList.filter((s) => !alreadyInRole.has(s.id) && (!role?.detailFromTeam || !!s.team)),
     [staffList, alreadyInRole, role],
@@ -105,7 +98,7 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
       onAssigned();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -118,18 +111,16 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
     else save();
   }
 
-  // ── role-entry: the person picker is the first screen ─────────────────
   if (!fromPerson && !staffId) {
     return (
       <StaffPicker
         open={open}
-        title={role && event ? `${role.emoji} ${role.name} — ${event.emoji} ${event.title} ${event.startTime}` : "Quem?"}
+        title={role && event ? `${role.emoji} ${role.name} — ${event.emoji} ${event.title} ${event.startTime}` : tx("Quem?")}
         staff={pickableStaff}
         occupied={occupied}
         onPick={(id) => {
           setStaffId(id);
           const occ = occupied.get(id);
-          // nothing else to ask? save straight away
           if (!occ && (!role?.hasDetail || role.detailFromTeam)) {
             setBusy(true);
             assignStaff(token, eventId, id, roleId, "")
@@ -137,7 +128,7 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
                 onAssigned();
                 onClose();
               })
-              .catch((err) => setError(err instanceof Error ? err.message : "Algo deu errado."))
+              .catch((err) => setError(err instanceof Error ? err.message : tx("Algo deu errado.")))
               .finally(() => setBusy(false));
           } else if (occ) setStep("confirm");
         }}
@@ -148,25 +139,25 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
 
   const first = person?.name.split(" ")[0] ?? "";
   const swapping = step === "confirm" && !!occupation;
+  const inThisEvent = tx("neste evento");
 
   return (
-    <Dialog open={open} onClose={() => !busy && onClose()} title={swapping ? "Trocar função" : "Vincular função"} width={560} className="sheet-dialog">
+    <Dialog open={open} onClose={() => !busy && onClose()} title={swapping ? tx("Trocar função") : tx("Vincular função")} width={560} className="sheet-dialog">
       <form className="cat-form cat-form--embedded" onSubmit={handleSubmit}>
         <span className="sheet__handle" aria-hidden="true" />
         <h2 className="cat-form__title">
           {swapping ? (
             <>
-              <img className="admin-title__icon" src={ICONS.swap} alt="" aria-hidden="true" /> Trocar função?
+              <img className="admin-title__icon" src={ICONS.swap} alt="" aria-hidden="true" /> {tx("Trocar função?")}
             </>
           ) : (
-            `🎯 Vincular função — ${first}`
+            tx("🎯 Vincular função — {name}", { name: first })
           )}
         </h2>
 
-        {/* ── person entry: choose event, then role ── */}
         {fromPerson && !swapping && (
           <label className="cat-field">
-            <span className="cat-field__label">Evento</span>
+            <span className="cat-field__label">{tx("Evento")}</span>
             <select
               className="cat-input"
               value={eventId}
@@ -176,7 +167,7 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
                 setRoleId("");
               }}
             >
-              <option value="">{events ? "Escolha o evento" : "Carregando…"}</option>
+              <option value="">{events ? tx("Escolha o evento") : tx("Carregando…")}</option>
               {days.map((d) => (
                 <optgroup key={d} label={speakDay(d)}>
                   {events!
@@ -194,10 +185,10 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
         {fromPerson && !swapping && event && (
           <>
             {pickableRoles.length === 0 ? (
-              <p className="cat-hint cat-hint--error">Este evento só tem funções que já valem para toda a equipe. Nada a escalar aqui.</p>
+              <p className="cat-hint cat-hint--error">{tx("Este evento só tem funções que já valem para toda a equipe. Nada a escalar aqui.")}</p>
             ) : (
               <fieldset className="cat-fieldset">
-                <legend className="cat-field__label">Função</legend>
+                <legend className="cat-field__label">{tx("Função")}</legend>
                 <div className="chip-group">
                   {pickableRoles.map((r) => {
                     const on = roleId === r.id;
@@ -212,27 +203,30 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
             )}
             {occupation && roleId && (
               <p className="cat-hint">
-                {first} já está como <strong>{occupation.role}</strong> {occupation.where === "neste evento" ? "neste evento" : `em ${occupation.where}`} — vamos confirmar a troca.
+                {occupation.where === inThisEvent
+                  ? tx("{name} já está como {role} neste evento — vamos confirmar a troca.", { name: first, role: occupation.role })
+                  : tx("{name} já está como {role} em {where} — vamos confirmar a troca.", { name: first, role: occupation.role, where: occupation.where })}
               </p>
             )}
           </>
         )}
 
-        {/* ── the swap confirmation (both entries) ── */}
         {swapping && person && event && role && (
           <div className="swap">
             <p className="confirm__message">
-              <strong>{person.name}</strong> já tem função {occupation!.where === "neste evento" ? "neste evento" : "no mesmo horário"}:
+              {occupation!.where === inThisEvent
+                ? tx("{name} já tem função neste evento:", { name: person.name })
+                : tx("{name} já tem função no mesmo horário:", { name: person.name })}
             </p>
-            <div className="swap__flow" aria-label="Troca de função">
+            <div className="swap__flow" aria-label={tx("Troca de função")}>
               <div className="swap__card swap__card--from">
-                <span className="swap__label">Hoje</span>
+                <span className="swap__label">{tx("Hoje")}</span>
                 <strong className="swap__role">{occupation!.role}</strong>
-                <span className="swap__where">{occupation!.where === "neste evento" ? `${event.emoji} ${event.title}` : occupation!.where}</span>
+                <span className="swap__where">{occupation!.where === inThisEvent ? `${event.emoji} ${event.title}` : occupation!.where}</span>
               </div>
               <span className="swap__arrow" aria-hidden="true">➜</span>
               <div className="swap__card swap__card--to">
-                <span className="swap__label">Passa a</span>
+                <span className="swap__label">{tx("Passa a")}</span>
                 <strong className="swap__role">
                   {role.emoji} {role.name}
                 </strong>
@@ -241,25 +235,24 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
                 </span>
               </div>
             </div>
-            {occupation!.where !== "neste evento" && <p className="cat-hint">A função no outro evento continua — confira a escala depois.</p>}
+            {occupation!.where !== inThisEvent && <p className="cat-hint">{tx("A função no outro evento continua — confira a escala depois.")}</p>}
           </div>
         )}
 
-        {/* ── role entry without a swap: just the header line ── */}
         {!fromPerson && !swapping && person && event && role && (
           <p className="confirm__message">
-            <strong>{person.name}</strong> como <strong>{role.emoji} {role.name}</strong> em {event.emoji} {event.title}
+            {tx("{person} como {role} em {event}", { person: person.name, role: `${role.emoji} ${role.name}`, event: `${event.emoji} ${event.title}` })}
           </p>
         )}
 
         {role?.detailFromTeam && roleId && (
-          <p className="cat-hint">🚩 O detalhe desta função é o time da pessoa — nada a preencher. Só quem tem time aparece na lista.</p>
+          <p className="cat-hint">{tx("🚩 O detalhe desta função é o time da pessoa — nada a preencher. Só quem tem time aparece na lista.")}</p>
         )}
 
         {role?.hasDetail && !role.detailFromTeam && roleId && (
           <label className="cat-field">
-            <span className="cat-field__label">Detalhe</span>
-            <input className="cat-input" placeholder={role.detailPlaceholder || "detalhe"} value={detail} maxLength={60} disabled={busy} autoFocus={!fromPerson} onChange={(e) => setDetail(e.target.value)} />
+            <span className="cat-field__label">{tx("Detalhe")}</span>
+            <input className="cat-input" placeholder={role.detailPlaceholder || tx("detalhe")} value={detail} maxLength={60} disabled={busy} autoFocus={!fromPerson} onChange={(e) => setDetail(e.target.value)} />
           </label>
         )}
 
@@ -267,10 +260,10 @@ export default function AssignRoleDialog({ token, open, entry, onClose, onAssign
 
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" onClick={() => (swapping && fromPerson ? setStep("choose") : onClose())} disabled={busy}>
-            {swapping && fromPerson ? "Voltar" : "Cancelar"}
+            {swapping && fromPerson ? tx("Voltar") : tx("Cancelar")}
           </button>
           <button type="submit" className="button button--primary" disabled={busy || !ready}>
-            {busy ? "Salvando…" : swapping ? "Trocar" : occupation ? "Continuar" : "Vincular"}
+            {busy ? tx("Salvando…") : swapping ? tx("Trocar") : occupation ? tx("Continuar") : tx("Vincular")}
           </button>
         </div>
       </form>

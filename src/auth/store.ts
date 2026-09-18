@@ -1,4 +1,5 @@
 import { api } from "../api/client";
+import { deviceLocale } from "../i18n";
 import type { LoggedUser } from "../roles";
 
 const STORAGE_KEY = "acampa.auth";
@@ -98,7 +99,7 @@ export interface OtpRequestResult {
 export async function requestOtp(phoneE164: string): Promise<OtpRequestResult> {
   return api<OtpRequestResult>("/api/auth/otp/request", {
     method: "POST",
-    body: JSON.stringify({ phone: phoneE164 }),
+    body: JSON.stringify({ phone: phoneE164, locale: deviceLocale() }),
   });
 }
 
@@ -112,7 +113,7 @@ export interface OtpVerifyResult {
 export async function verifyOtp(phoneE164: string, code: string): Promise<OtpVerifyResult> {
   return api<OtpVerifyResult>("/api/auth/otp/verify", {
     method: "POST",
-    body: JSON.stringify({ phone: phoneE164, code }),
+    body: JSON.stringify({ phone: phoneE164, code, locale: deviceLocale() }),
   });
 }
 

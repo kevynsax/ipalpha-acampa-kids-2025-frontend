@@ -7,6 +7,8 @@ interface EmojiPickerProps {
   /** grid of suggestions shown in the popover */
   suggestions: string[];
   disabled?: boolean;
+  /** AI is picking an icon — same pulse as other guessed fields */
+  guessing?: boolean;
   label?: string;
 }
 
@@ -15,7 +17,7 @@ interface EmojiPickerProps {
  * suggestions plus a free input for any other emoji. Closes on outside click,
  * Escape, or after picking.
  */
-export default function EmojiPicker({ value, onChange, suggestions, disabled, label = "Ícone" }: EmojiPickerProps) {
+export default function EmojiPicker({ value, onChange, suggestions, disabled, guessing, label = "Ícone" }: EmojiPickerProps) {
   const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState("");
   const [customError, setCustomError] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export default function EmojiPicker({ value, onChange, suggestions, disabled, la
     <div className="emoji-pick" ref={rootRef}>
       <button
         type="button"
-        className={`emoji-pick__btn ${open ? "emoji-pick__btn--open" : ""}`}
+        className={`emoji-pick__btn ${open ? "emoji-pick__btn--open" : ""}${guessing ? " cat-input--busy" : ""}`}
         title={label}
         aria-label={`${label}: ${value}`}
         aria-haspopup="dialog"

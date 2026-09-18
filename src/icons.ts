@@ -1,148 +1,113 @@
-/** Paper-cut icons that are not tied to a login role. */
-import iconCamper from "./assets/icons/camper.png";
-import iconBunk from "./assets/icons/bunk.png";
-import iconBed from "./assets/icons/bed.png";
-import iconBedWoman from "./assets/icons/bed-woman.png";
-import iconGirl from "./assets/icons/girl.png";
-import iconBoy from "./assets/icons/boy.png";
-import iconMan from "./assets/icons/man.png";
-import iconWoman from "./assets/icons/woman.png";
-import iconGirls from "./assets/icons/girls.png";
-import iconGirlFace from "./assets/icons/girl-face.png";
-import iconBoyFace from "./assets/icons/boy-face.png";
-import iconBoys from "./assets/icons/boys.png";
-import iconOrganizer from "./assets/icons/organizer.png";
-import iconStaffPair from "./assets/icons/staff-pair.png";
-import iconNoVest from "./assets/icons/no-vest.png";
-import iconNoVestWoman from "./assets/icons/no-vest-woman.png";
-import iconVest from "./assets/icons/vest.png";
-import iconVestWoman from "./assets/icons/vest-woman.png";
-import iconGiveaway from "./assets/icons/giveaway.png";
-import iconDraw from "./assets/icons/draw.png";
-import iconPencil from "./assets/icons/pencil.png";
-import iconParent from "./assets/icons/parent.png";
-import iconLeaderFace from "./assets/icons/leader-face.png";
-import iconLeaderFaceWoman from "./assets/icons/leader-face-woman.png";
-import iconHelperFace from "./assets/icons/helper-face.png";
-import iconHelperFaceWoman from "./assets/icons/helper-face-woman.png";
-import iconTransport from "./assets/icons/transport.png";
-import iconCamera from "./assets/icons/camera.png";
-import iconNoPhotos from "./assets/icons/no-photos.png";
-import iconTakingPhoto from "./assets/icons/taking-photo.png";
-import iconNotifications from "./assets/icons/notifications.png";
-import iconNotifyOff from "./assets/icons/notify-off.png";
-import iconCleanup from "./assets/icons/cleanup.png";
-import iconPreparation from "./assets/icons/preparation.png";
-import iconSwap from "./assets/icons/swap.png";
-import iconTeam from "./assets/icons/team.png";
-import iconHandshake from "./assets/icons/handshake.png";
-import iconBadge from "./assets/icons/badge.png";
-import iconMedications from "./assets/icons/medications.png";
-import iconSchedule from "./assets/icons/schedule.png";
-import iconReport from "./assets/icons/report.png";
-import iconChooseExisting from "./assets/icons/choose-existing.png";
-import iconCreateNew from "./assets/icons/create-new.png";
-import iconImportCampers from "./assets/icons/import-campers.png";
-import iconRoomAssign from "./assets/icons/room-assign.png";
-import iconAssistant from "./assets/icons/assistant.png";
-import iconAssistantEmpty from "./assets/icons/assistant-empty.png";
-import iconWizard from "./assets/icons/wizard.png";
-import iconDesktopBetter from "./assets/icons/desktop-better.png";
-import iconDesktopBetterBus from "./assets/icons/desktop-better-bus.png";
+/** Paper-cut icons in `public/icons/` — same URLs the app and emails use. */
+const icon = (file: string) => `/icons/${file}.png`;
 
 export const ICONS = {
-  camper: iconCamper,
-  bunk: iconBunk,
+  camper: icon("camper"),
+  bunk: icon("bunk"),
   /** top-down single bed, teal frame — boys / staff / Quartos chrome */
-  bed: iconBed,
+  bed: icon("bed"),
   /** same bed as bed.png, teal frame tinted camp pink — girls wing (BedroomTag) */
-  bedWoman: iconBedWoman,
-  girl: iconGirl,
-  boy: iconBoy,
-  man: iconMan,
-  woman: iconWoman,
+  bedWoman: icon("bed-woman"),
+  girl: icon("girl"),
+  boy: icon("boy"),
+  man: icon("man"),
+  woman: icon("woman"),
   /** head only — the girl with pigtails / the boy in the yellow cap: inline "Meninas" / "Meninos" markers (chips, tabs, labels) */
-  girlFace: iconGirlFace,
-  boyFace: iconBoyFace,
+  girlFace: icon("girl-face"),
+  boyFace: icon("boy-face"),
   /** groups of three — "the same room" */
-  girls: iconGirls,
-  boys: iconBoys,
+  girls: icon("girls"),
+  boys: icon("boys"),
   /** worker with a checklist — programme organizers (admin settings + their tabs) */
-  organizer: iconOrganizer,
+  organizer: icon("organizer"),
   /** man in teal camp hat + badge, woman in pink with whistle, hands on his shoulders — "toda a equipe" / Todos */
-  staffPair: iconStaffPair,
+  staffPair: icon("staff-pair"),
   /** bare head + shoulders — team member still without the vest (a man) */
-  noVest: iconNoVest,
+  noVest: icon("no-vest"),
   /** same pose, a blonde woman with a pointed "bico" bob — still without the vest */
-  noVestWoman: iconNoVestWoman,
+  noVestWoman: icon("no-vest-woman"),
   /** wearing the orange vest — vest is with the person (a man) */
-  vest: iconVest,
+  vest: icon("vest"),
   /** same orange vest, a woman */
-  vestWoman: iconVestWoman,
+  vestWoman: icon("vest-woman"),
   /** lottery cage + ticket — giveaway / Sorteio */
-  giveaway: iconGiveaway,
+  giveaway: icon("giveaway"),
   /** hand holding up a freshly drawn numbered ball — the "Sortear" action */
-  draw: iconDraw,
+  draw: icon("draw"),
   /** orange pencil with a teal eraser — inline "edit this value" actions (the bare button beside a value) */
-  pencil: iconPencil,
+  pencil: icon("pencil"),
   /** father and mother heads — "Pai ou Responsável" (same drawing as the login parent role) */
-  parent: iconParent,
+  parent: icon("parent"),
   /** head only — teal camp hat + the orange flag: the inline "Líder" marker (a man) */
-  leaderFace: iconLeaderFace,
+  leaderFace: icon("leader-face"),
   /** head only — pink camp hat + the orange flag: the inline "Líder" marker (a woman) */
-  leaderFaceWoman: iconLeaderFaceWoman,
+  leaderFaceWoman: icon("leader-face-woman"),
   /** head only — yellow camp cap: the inline "Auxiliar" marker (a man) */
-  helperFace: iconHelperFace,
+  helperFace: icon("helper-face"),
   /** head only — yellow camp cap: the inline "Auxiliar" marker (a woman) */
-  helperFaceWoman: iconHelperFaceWoman,
+  helperFaceWoman: icon("helper-face-woman"),
   /** front-facing bus with a numbered badge — the transports (buses / cars) settings menu */
-  transport: iconTransport,
+  transport: icon("transport"),
   /** vintage camera with a cream lens — the Fotos tab and the photographers settings */
-  camera: iconCamera,
+  camera: icon("camera"),
   /** glum photographer sitting on the ground, camera set aside — the empty album */
-  noPhotos: iconNoPhotos,
+  noPhotos: icon("no-photos"),
   /** kid posing for a vintage camera with a yellow flash — parent face-search card */
-  takingPhoto: iconTakingPhoto,
+  takingPhoto: icon("taking-photo"),
   /** teal phone with a sun-yellow speech-bubble (dark dots) — SMS notifications settings */
-  notifications: iconNotifications,
+  notifications: icon("notifications"),
   /** teal notification bell with a diagonal slash — nobody will be texted (muted) */
-  notifyOff: iconNotifyOff,
+  notifyOff: icon("notify-off"),
   /** teal broom sweeping, with sparkles — the end-of-camp cleanup settings */
-  cleanup: iconCleanup,
+  cleanup: icon("cleanup"),
   /** closed red-orange hard suitcase with wheels — Preparação (what to pack before camp) */
-  preparation: iconPreparation,
+  preparation: icon("preparation"),
   /** two thick curved arrows in a circle (teal over orange) — "trocar": move room, hand over, swap role */
-  swap: iconSwap,
-  /** three rounded figures in teal, orange and sun yellow — team topic chip */
-  team: iconTeam,
+  swap: icon("swap"),
+  /** three pennant flags in teal, orange and sun yellow — the camp teams */
+  team: icon("teams"),
   /** light-skin hand clasping a brown-skin hand — pass kids / responsibility to someone else */
-  handshake: iconHandshake,
+  handshake: icon("handshake"),
   /** smiling woman holding her lanyard ID card up beside her face — "quem você é aqui": choosing / showing a profile */
-  badge: iconBadge,
+  badge: icon("badge"),
   /** clipboard checklist with two orange ticks and a capsule on top — the Medicações tab (what each kid already took) */
-  medications: iconMedications,
+  medications: icon("medications"),
   /** 📅 calendar emoji in pastel camp colours: teal header with 31, cream page with a big 31, orange header dots — the Programação tab */
-  schedule: iconSchedule,
+  schedule: icon("schedule"),
   /** three bars (teal, orange, yellow) on a dark teal baseline — the check-in report "Por veículo" */
-  report: iconReport,
+  report: icon("report"),
   /** cream list card under a big orange magnifying glass — pick something that already exists */
-  chooseExisting: iconChooseExisting,
+  chooseExisting: icon("choose-existing"),
   /** teal tile with a cream plus and a sun-yellow sparkle — create something new */
-  createNew: iconCreateNew,
+  createNew: icon("create-new"),
   /** spreadsheet with an entering arrow and yellow sparkle — import campers from CSV/Excel */
-  importCampers: iconImportCampers,
+  importCampers: icon("import-campers"),
   /** bunk bed with two kids tucked in while a curved arrow drops a third kid head on the top mattress — "Montar quartos": assign kids / staff to rooms */
-  roomAssign: iconRoomAssign,
+  roomAssign: icon("room-assign"),
+  /** assignment checklist topped by a pennant flag — "Montar times" */
+  teamAssign: icon("team-assign"),
+  /** two bold crossing arrows — automatic team distribution */
+  teamDistribute: icon("team-distribute"),
+  /** a small boy and a tall teenage girl (ponytail) leaning an elbow on his head — "por idade e sexo": one sex + age range into its rooms */
+  ageGroups: icon("age-groups"),
+  /** a kid tucked in bed, eyes closed, settled — "manter quem já tem quarto": leave the placed ones where they are */
+  keepRoom: icon("keep-room"),
   /** teal camping lantern shaped like a chat bubble, with a cream AI sparkle — read-only camp assistant */
-  assistant: iconAssistant,
+  assistant: icon("assistant"),
   /** same lantern with a transparent center opening for the animated flame */
-  assistantEmpty: iconAssistantEmpty,
+  assistantEmpty: icon("assistant-empty"),
   /** wooden trail signpost with three direction boards and an orange pennant — the setup wizard */
-  wizard: iconWizard,
+  wizard: icon("wizard"),
   /** a desktop monitor showing a room-assignment board next to a crossed-out phone — "use a computer for this" */
-  desktopBetter: iconDesktopBetter,
+  desktopBetter: icon("desktop-better"),
   /** a desktop monitor showing a bus-seating board next to a crossed-out phone — "use a computer for the buses" */
-  desktopBetterBus: iconDesktopBetterBus,
+  desktopBetterBus: icon("desktop-better-bus"),
+  /** login / settings role: staff volunteer */
+  staff: icon("staff"),
+  /** login / settings role: medical team */
+  health: icon("health"),
+  /** login / settings role: admin */
+  admin: icon("admin"),
 } as const;
 
 /** A kid's icon follows the wing of the bedroom (meninas / meninos); without a wing, the probable gender. */

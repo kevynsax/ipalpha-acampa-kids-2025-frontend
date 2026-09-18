@@ -1,6 +1,7 @@
 import { useConfirm } from "../../components/ConfirmDialog";
 import { useState } from "react";
 import type { Category, CategoryOption } from "../../api/categories";
+import { collatorLocale, useI18n } from "../../i18n";
 
 interface CategoryOptionsProps {
   category: Category;
@@ -27,13 +28,14 @@ export default function CategoryOptions({
   const [editingLabel, setEditingLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
   const confirm = useConfirm();
+  const { tx } = useI18n();
 
   async function run(fn: () => Promise<void>) {
     setError(null);
     try {
       await fn();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     }
   }
 
@@ -71,21 +73,21 @@ export default function CategoryOptions({
       <form className="opt-add" onSubmit={handleAdd}>
         <input
           className="cat-input"
-          placeholder={`Nova opção de ${category.name.toLowerCase()}…`}
+          placeholder={tx("Nova opção de {name}…", { name: category.name.toLocaleLowerCase(collatorLocale()) })}
           value={draft}
           maxLength={80}
           disabled={busy}
           onChange={(e) => setDraft(e.target.value)}
         />
         <button type="submit" className="button button--primary opt-add__btn" disabled={busy || !draft.trim()}>
-          + Adicionar
+          + {tx("Adicionar")}
         </button>
       </form>
 
       {error && <p className="message message--error">{error}</p>}
 
       {options.length === 0 ? (
-        <p className="opt-empty">Nenhuma opção ainda. Adicione a primeira acima! 🌱</p>
+        <p className="opt-empty">{tx("Nenhuma opção ainda. Adicione a primeira acima! 🌱")}</p>
       ) : (
         <ol className="opt-items">
           {options.map((o, i) => (
@@ -112,12 +114,12 @@ export default function CategoryOptions({
                 <button
                   type="button"
                   className="opt-item__label"
-                  title="Clique para renomear"
+                  title={tx("Clique para renomear")}
                   onClick={() => startEdit(o)}
                   disabled={busy}
                 >
                   {o.label}
-                  {!o.active && <span className="opt-item__badge">oculta</span>}
+                  {!o.active && <span className="opt-item__badge">{tx("oculta")}</span>}
                 </button>
               )}
 
@@ -125,7 +127,7 @@ export default function CategoryOptions({
                 <button
                   type="button"
                   className="icon-btn"
-                  title="Mover para cima"
+                  title={tx("Mover para cima")}
                   disabled={busy || i === 0}
                   onClick={() => run(() => onMove(o, -1))}
                 >
@@ -134,7 +136,7 @@ export default function CategoryOptions({
                 <button
                   type="button"
                   className="icon-btn"
-                  title="Mover para baixo"
+                  title={tx("Mover para baixo")}
                   disabled={busy || i === options.length - 1}
                   onClick={() => run(() => onMove(o, 1))}
                 >
@@ -143,7 +145,7 @@ export default function CategoryOptions({
                 <button
                   type="button"
                   className="icon-btn"
-                  title={o.active ? "Ocultar dos formulários" : "Mostrar nos formulários"}
+                  title={o.active ? tx("Ocultar dos formulários") : tx("Mostrar nos formulários")}
                   disabled={busy}
                   onClick={() => run(() => onToggle(o))}
                 >
@@ -152,10 +154,10 @@ export default function CategoryOptions({
                 <button
                   type="button"
                   className="icon-btn icon-btn--danger"
-                  title="Excluir"
+                  title={tx("Excluir")}
                   disabled={busy}
                   onClick={async () => {
-                    if (await confirm({ emoji: "🗑️", title: `Excluir a opção "${o.label}"?`, confirmLabel: "Excluir", danger: true })) run(() => onDelete(o));
+                    if (await confirm({ emoji: "🗑️", title: tx('Excluir a opção "{name}"?', { name: o.label }), confirmLabel: tx("Excluir"), danger: true })) run(() => onDelete(o));
                   }}
                 >
                   🗑️
@@ -167,7 +169,8 @@ export default function CategoryOptions({
       )}
 
       <p className="cat-hint">
-        💡 Em vez de excluir uma opção já usada, <strong>oculte</strong> (👁️): os cadastros antigos continuam válidos.
+        {tx("💡 Em vez de excluir uma opção já usada,")} <strong>{tx("oculte")}</strong>{" "}
+        {tx("(👁️): os cadastros antigos continuam válidos.")}
       </p>
     </div>
   );

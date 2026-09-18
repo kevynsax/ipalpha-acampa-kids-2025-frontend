@@ -8,6 +8,7 @@ import Toggle from "./Toggle";
 import { useFieldDedup } from "../hooks/useFieldDedup";
 import type { DedupField } from "../api/ai";
 import { useCategories } from "../store/derive";
+import { useI18n } from "../i18n";
 
 interface HealthEditDialogProps {
   token: string;
@@ -23,6 +24,7 @@ interface HealthEditDialogProps {
  * kid's change history.
  */
 export default function HealthEditDialog({ token, open, camper: k, onClose }: HealthEditDialogProps) {
+  const { tx } = useI18n();
   const categories = useCategories("camper");
   const cat = (key: string) => categories.find((c) => c.key === key);
 
@@ -83,7 +85,7 @@ export default function HealthEditDialog({ token, open, camper: k, onClose }: He
       await medicalUpdateCamper(token, k.id, patch);
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -116,38 +118,38 @@ export default function HealthEditDialog({ token, open, camper: k, onClose }: He
   );
 
   return (
-    <Dialog open={open} onClose={onClose} title="Editar saúde" width={620} dismissible={!busy} className="attention-sheet-dialog">
+    <Dialog open={open} onClose={onClose} title={tx("Editar saúde")} width={620} dismissible={!busy} className="attention-sheet-dialog">
       <div className="cat-form attention-sheet">
         <header className="attention-sheet__head">
           <span className="attention-sheet__handle" aria-hidden="true" />
-          <h2 className="cat-form__title">🩺 Saúde de {k.name.split(" ")[0]}</h2>
-          <p className="cat-hint">O que você alterar aqui aparece para toda a equipe na hora e fica no histórico da criança.</p>
+          <h2 className="cat-form__title">{tx("🩺 Saúde de {name}", { name: k.name.split(" ")[0] })}</h2>
+          <p className="cat-hint">{tx("O que você alterar aqui aparece para toda a equipe na hora e fica no histórico da criança.")}</p>
         </header>
 
         <div className="attention-sheet__body">
           <div className="cat-form__row staff-form__row">
-            {text("🏥 Convênio médico", insurance, setInsurance, "ex.: Bradesco")}
-            {text("Carteirinha", insuranceCard, setInsuranceCard)}
+            {text(tx("🏥 Convênio médico"), insurance, setInsurance, tx("ex.: Bradesco"))}
+            {text(tx("Carteirinha"), insuranceCard, setInsuranceCard)}
           </div>
 
           <label className="cat-field cat-field--weight">
-            <span className="cat-field__label">⚖️ Peso (kg)</span>
-            <input className="cat-input" inputMode="decimal" placeholder="ex.: 28,5" value={weight} maxLength={6} disabled={busy} onChange={(e) => setWeight(e.target.value)} />
-            {weight.trim() && !weightOk && <p className="cat-hint cat-hint--error">Entre 5 e 200 kg.</p>}
+            <span className="cat-field__label">{tx("⚖️ Peso (kg)")}</span>
+            <input className="cat-input" inputMode="decimal" placeholder={tx("ex.: 28,5")} value={weight} maxLength={6} disabled={busy} onChange={(e) => setWeight(e.target.value)} />
+            {weight.trim() && !weightOk && <p className="cat-hint cat-hint--error">{tx("Entre 5 e 200 kg.")}</p>}
           </label>
 
-          {optional("🤮 Alergias", hasAllergies, setHasAllergies, <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.allergies)} value={allergies} onChange={setAllergies} disabled={busy} />)}
+          {optional(tx("🤮 Alergias"), hasAllergies, setHasAllergies, <CategoryChips label={tx("Quais")} category={cat(CAMPER_CATEGORY_KEYS.allergies)} value={allergies} onChange={setAllergies} disabled={busy} />)}
           {optional(
             <>
-              <NoPillIcon /> Alergia a medicamentos
+              <NoPillIcon /> {tx("Alergia a medicamentos")}
             </>,
             hasDrugAllergies,
             setHasDrugAllergies,
-            <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.drugAllergies)} value={drugAllergies} onChange={setDrugAllergies} disabled={busy} />,
+            <CategoryChips label={tx("Quais")} category={cat(CAMPER_CATEGORY_KEYS.drugAllergies)} value={drugAllergies} onChange={setDrugAllergies} disabled={busy} />,
           )}
-          {optional("🩺 Condição crônica", hasHealthIssues, setHasHealthIssues, <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.healthIssues)} value={healthIssues} onChange={setHealthIssues} disabled={busy} />)}
+          {optional(tx("🩺 Condição crônica"), hasHealthIssues, setHasHealthIssues, <CategoryChips label={tx("Quais")} category={cat(CAMPER_CATEGORY_KEYS.healthIssues)} value={healthIssues} onChange={setHealthIssues} disabled={busy} />)}
           {optional(
-            "💊 Medicação de uso diário",
+            tx("💊 Medicação de uso diário"),
             hasMedicines,
             (on) => {
               setHasMedicines(on);
@@ -155,12 +157,12 @@ export default function HealthEditDialog({ token, open, camper: k, onClose }: He
             },
             <MedicationsEditor value={medications} onChange={setMedications} disabled={busy} />,
           )}
-          {optional("🍽️ Alimentação / restrições", hasFoodRestrictions, setHasFoodRestrictions, text("Quais", foodRestrictions, setFoodRestrictions, "ex.: sem lactose", 2, "foodRestrictions"))}
-          {optional("🩺 Observações médicas", hasHealthNotes, setHasHealthNotes, text("Observações", healthNotes, setHealthNotes, "ex.: em caso de crise, 4 puffs de Aerolin…", 3, "healthNotes"))}
+          {optional(tx("🍽️ Alimentação / restrições"), hasFoodRestrictions, setHasFoodRestrictions, text(tx("Quais"), foodRestrictions, setFoodRestrictions, tx("ex.: sem lactose"), 2, "foodRestrictions"))}
+          {optional(tx("🩺 Observações médicas"), hasHealthNotes, setHasHealthNotes, text(tx("Observações"), healthNotes, setHealthNotes, tx("ex.: em caso de crise, 4 puffs de Aerolin…"), 3, "healthNotes"))}
 
           <div className="cat-field opt-field">
             <div className="opt-field__head">
-              <Toggle checked={neurodivergent} onChange={setNeurodivergent} disabled={busy} label="🧩 Neurodivergente (TEA, TDAH…)" />
+              <Toggle checked={neurodivergent} onChange={setNeurodivergent} disabled={busy} label={tx("🧩 Neurodivergente (TEA, TDAH…)")} />
             </div>
           </div>
 
@@ -169,10 +171,10 @@ export default function HealthEditDialog({ token, open, camper: k, onClose }: He
 
         <div className="cat-form__actions attention-sheet__actions">
           <button type="button" className="button button--secondary" onClick={onClose} disabled={busy}>
-            Cancelar
+            {tx("Cancelar")}
           </button>
           <button type="button" className="button button--primary" disabled={busy || !changed || !weightOk} onClick={submit}>
-            {busy ? "Salvando…" : "Salvar"}
+            {busy ? tx("Salvando…") : tx("Salvar")}
           </button>
         </div>
       </div>

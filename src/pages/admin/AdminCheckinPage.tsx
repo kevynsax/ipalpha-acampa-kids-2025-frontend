@@ -1,4 +1,5 @@
 import { ICONS } from "../../icons";
+import { useI18n } from "../../i18n";
 import { roleMeta } from "../../roles";
 import { useRoute } from "../../router";
 
@@ -32,13 +33,14 @@ const OPTIONS = [
 /** Admin landing page for the check-in workflows (kids at the church / bus, team, team vests). */
 export default function AdminCheckinPage() {
   const { navigate } = useRoute();
+  const { tx } = useI18n();
 
   return (
     <div className="admin-page">
       <header className="admin-head">
-        <h1 className="admin-title">✅ Check-in</h1>
+        <h1 className="admin-title">✅ {tx("Check-in")}</h1>
       </header>
-      <p className="admin-intro">Qual check-in você quer abrir?</p>
+      <p className="admin-intro">{tx("Qual check-in você quer abrir?")}</p>
 
       <ul className="checkin-picker">
         {OPTIONS.map((option) => (
@@ -49,7 +51,7 @@ export default function AdminCheckinPage() {
               ) : (
                 <span className="checkin-picker__emoji" aria-hidden="true">{option.emoji}</span>
               )}
-              <span className="checkin-picker__name">{option.key === "vests" ? "Coletes" : `Check-in ${option.title}`}</span>
+              <span className="checkin-picker__name">{option.key === "vests" ? tx("Coletes") : tx("Check-in {title}", { title: tx(option.title) })}</span>
               <span className="checkin-picker__arrow" aria-hidden="true">›</span>
             </button>
           </li>

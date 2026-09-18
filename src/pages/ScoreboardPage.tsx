@@ -9,6 +9,9 @@ import EventScorePage from "./score/EventScorePage";
 import { fmtPoints, fmtShort, KIND_META, lineKind, useEventMap, useTeamMap } from "./score/scoreLog";
 import { useRoute } from "../router";
 import { useCollection, useCollectionOrEmpty } from "../store";
+import Breadcrumbs from "../components/Breadcrumbs";
+import { ICONS } from "../icons";
+import { useI18n } from "../i18n";
 
 interface ScoreboardPageProps {
   token: string;
@@ -18,6 +21,11 @@ interface ScoreboardPageProps {
   canEdit: boolean;
   /** score helper (or anyone who canEdit): may scan QR codes in bulk (points by event) and delete their own scan lines — nothing else */
   canScan: boolean;
+  /** during camp: show the button that opens /teams. */
+  showTeamsButton?: boolean;
+  onTeams?: () => void;
+  /** before/after camp, the scoreboard was opened from Teams. */
+  teamsParent?: boolean;
 }
 
 type Pending = { team: Team; sign: 1 | -1 };
@@ -34,7 +42,8 @@ type Pending = { team: Team; sign: 1 | -1 };
  *   #/scoreboard/team/:id    — where one team's points came from
  *   #/scoreboard/event/:id   — what one programme event produced
  */
-export default function ScoreboardPage({ token, userId, canEdit, canScan }: ScoreboardPageProps) {
+export default function ScoreboardPage({ token, userId, canEdit, canScan, showTeamsButton = false, onTeams, teamsParent = false }: ScoreboardPageProps) {
+  const { tx } = useI18n();
   const teams = useCollection("teams");
   const scores = useCollectionOrEmpty("scores");
   const events = useCollectionOrEmpty("events");
@@ -65,7 +74,7 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan }: Scor
     try {
       await fn();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -82,10 +91,11 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan }: Scor
 
   const sub = segments[1];
   const canSeeHistory = canEdit || canScan;
-  if (sub === "bulk" && canScan) return <BulkPointsPage token={token} onClose={goHome} />;
-  if (sub === "history" && canSeeHistory) return <ScoreHistoryPage token={token} userId={userId} canEdit={canEdit} canScan={canScan} onBack={goHome} onTeam={goTeam} onEvent={goEvent} />;
-  if (sub === "team" && segments[2] && canSeeHistory) return <TeamScorePage token={token} teamId={segments[2]} userId={userId} canEdit={canEdit} canScan={canScan} onBack={goHome} onEvent={goEvent} />;
-  if (sub === "event" && segments[2] && canSeeHistory) return <EventScorePage token={token} eventId={segments[2]} userId={userId} canEdit={canEdit} canScan={canScan} onBack={goHome} onTeam={goTeam} />;
+  const backToRoot = teamsParent && onTeams ? onTeams : goHome;
+  if (sub === "bulk" && canScan) return <BulkPointsPage token={token} onClose={backToRoot} parentLabel={teamsParent ? tx("Times") : tx("Placar")} />;
+  if (sub === "history" && canSeeHistory) return <ScoreHistoryPage token={token} userId={userId} canEdit={canEdit} canScan={canScan} onBack={backToRoot} onTeam={goTeam} onEvent={goEvent} />;
+  if (sub === "team" && segments[2] && canSeeHistory) return <TeamScorePage token={token} teamId={segments[2]} userId={userId} canEdit={canEdit} canScan={canScan} onBack={backToRoot} onEvent={goEvent} />;
+  if (sub === "event" && segments[2] && canSeeHistory) return <EventScorePage token={token} eventId={segments[2]} userId={userId} canEdit={canEdit} canScan={canScan} onBack={backToRoot} onTeam={goTeam} />;
 
   /** the last few lines, so the organizer sees what just happened without leaving the board */
   const recent = scores.slice(0, 5);
@@ -93,30 +103,39 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan }: Scor
   if (!teams) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>
+        <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>
       </div>
     );
   }
 
   return (
     <div className="admin-page">
+      {teamsParent && onTeams && <Breadcrumbs items={[{ label: tx("Times"), onClick: onTeams }, { label: tx("Placar") }]} />}
       <header className="admin-head">
-        <h1 className="admin-title">🏆 Placar</h1>
-        {canScan && teams.length > 0 && (
-          <button type="button" className="button button--secondary admin-head__new" onClick={() => navigate("/scoreboard/bulk")}>
-            📋 Pontos em massa
+        <h1 className="admin-title">🏆 {tx("Placar")}</h1>
+        <div className="admin-head__actions admin-head__actions--icons">
+        {showTeamsButton && onTeams && teams.length > 0 && (
+          <button type="button" className="button button--secondary admin-head__new" onClick={onTeams}>
+            <img className="admin-head__action-icon" src={ICONS.team} alt="" aria-hidden="true" /><span className="admin-head__action-label">{tx("Times")}</span>
           </button>
         )}
+        {canScan && teams.length > 0 && (
+          <button type="button" className="button button--secondary admin-head__new" onClick={() => navigate("/scoreboard/bulk")}>
+            📋 {tx("Pontos em massa")}
+          </button>
+        )}
+        </div>
       </header>
       {canScan && (
         <p className="admin-intro scoreboard-intro">
-          📋 Pontos em massa dá pontos a várias crianças de uma vez — pelo nome ou lendo os crachás.{canSeeHistory && " Toque no nome do time para ver de onde vieram os pontos."}
+          {tx("📋 Pontos em massa dá pontos a várias crianças de uma vez — pelo nome ou lendo os crachás.")}
+          {canSeeHistory && ` ${tx("Toque no nome do time para ver de onde vieram os pontos.")}`}
         </p>
       )}
 
       {error && <p className="message message--error">{error}</p>}
 
-      {teams.length === 0 && <p className="opt-empty">Nenhum time cadastrado ainda. (Configurações → Times)</p>}
+      {teams.length === 0 && <p className="opt-empty">{tx("Nenhum time cadastrado ainda.")}</p>}
 
       <ol className="score-list">
         {ranked.map((t, i) => {
@@ -125,12 +144,12 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan }: Scor
           return (
             <li key={t.id} className={`score-card ${i === 0 && pts > 0 ? "score-card--leader" : ""}`} style={{ borderLeftColor: t.color }}>
               <span className="score-card__wash" aria-hidden="true" style={{ width: `${pct}%`, background: t.color }} />
-              <span className="score-card__rank" aria-label={`${i + 1}º lugar`}>
-                {i === 0 && pts > 0 ? "🥇" : i === 1 && pts > 0 ? "🥈" : i === 2 && pts > 0 ? "🥉" : `${i + 1}º`}
+              <span className="score-card__rank" aria-label={tx("{n}º lugar", { n: i + 1 })}>
+                {i === 0 && pts > 0 ? "🥇" : i === 1 && pts > 0 ? "🥈" : i === 2 && pts > 0 ? "🥉" : tx("{n}º", { n: i + 1 })}
               </span>
               <div className="score-card__body">
                 {canSeeHistory ? (
-                  <button type="button" className="score-card__name" title="Ver de onde vieram os pontos" onClick={() => goTeam(t.id)}>
+                  <button type="button" className="score-card__name" title={tx("Ver de onde vieram os pontos")} onClick={() => goTeam(t.id)}>
                     {teamCardName(t.name)}
                   </button>
                 ) : (
@@ -145,10 +164,10 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan }: Scor
               </span>
               {canEdit && (
                 <span className="score-card__actions">
-                  <button type="button" className="icon-btn score-btn" title="Dar pontos" aria-label={`Dar pontos a ${t.name}`} disabled={busy} onClick={() => setPending({ team: t, sign: 1 })}>
+                  <button type="button" className="icon-btn score-btn" title={tx("Dar pontos")} aria-label={tx("Dar pontos a {name}", { name: t.name })} disabled={busy} onClick={() => setPending({ team: t, sign: 1 })}>
                     ➕
                   </button>
-                  <button type="button" className="icon-btn icon-btn--warn score-btn" title="Tirar pontos" aria-label={`Tirar pontos de ${t.name}`} disabled={busy} onClick={() => setPending({ team: t, sign: -1 })}>
+                  <button type="button" className="icon-btn icon-btn--warn score-btn" title={tx("Tirar pontos")} aria-label={tx("Tirar pontos de {name}", { name: t.name })} disabled={busy} onClick={() => setPending({ team: t, sign: -1 })}>
                     ➖
                   </button>
                 </span>
@@ -161,9 +180,9 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan }: Scor
       {canSeeHistory && scores.length > 0 && (
         <section className="score-section">
           <h2 className="score-section__title">
-            📜 Últimos lançamentos
+            📜 {tx("Últimos lançamentos")}
             <button type="button" className="link-btn score-section__clear" onClick={goHistory}>
-              ver histórico completo
+              {tx("ver histórico completo")}
             </button>
           </h2>
           <ul className="score-recent">
@@ -182,7 +201,7 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan }: Scor
                         {ev && (
                           <>
                             {" "}
-                            em{" "}
+                            {tx("em")}{" "}
                             <button type="button" className="link-btn" onClick={() => goEvent(ev.id)}>
                               {ev.emoji} {ev.title}
                             </button>
@@ -190,7 +209,7 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan }: Scor
                         )}
                       </>
                     ) : (
-                      <strong>{e.note || KIND_META[kind].label}</strong>
+                      <strong>{e.note || tx(KIND_META[kind].label)}</strong>
                     )}
                     {team && (
                       <>
@@ -232,10 +251,11 @@ function teamCardName(name: string) {
 }
 
 function PointsDialog({ pending, busy, onSubmit, onClose }: { pending: Pending; busy: boolean; onSubmit: (points: number, note: string) => Promise<void>; onClose: () => void }) {
+  const { tx } = useI18n();
   const { team, sign } = pending;
   const [points, setPoints] = useState<number>(10);
   const [note, setNote] = useState("");
-  const title = sign > 0 ? `➕ Dar pontos a ${team.name}` : `➖ Tirar pontos de ${team.name}`;
+  const title = sign > 0 ? tx("➕ Dar pontos a {name}", { name: team.name }) : tx("➖ Tirar pontos de {name}", { name: team.name });
   const valid = Number.isInteger(points) && points > 0;
 
   function submit(e: FormEvent) {
@@ -251,7 +271,7 @@ function PointsDialog({ pending, busy, onSubmit, onClose }: { pending: Pending; 
           {title}
         </h2>
         <div className="cat-field">
-            <span className="cat-field__label">Quantos pontos?</span>
+            <span className="cat-field__label">{tx("Quantos pontos?")}</span>
             <div className="chip-group">
               {QUICK.map((q) => (
                 <button key={q} type="button" className={`chip-toggle chip-toggle--small ${points === q ? "chip-toggle--on" : ""}`} aria-pressed={points === q} disabled={busy} onClick={() => setPoints(q)}>
@@ -259,22 +279,40 @@ function PointsDialog({ pending, busy, onSubmit, onClose }: { pending: Pending; 
                 </button>
               ))}
             </div>
-            <input className="cat-input" type="number" min={1} max={100000} step={1} value={points} onChange={(e) => setPoints(Number(e.target.value))} disabled={busy} aria-label="Pontos" />
+            <input
+              className="cat-input"
+              type="number"
+              min={1}
+              max={100000}
+              step={1}
+              value={Number.isFinite(points) ? points : ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setPoints(raw === "" ? Number.NaN : Number(raw));
+              }}
+              disabled={busy}
+              aria-label={tx("Pontos")}
+            />
           </div>
         <label className="cat-field">
-          <span className="cat-field__label">Observação (opcional)</span>
-          <input className="cat-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder={sign > 0 ? "Ex.: Arrumaram todo o refeitório" : "Ex.: Não arrumou a cama"} maxLength={200} disabled={busy} autoFocus />
+          <span className="cat-field__label">{tx("Observação (opcional)")}</span>
+          <input className="cat-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder={sign > 0 ? tx("Ex.: Arrumaram todo o refeitório") : tx("Ex.: Não arrumou a cama")} maxLength={200} disabled={busy} autoFocus />
         </label>
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" disabled={busy} onClick={onClose}>
-            Cancelar
+            {tx("Cancelar")}
           </button>
           <button type="submit" className="button button--primary" disabled={busy || !valid}>
-            {sign > 0 ? `Dar ${points} ponto${points !== 1 ? "s" : ""}` : `Tirar ${points} ponto${points !== 1 ? "s" : ""}`}
+            {sign > 0
+              ? points === 1
+                ? tx("Dar {n} ponto", { n: points })
+                : tx("Dar {n} pontos", { n: points })
+              : points === 1
+                ? tx("Tirar {n} ponto", { n: points })
+                : tx("Tirar {n} pontos", { n: points })}
           </button>
         </div>
       </form>
     </Dialog>
   );
 }
-

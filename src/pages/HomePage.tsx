@@ -23,6 +23,7 @@ import { useLabelOf, useMyRoom, useTransportOf } from "../store/derive";
 import { useRoute } from "../router";
 import CamperDetail from "./admin/CamperDetail";
 import { speakDaySlash, speakWhen, todayIso } from "../dates";
+import { useI18n } from "../i18n";
 
 interface HomePageProps {
   user: LoggedUser;
@@ -68,7 +69,8 @@ function useRoomBirthdays(kids: Camper[]): RoomBirthday[] {
  * experience is identical in both tabs. Other days are only on that tab.
  */
 function MedicationsToday({ token }: { token: string }) {
-  return <MedicationChecklist token={token} day={todayIso()} variant="card" title="Medicações de hoje" />;
+  const { tx } = useI18n();
+  return <MedicationChecklist token={token} day={todayIso()} variant="card" title={tx("Medicações de hoje")} />;
 }
 
 /**
@@ -76,17 +78,18 @@ function MedicationsToday({ token }: { token: string }) {
  * or it is a car — going by car they already know the ride.
  */
 function StaffBusCard({ transportId }: { transportId: string | null }) {
+  const { tx } = useI18n();
   const t = useTransportOf()(transportId);
   if (!t || t.kind !== "bus") return null;
   return (
-    <section className="staff-bus" aria-label={`Seu ônibus: ${t.label}`}>
+    <section className="staff-bus" aria-label={tx("Seu ônibus: {label}", { label: t.label })}>
       <span className="staff-bus__mark" aria-hidden="true">
         <BusLogo color={t.color ?? "#0f9a8a"} number={t.number} size={52} />
       </span>
       <div className="staff-bus__body">
-        <p className="staff-bus__kicker">Seu ônibus</p>
+        <p className="staff-bus__kicker">{tx("Seu ônibus")}</p>
         <h2 className="staff-bus__title">{t.label}</h2>
-        <p className="staff-bus__text">É neste que você vai.</p>
+        <p className="staff-bus__text">{tx("É neste que você vai.")}</p>
       </div>
     </section>
   );
@@ -94,22 +97,23 @@ function StaffBusCard({ transportId }: { transportId: string | null }) {
 
 /** 🎂 banner: every kid of the room whose birthday is on a camp day (today highlighted) */
 function BirthdayBanner({ birthdays, onOpen }: { birthdays: RoomBirthday[]; onOpen: (id: string) => void }) {
+  const { tx } = useI18n();
   if (birthdays.length === 0) return null;
   const today = todayIso();
   return (
-    <section className="birthday-banner" aria-label="Aniversários no acampamento">
+    <section className="birthday-banner" aria-label={tx("Aniversários no acampamento")}>
       <span className="birthday-banner__emoji" aria-hidden="true">🎂</span>
       <div className="birthday-banner__body">
-        <h2 className="birthday-banner__title">Aniversário no acampamento!</h2>
+        <h2 className="birthday-banner__title">{tx("Aniversário no acampamento!")}</h2>
         <ul className="birthday-banner__list">
           {birthdays.map(({ kid, day, age }) => {
             const isToday = day === today;
             return (
               <li key={kid.id} className={isToday ? "birthday-banner__item--today" : undefined}>
-                <button type="button" className="link-btn" title="Ver criança" onClick={() => onOpen(kid.id)}>
+                <button type="button" className="link-btn" title={tx("Ver criança")} onClick={() => onOpen(kid.id)}>
                   {kid.name}
                 </button>{" "}
-                {isToday ? "faz" : "faz aniversário"} {age !== null && `${age} anos`} {isToday ? <strong>hoje</strong> : `· ${speakDaySlash(day)}`}
+                {isToday ? tx("faz") : tx("faz aniversário")} {age !== null && tx("{age} anos", { age })} {isToday ? <strong>{tx("hoje")}</strong> : `· ${speakDaySlash(day)}`}
               </li>
             );
           })}
@@ -128,6 +132,7 @@ function BirthdayBanner({ birthdays, onOpen }: { birthdays: RoomBirthday[]; onOp
  * Guardian / emergency data never reaches this page.
  */
 export default function HomePage({ user, token, medical = false }: HomePageProps) {
+  const { tx } = useI18n();
   const data = useMyRoom(user.phone);
   const labelOf = useLabelOf();
   const settings = useCollection("settings");
@@ -148,11 +153,11 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
   if (data === undefined && access && !access.open) {
     return (
       <div className="admin-page">
-        <h1 className="admin-title">Olá, {first}! 👋</h1>
+        <h1 className="admin-title">{tx("Olá, {name}! 👋", { name: first })}</h1>
         <p className="opt-empty">
-          O app ainda não está liberado para a equipe.
+          {tx("O app ainda não está liberado para a equipe.")}
           <br />
-          {access.from && new Date(access.from).getTime() > Date.now() ? `Abre ${speakWhen(access.from, { long: true })}.` : "O período de acesso já terminou."}
+          {access.from && new Date(access.from).getTime() > Date.now() ? tx("Abre {when}.", { when: speakWhen(access.from, { long: true }) }) : tx("O período de acesso já terminou.")}
         </p>
       </div>
     );
@@ -161,7 +166,7 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
   if (data === null) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>
+        <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>
       </div>
     );
   }
@@ -169,11 +174,11 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
   if (data === undefined) {
     return (
       <div className="admin-page">
-        <h1 className="admin-title">Olá, {first}! 👋</h1>
+        <h1 className="admin-title">{tx("Olá, {name}! 👋", { name: first })}</h1>
         <p className="opt-empty">
-          Seu celular ainda não está vinculado a um cadastro da equipe.
+          {tx("Seu celular ainda não está vinculado a um cadastro da equipe.")}
           <br />
-          Fale com a organização para ajustar o seu cadastro.
+          {tx("Fale com a organização para ajustar o seu cadastro.")}
         </p>
       </div>
     );
@@ -183,21 +188,21 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
   const caretaker = me.roomRole === "caretaker";
 
   if (openKid) {
-    return <CamperDetail token={token} camperId={openKid} nav={{ crumbs: [{ label: "Início", onClick: () => navigate("/home") }, { label: "Criança" }], setTitle }} onOpenCamper={openCamper} canEditHealth={medical} />;
+    return <CamperDetail token={token} camperId={openKid} nav={{ crumbs: [{ label: tx("Início"), onClick: () => navigate("/home") }, { label: tx("Criança") }], setTitle }} onOpenCamper={openCamper} canEditHealth={medical} />;
   }
 
   if (!bedroom) {
     return (
       <div className="admin-page">
-        <h1 className="admin-title">Olá, {first}! 👋</h1>
+        <h1 className="admin-title">{tx("Olá, {name}! 👋", { name: first })}</h1>
         <StaffBusCard transportId={me.transportation} />
         <SelfCheckinCard token={token} user={user} />
         {/* the medical team works from this list even without a room of their own */}
         {medical && <MedicationsToday token={token} />}
         <p className="opt-empty">
-          Você ainda não tem um quarto definido.
+          {tx("Você ainda não tem um quarto definido.")}
           <br />
-          Assim que a organização te alocar, ele aparece aqui.
+          {tx("Assim que a organização te alocar, ele aparece aqui.")}
         </p>
       </div>
     );
@@ -212,12 +217,12 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
     <div className="admin-page">
       <header className="admin-head">
         <h1 className={`admin-title detail-title room-group__title--${m.color}`}>
-          <GroupIcon group={bedroom.group} /> Quarto {bedroom.name}
+          <GroupIcon group={bedroom.group} /> {tx("Quarto {name}", { name: bedroom.name })}
         </h1>
       </header>
       <p className="admin-intro">
-        Olá, {first}! Este é o seu quarto.{" "}
-        {isStaffRoom ? "Aqui ficam só pessoas da equipe." : caretaker ? "Você é líder de crianças deste quarto." : "Você é auxiliar neste quarto."}
+        {tx("Olá, {name}! Este é o seu quarto.", { name: first })}{" "}
+        {isStaffRoom ? tx("Aqui ficam só pessoas da equipe.") : caretaker ? tx("Você é líder de crianças deste quarto.") : tx("Você é auxiliar neste quarto.")}
       </p>
 
       <StaffBusCard transportId={me.transportation} />
@@ -235,11 +240,11 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
       {!isStaffRoom && caretaker && (
         <section className="detail-section">
           <h2 className="detail-h2">
-            <KidIcon sex={sex} group size={26} /> Minhas crianças <span className="cat-tab__count">{myKids.length}</span>
+            <KidIcon sex={sex} group size={26} /> {tx("Minhas crianças")} <span className="cat-tab__count">{myKids.length}</span>
           </h2>
-          <p className="admin-intro">Você é o líder delas.</p>
+          <p className="admin-intro">{tx("Você é o líder delas.")}</p>
           {myKids.length === 0 ? (
-            <p className="opt-empty">Nenhuma criança sob sua responsabilidade ainda.</p>
+            <p className="opt-empty">{tx("Nenhuma criança sob sua responsabilidade ainda.")}</p>
           ) : (
             <ul className="kid-list">
               {myKids.map((k) => (
@@ -256,16 +261,16 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
       <section className={`detail-section roommate-section ${roommates.length === 0 ? "roommate-section--empty" : ""}`}>
         <div className="roommate-head">
           <h2 className="detail-h2">
-            <StaffIcon size={24} /> Equipe no quarto
+            <StaffIcon size={24} /> {tx("Equipe no quarto")}
           </h2>
           <span className="roommate-count">
-            {roommates.length} {roommates.length === 1 ? "pessoa" : "pessoas"}
+            {roommates.length} {roommates.length === 1 ? tx("pessoa") : tx("pessoas")}
           </span>
         </div>
         {roommates.length === 0 ? (
-          <p className="opt-empty">Só você neste quarto. 😊</p>
+          <p className="opt-empty">{tx("Só você neste quarto. 😊")}</p>
         ) : (
-          <ul className="roommate-list" aria-label="Equipe no quarto">
+          <ul className="roommate-list" aria-label={tx("Equipe no quarto")}>
             {roommates.map((r) => (
               <li key={r.id} className="roommate-card">
                 <span className={`roommate-card__icon roommate-card__icon--${r.roomRole}`} aria-hidden="true">
@@ -274,7 +279,7 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
                 <span className="roommate-card__body">
                   <strong className="roommate-card__name">{r.name}</strong>
                   <span className="roommate-card__role">
-                    {ROOM_ROLE_META[r.roomRole].label}
+                    {tx(ROOM_ROLE_META[r.roomRole].label)}
                     {r.phone && <> · {formatBrazilPhoneClient(r.phone)}</>}
                   </span>
                   <TeamTag teamId={r.team} className="staff-tag--inline roommate-card__team" />
@@ -283,7 +288,7 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
                   <WhatsAppButton
                     className="wa-btn--sm roommate-card__wa"
                     href={whatsappLink(r.phone, staffGreeting({ toName: r.name, fromName: user.name }))}
-                    label={`Falar com ${r.name.split(" ")[0]} no WhatsApp`}
+                    label={tx("Falar com {name} no WhatsApp", { name: r.name.split(" ")[0] })}
                   />
                 )}
               </li>
@@ -297,12 +302,12 @@ export default function HomePage({ user, token, medical = false }: HomePageProps
         <section className="detail-section">
           <button type="button" className={`disclosure ${showOthers ? "disclosure--open" : ""}`} aria-expanded={showOthers} onClick={() => setShowOthers((v) => !v)}>
             <span className="disclosure__arrow" aria-hidden="true">▶</span>
-            {caretaker ? "Outras crianças do quarto" : "Crianças do quarto"} <span className="cat-tab__count">{campers.length}</span>
-            <span className="disclosure__hint">para ajudar os colegas com saúde e cuidados</span>
+            {caretaker ? tx("Outras crianças do quarto") : tx("Crianças do quarto")} <span className="cat-tab__count">{campers.length}</span>
+            <span className="disclosure__hint">{tx("para ajudar os colegas com saúde e cuidados")}</span>
           </button>
           {showOthers &&
             (campers.length === 0 ? (
-              <p className="opt-empty">As crianças do quarto aparecem aqui durante o acampamento.</p>
+              <p className="opt-empty">{tx("As crianças do quarto aparecem aqui durante o acampamento.")}</p>
             ) : (
               <ul className="kid-list">
                 {campers.map((k) => (

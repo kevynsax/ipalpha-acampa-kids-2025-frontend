@@ -34,6 +34,7 @@ import { DAY_LABELS, type TemplateEvent, type TemplateRole } from "./scheduleTem
 import { defaultSeeds } from "./defaults";
 import RoomsEditor from "./RoomsEditor";
 import { recalledWizardPlace, rememberWizardPlace, setWizardDismissed, type WizardPlaceChoice } from "./state";
+import { collatorLocale, useI18n } from "../i18n";
 
 /**
  * 🏕️ Assistente de configuração — the guided setup that takes a freshly
@@ -79,6 +80,7 @@ interface WizardPageProps {
 }
 
 export default function WizardPage({ token, user, onExit }: WizardPageProps) {
+  const { tx } = useI18n();
   const { params, navigate } = useRoute();
   const asked = params.get("step") as StepId | null;
   const step: StepId = STEPS.some((s) => s.id === asked) ? (asked as StepId) : "intro";
@@ -121,18 +123,18 @@ export default function WizardPage({ token, user, onExit }: WizardPageProps) {
         <div className="wizard__heading">
           <img className="wizard__icon" src={ICONS.wizard} alt="" aria-hidden="true" />
           <div>
-            <h1 className="wizard__title">Assistente de configuração</h1>
+            <h1 className="wizard__title">{tx("Assistente de configuração")}</h1>
             <p className="wizard__subtitle">
-              Etapa {index + 1} de {STEPS.length} · {STEPS[index].label} — dá para pular etapas e voltar quando quiser.
+              {tx("Etapa {n} de {total} · {label} — dá para pular etapas e voltar quando quiser.", { n: index + 1, total: STEPS.length, label: tx(STEPS[index].label) })}
             </p>
           </div>
         </div>
-        <button type="button" className="wizard__close" onClick={close} title="Sair do assistente">
-          ✕ Sair
+        <button type="button" className="wizard__close" onClick={close} title={tx("Sair do assistente")}>
+          ✕ {tx("Sair")}
         </button>
       </header>
 
-      <nav className="wizard__steps" aria-label="Etapas">
+      <nav className="wizard__steps" aria-label={tx("Etapas")}>
         {STEPS.map((s, i) => (
           <button
             key={s.id}
@@ -144,7 +146,7 @@ export default function WizardPage({ token, user, onExit }: WizardPageProps) {
             <span className="wizard__step-mark" aria-hidden="true">
               {s.icon ? <img src={s.icon} alt="" /> : s.emoji}
             </span>
-            <span className="wizard__step-label">{s.label}</span>
+            <span className="wizard__step-label">{tx(s.label)}</span>
           </button>
         ))}
       </nav>
@@ -154,14 +156,14 @@ export default function WizardPage({ token, user, onExit }: WizardPageProps) {
         {step === "admins" && <AdminsStep token={token} user={user} />}
         {step === "staff" && (
           <StepShell
-            title="Importar a equipe"
-            hint="A IA reconhece a planilha (CSV ou Excel) e você confere as dúvidas antes de gravar. Celular e quarto podem ficar vazios."
+            title={tx("Importar a equipe")}
+            hint={tx("A IA reconhece a planilha (CSV ou Excel) e você confere as dúvidas antes de gravar. Celular e quarto podem ficar vazios.")}
           >
             <StaffImportPage token={token} onBack={next} />
           </StepShell>
         )}
         {step === "campers" && (
-          <StepShell title="Importar os acampantes" hint="A IA compara as colunas e cruza quartos, líderes, transporte, times e saúde. Nada é gravado sem a sua revisão.">
+          <StepShell title={tx("Importar os acampantes")} hint={tx("A IA compara as colunas e cruza quartos, líderes, transporte, times e saúde. Nada é gravado sem a sua revisão.")}>
             <CamperImportPage token={token} onDone={next} />
           </StepShell>
         )}
@@ -177,13 +179,13 @@ export default function WizardPage({ token, user, onExit }: WizardPageProps) {
       {step !== "intro" && step !== "done" && (
         <footer className="wizard__foot">
           <button type="button" className="button button--secondary" disabled={index === 0} onClick={prev}>
-            ‹ Voltar
+            {tx("‹ Voltar")}
           </button>
           <button type="button" className="button button--secondary" onClick={next}>
-            Pular etapa
+            {tx("Pular etapa")}
           </button>
           <button type="button" className="button button--primary" onClick={next}>
-            Continuar ›
+            {tx("Continuar ›")}
           </button>
         </footer>
       )}
@@ -194,6 +196,7 @@ export default function WizardPage({ token, user, onExit }: WizardPageProps) {
 // ── intro ───────────────────────────────────────────────────────────────────
 
 function IntroStep({ token, onNext, onSkip }: { token: string; onNext: () => void; onSkip: () => void }) {
+  const { tx } = useI18n();
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<(SampleLoad & { events: number }) | null>(null);
@@ -209,7 +212,7 @@ function IntroStep({ token, onNext, onSkip }: { token: string; onNext: () => voi
       const applied = await applySampleSchedule(token, sampleSchedulePlan(), { roles, events });
       setLoaded({ ...r, events: applied.events });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setTesting(false);
     }
@@ -218,53 +221,50 @@ function IntroStep({ token, onNext, onSkip }: { token: string; onNext: () => voi
   return (
     <section className="wizard-card wizard-card--intro">
       <div className="confetti" aria-hidden="true">🏕️ 🚌 🛏️ 📅 🎉</div>
-      <h2 className="wizard-card__title">Vamos montar o acampamento! 🏕️</h2>
+      <h2 className="wizard-card__title">{tx("Vamos montar o acampamento! 🏕️")}</h2>
       <p className="admin-intro">
-        O app está <strong>zerado</strong>, pronto para um novo acampamento. Em poucos passos ele fica inteiro — importando a equipe e as
-        crianças, escolhendo o local conhecido, preenchendo a programação e ajustando as configurações importantes.
+        {tx("O app está")} <strong>{tx("zerado")}</strong>{tx(", pronto para um novo acampamento. Em poucos passos ele fica inteiro — importando a equipe e as crianças, escolhendo o local conhecido, preenchendo a programação e ajustando as configurações importantes.")}
       </p>
       <ul className="wizard-list">
-        <li>🔑 Convidar quem mais vai administrar (recebe o link por SMS ou WhatsApp)</li>
-        <li>🧢 Importar a <strong>equipe</strong> e os <strong>acampantes</strong> das planilhas</li>
-        <li>📍 Escolher o <strong>local</strong> — quartos, endereço e mapa já vêm preenchidos</li>
-        <li>📅 Pré-visualizar a <strong>programação</strong> modelo e tirar o que não vale</li>
-        <li>📖 Criar a primeira <strong>Preparação</strong> e a instrução com o <strong>endereço</strong></li>
-        <li>⚙️ Janelas de acesso, check-in, organizadores e SMS</li>
-        <li>🛏️ Organizar os <strong>quartos</strong> e os <strong>ônibus</strong> (4 já vêm prontos)</li>
+        <li>{tx("🔑 Convidar quem mais vai administrar (recebe o link por SMS ou WhatsApp)")}</li>
+        <li>{tx("🧢 Importar a")} <strong>{tx("equipe")}</strong> {tx("e os")} <strong>{tx("acampantes")}</strong> {tx("das planilhas")}</li>
+        <li>{tx("📍 Escolher o")} <strong>{tx("local")}</strong> {tx("— quartos, endereço e mapa já vêm preenchidos")}</li>
+        <li>{tx("📅 Pré-visualizar a")} <strong>{tx("programação")}</strong> {tx("modelo e tirar o que não vale")}</li>
+        <li>{tx("📖 Criar a primeira")} <strong>{tx("Preparação")}</strong> {tx("e a instrução com o")} <strong>{tx("endereço")}</strong></li>
+        <li>{tx("⚙️ Janelas de acesso, check-in, organizadores e SMS")}</li>
+        <li>{tx("🛏️ Organizar os")} <strong>{tx("quartos")}</strong> {tx("e os")} <strong>{tx("ônibus")}</strong> {tx("(4 já vêm prontos)")}</li>
       </ul>
-      <p className="cat-hint">Dá para pular etapas, voltar e reabrir este assistente depois (Limpeza ou Perfil).</p>
+      <p className="cat-hint">{tx("Dá para pular etapas, voltar e reabrir este assistente depois (Limpeza ou Perfil).")}</p>
 
       {error && <p className="message message--error">{error}</p>}
       {loaded ? (
         <div className="wizard-test">
           <p className="message message--ok">
-            ✅ Camp de exemplo carregado: <strong>{loaded.campers} acampantes</strong>, <strong>{loaded.staff} pessoas na equipe</strong>,{" "}
-            {loaded.bedrooms} quartos, {loaded.transports} veículos, {loaded.teams} times e {loaded.events} eventos — tudo <strong>fictício</strong>,
-            {" "}com a programação e as janelas (equipe, pais, check-in e volta) valendo a partir de hoje. Continue o passo a passo ou vá direto
-            explorar as abas.
+            {tx("✅ Camp de exemplo carregado:")} <strong>{tx("{n} acampantes", { n: loaded.campers })}</strong>, <strong>{tx("{n} pessoas na equipe", { n: loaded.staff })}</strong>,{" "}
+            {tx("{n} quartos", { n: loaded.bedrooms })}, {tx("{n} veículos", { n: loaded.transports })}, {tx("{n} times", { n: loaded.teams })} {tx("e")} {tx("{n} eventos", { n: loaded.events })} {tx("— tudo")} <strong>{tx("fictício")}</strong>,
+            {" "}{tx("com a programação e as janelas (equipe, pais, check-in e volta) valendo a partir de hoje. Continue o passo a passo ou vá direto explorar as abas.")}
           </p>
           <div className="cat-form__actions">
             <button type="button" className="button button--secondary" onClick={onSkip}>
-              Explorar o app
+              {tx("Explorar o app")}
             </button>
             <button type="button" className="button button--primary" onClick={onNext}>
-              Continuar o assistente ›
+              {tx("Continuar o assistente ›")}
             </button>
           </div>
         </div>
       ) : (
         <div className="wizard-test">
           <div className="wizard-test__head">
-            <h3 className="cat-form__title">🧪 Testar o sistema</h3>
+            <h3 className="cat-form__title">{tx("🧪 Testar o sistema")}</h3>
           </div>
           <p className="cat-hint">
-            Carrega um acampamento de exemplo com 154 acampantes e 72 pessoas na equipe — baseado no acampamento real, mas{" "}
-            <strong>fictício</strong>: nomes embaralhados dentro do mesmo gênero e celulares, CPFs, RGs e e-mails aleatórios. A programação e as
-            janelas vêm ancoradas em hoje (primeiro dia amanhã). Só funciona com o app zerado.
+            {tx("Carrega um acampamento de exemplo com 154 acampantes e 72 pessoas na equipe — baseado no acampamento real, mas")}{" "}
+            <strong>{tx("fictício")}</strong>{tx(": nomes embaralhados dentro do mesmo gênero e celulares, CPFs, RGs e e-mails aleatórios. A programação e as janelas vêm ancoradas em hoje (primeiro dia amanhã). Só funciona com o app zerado.")}
           </p>
           <div className="cat-form__actions">
             <button type="button" className="button button--secondary" disabled={testing} onClick={() => void loadSample()}>
-              {testing ? "Carregando… 🧪" : "Carregar dados de exemplo"}
+              {testing ? tx("Carregando… 🧪") : tx("Carregar dados de exemplo")}
             </button>
           </div>
         </div>
@@ -273,10 +273,10 @@ function IntroStep({ token, onNext, onSkip }: { token: string; onNext: () => voi
       {!loaded && (
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" onClick={onSkip}>
-            Agora não
+            {tx("Agora não")}
           </button>
           <button type="button" className="button button--primary" onClick={onNext}>
-            Começar do zero 🚀
+            {tx("Começar do zero 🚀")}
           </button>
         </div>
       )}
@@ -287,6 +287,7 @@ function IntroStep({ token, onNext, onSkip }: { token: string; onNext: () => voi
 // ── admins (super user invites the admin) ──────────────────────────────────
 
 function AdminsStep({ token, user }: { token: string; user: LoggedUser }) {
+  const { tx } = useI18n();
   const [info, setInfo] = useState<AdminsInfo | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -301,7 +302,7 @@ function AdminsStep({ token, user }: { token: string; user: LoggedUser }) {
     setError(null);
     listAdmins(token)
       .then((i) => alive && setInfo(i))
-      .catch((e) => alive && setError(e instanceof Error ? e.message : "Não foi possível carregar os admins."));
+      .catch((e) => alive && setError(e instanceof Error ? e.message : tx("Não foi possível carregar os admins.")));
     return () => {
       alive = false;
     };
@@ -323,7 +324,7 @@ function AdminsStep({ token, user }: { token: string; user: LoggedUser }) {
       setPhone("");
       setInfo(await listAdmins(token));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -338,7 +339,7 @@ function AdminsStep({ token, user }: { token: string; user: LoggedUser }) {
       setInfo(await listAdmins(token));
       setAdded((kept) => (kept?.id === a.id ? null : kept));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -346,10 +347,9 @@ function AdminsStep({ token, user }: { token: string; user: LoggedUser }) {
 
   return (
     <section className="wizard-card">
-      <h2 className="wizard-card__title">🔑 Administradores</h2>
+      <h2 className="wizard-card__title">{tx("🔑 Administradores")}</h2>
       <p className="admin-intro">
-        Quem administra o app convida quem mais vai cuidar da configuração. A pessoa entra com o <strong>próprio celular</strong> (código por
-        SMS) — mande o link para ela.
+        {tx("Quem administra o app convida quem mais vai cuidar da configuração. A pessoa entra com o")} <strong>{tx("próprio celular")}</strong> {tx("(código por SMS) — mande o link para ela.")}
       </p>
       {error && <p className="message message--error">{error}</p>}
 
@@ -358,12 +358,12 @@ function AdminsStep({ token, user }: { token: string; user: LoggedUser }) {
           {info.admins.map((a) => (
             <li key={a.id} className="wizard-admins__row">
               <span className="wizard-admins__name">
-                {a.name} {a.id === user.id && <span className="cat-hint">(você)</span>}
-                {a.superAdmin && <span className="cat-hint"> · admin da implantação</span>}
+                {a.name} {a.id === user.id && <span className="cat-hint">{tx("(você)")}</span>}
+                {a.superAdmin && <span className="cat-hint"> {tx("· admin da implantação")}</span>}
               </span>
               <span className="wizard-admins__phone">{formatBrazilPhoneClient(a.phone)}</span>
               {!a.superAdmin && a.id !== user.id && (
-                <button type="button" className="helpers-tag__x" title="Remover acesso de admin" aria-label={`Remover ${a.name}`} disabled={busy} onClick={() => void remove(a)}>
+                <button type="button" className="helpers-tag__x" title={tx("Remover acesso de admin")} aria-label={tx("Remover {name}", { name: a.name })} disabled={busy} onClick={() => void remove(a)}>
                   ✕
                 </button>
               )}
@@ -381,17 +381,17 @@ function AdminsStep({ token, user }: { token: string; user: LoggedUser }) {
       >
         <div className="cat-form__row staff-form__row">
           <label className="cat-field cat-field--grow">
-            <span className="cat-field__label">Nome</span>
-            <input className="cat-input" placeholder="Quem vai administrar" value={name} maxLength={80} disabled={busy} onChange={(e) => setName(e.target.value)} />
+            <span className="cat-field__label">{tx("Nome")}</span>
+            <input className="cat-input" placeholder={tx("Quem vai administrar")} value={name} maxLength={80} disabled={busy} onChange={(e) => setName(e.target.value)} />
           </label>
           <label className="cat-field cat-field--grow">
-            <span className="cat-field__label">Celular</span>
+            <span className="cat-field__label">{tx("Celular")}</span>
             <PhoneInput value={phone} onChange={setPhone} disabled={busy} />
           </label>
         </div>
         <div className="cat-form__actions">
           <button type="submit" className="button button--primary" disabled={busy || !name.trim() || !e164}>
-            {busy ? "Adicionando…" : "Adicionar e enviar link"}
+            {busy ? tx("Adicionando…") : tx("Adicionar e enviar link")}
           </button>
         </div>
       </form>
@@ -399,11 +399,11 @@ function AdminsStep({ token, user }: { token: string; user: LoggedUser }) {
       {added && (
         <div className="wizard-invite">
           <p className="message message--ok">
-            ✅ <strong>{added.name}</strong> já é admin.{smsSent ? " O link já foi mandado por SMS —" : ""} Envie o link:
+            ✅ <strong>{added.name}</strong> {tx("já é admin.")}{smsSent ? tx(" O link já foi mandado por SMS —") : ""} {tx("Envie o link:")}
           </p>
           <div className="cat-form__actions">
-            <a className="button button--secondary" href={whatsappLink(added.phone, `Olá! Você agora administra o Acampa Kids 🏕️ Entre com este celular: ${link}`)} target="_blank" rel="noreferrer">
-              Mandar no WhatsApp
+            <a className="button button--secondary" href={whatsappLink(added.phone, tx("Olá! Você agora administra o Acampa Kids 🏕️ Entre com este celular: {link}", { link }))} target="_blank" rel="noreferrer">
+              {tx("Mandar no WhatsApp")}
             </a>
             <button
               type="button"
@@ -412,7 +412,7 @@ function AdminsStep({ token, user }: { token: string; user: LoggedUser }) {
                 void navigator.clipboard?.writeText(link).then(() => setCopied(true));
               }}
             >
-              {copied ? "✓ Copiado" : "Copiar link"}
+              {copied ? tx("✓ Copiado") : tx("Copiar link")}
             </button>
           </div>
           <p className="cat-hint">{link}</p>
@@ -427,6 +427,7 @@ function AdminsStep({ token, user }: { token: string; user: LoggedUser }) {
 const spotDraft = (v: string) => v.replace(",", ".");
 
 function VenueStep({ token, places, onNext }: { token: string; places: KnownPlace[]; onNext: () => void }) {
+  const { tx } = useI18n();
   const settings = useCollection("settings");
   const bedrooms = useCollectionOrEmpty("bedrooms");
   const recalled = useRef(recalledWizardPlace()).current;
@@ -456,19 +457,20 @@ function VenueStep({ token, places, onNext }: { token: string; places: KnownPlac
   const latN = Number(spotDraft(lat));
   const lngN = Number(spotDraft(lng));
   const coordsOk = !lat && !lng ? true : Number.isFinite(latN) && Math.abs(latN) <= 90 && Number.isFinite(lngN) && Math.abs(lngN) <= 180;
-  const capacity = rooms.reduce((n, r) => n + r.bunkBeds * 2 + r.singleBeds, 0);
+  const capacity = rooms.reduce((n, r) => n + (r.bunkBeds ?? 0) * 2 + (r.singleBeds ?? 0), 0);
+  const roomsOk = rooms.every((r) => r.bunkBeds !== null && r.singleBeds !== null);
   /** rooms the camp doesn't have yet (matched by name + wing) */
   const existing = useMemo(() => new Set(bedrooms.map((b) => `${b.group}:${b.name.trim()}`)), [bedrooms]);
   const toCreate = rooms.filter((r) => r.name.trim() && !existing.has(`${r.group}:${r.name.trim()}`));
 
   async function apply() {
-    if (busy || !coordsOk) return;
+    if (busy || !coordsOk || !roomsOk) return;
     setBusy(true);
     setError(null);
     try {
       let created = 0;
       for (const r of toCreate) {
-        await createBedroom(token, { name: r.name.trim(), group: r.group, bunkBeds: r.bunkBeds, singleBeds: r.singleBeds, notes: "" });
+        await createBedroom(token, { name: r.name.trim(), group: r.group, bunkBeds: r.bunkBeds!, singleBeds: r.singleBeds!, notes: "" });
         created++;
       }
       if (coordsOk && lat && lng) {
@@ -479,7 +481,7 @@ function VenueStep({ token, places, onNext }: { token: string; places: KnownPlac
       rememberWizardPlace({ id: placeId, name: name.trim() || "Acampamento", address: address.trim() });
       setApplied(created);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -487,10 +489,9 @@ function VenueStep({ token, places, onNext }: { token: string; places: KnownPlac
 
   return (
     <section className="wizard-card">
-      <h2 className="wizard-card__title">📍 O local do acampamento</h2>
+      <h2 className="wizard-card__title">{tx("📍 O local do acampamento")}</h2>
       <p className="admin-intro">
-        O assistente conhece os lugares que a igreja já usa — os <strong>quartos com as camas</strong>, o endereço e a localização vêm
-        preenchidos. Confira, ajuste o que mudou e aplique.
+        {tx("O assistente conhece os lugares que a igreja já usa — os")} <strong>{tx("quartos com as camas")}</strong>{tx(", o endereço e a localização vêm preenchidos. Confira, ajuste o que mudou e aplique.")}
       </p>
 
       <div className="big-options">
@@ -498,7 +499,7 @@ function VenueStep({ token, places, onNext }: { token: string; places: KnownPlac
           <button key={p.id} type="button" className={`big-option ${placeId === p.id ? "big-option--on" : ""}`} aria-pressed={placeId === p.id} disabled={busy} onClick={() => setPlaceId(p.id)}>
             <span className="big-option__emoji" aria-hidden="true">🏕️</span>
             <span className="big-option__label">{p.name}</span>
-            <span className="big-option__hint">{p.rooms.length} quartos</span>
+            <span className="big-option__hint">{tx("{n} quartos", { n: p.rooms.length })}</span>
           </button>
         ))}
       </div>
@@ -506,45 +507,45 @@ function VenueStep({ token, places, onNext }: { token: string; places: KnownPlac
 
       <div className="cat-form__row staff-form__row">
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Nome do local</span>
+          <span className="cat-field__label">{tx("Nome do local")}</span>
           <input className="cat-input" value={name} maxLength={80} disabled={busy} onChange={(e) => setName(e.target.value)} />
         </label>
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Endereço</span>
-          <input className="cat-input" placeholder="Rua, número, cidade" value={address} maxLength={160} disabled={busy} onChange={(e) => setAddress(e.target.value)} />
+          <span className="cat-field__label">{tx("Endereço")}</span>
+          <input className="cat-input" placeholder={tx("Rua, número, cidade")} value={address} maxLength={160} disabled={busy} onChange={(e) => setAddress(e.target.value)} />
         </label>
       </div>
       <div className="cat-form__row staff-form__row">
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Latitude</span>
+          <span className="cat-field__label">{tx("Latitude")}</span>
           <input className="cat-input" inputMode="decimal" placeholder="-23.480536" value={lat} disabled={busy} onChange={(e) => setLat(e.target.value)} />
         </label>
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Longitude</span>
+          <span className="cat-field__label">{tx("Longitude")}</span>
           <input className="cat-input" inputMode="decimal" placeholder="-46.830779" value={lng} disabled={busy} onChange={(e) => setLng(e.target.value)} />
         </label>
       </div>
-      {!coordsOk && <p className="cat-hint cat-hint--error">Latitude entre -90 e 90, longitude entre -180 e 180.</p>}
+      {!coordsOk && <p className="cat-hint cat-hint--error">{tx("Latitude entre -90 e 90, longitude entre -180 e 180.")}</p>}
       {lat && lng && coordsOk && (
         <SpotMap lat={latN} lng={lngN} radiusM={CAMP_SPOT_RADIUS_M} onMove={(p) => { setLat(String(p.lat)); setLng(String(p.lng)); }} />
       )}
 
       <div className="list-head">
         <h3 className="cat-form__title">
-          Quartos {!capacity || <span className="cat-tab__count">{rooms.length} · {capacity} camas</span>}
+          {tx("Quartos")} {!capacity || <span className="cat-tab__count">{tx("{rooms} · {beds} camas", { rooms: rooms.length, beds: capacity })}</span>}
         </h3>
       </div>
       <RoomsEditor rooms={rooms} onChange={setRooms} disabled={busy} />
 
       {error && <p className="message message--error">{error}</p>}
-      {applied > 0 && <p className="message message--ok">✅ {applied} quarto(s) criado(s){lat && lng ? " e ponto do acampamento salvo" : ""}. Continue nos passos de Quartos para alocar as crianças.</p>}
-      {applied === 0 && bedrooms.length > 0 && <p className="cat-hint">O acampamento já tem {bedrooms.length} quarto(s); só os novos nomes serão criados.</p>}
+      {applied > 0 && <p className="message message--ok">{tx("✅ {n} quarto(s) criado(s){spot}. Continue nos passos de Quartos para alocar as crianças.", { n: applied, spot: lat && lng ? tx(" e ponto do acampamento salvo") : "" })}</p>}
+      {applied === 0 && bedrooms.length > 0 && <p className="cat-hint">{tx("O acampamento já tem {n} quarto(s); só os novos nomes serão criados.", { n: bedrooms.length })}</p>}
       <div className="cat-form__actions">
-        <button type="button" className="button button--primary" disabled={busy || !coordsOk || (toCreate.length === 0 && !(lat && lng))} onClick={() => void apply()}>
-          {busy ? "Aplicando…" : toCreate.length > 0 ? `Aplicar (${toCreate.length} quartos)` : "Salvar local"}
+        <button type="button" className="button button--primary" disabled={busy || !coordsOk || !roomsOk || (toCreate.length === 0 && !(lat && lng))} onClick={() => void apply()}>
+          {busy ? tx("Aplicando…") : toCreate.length > 0 ? tx("Aplicar ({n} quartos)", { n: toCreate.length }) : tx("Salvar local")}
         </button>
         <button type="button" className="button button--secondary" onClick={onNext}>
-          Continuar ›
+          {tx("Continuar ›")}
         </button>
       </div>
     </section>
@@ -572,6 +573,7 @@ function addDays(iso: string, days: number): string {
 }
 
 function ScheduleStep({ token, roles, events }: { token: string; roles: TemplateRole[]; events: TemplateEvent[] }) {
+  const { tx } = useI18n();
   const existingEvents = useCollectionOrEmpty("events");
   const existingRoles = useCollectionOrEmpty("roles");
   const [firstDay, setFirstDay] = useState(nextFriday);
@@ -583,7 +585,7 @@ function ScheduleStep({ token, roles, events }: { token: string; roles: Template
   const roleByKey = useMemo(() => new Map(roles.map((r) => [r.key, r])), [roles]);
   const selected = events.filter((_, i) => kept.has(i));
   const roleKeys = useMemo(() => [...new Set(selected.flatMap((e) => e.roles))], [selected]);
-  const norm = (s: string) => s.trim().toLocaleLowerCase("pt-BR").replace(/\s+/g, " ");
+  const norm = (s: string) => s.trim().toLocaleLowerCase(collatorLocale()).replace(/\s+/g, " ");
   const missingRoles = roleKeys.filter((k) => !existingRoles.some((r) => norm(r.name) === norm(roleByKey.get(k)?.name ?? k)));
 
   const toggle = (i: number) =>
@@ -645,7 +647,7 @@ function ScheduleStep({ token, roles, events }: { token: string; roles: Template
       }
       setApplied(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -653,14 +655,13 @@ function ScheduleStep({ token, roles, events }: { token: string; roles: Template
 
   return (
     <section className="wizard-card">
-      <h2 className="wizard-card__title">📅 Programação modelo</h2>
+      <h2 className="wizard-card__title">{tx("📅 Programação modelo")}</h2>
       <p className="admin-intro">
-        A estrutura de um Acampa Kids (sexta à noite → domingo à tarde) já vem pronta, <strong>com as funções de cada evento</strong>. Tire o
-        que não vale neste ano e importe — depois ajuste horários e escala em Programação.
+        {tx("A estrutura de um Acampa Kids (sexta à noite → domingo à tarde) já vem pronta,")} <strong>{tx("com as funções de cada evento")}</strong>{tx(". Tire o que não vale neste ano e importe — depois ajuste horários e escala em Programação.")}
       </p>
 
       <label className="cat-field wizard-firstday">
-        <span className="cat-field__label">Primeiro dia (6ª-feira)</span>
+        <span className="cat-field__label">{tx("Primeiro dia (6ª-feira)")}</span>
         <input className="cat-input" type="date" value={firstDay} disabled={busy} onChange={(e) => setFirstDay(e.target.value)} />
       </label>
 
@@ -671,25 +672,25 @@ function ScheduleStep({ token, roles, events }: { token: string; roles: Template
           <div key={day} className="wizard-day">
             <div className="room-group__head">
               <h3 className="room-group__title room-group__title--green">
-                📆 {DAY_LABELS[day]} <span className="cat-hint">{addDays(firstDay, day - 1).split("-").reverse().join("/")}</span>
+                📆 {tx(DAY_LABELS[day])} <span className="cat-hint">{addDays(firstDay, day - 1).split("-").reverse().join("/")}</span>
               </h3>
               <span className="room-group__stats">{on}/{rows.length}</span>
-              <button type="button" className="icon-btn" title={on === rows.length ? "Desmarcar o dia" : "Marcar o dia"} disabled={busy} onClick={() => toggleDay(day)}>
+              <button type="button" className="icon-btn" title={on === rows.length ? tx("Desmarcar o dia") : tx("Marcar o dia")} disabled={busy} onClick={() => toggleDay(day)}>
                 {on === rows.length ? "−" : "+"}
               </button>
             </div>
             <ul className="wizard-schedule">
               {rows.map(([e, i]) => (
                 <li key={i}>
-                  <button type="button" className={`wizard-schedule__item ${kept.has(i) ? "wizard-schedule__item--on" : ""}`} aria-pressed={kept.has(i)} disabled={busy} onClick={() => toggle(i)} title={kept.has(i) ? "Tirar da importação" : "Voltar para a importação"}>
+                  <button type="button" className={`wizard-schedule__item ${kept.has(i) ? "wizard-schedule__item--on" : ""}`} aria-pressed={kept.has(i)} disabled={busy} onClick={() => toggle(i)} title={kept.has(i) ? tx("Tirar da importação") : tx("Voltar para a importação")}>
                     <span className="wizard-schedule__time">{e.start}</span>
                     <span className="wizard-schedule__title">
                       <span aria-hidden="true">{e.emoji}</span> {e.title}
-                      {e.visibleToParents === false && <span className="cat-hint"> · só a equipe</span>}
+                      {e.visibleToParents === false && <span className="cat-hint"> {tx("· só a equipe")}</span>}
                     </span>
                     <span className="wizard-schedule__roles">
                       {e.roles.map((k) => roleByKey.get(k)).filter(Boolean).map((r) => (
-                        <span key={r!.key} className="staff-tag" title={`Função: ${r!.name}`}>
+                        <span key={r!.key} className="staff-tag" title={tx("Função: {name}", { name: r!.name })}>
                           {r!.emoji}
                         </span>
                       ))}
@@ -703,14 +704,14 @@ function ScheduleStep({ token, roles, events }: { token: string; roles: Template
       })}
 
       {error && <p className="message message--error">{error}</p>}
-      {applied && <p className="message message--ok">✅ Programação importada! Ajuste horários e escala na aba Programação.</p>}
-      {!applied && existingEvents.length > 0 && <p className="message message--warn">Já existem {existingEvents.length} evento(s) — a importação acrescenta os marcados abaixo sem tocar nos outros.</p>}
+      {applied && <p className="message message--ok">{tx("✅ Programação importada! Ajuste horários e escala na aba Programação.")}</p>}
+      {!applied && existingEvents.length > 0 && <p className="message message--warn">{tx("Já existem {n} evento(s) — a importação acrescenta os marcados abaixo sem tocar nos outros.", { n: existingEvents.length })}</p>}
       <div className="cat-form__actions">
         <span className="cat-hint wizard-schedule__count">
-          {selected.length} evento(s) · {missingRoles.length} função(ões) nova(s) de {roleKeys.length}
+          {tx("{events} evento(s) · {missing} função(ões) nova(s) de {total}", { events: selected.length, missing: missingRoles.length, total: roleKeys.length })}
         </span>
         <button type="button" className="button button--primary" disabled={busy || selected.length === 0} onClick={() => void apply()}>
-          {busy ? "Importando…" : "Importar programação"}
+          {busy ? tx("Importando…") : tx("Importar programação")}
         </button>
       </div>
     </section>
@@ -722,6 +723,7 @@ function ScheduleStep({ token, roles, events }: { token: string; roles: Template
 const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 function DocsStep({ token, docs }: { token: string; docs: SeedDocs }) {
+  const { tx } = useI18n();
   const instructions = useCollectionOrEmpty("instructions");
   const preparation = useCollectionOrEmpty("preparation");
   const settings = useCollection("settings");
@@ -747,7 +749,7 @@ function DocsStep({ token, docs }: { token: string; docs: SeedDocs }) {
       await createInstruction(token, { title: docs.addressTitle, emoji: docs.addressEmoji, audience: "all", content });
       setCreatedAddress(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(null);
     }
@@ -761,7 +763,7 @@ function DocsStep({ token, docs }: { token: string; docs: SeedDocs }) {
       await createPrepSection(token, { title: docs.prepTitle, emoji: docs.prepEmoji, audiences: ["parent", "caretaker", "helper"], content: docs.prepContent });
       setCreatedPrep(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(null);
     }
@@ -769,31 +771,31 @@ function DocsStep({ token, docs }: { token: string; docs: SeedDocs }) {
 
   return (
     <section className="wizard-card">
-      <h2 className="wizard-card__title">📖 Primeiros documentos</h2>
+      <h2 className="wizard-card__title">{tx("📖 Primeiros documentos")}</h2>
       <p className="admin-intro">
-        Dois textos que todo acampamento precisa: a <strong>Preparação</strong> “O que levar na mala” e a instrução com o{" "}
-        <strong>endereço do local</strong>. Depois você edita os dois nas páginas de Preparação e Instruções.
+        {tx("Dois textos que todo acampamento precisa: a")} <strong>{tx("Preparação")}</strong> {tx("“O que levar na mala” e a instrução com o")}{" "}
+        <strong>{tx("endereço do local")}</strong>{tx(". Depois você edita os dois nas páginas de Preparação e Instruções.")}
       </p>
       {error && <p className="message message--error">{error}</p>}
 
       <section className="cat-form">
-        <h3 className="cat-form__title">{docs.addressEmoji} Instrução com o endereço</h3>
+        <h3 className="cat-form__title">{docs.addressEmoji} {tx("Instrução com o endereço")}</h3>
         {hasAddressDoc ? (
-          <p className="message message--ok">✅ Instrução de endereço criada — confira em ⚙️ → Instruções.</p>
+          <p className="message message--ok">{tx("✅ Instrução de endereço criada — confira em ⚙️ → Instruções.")}</p>
         ) : (
           <>
             <label className="cat-field">
-              <span className="cat-field__label">Endereço {recalled ? `(${recalled.name})` : ""}</span>
-              <input className="cat-input" placeholder="Rua, número, cidade" value={address} maxLength={160} disabled={busy !== null} onChange={(e) => setAddress(e.target.value)} />
+              <span className="cat-field__label">{tx("Endereço")}{recalled ? ` (${recalled.name})` : ""}</span>
+              <input className="cat-input" placeholder={tx("Rua, número, cidade")} value={address} maxLength={160} disabled={busy !== null} onChange={(e) => setAddress(e.target.value)} />
             </label>
             {maps && (
               <p className="cat-hint">
-                Localização do passo anterior: <a href={maps} target="_blank" rel="noreferrer">ver no mapa</a>
+                {tx("Localização do passo anterior:")} <a href={maps} target="_blank" rel="noreferrer">{tx("ver no mapa")}</a>
               </p>
             )}
             <div className="cat-form__actions">
               <button type="button" className="button button--primary" disabled={busy !== null || !where} onClick={() => void createAddressDoc()}>
-                {busy === "address" ? "Criando…" : "Criar instrução"}
+                {busy === "address" ? tx("Criando…") : tx("Criar instrução")}
               </button>
             </div>
           </>
@@ -801,15 +803,15 @@ function DocsStep({ token, docs }: { token: string; docs: SeedDocs }) {
       </section>
 
       <section className="cat-form">
-        <h3 className="cat-form__title">{docs.prepEmoji} Primeira Preparação</h3>
+        <h3 className="cat-form__title">{docs.prepEmoji} {tx("Primeira Preparação")}</h3>
         {hasPrep ? (
-          <p className="message message--ok">✅ Já existe {preparation.length || 1} comunicação(ões) de Preparação.</p>
+          <p className="message message--ok">{tx("✅ Já existe {n} comunicação(ões) de Preparação.", { n: preparation.length || 1 })}</p>
         ) : (
           <>
-            <p className="cat-hint">“{docs.prepTitle}”, publicada para pais, líderes e auxiliares — liste roupas, roupa de cama, bíblia…</p>
+            <p className="cat-hint">{tx("“{title}”, publicada para pais, líderes e auxiliares — liste roupas, roupa de cama, bíblia…", { title: docs.prepTitle })}</p>
             <div className="cat-form__actions">
               <button type="button" className="button button--primary" disabled={busy !== null} onClick={() => void createFirstPrep()}>
-                {busy === "prep" ? "Criando…" : <>Criar “{docs.prepTitle}”</>}
+                {busy === "prep" ? tx("Criando…") : tx("Criar “{title}”", { title: docs.prepTitle })}
               </button>
             </div>
           </>
@@ -828,6 +830,7 @@ const ALL_NOTIFICATION_KEYS: (keyof NotificationSettings)[] = [
 ];
 
 function NotificationsGateCard({ token }: { token: string }) {
+  const { tx } = useI18n();
   const settings = useCollection("settings");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -842,7 +845,7 @@ function NotificationsGateCard({ token }: { token: string }) {
     try {
       await updateSettings(token, { notifications: Object.fromEntries(ALL_NOTIFICATION_KEYS.map((k) => [k, value])) });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -852,26 +855,25 @@ function NotificationsGateCard({ token }: { token: string }) {
     <section className="cat-form">
       <div className="cat-form__head">
         <h2 className="cat-form__title">
-          <img className="admin-title__icon" src={ICONS.notifications} alt="" aria-hidden="true" /> Notificações por SMS
+          <img className="admin-title__icon" src={ICONS.notifications} alt="" aria-hidden="true" /> {tx("Notificações")}
         </h2>
         <Toggle
           checked={onCount === ALL_NOTIFICATION_KEYS.length}
           disabled={!settings || busy || (!hasTestPhone && onCount === 0)}
-          label={onCount === ALL_NOTIFICATION_KEYS.length ? "Todas ligadas" : onCount > 0 ? `${onCount} ligadas` : "Todas desligadas"}
+          label={onCount === ALL_NOTIFICATION_KEYS.length ? tx("Todas ligadas") : onCount > 0 ? tx("{n} ligadas", { n: onCount }) : tx("Todas desligadas")}
           onChange={(v) => void setAll(v)}
         />
       </div>
       <p className="cat-hint">
-        As notificações só podem ficar ligadas quando o <strong>redirecionamento de SMS</strong> tem celular de teste preenchido — enquanto
-        não tiver, tudo continua desligado (ninguém recebe SMS de mentira). Ligue-as aqui ou uma a uma em Notificações.
+        {tx("As notificações só podem ficar ligadas quando o")} <strong>{tx("redirecionamento de SMS")}</strong> {tx("tem celular de teste preenchido — enquanto não tiver, tudo continua desligado (ninguém recebe SMS de mentira). Ligue-as aqui ou uma a uma em Notificações.")}
       </p>
       {hasTestPhone ? (
         onCount > 0 && onCount < ALL_NOTIFICATION_KEYS.length ? (
-          <p className="message message--warn">{onCount} de {ALL_NOTIFICATION_KEYS.length} notificações ligadas.</p>
+          <p className="message message--warn">{tx("{on} de {total} notificações ligadas.", { on: onCount, total: ALL_NOTIFICATION_KEYS.length })}</p>
         ) : null
       ) : (
         <p className="message message--warn">
-          Sem celular de teste: preencha o “Redirecionar SMS” acima para poder ligar as notificações com segurança.
+          {tx("Sem celular de teste: preencha o “Redirecionar SMS” acima para poder ligar as notificações com segurança.")}
         </p>
       )}
       {error && <p className="message message--error">{error}</p>}
@@ -880,6 +882,7 @@ function NotificationsGateCard({ token }: { token: string }) {
 }
 
 function ConfigStep({ token }: { token: string }) {
+  const { tx } = useI18n();
   const settings = useCollection("settings");
   const [organizerIds, setOrganizerIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -899,7 +902,7 @@ function ConfigStep({ token }: { token: string }) {
       await updateSettings(token, { organizers: { staffIds: nextIds } });
     } catch (err) {
       setOrganizerIds(previous);
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -908,10 +911,9 @@ function ConfigStep({ token }: { token: string }) {
   return (
     <div className="wizard-config">
       <section className="wizard-card">
-        <h2 className="wizard-card__title">⚙️ Configurações importantes</h2>
+        <h2 className="wizard-card__title">{tx("⚙️ Configurações importantes")}</h2>
         <p className="admin-intro">
-          As janelas de acesso e de check-in, quem organiza, e o redirecionamento de SMS para os testes. Cada card salva por si — nada precisa
-          ser preenchido de uma vez.
+          {tx("As janelas de acesso e de check-in, quem organiza, e o redirecionamento de SMS para os testes. Cada card salva por si — nada precisa ser preenchido de uma vez.")}
         </p>
         {error && <p className="message message--error">{error}</p>}
       </section>
@@ -926,13 +928,13 @@ function ConfigStep({ token }: { token: string }) {
 
       <section className="cat-form">
         <StaffListEditor
-          title={<span><img className="audience-icon" src={ICONS.organizer} alt="" aria-hidden="true" /> Organizadores</span>}
-          hint={<>Acesso de administração (acampantes, equipe, quartos, programação…) sem ser admin</>}
+          title={<span><img className="audience-icon" src={ICONS.organizer} alt="" aria-hidden="true" /> {tx("Organizadores")}</span>}
+          hint={<>{tx("Acesso de administração (acampantes, equipe, quartos, programação…) sem ser admin")}</>}
           value={organizerIds}
           onChange={(ids) => void saveOrganizers(ids)}
           disabled={busy}
-          pickerTitle="Adicionar organizador"
-          empty="Ninguém escolhido ainda. Só o admin administra o app."
+          pickerTitle={tx("Adicionar organizador")}
+          empty={tx("Ninguém escolhido ainda. Só o admin administra o app.")}
         />
       </section>
 
@@ -945,19 +947,20 @@ function ConfigStep({ token }: { token: string }) {
 // ── rooms ───────────────────────────────────────────────────────────────────
 
 function RoomsStep({ token }: { token: string }) {
+  const { tx } = useI18n();
   const [sub, setSub] = useState<"list" | "assign">("assign");
   return (
     <section className="wizard-card wizard-card--full">
-      <h2 className="wizard-card__title">🛏️ Organizar os quartos</h2>
+      <h2 className="wizard-card__title">{tx("🛏️ Organizar os quartos")}</h2>
       <p className="admin-intro">
-        O quadro sugere grupos pelas preferências das crianças; arraste para os quartos e <strong>Concluir</strong> aplica tudo de uma vez.
+        {tx("O quadro sugere grupos pelas preferências das crianças; arraste para os quartos e")} <strong>{tx("Concluir")}</strong> {tx("aplica tudo de uma vez.")}
       </p>
-      <div className="staff-toolbar__filters" role="tablist" aria-label="Quartos">
+      <div className="staff-toolbar__filters" role="tablist" aria-label={tx("Quartos")}>
         <button type="button" role="tab" aria-selected={sub === "assign"} className={`cat-tab ${sub === "assign" ? "cat-tab--active" : ""}`} onClick={() => setSub("assign")}>
-          <img className="cat-tab__img" src={ICONS.roomAssign} alt="" aria-hidden="true" /> Montar
+          <img className="cat-tab__img" src={ICONS.roomAssign} alt="" aria-hidden="true" /> {tx("Montar")}
         </button>
         <button type="button" role="tab" aria-selected={sub === "list"} className={`cat-tab ${sub === "list" ? "cat-tab--active" : ""}`} onClick={() => setSub("list")}>
-          <img className="cat-tab__img" src={ICONS.bed} alt="" aria-hidden="true" /> Quartos
+          <img className="cat-tab__img" src={ICONS.bed} alt="" aria-hidden="true" /> {tx("Quartos")}
         </button>
       </div>
       {sub === "assign" ? (
@@ -976,6 +979,7 @@ function RoomsStep({ token }: { token: string }) {
 // ── buses (prefilled from the seeds) ───────────────────────────────────────
 
 function BusesStep({ token, fleet }: { token: string; fleet: SeedBus[] }) {
+  const { tx } = useI18n();
   const transports = useCollectionOrEmpty("transports");
   const hydrated = useHydrated();
   const [seeding, setSeeding] = useState(false);
@@ -999,7 +1003,7 @@ function BusesStep({ token, fleet }: { token: string; fleet: SeedBus[] }) {
           await createTransport(token, input);
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Algo deu errado.");
+        setError(e instanceof Error ? e.message : tx("Algo deu errado."));
       } finally {
         setSeeding(false);
       }
@@ -1008,14 +1012,14 @@ function BusesStep({ token, fleet }: { token: string; fleet: SeedBus[] }) {
 
   return (
     <section className="wizard-card wizard-card--full">
-      <h2 className="wizard-card__title">🚌 Organizar os ônibus</h2>
+      <h2 className="wizard-card__title">{tx("🚌 Organizar os ônibus")}</h2>
       <p className="admin-intro">
         {transports.length === 0 && seeding === false
-          ? "A frota foi limpa — cadastre os ônibus (e os carros que trazem crianças) e arraste as turmas."
-          : `${fleet.length} ônibus coloridos já vieram prontos (edite cores, números e lugares). Arraste a turma de cada líder para o ônibus dela.`}
+          ? tx("A frota foi limpa — cadastre os ônibus (e os carros que trazem crianças) e arraste as turmas.")
+          : tx("{n} ônibus coloridos já vieram prontos (edite cores, números e lugares). Arraste a turma de cada líder para o ônibus dela.", { n: fleet.length })}
       </p>
       {error && <p className="message message--error">{error}</p>}
-      {seeding ? <p className="opt-empty">Criando os ônibus… 🚌</p> : <div className="wizard__page"><BusAssignPage token={token} /></div>}
+      {seeding ? <p className="opt-empty">{tx("Criando os ônibus… 🚌")}</p> : <div className="wizard__page"><BusAssignPage token={token} /></div>}
     </section>
   );
 }
@@ -1023,6 +1027,7 @@ function BusesStep({ token, fleet }: { token: string; fleet: SeedBus[] }) {
 // ── done ────────────────────────────────────────────────────────────────────
 
 function DoneStep({ onExit }: { onExit: () => void }) {
+  const { tx } = useI18n();
   const staff = useCollectionOrEmpty("staff");
   const campers = useCollectionOrEmpty("campers");
   const bedrooms = useCollectionOrEmpty("bedrooms");
@@ -1036,24 +1041,24 @@ function DoneStep({ onExit }: { onExit: () => void }) {
   const team = staff.filter((s) => s.active && !s.admin).length;
   const placed = campers.filter((k) => k.transportation).length;
   const rows: { label: string; value: string; ok: boolean }[] = [
-    { label: "Equipe importada", value: `${team} pessoa(s)`, ok: team > 0 },
-    { label: "Acampantes importados", value: `${campers.length} criança(s)`, ok: campers.length > 0 },
-    { label: "Quartos criados", value: `${bedrooms.length} quarto(s)`, ok: bedrooms.length > 0 },
-    { label: "Programação", value: `${events.length} evento(s) · ${roles.length} função(ões)`, ok: events.length > 0 },
-    { label: "Documentos", value: `${preparation.length} preparação(ões) · ${instructions.length} instrução(ões)`, ok: preparation.length > 0 && instructions.length > 0 },
+    { label: tx("Equipe importada"), value: tx("{n} pessoa(s)", { n: team }), ok: team > 0 },
+    { label: tx("Acampantes importados"), value: tx("{n} criança(s)", { n: campers.length }), ok: campers.length > 0 },
+    { label: tx("Quartos criados"), value: tx("{n} quarto(s)", { n: bedrooms.length }), ok: bedrooms.length > 0 },
+    { label: tx("Programação"), value: tx("{events} evento(s) · {roles} função(ões)", { events: events.length, roles: roles.length }), ok: events.length > 0 },
+    { label: tx("Documentos"), value: tx("{prep} preparação(ões) · {instr} instrução(ões)", { prep: preparation.length, instr: instructions.length }), ok: preparation.length > 0 && instructions.length > 0 },
     {
-      label: "Janelas e listas",
-      value: `${settings?.checkinWindow.from ? "check-in ✓" : "check-in —"} · ${settings?.organizers.staffIds.length ?? 0} organizador(es)`,
+      label: tx("Janelas e listas"),
+      value: tx("{checkin} · {n} organizador(es)", { checkin: settings?.checkinWindow.from ? tx("check-in ✓") : tx("check-in —"), n: settings?.organizers.staffIds.length ?? 0 }),
       ok: !!settings?.checkinWindow.from,
     },
-    { label: "Ônibus", value: `${transports.length} veículo(s) · ${placed}/${campers.length} crianças alocadas`, ok: transports.length > 0 },
+    { label: tx("Ônibus"), value: tx("{vehicles} veículo(s) · {placed}/{total} crianças alocadas", { vehicles: transports.length, placed, total: campers.length }), ok: transports.length > 0 },
   ];
 
   return (
     <section className="wizard-card wizard-card--intro">
       <div className="confetti" aria-hidden="true">🎉 🏕️ ✨ 🌲 🎈</div>
-      <h2 className="wizard-card__title">Tudo pronto! 🎉</h2>
-      <p className="admin-intro">Como ficou o acampamento:</p>
+      <h2 className="wizard-card__title">{tx("Tudo pronto! 🎉")}</h2>
+      <p className="admin-intro">{tx("Como ficou o acampamento:")}</p>
       <ul className="wizard-summary">
         {rows.map((r) => (
           <li key={r.label} className={r.ok ? "wizard-summary__ok" : ""}>
@@ -1062,11 +1067,11 @@ function DoneStep({ onExit }: { onExit: () => void }) {
         ))}
       </ul>
       <p className="cat-hint">
-        O que faltou dá para fazer depois nas próprias abas — ou reabrir este assistente em Limpeza / Perfil.
+        {tx("O que faltou dá para fazer depois nas próprias abas — ou reabrir este assistente em Limpeza / Perfil.")}
       </p>
       <div className="cat-form__actions">
         <button type="button" className="button button--primary" onClick={onExit}>
-          Concluir 🏕️
+          {tx("Concluir 🏕️")}
         </button>
       </div>
     </section>

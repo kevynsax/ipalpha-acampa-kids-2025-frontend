@@ -1,3 +1,4 @@
+import { useI18n } from "../i18n";
 import { AiGlyph } from "./Glyph";
 import type { useAiNotesSorter } from "../hooks/useAiNotesSorter";
 
@@ -18,6 +19,7 @@ interface AiNotesFieldProps {
  * fields of the form and leaves here only what fits nowhere else.
  */
 export default function AiNotesField({ label, value, onChange, placeholder, rows = 3, maxLength = 1000, disabled, sorter }: AiNotesFieldProps) {
+  const { tx } = useI18n();
   return (
     <label className="cat-field cat-field--grow">
       <span className="cat-field__label cat-field__label--ai">
@@ -27,12 +29,12 @@ export default function AiNotesField({ label, value, onChange, placeholder, rows
           className={`ai-notes-btn ${sorter.on ? "ai-notes-btn--on" : ""} ${sorter.running ? "ai-notes-btn--busy" : ""}`}
           role="switch"
           aria-checked={sorter.on}
-          title={sorter.on ? "IA ligada: ao colar ou sair do campo, o texto é distribuído nos campos acima" : "IA desligada"}
+          title={sorter.on ? tx("IA ligada: ao colar ou sair do campo, o texto é distribuído nos campos acima") : tx("IA desligada")}
           disabled={disabled}
           onMouseDown={(e) => e.preventDefault()} // don't blur the textarea (which would fire the sorter)
           onClick={sorter.toggle}
         >
-          <AiGlyph /> {sorter.running ? "organizando…" : sorter.on ? "organizar com IA" : "IA desligada"}
+          <AiGlyph /> {sorter.running ? tx("organizando…") : sorter.on ? tx("organizar com IA") : tx("IA desligada")}
         </button>
       </span>
       <textarea

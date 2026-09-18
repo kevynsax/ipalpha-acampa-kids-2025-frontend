@@ -13,6 +13,7 @@ import PageFooter from "../components/PageFooter";
 import Toggle from "../components/Toggle";
 import { useConfirm } from "../components/ConfirmDialog";
 import { ICONS } from "../icons";
+import { collatorLocale, useI18n } from "../i18n";
 
 interface GalleryPageProps {
   token: string;
@@ -93,6 +94,7 @@ async function walkEntry(entry: FileSystemEntry, out: File[]): Promise<void> {
  * be general photos of the camp.
  */
 export default function GalleryPage({ token, canManage, parentMode = false }: GalleryPageProps) {
+  const { tx } = useI18n();
   const storePhotos = useCollectionOrEmpty("gallery");
   /** parent face-search: null = the whole album; a Set = only those ids */
   const [matchedIds, setMatchedIds] = useState<Set<string> | null>(null);
@@ -211,7 +213,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
     } catch (err) {
       if (cameraGen.current !== gen) return;
       stopCamera();
-      setError(cameraErrorText(err));
+      setError(cameraErrorText(err, tx));
       const name = typeof err === "object" && err && "name" in err ? String((err as { name: unknown }).name) : "";
       if (name !== "NotAllowedError") cameraInput.current?.click();
     }
@@ -237,7 +239,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
     stopCamera();
     if (!blob) {
-      setError("Não foi possível fotografar. Tente novamente.");
+      setError(tx("Não foi possível fotografar. Tente novamente."));
       return;
     }
     void handleReference(new File([blob], "camera.jpg", { type: "image/jpeg" }));
@@ -264,7 +266,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       setLightbox(null);
       setFilter("all");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível procurar as fotos.");
+      setError(err instanceof Error ? err.message : tx("Não foi possível procurar as fotos."));
     } finally {
       setFaceSearching(false);
       if (referenceInput.current) referenceInput.current.value = "";
@@ -323,7 +325,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       out.push({ key: `event:${event.id}`, title: event.title, emoji: event.emoji || "📅", eventId: event.id, photos: photos.filter((p) => p.eventId === event.id) });
     }
     const general = photos.filter(isGeneral);
-    if (general.length > 0) out.push({ key: "general", title: "Fotos do acampamento", emoji: "🏕️", eventId: null, photos: general });
+    if (general.length > 0) out.push({ key: "general", title: tx("Fotos do acampamento"), emoji: "🏕️", eventId: null, photos: general });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, eventSections, photos, eventById]);
@@ -335,9 +337,9 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
   const flatSection: Section = useMemo(() => {
     if (filter !== "all" && filter !== "general") {
       const event = eventById.get(filter.event);
-      return { key: `event:${filter.event}`, title: event?.title ?? "Evento", emoji: event?.emoji || "📅", eventId: filter.event, photos: visible };
+      return { key: `event:${filter.event}`, title: event?.title ?? tx("Evento"), emoji: event?.emoji || "📅", eventId: filter.event, photos: visible };
     }
-    return { key: "general", title: "Fotos do acampamento", emoji: "🏕️", eventId: null, photos: visible };
+    return { key: "general", title: tx("Fotos do acampamento"), emoji: "🏕️", eventId: null, photos: visible };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, visible, eventById]);
 
@@ -390,10 +392,10 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       }
       try {
         const inside = await extractZipImages(f);
-        if (inside.length === 0) failures.push({ name: f.name, state: "error", error: "nenhuma foto dentro do zip" });
+        if (inside.length === 0) failures.push({ name: f.name, state: "error", error: tx("nenhuma foto dentro do zip") });
         else list.push(...inside);
       } catch (err) {
-        failures.push({ name: f.name, state: "error", error: err instanceof Error ? err.message : "não consegui abrir o zip" });
+        failures.push({ name: f.name, state: "error", error: err instanceof Error ? err.message : tx("não consegui abrir o zip") });
       }
     }
     setJobs([...list.map((f) => ({ name: f.name, state: "sending" as const })), ...failures]);
@@ -404,7 +406,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
         await uploadGalleryPhoto(token, { file: list[i], caption: "", eventId: presetEvent });
         setJobs((prev) => prev?.map((j, k) => (k === i ? { ...j, state: "done" } : j)) ?? null);
       } catch (err) {
-        setJobs((prev) => prev?.map((j, k) => (k === i ? { ...j, state: "error", error: err instanceof Error ? err.message : "Falhou." } : j)) ?? null);
+        setJobs((prev) => prev?.map((j, k) => (k === i ? { ...j, state: "error", error: err instanceof Error ? err.message : tx("Falhou.") } : j)) ?? null);
       }
     }
     if (fileInput.current) fileInput.current.value = "";
@@ -444,7 +446,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
     const seq = new Map<string, number>();
     const items = list.map((p) => {
       const event = p.eventId ? eventById.get(p.eventId) : undefined;
-      const folder = event ? safeName(event.title, "Evento") : "Fotos do acampamento";
+      const folder = event ? safeName(event.title, tx("Evento")) : tx("Fotos do acampamento");
       const n = (seq.get(folder) ?? 0) + 1;
       seq.set(folder, n);
       const caption = p.caption ? safeName(p.caption, "") : "";
@@ -457,9 +459,9 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
 
   /** what the current view is called, for the .zip's file name */
   function viewLabel(): string {
-    if (filter === "all") return "acampamento";
-    if (filter === "general") return "gerais";
-    return safeName(eventById.get(filter.event)?.title ?? "evento", "evento");
+    if (filter === "all") return tx("acampamento");
+    if (filter === "general") return tx("gerais");
+    return safeName(eventById.get(filter.event)?.title ?? tx("evento"), tx("evento"));
   }
 
   async function startDownload(list: GalleryPhoto[], label: string) {
@@ -470,9 +472,9 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       !zip &&
       list.length > 1 &&
       !(await confirm({
-        title: `Baixar ${list.length} fotos?`,
-        message: "No celular as fotos são salvas uma de cada vez. Deixe a tela ligada até terminar.",
-        confirmLabel: "Baixar",
+        title: tx("Baixar {n} fotos?", { n: list.length }),
+        message: tx("No celular as fotos são salvas uma de cada vez. Deixe a tela ligada até terminar."),
+        confirmLabel: tx("Baixar"),
         emoji: "⬇️",
       }))
     )
@@ -486,13 +488,13 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
     try {
       await downloadPhotos(downloadItems(list), {
         signal: controller.signal,
-        zipName: `fotos-${label}-${new Date().toISOString().slice(0, 10)}.zip`,
+        zipName: `${tx("fotos")}-${label}-${new Date().toISOString().slice(0, 10)}.zip`,
         onProgress: (p) => setDl((prev) => (prev && prev.state === "running" ? { ...prev, ...p } : prev)),
       });
       setDl((prev) => (prev ? { ...prev, zipping: false, state: "done" } : prev));
     } catch (err) {
       if (isAbort(err)) setDl((prev) => (prev ? { ...prev, zipping: false, state: "stopped" } : prev));
-      else setDl((prev) => (prev ? { ...prev, zipping: false, state: "error", error: err instanceof Error ? err.message : "Algo deu errado." } : prev));
+      else setDl((prev) => (prev ? { ...prev, zipping: false, state: "error", error: err instanceof Error ? err.message : tx("Algo deu errado.") } : prev));
     } finally {
       dlAbort.current = null;
     }
@@ -574,7 +576,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
     try {
       await setAlbumPublished(token, next);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setAlbumBusy(false);
     }
@@ -664,7 +666,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       setMoveOpen(false);
       setSelected(new Set());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBulkBusy(false);
     }
@@ -691,9 +693,9 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
     const many = ids.length > 1;
     if (
       !(await confirm({
-        title: many ? `Excluir ${ids.length} fotos?` : "Excluir esta foto?",
-        message: `${many ? "Elas somem" : "Ela some"} para todo mundo. Não dá para desfazer.`,
-        confirmLabel: "Excluir",
+        title: many ? tx("Excluir {n} fotos?", { n: ids.length }) : tx("Excluir esta foto?"),
+        message: many ? tx("Elas somem para todo mundo. Não dá para desfazer.") : tx("Ela some para todo mundo. Não dá para desfazer."),
+        confirmLabel: tx("Excluir"),
         danger: true,
         emoji: "🗑️",
       }))
@@ -707,7 +709,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       await playVanish(ids);
       await deleteGalleryPhotos(token, ids);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       endVanish(ids);
       setBulkBusy(false);
@@ -768,7 +770,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       if (nextOrder.length > 1) await reorderGalleryPhotos(token, nextOrder.map((p) => p.id));
       setSelected(new Set());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBulkBusy(false);
     }
@@ -840,23 +842,23 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       <div className="pick-head">
         {selected.size > 0 && sectionKey === actionsSectionKey && (
           <div className="pick-head__actions">
-            <span className="pick-head__count">{selected.size} selecionada{selected.size === 1 ? "" : "s"}</span>
+            <span className="pick-head__count">{selected.size === 1 ? tx("{n} selecionada", { n: selected.size }) : tx("{n} selecionadas", { n: selected.size })}</span>
             <button
               type="button"
               className="button button--secondary"
-              onClick={() => void startDownload(selectedPhotos, "selecionadas")}
+              onClick={() => void startDownload(selectedPhotos, tx("selecionadas"))}
               disabled={dlRunning}
-              title={zipsDownloads() ? "Baixar as fotos selecionadas em um .zip" : "Baixar as fotos selecionadas, uma a uma"}
+              title={zipsDownloads() ? tx("Baixar as fotos selecionadas em um .zip") : tx("Baixar as fotos selecionadas, uma a uma")}
             >
-              <DownloadGlyph /> Baixar
+              <DownloadGlyph /> {tx("Baixar")}
             </button>
             {canManage && (
               <>
                 <button type="button" className="button button--secondary" onClick={() => setMoveOpen(true)} disabled={bulkBusy}>
-                  Mover para…
+                  {tx("Mover para…")}
                 </button>
                 <button type="button" className="button button--danger" onClick={() => void bulkDelete()} disabled={bulkBusy}>
-                  🗑️ Excluir
+                  🗑️ {tx("Excluir")}
                 </button>
               </>
             )}
@@ -866,7 +868,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
               className="button button--secondary pick-head__clear"
               onClick={() => setSelected(new Set())}
               disabled={bulkBusy}
-              title="Cancelar a seleção"
+              title={tx("Cancelar a seleção")}
             >
               ✕
             </button>
@@ -886,8 +888,8 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
             }
             disabled={bulkBusy}
             aria-pressed={all}
-            aria-label={all ? "Desmarcar todas desta seção" : "Selecionar todas desta seção"}
-            title={all ? "Desmarcar todas desta seção" : "Selecionar todas desta seção"}
+            aria-label={all ? tx("Desmarcar todas desta seção") : tx("Selecionar todas desta seção")}
+            title={all ? tx("Desmarcar todas desta seção") : tx("Selecionar todas desta seção")}
           >
             <span className={`pick-all__box ${all ? "pick-all__box--on" : ""} ${some ? "pick-all__box--some" : ""}`} aria-hidden="true">
               {all ? "✓" : some ? "–" : ""}
@@ -942,11 +944,11 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
             // the hold fired: keep the browser's own "save image" menu out of the way
             if (hold.current.fired) e.preventDefault();
           }}
-          aria-label={photo.caption || "Ver foto"}
+          aria-label={photo.caption || tx("Ver foto")}
           aria-pressed={selecting ? picked : undefined}
           disabled={going}
         >
-          <img src={galleryUrl(photo.thumbUrl)} alt={photo.caption || "Foto do acampamento"} loading="lazy" draggable={false} />
+          <img src={galleryUrl(photo.thumbUrl)} alt={photo.caption || tx("Foto do acampamento")} loading="lazy" draggable={false} />
           {/* a picked photo carries its tick; there is no always-on checkbox to hunt for */}
           {picked && <span className="gallery-tile__tick" aria-hidden="true">✓</span>}
         </button>
@@ -956,7 +958,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
           className={`gallery-tile__pick ${picked ? "gallery-tile__pick--on" : ""}`}
           onClick={() => toggleOne(photo.id)}
           aria-pressed={picked}
-          aria-label={picked ? "Desmarcar foto" : "Selecionar foto"}
+          aria-label={picked ? tx("Desmarcar foto") : tx("Selecionar foto")}
         >
           {picked ? "✓" : ""}
         </button>
@@ -984,14 +986,14 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       {dragging && !parentMode &&
         createPortal(
           <div className="gallery-drop" aria-hidden="true">
-            <span className="gallery-drop__box"><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> Solte as fotos aqui</span>
+            <span className="gallery-drop__box"><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> {tx("Solte as fotos aqui")}</span>
           </div>,
           document.body,
         )}
       <header className="admin-head">
         <h1 className="admin-title">
           <img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" />
-          Fotos
+          {tx("Fotos")}
         </h1>
         {(canManage || selected.size > 0 || (visible.length > 0 && !parentLocked)) && (
         <div className="admin-head__actions admin-head__actions--icons">
@@ -1000,17 +1002,17 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
             <button
               type="button"
               className="button button--secondary admin-head__new"
-              onClick={() => void startDownload(selected.size > 0 ? selectedPhotos : visible, selected.size > 0 ? "selecionadas" : viewLabel())}
+              onClick={() => void startDownload(selected.size > 0 ? selectedPhotos : visible, selected.size > 0 ? tx("selecionadas") : viewLabel())}
               disabled={dlRunning}
               title={
                 selected.size > 0
-                  ? `Baixar as ${selected.size} fotos selecionadas`
+                  ? tx("Baixar as {n} fotos selecionadas", { n: selected.size })
                   : zipsDownloads()
-                    ? "Baixar estas fotos em um .zip"
-                    : "Baixar estas fotos, uma a uma"
+                    ? tx("Baixar estas fotos em um .zip")
+                    : tx("Baixar estas fotos, uma a uma")
               }
             >
-              <DownloadGlyph /> <span className="admin-head__action-label">Baixar{selected.size > 0 ? ` (${selected.size})` : ""}</span>
+              <DownloadGlyph /> <span className="admin-head__action-label">{selected.size > 0 ? tx("Baixar ({n})", { n: selected.size }) : tx("Baixar")}</span>
             </button>
           )}
           {canManage && (
@@ -1019,7 +1021,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
               {/* while the panel is open it IS the upload affordance — no duplicate button */}
               {!panelOpen && (
                 <button type="button" className="button button--secondary admin-head__new" onClick={() => setPickerOpen(true)}>
-                  <UploadGlyph /> <span className="admin-head__action-label">Enviar fotos</span>
+                  <UploadGlyph /> <span className="admin-head__action-label">{tx("Enviar fotos")}</span>
                 </button>
               )}
               {/* the switch only makes sense once the album has something to show */}
@@ -1030,8 +1032,8 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
                   className={`icon-btn album-globe ${anyPublished ? "album-globe--on" : ""}`}
                   role="switch"
                   aria-checked={anyPublished}
-                  title={anyPublished ? "Álbum publicado — os pais veem as fotos" : "Álbum não publicado"}
-                  aria-label={anyPublished ? "Álbum publicado — tocar para despublicar" : "Álbum não publicado — tocar para publicar"}
+                  title={anyPublished ? tx("Álbum publicado — os pais veem as fotos") : tx("Álbum não publicado")}
+                  aria-label={anyPublished ? tx("Álbum publicado — tocar para despublicar") : tx("Álbum não publicado — tocar para publicar")}
                   disabled={albumBusy}
                   onClick={() => void toggleAlbum(!anyPublished)}
                 >
@@ -1042,14 +1044,14 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
                   </svg>
                 </button>
               ) : (
-                <Toggle checked={anyPublished} onChange={(next) => void toggleAlbum(next)} disabled={albumBusy} label="Publicadas" />
+                <Toggle checked={anyPublished} onChange={(next) => void toggleAlbum(next)} disabled={albumBusy} label={tx("Publicadas")} />
               ))}
             </>
           )}
         </div>
         )}
       </header>
-      <p className="admin-intro">{parentMode ? "Todas as fotos do acampamento. Uma foto do seu filho filtra as dele — e não fica salva." : "Os momentos do acampamento para pais e equipe"}</p>
+      <p className="admin-intro">{parentMode ? tx("Todas as fotos do acampamento. Uma foto do seu filho filtra as dele — e não fica salva.") : tx("Os momentos do acampamento para pais e equipe")}</p>
 
       {parentMode && (
         <section className={`face-search${dragging ? " face-search--over" : ""}${cameraOpen ? " face-search--live" : ""}`}>
@@ -1059,7 +1061,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
             {/* always mounted: iPhone only plays a stream attached in the same tap */}
             <video ref={videoRef} className="face-search__video" playsInline muted autoPlay />
             {!cameraOpen && (referencePreview
-              ? <img className="face-search__preview" src={referencePreview} alt="Foto de referência" />
+              ? <img className="face-search__preview" src={referencePreview} alt={tx("Foto de referência")} />
               : <img className="face-search__icon" src={ICONS.takingPhoto} alt="" aria-hidden="true" />)}
             {cameraStarting && <span className="face-search__spinner" aria-hidden="true" />}
           </div>
@@ -1068,11 +1070,11 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
                 a search is already on (the picture is right there, so "mande uma foto"
                 would make no sense any more) */}
             <h2 className="face-search__title">
-              {cameraOpen ? "Enquadre o rosto e fotografe" : matchedIds ? "Mostrando as fotos do seu filho" : "Encontre as fotos do seu filho"}
+              {cameraOpen ? tx("Enquadre o rosto e fotografe") : matchedIds ? tx("Mostrando as fotos do seu filho") : tx("Encontre as fotos do seu filho")}
             </h2>
             {!cameraOpen && (
               <p className="cat-hint">
-                {dragging ? "Solte a foto aqui." : matchedIds ? "Não deu certo? Tente novamente." : "Mande uma foto do seu filho para filtrar as dele."}
+                {dragging ? tx("Solte a foto aqui.") : matchedIds ? tx("Não deu certo? Tente novamente.") : tx("Mande uma foto do seu filho para filtrar as dele.")}
               </p>
             )}
             <div className="face-search__actions">
@@ -1086,9 +1088,9 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
                   className="button button--primary face-search__retry"
                   onClick={() => (lastSource === "camera" ? void openCamera() : referenceInput.current?.click())}
                   disabled={faceSearching || !anyPublished || cameraStarting}
-                  title={lastSource === "camera" ? "Fotografar de novo" : "Escolher outra foto"}
+                  title={lastSource === "camera" ? tx("Fotografar de novo") : tx("Escolher outra foto")}
                 >
-                  {faceSearching ? "Procurando…" : cameraStarting ? "Abrindo…" : "Tentar de novo"}
+                  {faceSearching ? tx("Procurando…") : cameraStarting ? tx("Abrindo…") : tx("Tentar de novo")}
                 </button>
               )}
               <button
@@ -1097,11 +1099,11 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
                 onClick={() => { setLastSource("camera"); void openCamera(); }}
                 disabled={faceSearching || !anyPublished || cameraStarting}
               >
-                {faceSearching ? "Procurando…" : cameraOpen ? "Fotografar" : cameraStarting ? "Abrindo…" : "Abrir câmera"}
+                {faceSearching ? tx("Procurando…") : cameraOpen ? tx("Fotografar") : cameraStarting ? tx("Abrindo…") : tx("Abrir câmera")}
               </button>
               {cameraOpen ? (
                 <button type="button" className="button button--secondary" onClick={stopCamera}>
-                  Cancelar
+                  {tx("Cancelar")}
                 </button>
               ) : (
                 <>
@@ -1111,17 +1113,17 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
                     onClick={() => { setLastSource("file"); referenceInput.current?.click(); }}
                     disabled={faceSearching || !anyPublished}
                   >
-                    {matchedIds ? "Escolher outra" : "Escolher foto"}
+                    {matchedIds ? tx("Escolher outra") : tx("Escolher foto")}
                   </button>
                   {matchedIds && (
                     <button type="button" className="button button--secondary" onClick={clearSearch} disabled={faceSearching}>
-                      Ver todas
+                      {tx("Ver todas")}
                     </button>
                   )}
                 </>
               )}
             </div>
-            {!anyPublished && <p className="cat-hint">As fotos ainda não foram publicadas.</p>}
+            {!anyPublished && <p className="cat-hint">{tx("As fotos ainda não foram publicadas.")}</p>}
           </div>
         </section>
       )}
@@ -1132,25 +1134,25 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       {panelOpen && (
         <section className="gallery-upload gallery-upload--picker">
           <div className="gallery-upload__head">
-            <h2 className="gallery-upload__title"><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> Arraste as fotos para cá</h2>
+            <h2 className="gallery-upload__title"><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> {tx("Arraste as fotos para cá")}</h2>
             {/* with an empty album there is nothing to go back to */}
             {photos.length > 0 && (
               <button type="button" className="gallery-upload__close" onClick={() => setPickerOpen(false)}>
-                Fechar
+                {tx("Fechar")}
               </button>
             )}
           </div>
-          <p className="cat-hint">Solte as fotos (ou uma pasta / .zip) em qualquer lugar da página — ou escolha no aparelho.</p>
+          <p className="cat-hint">{tx("Solte as fotos (ou uma pasta / .zip) em qualquer lugar da página — ou escolha no aparelho.")}</p>
           <div className="gallery-picker__row">
             {/* where the photos land: the chosen event travels with every upload */}
             <button type="button" className="field-btn" onClick={() => setEventPickOpen(true)}>
-              <span className="field-btn__label">Evento</span>
+              <span className="field-btn__label">{tx("Evento")}</span>
               <span className="field-btn__value">
-                {uploadEvent ? `${uploadEvent.emoji || "📅"} ${uploadEvent.title}` : "🏕️ Fotos do acampamento"}
+                {uploadEvent ? `${uploadEvent.emoji || "📅"} ${uploadEvent.title}` : tx("🏕️ Fotos do acampamento")}
               </span>
             </button>
             <button type="button" className="button button--primary" onClick={() => fileInput.current?.click()}>
-              Escolher fotos
+              {tx("Escolher fotos")}
             </button>
           </div>
         </section>
@@ -1167,11 +1169,11 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
               </svg>
             )}
             {sending ? (
-              <h2 className="gallery-upload__title">Enviando {doneCount} de {jobs.length}…</h2>
+              <h2 className="gallery-upload__title">{tx("Enviando {done} de {total}…", { done: doneCount, total: jobs.length })}</h2>
             ) : failedCount > 0 ? (
-              <h2 className="gallery-upload__title">Envio concluído com {failedCount} {failedCount === 1 ? "erro" : "erros"}</h2>
+              <h2 className="gallery-upload__title">{failedCount === 1 ? tx("Envio concluído com {n} erro", { n: failedCount }) : tx("Envio concluído com {n} erros", { n: failedCount })}</h2>
             ) : (
-              <h2 className="gallery-upload__title">{jobs.length} {jobs.length === 1 ? "foto enviada" : "fotos enviadas"}</h2>
+              <h2 className="gallery-upload__title">{jobs.length === 1 ? tx("{n} foto enviada", { n: jobs.length }) : tx("{n} fotos enviadas", { n: jobs.length })}</h2>
             )}
             {sending && <span className="gallery-upload__pct">{progress}%</span>}
           </div>
@@ -1196,7 +1198,7 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
 
           {!sending && (
             <button type="button" className="gallery-upload__close" onClick={() => setLeaving(true)}>
-              Fechar
+              {tx("Fechar")}
             </button>
           )}
         </section>
@@ -1213,21 +1215,21 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
               </svg>
             )}
             {dl.state === "running" ? (
-              <h2 className="gallery-upload__title">{dl.zipping ? "Montando o arquivo .zip…" : `Baixando ${dl.done} de ${dl.total}…`}</h2>
+              <h2 className="gallery-upload__title">{dl.zipping ? tx("Montando o arquivo .zip…") : tx("Baixando {done} de {total}…", { done: dl.done, total: dl.total })}</h2>
             ) : dl.state === "stopped" ? (
-              <h2 className="gallery-upload__title">Download interrompido — {dl.done} de {dl.total}</h2>
+              <h2 className="gallery-upload__title">{tx("Download interrompido — {done} de {total}", { done: dl.done, total: dl.total })}</h2>
             ) : dl.state === "error" ? (
-              <h2 className="gallery-upload__title">Não consegui baixar as fotos</h2>
+              <h2 className="gallery-upload__title">{tx("Não consegui baixar as fotos")}</h2>
             ) : dl.failed > 0 ? (
-              <h2 className="gallery-upload__title">Download concluído com {dl.failed} {dl.failed === 1 ? "erro" : "erros"}</h2>
+              <h2 className="gallery-upload__title">{dl.failed === 1 ? tx("Download concluído com {n} erro", { n: dl.failed }) : tx("Download concluído com {n} erros", { n: dl.failed })}</h2>
             ) : (
-              <h2 className="gallery-upload__title">{dl.total} {dl.total === 1 ? "foto baixada" : "fotos baixadas"}</h2>
+              <h2 className="gallery-upload__title">{dl.total === 1 ? tx("{n} foto baixada", { n: dl.total }) : tx("{n} fotos baixadas", { n: dl.total })}</h2>
             )}
             {dl.state === "running" && <span className="gallery-upload__pct">{dlProgress}%</span>}
             {/* stopping mid-run keeps whatever already landed */}
             {dl.state === "running" && (
               <button type="button" className="button button--secondary gallery-upload__stop" onClick={() => dlAbort.current?.abort()}>
-                Parar
+                {tx("Parar")}
               </button>
             )}
           </div>
@@ -1239,29 +1241,32 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
           {dl.state === "error" && dl.error && <p className="gallery-upload__item gallery-upload__item--err">❌ {dl.error}</p>}
           {dl.state !== "error" && dl.failed > 0 && (
             <p className="gallery-upload__item gallery-upload__item--err">
-              ❌ {dl.failed} {dl.failed === 1 ? "foto não pôde ser baixada" : "fotos não puderam ser baixadas"}
+              ❌ {dl.failed === 1 ? tx("{n} foto não pôde ser baixada", { n: dl.failed }) : tx("{n} fotos não puderam ser baixadas", { n: dl.failed })}
             </p>
           )}
-          {dl.state === "running" && !dl.zip && <p className="cat-hint">Salvando uma foto de cada vez — mantenha esta tela aberta.</p>}
+          {dl.state === "running" && !dl.zip && <p className="cat-hint">{tx("Salvando uma foto de cada vez — mantenha esta tela aberta.")}</p>}
 
           {dl.state !== "running" && (
             <button type="button" className="gallery-upload__close" onClick={() => setDlLeaving(true)}>
-              Fechar
+              {tx("Fechar")}
             </button>
           )}
         </section>
       )}
 
       {parentMode && matchedIds && (
-        <p className="face-search__result">{photos.length} foto{photos.length === 1 ? " com o seu filho" : "s com o seu filho"}{facePending > 0 ? ` · ${facePending} ainda sendo analisada${facePending === 1 ? "" : "s"}` : ""}</p>
+        <p className="face-search__result">
+          {photos.length === 1 ? tx("{n} foto com o seu filho", { n: photos.length }) : tx("{n} fotos com o seu filho", { n: photos.length })}
+          {facePending > 0 ? ` · ${facePending === 1 ? tx("{n} ainda sendo analisada", { n: facePending }) : tx("{n} ainda sendo analisadas", { n: facePending })}` : ""}
+        </p>
       )}
 
       {!parentMode && photos.length > 0 && (
-        <nav className="cat-tabs" aria-label="Filtrar fotos">
-          {chip("all", "Todas", photos.length)}
+        <nav className="cat-tabs" aria-label={tx("Filtrar fotos")}>
+          {chip("all", tx("Todas"), photos.length)}
           {/* same order as the sections: programme order, sem evento no fim */}
           {eventSections.map(({ event, count }) => chip({ event: event.id }, <>{event.emoji || "📅"} {event.title}</>, count))}
-          {generalCount > 0 && chip("general", "🏕️ Gerais", generalCount)}
+          {generalCount > 0 && chip("general", tx("🏕️ Gerais"), generalCount)}
         </nav>
       )}
 
@@ -1273,15 +1278,15 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
             <img className="admin-empty__icon admin-empty__icon--lg" src={ICONS.noPhotos} alt="" aria-hidden="true" />
             <p>
               {parentMode && matchedIds
-                ? "Não encontramos o seu filho. Tente outra foto, de frente e com boa luz — ou veja o álbum inteiro."
+                ? tx("Não encontramos o seu filho. Tente outra foto, de frente e com boa luz — ou veja o álbum inteiro.")
                 : canManage
-                  ? "Nenhuma foto ainda — arraste as fotos para cá para começar."
-                  : "Ainda não há fotos. Os fotógrafos estão capturando os melhores momentos!"}
+                  ? tx("Nenhuma foto ainda — arraste as fotos para cá para começar.")
+                  : tx("Ainda não há fotos. Os fotógrafos estão capturando os melhores momentos!")}
             </p>
-            {parentMode && matchedIds && facePending > 0 && <p className="cat-hint">{facePending} foto{facePending === 1 ? " ainda está" : "s ainda estão"} sendo analisada{facePending === 1 ? "" : "s"}.</p>}
+            {parentMode && matchedIds && facePending > 0 && <p className="cat-hint">{facePending === 1 ? tx("{n} foto ainda está sendo analisada.", { n: facePending }) : tx("{n} fotos ainda estão sendo analisadas.", { n: facePending })}</p>}
           </div>
         ) : visible.length === 0 ? (
-          <p className="opt-empty">Nenhuma foto aqui.</p>
+          <p className="opt-empty">{tx("Nenhuma foto aqui.")}</p>
         ) : groups ? (
           groups.map((g) => (
             <section key={g.key} className={`gallery-group ${dropAt?.key === g.key ? "gallery-group--target" : ""}`}>
@@ -1313,47 +1318,47 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
 
       <PageFooter className={!parentMode && !canManage ? "footer-note--gallery-publish" : undefined}>
         {parentMode ? (
-          <><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> Sua foto de referência não fica salva.</>
+          <><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> {tx("Sua foto de referência não fica salva.")}</>
         ) : canManage ? (
-          <><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> Ao ligar Publicadas, pais e equipe veem na hora.</>
+          <><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> {tx("Ao ligar Publicadas, pais e equipe veem na hora.")}</>
         ) : (
-          <><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> Novas fotos aparecem aqui assim que o fotógrafo publica.</>
+          <><img className="admin-title__icon" src={ICONS.camera} alt="" aria-hidden="true" /> {tx("Novas fotos aparecem aqui assim que o fotógrafo publica.")}</>
         )}
       </PageFooter>
 
       {/* the photo itself: a card on a computer, a bottom sheet on phones */}
-      <Dialog open={!!current} onClose={() => setLightbox(null)} title="Foto" width={860} className="photo-sheet-dialog">
+      <Dialog open={!!current} onClose={() => setLightbox(null)} title={tx("Foto")} width={860} className="photo-sheet-dialog">
         {current && (
           <div className="lightbox" onTouchStart={swipeStart} onTouchEnd={swipeEnd}>
             <span className="lightbox__handle" aria-hidden="true" />
-            <img className="lightbox__img" src={galleryUrl(current.url)} alt={current.caption || "Foto do acampamento"} />
+            <img className="lightbox__img" src={galleryUrl(current.url)} alt={current.caption || tx("Foto do acampamento")} />
             <div className="lightbox__nav">
-              <button type="button" className="icon-btn icon-btn--lg" onClick={() => step(-1)} aria-label="Foto anterior" disabled={lightbox!.list.length < 2}>
+              <button type="button" className="icon-btn icon-btn--lg" onClick={() => step(-1)} aria-label={tx("Foto anterior")} disabled={lightbox!.list.length < 2}>
                 ◀
               </button>
               <span className="lightbox__count">
-                {lightbox!.index + 1} de {lightbox!.list.length}
+                {tx("{n} de {total}", { n: lightbox!.index + 1, total: lightbox!.list.length })}
               </span>
-              <button type="button" className="icon-btn icon-btn--lg" onClick={() => step(1)} aria-label="Próxima foto" disabled={lightbox!.list.length < 2}>
+              <button type="button" className="icon-btn icon-btn--lg" onClick={() => step(1)} aria-label={tx("Próxima foto")} disabled={lightbox!.list.length < 2}>
                 ▶
               </button>
             </div>
             {current.caption && <p className="lightbox__caption">{current.caption}</p>}
             <p className="lightbox__meta">
               {currentEvent ? `${currentEvent.emoji || "📅"} ${currentEvent.title} · ` : ""}
-              por {current.byName} · {speakDay(dayKey(current.createdAt), "month")}
+              {tx("por {name}", { name: current.byName })} · {speakDay(dayKey(current.createdAt), "month")}
             </p>
 
             {/* carousel: every photo of the set, the open one highlighted */}
             {lightbox!.list.length > 1 && (
-              <div className="lb-reel" role="tablist" aria-label="Fotos">
+              <div className="lb-reel" role="tablist" aria-label={tx("Fotos")}>
                 {lightbox!.list.map((p, i) => (
                   <button
                     key={p.id}
                     type="button"
                     role="tab"
                     aria-selected={i === lightbox!.index}
-                    aria-label={p.caption || `Foto ${i + 1}`}
+                    aria-label={p.caption || tx("Foto {n}", { n: i + 1 })}
                     className={`lb-reel__item ${i === lightbox!.index ? "lb-reel__item--on" : ""}`}
                     // keeps the open photo in view as the user steps with the arrows / keyboard
                     ref={i === lightbox!.index ? (el) => el?.scrollIntoView({ block: "nearest", inline: "center" }) : undefined}
@@ -1381,12 +1386,12 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
       />
 
       {/* bulk move: pick the event the whole selection goes to */}
-      <Dialog open={moveOpen} onClose={() => setMoveOpen(false)} title="Mover fotos" width={520}>
+      <Dialog open={moveOpen} onClose={() => setMoveOpen(false)} title={tx("Mover fotos")} width={520}>
         <div className="cat-form cat-form--embedded">
-          <h2 className="cat-form__title">Mover {selected.size} foto{selected.size === 1 ? "" : "s"} para</h2>
+          <h2 className="cat-form__title">{selected.size === 1 ? tx("Mover {n} foto para", { n: selected.size }) : tx("Mover {n} fotos para", { n: selected.size })}</h2>
           <div className="gallery-move">
             <button type="button" className="gallery-move__item" disabled={bulkBusy} onClick={() => void bulkMove(null)}>
-              🏕️ Fotos do acampamento <span className="gallery-move__hint">sem evento</span>
+              {tx("🏕️ Fotos do acampamento")} <span className="gallery-move__hint">{tx("sem evento")}</span>
             </button>
             {[...events]
               .sort((a, b) => b.date.localeCompare(a.date) || b.startTime.localeCompare(a.startTime))
@@ -1396,10 +1401,10 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
                 </button>
               ))}
           </div>
-          {events.length === 0 && <p className="cat-hint">Nenhum evento na programação ainda.</p>}
+          {events.length === 0 && <p className="cat-hint">{tx("Nenhum evento na programação ainda.")}</p>}
           <div className="cat-form__actions">
             <button type="button" className="button button--secondary" onClick={() => setMoveOpen(false)} disabled={bulkBusy}>
-              Cancelar
+              {tx("Cancelar")}
             </button>
           </div>
         </div>
@@ -1409,13 +1414,13 @@ export default function GalleryPage({ token, canManage, parentMode = false }: Ga
   );
 }
 
-function cameraErrorText(err: unknown): string {
+function cameraErrorText(err: unknown, tx: (pt: string, vars?: Record<string, string | number>) => string): string {
   const name = typeof err === "object" && err && "name" in err ? String((err as { name: unknown }).name) : "";
-  if (name === "NotAllowedError") return "Permita o acesso à câmera nas configurações do iPhone e tente novamente.";
-  if (name === "NotFoundError") return "Nenhuma câmera foi encontrada neste aparelho.";
-  if (name === "NotReadableError") return "A câmera está sendo usada por outro aplicativo.";
-  if (!window.isSecureContext) return "A câmera só funciona em uma conexão segura (HTTPS).";
-  return "Não foi possível abrir a câmera. Confira a permissão e tente novamente.";
+  if (name === "NotAllowedError") return tx("Permita o acesso à câmera nas configurações do iPhone e tente novamente.");
+  if (name === "NotFoundError") return tx("Nenhuma câmera foi encontrada neste aparelho.");
+  if (name === "NotReadableError") return tx("A câmera está sendo usada por outro aplicativo.");
+  if (!window.isSecureContext) return tx("A câmera só funciona em uma conexão segura (HTTPS).");
+  return tx("Não foi possível abrir a câmera. Confira a permissão e tente novamente.");
 }
 
 interface EventPickerDialogProps {
@@ -1434,20 +1439,22 @@ interface EventPickerDialogProps {
  * Day headers stick while that day's events scroll; the search stays put.
  */
 function EventPickerDialog({ open, events, selectedId, onClose, onPick }: EventPickerDialogProps) {
+  const { tx } = useI18n();
   const [q, setQ] = useState("");
   useEffect(() => {
     if (open) setQ("");
   }, [open]);
-  const query = q.trim().toLocaleLowerCase("pt-BR");
+  const collator = collatorLocale();
+  const query = q.trim().toLocaleLowerCase(collator);
 
   /** chronological (the programme as it unfolds), grouped by day, filtered by search */
   const days = useMemo(() => {
     const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
     const match = (e: CampEvent) => {
       if (!query) return true;
-      const day = speakDay(e.date).toLocaleLowerCase("pt-BR");
+      const day = speakDay(e.date).toLocaleLowerCase(collator);
       const hay = `${e.emoji} ${e.title} ${e.startTime} ${e.endTime ?? ""} ${day}`;
-      return hay.toLocaleLowerCase("pt-BR").includes(query);
+      return hay.toLocaleLowerCase(collator).includes(query);
     };
     const out: { date: string; events: CampEvent[] }[] = [];
     for (const e of sorted) {
@@ -1457,28 +1464,28 @@ function EventPickerDialog({ open, events, selectedId, onClose, onPick }: EventP
       else out.push({ date: e.date, events: [e] });
     }
     return out;
-  }, [events, query]);
+  }, [events, query, collator]);
 
-  const generalLabel = "fotos do acampamento";
-  const showGeneral = !query || generalLabel.includes(query) || "gerais".includes(query) || "sem evento".includes(query);
+  const generalLabel = tx("fotos do acampamento");
+  const showGeneral = !query || generalLabel.toLocaleLowerCase(collator).includes(query) || tx("gerais").toLocaleLowerCase(collator).includes(query) || tx("sem evento").toLocaleLowerCase(collator).includes(query);
   const empty = events.length === 0;
   const noHits = !empty && !showGeneral && days.length === 0;
 
   return (
-    <Dialog open={open} onClose={onClose} title="Escolher evento" width={520} className="picker-sheet-dialog">
+    <Dialog open={open} onClose={onClose} title={tx("Escolher evento")} width={520} className="picker-sheet-dialog">
       <div className="picker picker-sheet">
         <header className="picker-sheet__head">
           <span className="picker-sheet__handle" aria-hidden="true" />
-          <h2 className="cat-form__title">Onde entram as fotos?</h2>
+          <h2 className="cat-form__title">{tx("Onde entram as fotos?")}</h2>
           <label className="ev-pick__search">
             <SearchGlyph className="ev-pick__search-icon" size="1.15em" />
             <input
               className="cat-input"
               type="search"
-              placeholder="Buscar evento, dia ou horário…"
+              placeholder={tx("Buscar evento, dia ou horário…")}
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              aria-label="Buscar evento"
+              aria-label={tx("Buscar evento")}
             />
           </label>
         </header>
@@ -1489,8 +1496,8 @@ function EventPickerDialog({ open, events, selectedId, onClose, onPick }: EventP
             <button type="button" className={`ev-pick__item ${selectedId === null ? "ev-pick__item--on" : ""}`} onClick={() => onPick(null)}>
               <span className="ev-pick__emoji">🏕️</span>
               <span className="ev-pick__body">
-                <span className="ev-pick__title">Fotos do acampamento</span>
-                <span className="ev-pick__meta">sem evento — momentos gerais</span>
+                <span className="ev-pick__title">{tx("Fotos do acampamento")}</span>
+                <span className="ev-pick__meta">{tx("sem evento — momentos gerais")}</span>
               </span>
               {selectedId === null && <span className="ev-pick__check" aria-hidden="true">✓</span>}
             </button>
@@ -1515,14 +1522,14 @@ function EventPickerDialog({ open, events, selectedId, onClose, onPick }: EventP
             </div>
           ))}
 
-          {empty && <p className="cat-hint">Nenhum evento na programação ainda — as fotos ficam como gerais.</p>}
-          {noHits && <p className="opt-empty">Nenhum evento encontrado.</p>}
+          {empty && <p className="cat-hint">{tx("Nenhum evento na programação ainda — as fotos ficam como gerais.")}</p>}
+          {noHits && <p className="opt-empty">{tx("Nenhum evento encontrado.")}</p>}
         </div>
         </div>
 
         <div className="cat-form__actions picker-sheet__actions">
           <button type="button" className="button button--secondary" onClick={onClose}>
-            Cancelar
+            {tx("Cancelar")}
           </button>
         </div>
       </div>

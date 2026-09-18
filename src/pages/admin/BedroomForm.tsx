@@ -4,6 +4,7 @@ import BunkIcon from "../../components/BunkIcon";
 import GroupIcon from "../../components/GroupIcon";
 import { ICONS } from "../../icons";
 import { useHideScanFab } from "../../scanFab";
+import { useI18n } from "../../i18n";
 
 interface BedroomFormProps {
   bedroom?: Bedroom;
@@ -18,37 +19,42 @@ const BEDS_MAX = 50;
 
 /** Create / edit a bedroom: number, wing and bed layout (bunk + single). */
 export default function BedroomForm({ bedroom, defaultGroup, busy, onSubmit, onCancel }: BedroomFormProps) {
+  const { tx } = useI18n();
   // the "Ler crachá" FAB would sit on top of Salvar / Cancelar
   useHideScanFab();
   const editing = !!bedroom;
   const [name, setName] = useState(bedroom?.name ?? "");
   const [group, setGroup] = useState<BedroomGroup>(bedroom?.group ?? defaultGroup ?? "girls");
-  const [bunkBeds, setBunkBeds] = useState(bedroom?.bunkBeds ?? 2);
-  const [singleBeds, setSingleBeds] = useState(bedroom?.singleBeds ?? 0);
+  const [bunkBeds, setBunkBeds] = useState<number | null>(bedroom?.bunkBeds ?? 2);
+  const [singleBeds, setSingleBeds] = useState<number | null>(bedroom?.singleBeds ?? 0);
   const [notes, setNotes] = useState(bedroom?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
 
-  const capacity = bunkBeds * 2 + singleBeds;
-  const valid = name.trim().length > 0 && capacity > 0;
+  const bunk = bunkBeds ?? 0;
+  const singles = singleBeds ?? 0;
+  const bedsOk = bunkBeds !== null && singleBeds !== null && Number.isInteger(bunkBeds) && Number.isInteger(singleBeds) && bunkBeds >= 0 && singleBeds >= 0;
+  const capacity = bunk * 2 + singles;
+  const valid = name.trim().length > 0 && bedsOk && capacity > 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!valid) return;
+    if (!valid || bunkBeds === null || singleBeds === null) return;
     setError(null);
     try {
       await onSubmit({ name: name.trim(), group, bunkBeds, singleBeds, notes: notes.trim() });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     }
   }
 
-  function renderCounter(label: React.ReactNode, aria: string, hint: string, value: number, set: (n: number) => void) {
+  function renderCounter(label: React.ReactNode, aria: string, hint: string, value: number | null, set: (n: number | null) => void) {
     const clamp = (n: number) => Math.max(0, Math.min(BEDS_MAX, n));
+    const shown = value ?? 0;
     return (
       <div className="cat-field cat-field--grow">
         <span className="cat-field__label cat-field__label--icon">{label}</span>
         <div className="counter">
-          <button type="button" className="counter__btn" disabled={busy || value <= 0} onClick={() => set(clamp(value - 1))}>
+          <button type="button" className="counter__btn" disabled={busy || shown <= 0} onClick={() => set(clamp(shown - 1))}>
             −
           </button>
           <input
@@ -57,12 +63,15 @@ export default function BedroomForm({ bedroom, defaultGroup, busy, onSubmit, onC
             inputMode="numeric"
             min={0}
             max={BEDS_MAX}
-            value={value}
+            value={value ?? ""}
             disabled={busy}
-            onChange={(e) => set(clamp(Number(e.target.value) || 0))}
+            onChange={(e) => {
+              const raw = e.target.value;
+              set(raw === "" ? null : clamp(Number(raw) || 0));
+            }}
             aria-label={aria}
           />
-          <button type="button" className="counter__btn" disabled={busy || value >= BEDS_MAX} onClick={() => set(clamp(value + 1))}>
+          <button type="button" className="counter__btn" disabled={busy || shown >= BEDS_MAX} onClick={() => set(clamp(shown + 1))}>
             +
           </button>
         </div>
@@ -75,10 +84,10 @@ export default function BedroomForm({ bedroom, defaultGroup, busy, onSubmit, onC
     <form className="cat-form cat-form--plain" onSubmit={handleSubmit}>
       <div className="cat-form__row staff-form__row">
         <label className="cat-field" style={{ width: 140 }}>
-          <span className="cat-field__label">Número</span>
+          <span className="cat-field__label">{tx("Número")}</span>
           <input
             className="cat-input"
-            placeholder="ex.: 103"
+            placeholder={tx("ex.: 103")}
             value={name}
             maxLength={30}
             autoFocus
@@ -88,7 +97,7 @@ export default function BedroomForm({ bedroom, defaultGroup, busy, onSubmit, onC
         </label>
 
         <fieldset className="cat-fieldset cat-field--grow">
-          <legend className="cat-field__label">Ala</legend>
+          <legend className="cat-field__label">{tx("Ala")}</legend>
           <div className="chip-group">
             {BEDROOM_GROUPS.map((g) => {
               const m = GROUP_META[g];
@@ -102,7 +111,7 @@ export default function BedroomForm({ bedroom, defaultGroup, busy, onSubmit, onC
                   disabled={busy}
                   onClick={() => setGroup(g)}
                 >
-                  <GroupIcon group={g} /> {m.label}
+                  <GroupIcon group={g} /> {tx(m.label)}
                 </button>
               );
             })}
@@ -111,21 +120,21 @@ export default function BedroomForm({ bedroom, defaultGroup, busy, onSubmit, onC
       </div>
 
       <div className="cat-form__row staff-form__row">
-        {renderCounter(<><BunkIcon size={18} /> Beliches</>, "Beliches", "cada beliche dorme 2", bunkBeds, setBunkBeds)}
-        {renderCounter(<><img className="audience-icon" src={ICONS.bed} alt="" aria-hidden="true" /> Camas de solteiro</>, "Camas de solteiro", "cada cama dorme 1", singleBeds, setSingleBeds)}
+        {renderCounter(<><BunkIcon size={18} /> {tx("Beliches")}</>, tx("Beliches"), tx("cada beliche dorme 2"), bunkBeds, setBunkBeds)}
+        {renderCounter(<><img className="audience-icon" src={ICONS.bed} alt="" aria-hidden="true" /> {tx("Camas de solteiro")}</>, tx("Camas de solteiro"), tx("cada cama dorme 1"), singleBeds, setSingleBeds)}
         <div className="cat-field capacity-box">
-          <span className="cat-field__label">Capacidade</span>
+          <span className="cat-field__label">{tx("Capacidade")}</span>
           <span className="capacity-box__value">{capacity}</span>
-          <span className="cat-hint">{capacity === 1 ? "pessoa" : "pessoas"}</span>
+          <span className="cat-hint">{capacity === 1 ? tx("pessoa") : tx("pessoas")}</span>
         </div>
       </div>
-      {capacity === 0 && <p className="cat-hint cat-hint--error">O quarto precisa ter ao menos uma cama.</p>}
+      {capacity === 0 && <p className="cat-hint cat-hint--error">{tx("O quarto precisa ter ao menos uma cama.")}</p>}
 
       <label className="cat-field">
-        <span className="cat-field__label">Observações (opcional)</span>
+        <span className="cat-field__label">{tx("Observações (opcional)")}</span>
         <input
           className="cat-input"
-          placeholder="ex.: fica ao lado da enfermaria"
+          placeholder={tx("ex.: fica ao lado da enfermaria")}
           value={notes}
           maxLength={300}
           disabled={busy}
@@ -137,10 +146,10 @@ export default function BedroomForm({ bedroom, defaultGroup, busy, onSubmit, onC
 
       <div className="cat-form__actions">
         <button type="button" className="button button--secondary" onClick={onCancel} disabled={busy}>
-          Cancelar
+          {tx("Cancelar")}
         </button>
         <button type="submit" className="button button--primary" disabled={!valid || busy}>
-          {busy ? "Salvando…" : editing ? "Salvar" : "Criar quarto 🎉"}
+          {busy ? tx("Salvando…") : editing ? tx("Salvar") : tx("Criar quarto 🎉")}
         </button>
       </div>
     </form>

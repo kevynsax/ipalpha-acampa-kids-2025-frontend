@@ -4,13 +4,13 @@ import {
   TRANSPORT_KINDS,
   TRANSPORT_KIND_META,
   busColorName,
-  transportLabel,
   type Transport,
   type TransportInput,
   type TransportKind,
 } from "../../api/transports";
 import BusLogo from "../../components/BusLogo";
 import { useHideScanFab } from "../../scanFab";
+import { useI18n } from "../../i18n";
 
 /** mirrors the server's cap on seats */
 const CAPACITY_MAX = 200;
@@ -24,6 +24,7 @@ interface TransportFormProps {
 
 /** Create / edit one vehicle. A BUS carries a colour + number; a CAR does not. */
 export default function TransportForm({ transport, busy, onSubmit, onCancel }: TransportFormProps) {
+  const { tx } = useI18n();
   // the "Ler crachá" FAB would sit on top of Salvar / Cancelar
   useHideScanFab();
   const editing = !!transport;
@@ -53,18 +54,20 @@ export default function TransportForm({ transport, busy, onSubmit, onCancel }: T
     try {
       await onSubmit(input);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     }
   }
+
+  const colorName = busColorName(color);
 
   return (
     <form className="cat-form cat-form--plain transport-form" onSubmit={handleSubmit}>
       <h2 className="cat-form__title change-room__title">
-        {editing ? "✏️ Editar transporte" : "Novo transporte"}
+        {editing ? tx("✏️ Editar transporte") : tx("Novo transporte")}
       </h2>
 
       <fieldset className="cat-fieldset">
-        <legend className="cat-field__label">Tipo</legend>
+        <legend className="cat-field__label">{tx("Tipo")}</legend>
         <div className="chip-group">
           {TRANSPORT_KINDS.map((k) => {
             const m = TRANSPORT_KIND_META[k];
@@ -78,7 +81,7 @@ export default function TransportForm({ transport, busy, onSubmit, onCancel }: T
                 onClick={() => setKind(k)}
               >
                 {m.icon && <img className="chip-toggle__icon" src={m.icon} alt="" aria-hidden="true" />}{" "}
-                {m.label}
+                {tx(m.label)}
               </button>
             );
           })}
@@ -87,10 +90,10 @@ export default function TransportForm({ transport, busy, onSubmit, onCancel }: T
 
       {!isBus && (
         <label className="cat-field">
-          <span className="cat-field__label">Nome</span>
+          <span className="cat-field__label">{tx("Nome")}</span>
           <input
             className="cat-input"
-            placeholder="ex.: Carro do João"
+            placeholder={tx("ex.: Carro do João")}
             value={name}
             maxLength={60}
             autoFocus
@@ -102,10 +105,10 @@ export default function TransportForm({ transport, busy, onSubmit, onCancel }: T
       {isBus && (
         <>
           <label className="cat-field">
-            <span className="cat-field__label">Número do ônibus</span>
+            <span className="cat-field__label">{tx("Número do ônibus")}</span>
             <input
               className="cat-input"
-              placeholder="ex.: 1"
+              placeholder={tx("ex.: 1")}
               value={number}
               maxLength={8}
               inputMode="numeric"
@@ -116,11 +119,11 @@ export default function TransportForm({ transport, busy, onSubmit, onCancel }: T
 
           <label className="cat-field">
             <span className="cat-field__label">
-              Capacidade (lugares) <em className="cat-field__hint">· opcional</em>
+              {tx("Capacidade (lugares)")} <em className="cat-field__hint">{tx("· opcional")}</em>
             </span>
             <input
               className="cat-input"
-              placeholder="ex.: 46"
+              placeholder={tx("ex.: 46")}
               value={capacity}
               maxLength={3}
               inputMode="numeric"
@@ -129,7 +132,7 @@ export default function TransportForm({ transport, busy, onSubmit, onCancel }: T
           </label>
 
           <div className="cat-field">
-            <span className="cat-field__label">Cor do ônibus {busColorName(color) ? <em className="cat-field__hint">· {busColorName(color)}</em> : null}</span>
+            <span className="cat-field__label">{tx("Cor do ônibus")} {colorName ? <em className="cat-field__hint">· {tx(colorName)}</em> : null}</span>
             <div className="swatch-group">
               {BUS_COLORS.map((c) => (
                 <button
@@ -137,18 +140,18 @@ export default function TransportForm({ transport, busy, onSubmit, onCancel }: T
                   type="button"
                   className={`swatch ${color.toLowerCase() === c.hex ? "swatch--on" : ""}`}
                   style={{ background: c.hex }}
-                  title={c.name}
-                  aria-label={c.name}
+                  title={tx(c.name)}
+                  aria-label={tx(c.name)}
                   aria-pressed={color.toLowerCase() === c.hex}
                   onClick={() => setColor(c.hex)}
                 />
               ))}
-              <label className="swatch swatch--custom" title="Cor personalizada">
+              <label className="swatch swatch--custom" title={tx("Cor personalizada")}>
                 <input
                   type="color"
                   value={color}
                   onChange={(e) => setColor(e.target.value)}
-                  aria-label="Cor personalizada"
+                  aria-label={tx("Cor personalizada")}
                 />
               </label>
             </div>
@@ -157,7 +160,12 @@ export default function TransportForm({ transport, busy, onSubmit, onCancel }: T
           <div className="transport-preview">
             <BusLogo color={color} number={number.trim() || undefined} size={52} />
             <p className="cat-hint">
-              O nome do ônibus é automático: <strong>{transportLabel({ kind: "bus", name: null, number: number.trim(), color })}</strong>.
+              {tx("O nome do ônibus é automático:")}{" "}
+              <strong>
+                {[tx("Ônibus"), number.trim()].filter(Boolean).join(" ")}
+                {colorName ? ` - ${tx(colorName)}` : ""}
+              </strong>
+              .
             </p>
           </div>
         </>
@@ -167,10 +175,10 @@ export default function TransportForm({ transport, busy, onSubmit, onCancel }: T
 
       <div className="cat-form__actions">
         <button type="button" className="button button--secondary" onClick={onCancel} disabled={busy}>
-          Cancelar
+          {tx("Cancelar")}
         </button>
         <button type="submit" className="button button--primary" disabled={!valid || busy}>
-          {busy ? "Salvando…" : editing ? "Salvar" : "Criar 🎉"}
+          {busy ? tx("Salvando…") : editing ? tx("Salvar") : tx("Criar 🎉")}
         </button>
       </div>
     </form>

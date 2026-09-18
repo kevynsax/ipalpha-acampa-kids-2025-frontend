@@ -1,3 +1,4 @@
+import { useI18n } from "../i18n";
 import { AiGlyph } from "./Glyph";
 
 interface AiTitleButtonProps {
@@ -13,13 +14,14 @@ interface AiTitleButtonProps {
  * `.cat-input-wrap` and put this right after it.
  */
 export default function AiTitleButton({ html, busy, disabled, onClick }: AiTitleButtonProps) {
+  const { tx } = useI18n();
   if (!html.trim()) return null;
   return (
     <button
       type="button"
       className={`ai-title-btn ${busy ? "ai-title-btn--busy" : ""}`}
-      title="Gerar título com IA a partir do conteúdo"
-      aria-label="Gerar título com IA"
+      title={tx("Gerar título com IA a partir do conteúdo")}
+      aria-label={tx("Gerar título com IA")}
       disabled={disabled || busy}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}

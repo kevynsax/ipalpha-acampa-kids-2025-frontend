@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useRoute } from "../router";
 import { useDefaultBusTrip } from "../hooks/useDefaultBusTrip";
+import { useI18n } from "../i18n";
 
 interface BusTripsPageProps {
   /** admin flow is nested below the merged Check-in landing page */
@@ -18,6 +19,7 @@ interface BusTripsPageProps {
  * jump to the other journey when the guess is wrong.
  */
 export default function BusTripsPage({ outboundAvailable = true, returnAvailable = true, basePath = "/bus" }: BusTripsPageProps) {
+  const { tx } = useI18n();
   const { navigate } = useRoute();
   const preferred = useDefaultBusTrip();
   const trip = preferred === "return" ? (returnAvailable ? "return" : "outbound") : outboundAvailable ? "outbound" : "return";
@@ -30,7 +32,7 @@ export default function BusTripsPage({ outboundAvailable = true, returnAvailable
   if (available) return null;
   return (
     <div className="admin-page">
-      <p className="opt-empty">O check-in do ônibus não está aberto agora.</p>
+      <p className="opt-empty">{tx("O check-in do ônibus não está aberto agora.")}</p>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import type { LoggedUser } from "../roles";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import { useMyPrepRoles } from "../store/derive";
 import { ICONS } from "../icons";
+import { useI18n } from "../i18n";
 
 interface PreparationPageProps {
   user: LoggedUser;
@@ -17,23 +18,22 @@ interface PreparationPageProps {
   pairedWith?: () => void;
 }
 
-/** "Faltam 12 dias" / "É amanhã!" / "É hoje!" / "Acampamento em andamento" */
-function countdownLabel(daysToGo: number | null): { mark: ReactNode; text: string } | null {
+function countdownLabel(
+  daysToGo: number | null,
+  tx: (pt: string, vars?: Record<string, string | number>) => string,
+): { mark: ReactNode; text: string } | null {
   if (daysToGo === null) return null;
-  if (daysToGo > 1) return { mark: "⏳", text: `Faltam ${daysToGo} dias` };
-  if (daysToGo === 1) return { mark: <img className="prep-countdown__icon" src={ICONS.preparation} alt="" />, text: "É amanhã!" };
-  if (daysToGo === 0) return { mark: "🚌", text: "É hoje!" };
-  return { mark: "🏕️", text: "Acampamento em andamento" };
+  if (daysToGo > 1) return { mark: "⏳", text: tx("Faltam {n} dias", { n: daysToGo }) };
+  if (daysToGo === 1) return { mark: <img className="prep-countdown__icon" src={ICONS.preparation} alt="" />, text: tx("É amanhã!") };
+  if (daysToGo === 0) return { mark: "🚌", text: tx("É hoje!") };
+  return { mark: "🏕️", text: tx("Acampamento em andamento") };
 }
 
-/** one card of the checklist (a role's preparation or a general section) */
 interface PrepItem {
-  /** "role:<id>" | "section:<id>" — what is stored in staff.prepDone */
   key: string;
   emoji: string;
   title: ReactNode;
   html: string;
-  /** roles get a highlighted border */
   role?: boolean;
 }
 
@@ -48,6 +48,7 @@ interface PrepItem {
  * ⚙️ → Preparação and the per-role text in the role itself.
  */
 export default function PreparationPage({ user, token, pairedWith }: PreparationPageProps) {
+  const { tx } = useI18n();
   const sections = useCollection("preparation");
   const myRoles = useMyPrepRoles(user.phone);
   const staff = useCollectionOrEmpty("staff");
@@ -97,12 +98,12 @@ export default function PreparationPage({ user, token, pairedWith }: Preparation
   if (sections === null || myRoles === null) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>
+        <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>
       </div>
     );
   }
 
-  const countdown = countdownLabel(timing.daysToGo);
+  const countdown = countdownLabel(timing.daysToGo, tx);
 
   async function toggle(item: PrepItem) {
     if (busyKey) return;
@@ -111,7 +112,7 @@ export default function PreparationPage({ user, token, pairedWith }: Preparation
     try {
       await setMyPrepDone(token, item.key, !done.has(item.key));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBusyKey(null);
     }
@@ -130,7 +131,7 @@ export default function PreparationPage({ user, token, pairedWith }: Preparation
             <header className="prep-section__head">
               <h3 className="prep-section__title">
                 <span aria-hidden="true">{item.emoji}</span> {item.title}
-                {item.role && <span className="prep-section__tag">sua função</span>}
+                {item.role && <span className="prep-section__tag">{tx("sua função")}</span>}
               </h3>
               {canTick && (
                 <button
@@ -138,15 +139,15 @@ export default function PreparationPage({ user, token, pairedWith }: Preparation
                   className={`prep-check ${isDone ? "prep-check--on" : ""}`}
                   aria-pressed={isDone}
                   disabled={busyKey === item.key}
-                  title={isDone ? "Desmarcar" : "Marcar como feito"}
-                  aria-label={isDone ? "Desmarcar" : "Marcar como feito"}
+                  title={isDone ? tx("Desmarcar") : tx("Marcar como feito")}
+                  aria-label={isDone ? tx("Desmarcar") : tx("Marcar como feito")}
                   onClick={() => toggle(item)}
                 >
                   <span className="prep-check__box" aria-hidden="true">{isDone ? "✓" : ""}</span>
                 </button>
               )}
             </header>
-            {item.html ? <RichHtml html={item.html} /> : <p className="opt-empty">Em breve.</p>}
+            {item.html ? <RichHtml html={item.html} /> : <p className="opt-empty">{tx("Em breve.")}</p>}
           </article>
         );
       })}
@@ -156,11 +157,11 @@ export default function PreparationPage({ user, token, pairedWith }: Preparation
   return (
     <div className="admin-page prep-page">
       <header className="admin-head">
-        <h1 className="admin-title"><img className="admin-title__icon" src={ICONS.preparation} alt="" aria-hidden="true" /> Preparação</h1>
+        <h1 className="admin-title"><img className="admin-title__icon" src={ICONS.preparation} alt="" aria-hidden="true" /> {tx("Preparação")}</h1>
         {/* only while the bottom bar merges the pair (phones): the way to the other half */}
         {pairedWith && (
-          <button type="button" className="dash-pair-link" onClick={pairedWith} title="Ver as Instruções">
-            <span aria-hidden="true">📖</span> Instruções
+          <button type="button" className="dash-pair-link" onClick={pairedWith} title={tx("Ver as Instruções")}>
+            <span aria-hidden="true">📖</span> {tx("Instruções")}
           </button>
         )}
       </header>
@@ -172,20 +173,20 @@ export default function PreparationPage({ user, token, pairedWith }: Preparation
           <span className="prep-countdown__emoji" aria-hidden="true">{countdown.mark}</span>
           <div className="prep-countdown__text">
             <strong>{countdown.text}</strong>
-            {timing.firstDate && <span>{timing.daysToGo !== null && timing.daysToGo < 0 ? "Começou" : "Começa"} {speakDay(timing.firstDate).toLowerCase()}</span>}
+            {timing.firstDate && <span>{timing.daysToGo !== null && timing.daysToGo < 0 ? tx("Começou") : tx("Começa")} {speakDay(timing.firstDate).toLowerCase()}</span>}
           </div>
           {canTick && total > 0 && (
-            <div className="prep-progress" aria-label={`${doneCount} de ${total} itens feitos`}>
+            <div className="prep-progress" aria-label={tx("{n} de {total} itens feitos", { n: doneCount, total })}>
               <strong>{doneCount}/{total}</strong>
-              <span>{allDone ? "tudo pronto! 🎉" : "feitos"}</span>
+              <span>{allDone ? tx("tudo pronto! 🎉") : tx("feitos")}</span>
             </div>
           )}
         </div>
       )}
 
       <p className="admin-intro">
-        Olá, {first}! Aqui está tudo o que você precisa saber, levar e vestir antes do acampamento.
-        {canTick && total > 0 && " Conforme for resolvendo cada item, marque como feito."} 😊
+        {tx("Olá, {name}! Aqui está tudo o que você precisa saber, levar e vestir antes do acampamento.", { name: first })}
+        {canTick && total > 0 && tx(" Conforme for resolvendo cada item, marque como feito.")} 😊
       </p>
 
       {error && <p className="message message--error">{error}</p>}
@@ -196,7 +197,7 @@ export default function PreparationPage({ user, token, pairedWith }: Preparation
       {total === 0 && (
         <div className="admin-empty">
           <img className="admin-empty__icon" src={ICONS.preparation} alt="" aria-hidden="true" />
-          <p>Nada para preparar por enquanto. Assim que a organização publicar as orientações, elas aparecem aqui.</p>
+          <p>{tx("Nada para preparar por enquanto. Assim que a organização publicar as orientações, elas aparecem aqui.")}</p>
         </div>
       )}
     </div>

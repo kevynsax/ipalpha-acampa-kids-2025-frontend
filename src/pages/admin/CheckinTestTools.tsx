@@ -2,6 +2,7 @@ import { useState } from "react";
 import { resetCheckins, updateSettings } from "../../api/settings";
 import { useConfirm } from "../../components/ConfirmDialog";
 import Toggle from "../../components/Toggle";
+import { useI18n } from "../../i18n";
 import { useCollection } from "../../store";
 
 interface CheckinTestToolsProps {
@@ -17,6 +18,7 @@ interface CheckinTestToolsProps {
  *   - reset: clears every check-in (kids church + both bus trips, team) and the log.
  */
 export default function CheckinTestTools({ token }: CheckinTestToolsProps) {
+  const { tx } = useI18n();
   const settings = useCollection("settings");
   const campers = useCollection("campers");
   const staff = useCollection("staff");
@@ -38,7 +40,7 @@ export default function CheckinTestTools({ token }: CheckinTestToolsProps) {
     try {
       await updateSettings(token, { checkinTestMode: value });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(null);
     }
@@ -48,9 +50,13 @@ export default function CheckinTestTools({ token }: CheckinTestToolsProps) {
     if (busy) return;
     const ok = await confirm({
       emoji: "🧹",
-      title: "Zerar todos os check-ins?",
-      message: `Isso apaga o check-in de ${kidsChecked} criança(s), ${staffChecked} pessoa(s) da equipe e ${vestsOut} colete(s), além do histórico. Não pode ser desfeito.`,
-      confirmLabel: "Zerar check-ins",
+      title: tx("Zerar todos os check-ins?"),
+      message: tx("Isso apaga o check-in de {kids} criança(s), {staff} pessoa(s) da equipe e {vests} colete(s), além do histórico. Não pode ser desfeito.", {
+        kids: kidsChecked,
+        staff: staffChecked,
+        vests: vestsOut,
+      }),
+      confirmLabel: tx("Zerar check-ins"),
       danger: true,
     });
     if (!ok) return;
@@ -59,9 +65,13 @@ export default function CheckinTestTools({ token }: CheckinTestToolsProps) {
     setDone(null);
     try {
       const r = await resetCheckins(token);
-      setDone(`Check-ins zerados: ${r.campers} criança(s), ${r.staff} pessoa(s) da equipe e ${r.vests} colete(s).`);
+      setDone(tx("Check-ins zerados: {kids} criança(s), {staff} pessoa(s) da equipe e {vests} colete(s).", {
+        kids: r.campers,
+        staff: r.staff,
+        vests: r.vests,
+      }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(null);
     }
@@ -70,19 +80,25 @@ export default function CheckinTestTools({ token }: CheckinTestToolsProps) {
   return (
     <section className="cat-form">
       <div className="cat-form__head">
-        <h2 className="cat-form__title">🧪 Teste do check-in</h2>
-        <Toggle checked={testMode} disabled={!settings || busy !== null} label={testMode ? "Modo de teste ligado" : "Modo de teste desligado"} onChange={(v) => void toggleTest(v)} />
+        <h2 className="cat-form__title">🧪 {tx("Teste do check-in")}</h2>
+        <Toggle checked={testMode} disabled={!settings || busy !== null} label={testMode ? tx("Modo de teste ligado") : tx("Modo de teste desligado")} onChange={(v) => void toggleTest(v)} />
       </div>
       <p className="cat-hint">
-        Para a equipe do check-in ensaiar antes do dia da saída: libera <strong>igreja</strong>, <strong>ônibus</strong> e <strong>coletes</strong> fora da
-        janela.
+        {tx("Para a equipe do check-in ensaiar antes do dia da saída: libera")} <strong>{tx("igreja")}</strong>, <strong>{tx("ônibus")}</strong> {tx("e")}{" "}
+        <strong>{tx("coletes")}</strong> {tx("fora da janela.")}
       </p>
       {error && <p className="message message--error">{error}</p>}
       {done && <p className="message message--ok">✅ {done}</p>}
-      {testMode && <p className="cat-hint cat-hint--error">⚠️ Igreja e ônibus liberados agora. Desligue antes do dia da saída!</p>}
+      {testMode && <p className="cat-hint cat-hint--error">{tx("⚠️ Igreja e ônibus liberados agora. Desligue antes do dia da saída!")}</p>}
       <div className="settings-tools">
         <button type="button" className="button button--danger" disabled={busy !== null} onClick={() => void reset()}>
-          {busy === "reset" ? "Zerando…" : `🧹 Zerar check-ins (${kidsChecked} crianças · ${staffChecked} equipe · ${vestsOut} coletes)`}
+          {busy === "reset"
+            ? tx("Zerando…")
+            : tx("🧹 Zerar check-ins ({kids} crianças · {staff} equipe · {vests} coletes)", {
+                kids: kidsChecked,
+                staff: staffChecked,
+                vests: vestsOut,
+              })}
         </button>
       </div>
     </section>

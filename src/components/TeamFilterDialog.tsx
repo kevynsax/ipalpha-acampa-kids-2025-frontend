@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Team } from "../api/teams";
+import { useI18n } from "../i18n";
 import Dialog from "./Dialog";
 import { teamTagStyle } from "./TeamTag";
 
@@ -16,6 +17,7 @@ interface TeamFilterDialogProps {
 
 /** "Times" chip → pick every team or any mix of them; the choice applies on "Filtrar". */
 export default function TeamFilterDialog({ open, teams, value, counts, onChange, onClose }: TeamFilterDialogProps) {
+  const { tx } = useI18n();
   const [draft, setDraft] = useState<Set<string>>(value);
   useEffect(() => {
     if (open) setDraft(new Set(value));
@@ -31,13 +33,13 @@ export default function TeamFilterDialog({ open, teams, value, counts, onChange,
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title="Filtrar por time" width={480}>
+    <Dialog open={open} onClose={onClose} title={tx("Filtrar por time")} width={480}>
       <div className="cat-form cat-form--plain">
-        <h2 className="cat-form__title">🚩 Filtrar por time</h2>
-        <p className="admin-intro">Escolha um ou mais times. Nenhum marcado = todos.</p>
-        <div className="team-filter__list" role="group" aria-label="Times">
+        <h2 className="cat-form__title">🚩 {tx("Filtrar por time")}</h2>
+        <p className="admin-intro">{tx("Escolha um ou mais times. Nenhum marcado = todos.")}</p>
+        <div className="team-filter__list" role="group" aria-label={tx("Times")}>
           <button type="button" className={`chip-toggle chip-toggle--small ${all ? "chip-toggle--on" : ""}`} aria-pressed={all} onClick={() => setDraft(new Set())}>
-            Todos os times
+            {tx("Todos os times")}
           </button>
           {teams.map((t) => {
             const on = draft.has(t.id);
@@ -60,7 +62,7 @@ export default function TeamFilterDialog({ open, teams, value, counts, onChange,
         </div>
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" onClick={onClose}>
-            Cancelar
+            {tx("Cancelar")}
           </button>
           <button
             type="button"
@@ -70,7 +72,7 @@ export default function TeamFilterDialog({ open, teams, value, counts, onChange,
               onClose();
             }}
           >
-            Filtrar
+            {tx("Filtrar")}
           </button>
         </div>
       </div>

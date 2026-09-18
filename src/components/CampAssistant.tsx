@@ -5,6 +5,7 @@ import { getState } from "../store";
 import { navigate } from "../router";
 import { useGlowVar } from "../hooks/useGlowVar";
 import { useLiveAssistant } from "../hooks/useLiveAssistant";
+import { useI18n } from "../i18n";
 import LanternMark from "./LanternMark";
 
 interface CampAssistantProps {
@@ -74,6 +75,7 @@ function meaningfulHandoffSpeech(value: string): boolean {
 }
 
 export default function CampAssistant({ token, userName, availableTabs, availableSettings, avoidFab = false, onOpenChange }: CampAssistantProps) {
+  const { tx } = useI18n();
   const [open, setOpen] = useState(false);
   const [handoff, setHandoff] = useState(false);
   const [resuming, setResuming] = useState(false);
@@ -131,11 +133,11 @@ export default function CampAssistant({ token, userName, availableTabs, availabl
       bedrooms: { tab: "bedrooms", path: "/bedrooms" }, buses: { tab: "buses", path: "/buses" }, schedule: { tab: "schedule", path: "/schedule" },
       preparation: { tab: "prep", path: "/prep" }, instructions: { tab: "instructions", path: "/instructions" },
       occurrences: { tab: "occurrences", path: "/occurrences" }, medications: { tab: "medications", path: "/medications" },
-      checkin: { tab: "checkin", path: "/checkin" }, scoreboard: { tab: "scoreboard", path: "/scoreboard" }, gallery: { tab: "gallery", path: "/gallery" },
+      checkin: { tab: "checkin", path: "/checkin" }, scoreboard: { tab: "scoreboard", path: "/scoreboard" }, teams: { tab: "teams", path: "/teams" }, gallery: { tab: "gallery", path: "/gallery" },
     };
     const settingRoutes: Record<string, { setting: string; path: string }> = {
       general_settings: { setting: "general", path: "/general" }, trials: { setting: "trials", path: "/trials" },
-      categories: { setting: "categories", path: "/categories" }, cleanup: { setting: "cleanup", path: "/cleanup" }, teams: { setting: "teams", path: "/teams" },
+      categories: { setting: "categories", path: "/categories" }, cleanup: { setting: "cleanup", path: "/cleanup" },
       preparation_settings: { setting: "preparation", path: "/preparation" }, instructions_settings: { setting: "instructions-admin", path: "/instructions-admin" },
       checkin_settings: { setting: "checkin-settings", path: "/checkin-settings" }, organizers: { setting: "organizers", path: "/organizers" },
       game_organizers: { setting: "game-organizers", path: "/game-organizers" }, medical_staff: { setting: "medical", path: "/medical" },
@@ -149,6 +151,7 @@ export default function CampAssistant({ token, userName, availableTabs, availabl
     if (tabRoute && tabs.has(tabRoute.tab)) path = tabRoute.path;
     const settingRoute = settingRoutes[destination];
     if (settingRoute && settings.has(settingRoute.setting)) path = settingRoute.path;
+    if (destination === "teams" && !path && tabs.has("scoreboard")) path = "/teams";
     if (destination === "settings" && settings.size) path = "/settings";
     if (destination === "schedule_roles" && tabs.has("schedule") && settings.size) path = "/schedule/roles";
     if (destination === "camper" && tabs.has("campers")) path = detail("/campers", data.campers);
@@ -364,8 +367,8 @@ export default function CampAssistant({ token, userName, availableTabs, availabl
         ref={launcherRef}
         type="button"
         className={`assistant-launcher ${avoidFab ? "assistant-launcher--with-fab" : ""} ${open ? "assistant-launcher--open" : ""} ${active ? "assistant-launcher--live" : ""} ${fabReturning ? "assistant-launcher--returning" : ""}`}
-        title="Conversar com o assistente"
-        aria-label="Conversar com o assistente"
+        title={tx("Conversar com o assistente")}
+        aria-label={tx("Conversar com o assistente")}
         aria-expanded={open}
         onClick={openAssistant}
       >
@@ -375,19 +378,19 @@ export default function CampAssistant({ token, userName, availableTabs, availabl
       {open && (
         <>
           <div className={`assistant-backdrop ${screenText ? "assistant-backdrop--display" : ""} ${handoff ? "assistant-backdrop--handoff" : ""} ${resuming ? "assistant-backdrop--resuming" : ""}`} aria-hidden="true" />
-          <section ref={stageRef} className={`assistant-stage ${screenText ? "assistant-stage--display" : ""} ${handoff ? "assistant-stage--handoff" : ""} ${resuming ? "assistant-stage--resuming" : ""}`} role="dialog" aria-modal="true" aria-label="Assistente do acampamento">
-            <button type="button" className="assistant-stage__close" aria-label="Encerrar conversa" title="Encerrar conversa" onClick={close} autoFocus>
+          <section ref={stageRef} className={`assistant-stage ${screenText ? "assistant-stage--display" : ""} ${handoff ? "assistant-stage--handoff" : ""} ${resuming ? "assistant-stage--resuming" : ""}`} role="dialog" aria-modal="true" aria-label={tx("Assistente do acampamento")}>
+            <button type="button" className="assistant-stage__close" aria-label={tx("Encerrar conversa")} title={tx("Encerrar conversa")} onClick={close} autoFocus>
               <span aria-hidden="true">×</span>
             </button>
 
             {screenText && (
-              <section className="assistant-stage__display" aria-label="Resposta exibida">
+              <section className="assistant-stage__display" aria-label={tx("Resposta exibida")}>
                 <p>{screenText}</p>
               </section>
             )}
 
             {(statusError || live.error) && (
-              <p className="assistant-stage__error">{live.error || statusError}</p>
+              <p className="assistant-stage__error">{tx(live.error || statusError)}</p>
             )}
 
             <div className={`assistant-stage__lantern ${live.status === "connecting" ? "is-connecting" : "is-lit"}`} aria-hidden="true">
@@ -403,7 +406,7 @@ export default function CampAssistant({ token, userName, availableTabs, availabl
               )}
             </div>
 
-            {showConnecting && <p className="assistant-stage__connecting" role="status">Conectando...</p>}
+            {showConnecting && <p className="assistant-stage__connecting" role="status">{tx("Conectando...")}</p>}
             <audio ref={live.audioRef} autoPlay playsInline />
           </section>
         </>

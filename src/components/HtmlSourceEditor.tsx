@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { compactHtml, formatHtml, unsupportedTags } from "../html";
+import { useI18n } from "../i18n";
 
 interface HtmlSourceEditorProps {
   /** document HTML (relative image urls, as stored) */
@@ -19,6 +20,7 @@ interface HtmlSourceEditorProps {
  * Tab inserts two spaces, Ctrl/Cmd+Enter applies, Esc cancels.
  */
 export default function HtmlSourceEditor({ value, onApply, onCancel, disabled }: HtmlSourceEditorProps) {
+  const { tx, tag } = useI18n();
   const [text, setText] = useState(() => formatHtml(value));
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const dropped = useMemo(() => unsupportedTags(text), [text]);
@@ -35,16 +37,16 @@ export default function HtmlSourceEditor({ value, onApply, onCancel, disabled }:
   return (
     <div className="rte-source">
       <div className="rte-source__bar">
-        <span className="rte-source__label">HTML do documento</span>
+        <span className="rte-source__label">{tx("HTML do documento")}</span>
         <button type="button" className="rte-source__btn" disabled={disabled} onClick={() => setText(formatHtml(compactHtml(text)))}>
-          ⤷ Formatar
+          {tx("⤷ Formatar")}
         </button>
         <span className="rte__spacer" />
         <button type="button" className="rte-source__btn" onClick={onCancel}>
-          Cancelar
+          {tx("Cancelar")}
         </button>
         <button type="button" className="rte-source__btn rte-source__btn--go" disabled={disabled} onClick={apply}>
-          ✓ Aplicar
+          {tx("✓ Aplicar")}
         </button>
       </div>
       <textarea
@@ -75,14 +77,16 @@ export default function HtmlSourceEditor({ value, onApply, onCancel, disabled }:
       />
       <p className="rte-source__foot">
         {dropped.length ? (
-          <span className="rte-source__warn">⚠️ Estas tags serão removidas ao aplicar: {dropped.map((t) => `<${t}>`).join(" ")}</span>
+          <span className="rte-source__warn">{tx("⚠️ Estas tags serão removidas ao aplicar: {tags}", { tags: dropped.map((t) => `<${t}>`).join(" ") })}</span>
         ) : (
           <span>
-            Permitido: p, br, strong, em, s, ul, ol, li, h2, h3, blockquote, a, hr, img, mark, details, summary, figure, figcaption, table.
+            {tx("Permitido: p, br, strong, em, s, ul, ol, li, h2, h3, blockquote, a, hr, img, mark, details, summary, figure, figcaption, table.")}
           </span>
         )}
         <span className="rte-source__meta">
-          {text.length.toLocaleString("pt-BR")} caracteres{dirty ? " · alterado" : ""} · ⌘/Ctrl+Enter aplica
+          {tx("{n} caracteres", { n: text.length.toLocaleString(tag) })}
+          {dirty ? tx(" · alterado") : ""}
+          {tx(" · ⌘/Ctrl+Enter aplica")}
         </span>
       </p>
     </div>

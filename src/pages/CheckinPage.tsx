@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { UndoGlyph } from "../components/Glyph";
+import { SearchGlyph, UndoGlyph } from "../components/Glyph";
 import QrScannerDialog from "../components/QrScannerDialog";
 import TeamTag from "../components/TeamTag";
 import TransportTag from "../components/TransportTag";
@@ -20,6 +20,7 @@ import { useCollection, useCollectionOrEmpty } from "../store";
 import { useLabelOf } from "../store/derive";
 import { useRoute } from "../router";
 import { speakTime } from "../dates";
+import { collatorLocale, useI18n } from "../i18n";
 
 interface CheckinPageProps {
   token: string;
@@ -34,6 +35,7 @@ type Filter = "pending" | "done" | "all";
  * parent confirm each piece of health/contact info, then "Confirmar chegada".
  */
 export default function CheckinPage({ token, adminMerged = false }: CheckinPageProps) {
+  const { tx } = useI18n();
   const campers = useCollection("campers");
   const bedrooms = useCollectionOrEmpty("bedrooms");
   const transports = useCollectionOrEmpty("transports");
@@ -41,7 +43,7 @@ export default function CheckinPage({ token, adminMerged = false }: CheckinPageP
   // the church roll call is only for kids coming by bus — the ones handed over to us there
   const busIds = useMemo(() => new Set(transports.filter((t) => t.kind === "bus").map((t) => t.id)), [transports]);
   const onBus = (k: Camper) => !!k.transportation && busIds.has(k.transportation);
-  const { segments, navigate } = useRoute();
+  const { navigate } = useRoute();
   const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("pending");
@@ -60,7 +62,7 @@ export default function CheckinPage({ token, adminMerged = false }: CheckinPageP
     const q = normalize(search);
     return campers
       .filter(onBus)
-      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }))
+      .sort((a, b) => a.name.localeCompare(b.name, collatorLocale(), { sensitivity: "base" }))
       .filter((k) => {
         if (filter === "pending" && k.checkin) return false;
         if (filter === "done" && !k.checkin) return false;
@@ -85,7 +87,7 @@ export default function CheckinPage({ token, adminMerged = false }: CheckinPageP
       setOpenId(null);
       if (fromScan.current) setScannerOpen(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -103,9 +105,9 @@ export default function CheckinPage({ token, adminMerged = false }: CheckinPageP
     const id = camperIdFromQr(raw);
     const camper = id ? campers.find((k) => k.id === id) : null;
     setScannerOpen(false);
-    if (!id) setError("Este QR code não é de uma pulseira ou crachá do Acampa Kids.");
-    else if (!camper) setError("Esta criança não está na lista do check-in.");
-    else if (!onBus(camper)) setError(`${camper.name} não vem de ônibus — o check-in da igreja é só para quem vem de ônibus.`);
+    if (!id) setError(tx("Este QR code não é de uma pulseira ou crachá do Acampa Kids."));
+    else if (!camper) setError(tx("Esta criança não está na lista do check-in."));
+    else if (!onBus(camper)) setError(tx("{name} não vem de ônibus — o check-in da igreja é só para quem vem de ônibus.", { name: camper.name }));
     else {
       fromScan.current = true;
       setOpenId(camper.id);
@@ -113,13 +115,13 @@ export default function CheckinPage({ token, adminMerged = false }: CheckinPageP
   }
 
   async function handleUndo(k: Camper) {
-    if (!(await confirm({ emoji: <UndoGlyph />, title: `Desfazer o check-in de ${k.name}?`, message: "A criança voltará para a lista de pendentes.", confirmLabel: "Desfazer", danger: true }))) return;
+    if (!(await confirm({ emoji: <UndoGlyph />, title: tx("Desfazer o check-in de {name}?", { name: k.name }), message: tx("A criança voltará para a lista de pendentes."), confirmLabel: tx("Desfazer"), danger: true }))) return;
     setBusy(true);
     setError(null);
     try {
       await undoCheckinCamper(token, k.id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -128,19 +130,19 @@ export default function CheckinPage({ token, adminMerged = false }: CheckinPageP
   if (!campers) {
     return (
       <div className="admin-page">
-        {adminMerged && <Breadcrumbs items={[{ label: "Check-in", onClick: () => navigate("/checkin") }, { label: "Igreja" }]} />}
-        <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>
+        {adminMerged && <Breadcrumbs items={[{ label: tx("Check-in"), onClick: () => navigate("/checkin") }, { label: tx("Igreja") }]} />}
+        <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>
       </div>
     );
   }
 
   return (
     <div className="admin-page">
-      {adminMerged && <Breadcrumbs items={[{ label: "Check-in", onClick: () => navigate("/checkin") }, { label: "Igreja" }]} />}
+      {adminMerged && <Breadcrumbs items={[{ label: tx("Check-in"), onClick: () => navigate("/checkin") }, { label: tx("Igreja") }]} />}
       <header className="admin-head">
-        <h1 className="admin-title">⛪ Check-in na igreja</h1>
+        <h1 className="admin-title">{tx("⛪ Check-in na igreja")}</h1>
         <div className="admin-head__actions">
-          <span className="checkin-progress" title="Crianças que já chegaram">
+          <span className="checkin-progress" title={tx("Crianças que já chegaram")}>
             ✅ {counts.done}/{counts.all}
           </span>
         </div>
@@ -150,14 +152,18 @@ export default function CheckinPage({ token, adminMerged = false }: CheckinPageP
       {error && <p className="message message--error">{error}</p>}
 
       <div className="staff-toolbar">
-        <input
-          className="cat-input staff-toolbar__search"
-          type="search"
-          placeholder="Buscar pelo nome da criança…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <div className="staff-toolbar__filters checkin-filters" role="tablist" aria-label="Filtro">
+        <label className="staff-toolbar__search">
+          <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
+          <input
+            className="cat-input"
+            type="search"
+            placeholder={tx("Buscar pelo nome da criança…")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label={tx("Buscar pelo nome da criança")}
+          />
+        </label>
+        <div className="staff-toolbar__filters checkin-filters" role="tablist" aria-label={tx("Filtro")}>
           {(
             [
               ["pending", "Aguardando"],
@@ -166,7 +172,7 @@ export default function CheckinPage({ token, adminMerged = false }: CheckinPageP
             ] as [Filter, string][]
           ).map(([key, label]) => (
             <button key={key} type="button" role="tab" aria-selected={filter === key} className={`cat-tab ${filter === key ? "cat-tab--active" : ""}`} onClick={() => setFilter(key)}>
-              {label}
+              {tx(label)}
               <span className="cat-tab__count">{counts[key]}</span>
             </button>
           ))}
@@ -176,11 +182,11 @@ export default function CheckinPage({ token, adminMerged = false }: CheckinPageP
       {campers.length === 0 && (
         <div className="admin-empty">
           <img className="admin-empty__icon" src={ICONS.camper} alt="" aria-hidden="true" />
-          <p>Nenhum acampante cadastrado.</p>
+          <p>{tx("Nenhum acampante cadastrado.")}</p>
         </div>
       )}
       {campers.length > 0 && visible.length === 0 && (
-        <p className="opt-empty">{filter === "pending" && !search ? "Todo mundo já chegou! 🎉" : "Nenhum resultado. 🔍"}</p>
+        <p className="opt-empty">{filter === "pending" && !search ? tx("Todo mundo já chegou! 🎉") : tx("Nenhum resultado. 🔍")}</p>
       )}
 
       <ul className="staff-list">
@@ -194,7 +200,7 @@ export default function CheckinPage({ token, adminMerged = false }: CheckinPageP
                 className="staff-card__body"
                 role="button"
                 tabIndex={0}
-                title={done ? `${k.name} já chegou` : `Fazer check-in de ${k.name}`}
+                title={done ? tx("{name} já chegou", { name: k.name }) : tx("Fazer check-in de {name}", { name: k.name })}
                 onClick={() => openByName(k)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -206,10 +212,10 @@ export default function CheckinPage({ token, adminMerged = false }: CheckinPageP
                 <h3 className="staff-card__name">
                   {done && <span aria-hidden="true">✅ </span>}
                   {k.name}
-                  {age !== null && <span className="kid-card__age">{age} anos</span>}
+                  {age !== null && <span className="kid-card__age">{tx("{age} anos", { age })}</span>}
                 </h3>
                 <p className="staff-card__meta">
-                  {room ? <BedroomTag bedroom={room} className="staff-tag--inline" /> : <span className="staff-card__missing">sem quarto</span>}
+                  {room ? <BedroomTag bedroom={room} className="staff-tag--inline" /> : <span className="staff-card__missing">{tx("sem quarto")}</span>}
                   {k.team && (
                     <>
                       {" · "}
@@ -219,14 +225,14 @@ export default function CheckinPage({ token, adminMerged = false }: CheckinPageP
                   {done && k.checkin && (
                     <span className="checkin-card__when" title={k.checkin.note}>
                       {" "}
-                      · chegou às {speakTime(k.checkin.at)}
-                      {k.checkin.note && " · 🤖 pelo sistema"}
+                      · {tx("chegou às {time}", { time: speakTime(k.checkin.at) })}
+                      {k.checkin.note && ` · ${tx("🤖 pelo sistema")}`}
                     </span>
                   )}
                 </p>
               </div>
               {done && (
-                <button type="button" className="icon-btn icon-btn--lg" title="Desfazer check-in" aria-label={`Desfazer check-in de ${k.name}`} disabled={busy} onClick={() => handleUndo(k)}>
+                <button type="button" className="icon-btn icon-btn--lg" title={tx("Desfazer check-in")} aria-label={tx("Desfazer check-in de {name}", { name: k.name })} disabled={busy} onClick={() => handleUndo(k)}>
                   <UndoGlyph />
                 </button>
               )}
@@ -235,7 +241,7 @@ export default function CheckinPage({ token, adminMerged = false }: CheckinPageP
         })}
       </ul>
 
-      <Dialog open={!!open} onClose={() => setOpenId(null)} title={open ? `Check-in de ${open.name}` : "Check-in"} width={560}>
+      <Dialog open={!!open} onClose={() => setOpenId(null)} title={open ? tx("Check-in de {name}", { name: open.name }) : tx("Check-in")} width={560}>
         {open && (
           <CheckinDialog
             key={open.id}
@@ -250,10 +256,10 @@ export default function CheckinPage({ token, adminMerged = false }: CheckinPageP
         )}
       </Dialog>
 
-      <ScanFab label="Ler a pulseira ou o crachá" onClick={() => setScannerOpen(true)} />
-      <QrScannerDialog open={scannerOpen} onScan={scanQr} onClose={() => setScannerOpen(false)} hint="Leia a pulseira ou o crachá para abrir o check-in da criança.">
+      <ScanFab label={tx("Ler a pulseira ou o crachá")} onClick={() => setScannerOpen(true)} />
+      <QrScannerDialog open={scannerOpen} onScan={scanQr} onClose={() => setScannerOpen(false)} hint={tx("Leia a pulseira ou o crachá para abrir o check-in da criança.")}>
         <p className="scan-points__summary" aria-live="polite">
-          <strong>{counts.done}</strong> de <strong>{counts.all}</strong> {counts.all === 1 ? "criança chegou" : "crianças chegaram"}
+          {tx(counts.all === 1 ? "{done} de {all} criança chegou" : "{done} de {all} crianças chegaram", { done: counts.done, all: counts.all })}
         </p>
       </QrScannerDialog>
     </div>
@@ -279,16 +285,15 @@ interface CheckItem {
   text: string;
 }
 
-const CHECK_LABEL = "Perguntei e está correto";
-
 function CheckinDialog({ camper: k, bedroom, sex, labelOf, busy, onConfirm, onCancel }: CheckinDialogProps) {
+  const { tx } = useI18n();
   const items: CheckItem[] = [
     ...healthLines(k, labelOf).map((l) => ({ key: l.title, icon: l.icon, title: l.title, text: l.text })),
     {
       key: "guardian",
       icon: <ParentIcon size={18} />,
-      title: "Responsável",
-      text: [k.guardianName || "nome não informado", k.guardianPhone ? formatBrazilPhoneClient(k.guardianPhone) : "celular não informado"].join(" · "),
+      title: tx("Responsável"),
+      text: [k.guardianName || tx("nome não informado"), k.guardianPhone ? formatBrazilPhoneClient(k.guardianPhone) : tx("celular não informado")].join(" · "),
     },
   ];
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -317,30 +322,31 @@ function CheckinDialog({ camper: k, bedroom, sex, labelOf, busy, onConfirm, onCa
       <h2 className="cat-form__title detail-title">
         <KidIcon sex={sex} size={36} />
         {k.name}
-        {age !== null && <span className="kid-card__age">{age} anos</span>}
+        {age !== null && <span className="kid-card__age">{tx("{age} anos", { age })}</span>}
       </h2>
 
       {already && k.checkin && (
         <p className="message message--ok">
-          ✅ Já fez check-in às {speakTime(k.checkin.at)} com {k.checkin.byName.split(" ")[0]}.{k.checkin.note && ` 🤖 ${k.checkin.note}.`}
+          {tx("✅ Já fez check-in às {time} com {who}.", { time: speakTime(k.checkin.at), who: k.checkin.byName.split(" ")[0] })}
+          {k.checkin.note && ` 🤖 ${k.checkin.note}.`}
         </p>
       )}
 
       {/* where the kid goes: team + bedroom as compact tags */}
       <div className="staff-card__tags">
-        <TeamTag teamId={k.team} fallback="sem time" />
-        <BedroomTag bedroom={bedroom} fallback="sem quarto" />
-        {labelOf(k.bed) && <span className="staff-tag">Cama {labelOf(k.bed)!.toLowerCase()}</span>}
+        <TeamTag teamId={k.team} fallback={tx("sem time")} />
+        <BedroomTag bedroom={bedroom} fallback={tx("sem quarto")} />
+        {labelOf(k.bed) && <span className="staff-tag">{tx("Cama {bed}", { bed: labelOf(k.bed)!.toLowerCase() })}</span>}
       </div>
 
       <dl className="detail-grid">
-        <dt>Peso</dt>
+        <dt>{tx("Peso")}</dt>
         <dd>{k.weightKg != null ? `${String(k.weightKg).replace(".", ",")} kg` : "—"}</dd>
-        <dt>Transporte</dt>
+        <dt>{tx("Transporte")}</dt>
         <dd>{k.transportation ? <TransportTag transportId={k.transportation} /> : "—"}</dd>
         {k.bedroomPreference && (
           <>
-            <dt>Quer ficar com</dt>
+            <dt>{tx("Quer ficar com")}</dt>
             <dd>{k.bedroomPreference}</dd>
           </>
         )}
@@ -362,7 +368,7 @@ function CheckinDialog({ camper: k, bedroom, sex, labelOf, busy, onConfirm, onCa
               </div>
               <label className="checkin-check">
                 <input type="checkbox" checked={on} disabled={already || busy} onChange={() => toggle(i.key)} />
-                <span>{CHECK_LABEL}</span>
+                <span>{tx("Perguntei e está correto")}</span>
               </label>
             </li>
           );
@@ -371,11 +377,11 @@ function CheckinDialog({ camper: k, bedroom, sex, labelOf, busy, onConfirm, onCa
 
       <div className="cat-form__actions">
         <button type="button" className="button button--secondary" disabled={busy} onClick={onCancel}>
-          {already ? "Fechar" : "Cancelar"}
+          {already ? tx("Fechar") : tx("Cancelar")}
         </button>
         {!already && (
-          <button type="submit" className="button button--primary" disabled={busy || !allChecked} title={allChecked ? undefined : "Confirme todos os itens com o responsável"}>
-            {busy ? "Confirmando…" : "✅ Confirmar chegada"}
+          <button type="submit" className="button button--primary" disabled={busy || !allChecked} title={allChecked ? undefined : tx("Confirme todos os itens com o responsável")}>
+            {busy ? tx("Confirmando…") : tx("✅ Confirmar chegada")}
           </button>
         )}
       </div>

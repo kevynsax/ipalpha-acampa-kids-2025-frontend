@@ -26,6 +26,7 @@ import DetailStack from "./DetailStack";
 import GiveawayPage from "../GiveawayPage";
 import CamperImportPage from "./CamperImportPage";
 import { DownloadGlyph, SearchGlyph } from "../../components/Glyph";
+import { collatorLocale, useI18n } from "../../i18n";
 
 interface CampersPageProps {
   token: string;
@@ -49,6 +50,7 @@ type Wing = "all" | "girls" | "boys";
 
 /** Admin: the campers (kids) — searchable list, detail view and create/edit form; read-only for the medical team. */
 export default function CampersPage({ token, readOnly = false }: CampersPageProps) {
+  const { tx } = useI18n();
   // everything comes from the local store (localStorage + live WebSocket feed)
   const campers = useCollection("campers");
   const categories = useCategories("camper");
@@ -72,6 +74,8 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [health, setHealth] = useState<Set<HealthKey>>(new Set());
+  /** During a large import, missing allocations are expected; show warnings only when the counter is pressed. */
+  const [showImportAttention, setShowImportAttention] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
@@ -116,24 +120,30 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
   }
 
   async function handleDelete(k: Camper) {
-    if (!(await confirm({ emoji: "🗑️", title: `Excluir ${k.name}?`, message: "Isso não pode ser desfeito.", confirmLabel: "Excluir", danger: true }))) return;
+    if (!(await confirm({ emoji: "🗑️", title: tx("Excluir {name}?", { name: k.name }), message: tx("Isso não pode ser desfeito."), confirmLabel: tx("Excluir"), danger: true }))) return;
     try {
       await withBusy(() => deleteCamper(token, k.id));
       navigate("/campers", { replace: true });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     }
   }
+
+  const orphanCount = useMemo(() => (campers ?? []).filter((k) => !k.caretakerId).length, [campers]);
+  const noRoomCount = useMemo(() => (campers ?? []).filter((k) => !k.bedroom).length, [campers]);
+  const missingAllocationCount = useMemo(() => (campers ?? []).filter((k) => !k.caretakerId || !k.bedroom).length, [campers]);
+  const importingMode = !!campers?.length && missingAllocationCount / campers.length > 0.1;
+  const attentionEnabled = !importingMode || showImportAttention;
+  useEffect(() => {
+    if (!importingMode) setShowImportAttention(false);
+  }, [importingMode]);
 
   const visible = useMemo(() => {
     if (!campers) return [];
     const q = normalize(search);
-    // no leader / no room first: they need the admin's attention
     const attentionFirst = (a: Camper, b: Camper) =>
       Number(!!a.caretakerId && !!a.bedroom) - Number(!!b.caretakerId && !!b.bedroom);
-    return sortByName(campers)
-      .sort(attentionFirst)
-      .filter((k) => {
+    return sortByName(campers).sort(attentionFirst).filter((k) => {
       const room = k.bedroom ? roomById.get(k.bedroom) : null;
       if (wing !== "all" && room?.group !== wing) return false;
       if (teamFilter.size > 0 && !(k.team && teamFilter.has(k.team))) return false;
@@ -143,8 +153,6 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
       return hay.includes(q);
     });
   }, [campers, wing, teamFilter, search, health, labelOf, roomById, staffById]);
-  const orphanCount = useMemo(() => (campers ?? []).filter((k) => !k.caretakerId).length, [campers]);
-  const noRoomCount = useMemo(() => (campers ?? []).filter((k) => !k.bedroom).length, [campers]);
 
   /** how many kids have each health thing (within the other filters, so the chips stay honest) */
   const healthCounts = useMemo(() => {
@@ -166,7 +174,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
     return m;
   }, [campers]);
   const teamById = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
-  const teamChipLabel = teamFilter.size === 0 ? "Todos os times" : [...teamFilter].map((id) => teamById.get(id)?.name).filter(Boolean).join(", ");
+  const teamChipLabel = teamFilter.size === 0 ? tx("Todos os times") : [...teamFilter].map((id) => teamById.get(id)?.name).filter(Boolean).join(", ");
 
   const counts = useMemo(() => {
     const c = { all: campers?.length ?? 0, girls: 0, boys: 0 };
@@ -183,13 +191,13 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
   if (!campers) {
     return (
       <div className="admin-page">
-        {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>}
+        {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>}
       </div>
     );
   }
 
   if (mode.kind === "giveaway") {
-    return <GiveawayPage who="campers" crumbs={[{ label: "Acampantes", onClick: () => navigate("/campers") }, { label: "Sorteio" }]} />;
+    return <GiveawayPage who="campers" crumbs={[{ label: tx("Acampantes"), onClick: () => navigate("/campers") }, { label: tx("Sorteio") }]} />;
   }
 
   if (mode.kind === "import") return <CamperImportPage token={token} />;
@@ -199,7 +207,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
       <DetailStack
         token={token}
         current={{ kind: "camper", id: mode.id }}
-        rootCrumbs={[{ label: "Acampantes", onClick: () => navigate("/campers") }]}
+        rootCrumbs={[{ label: tx("Acampantes"), onClick: () => navigate("/campers") }]}
         onEditCamper={readOnly ? undefined : (camper) => navigate(`/campers/${camper.id}/edit`)}
         // read-only here = the medical team: they still edit the kids' HEALTH block in place
         canEditHealth={readOnly}
@@ -211,20 +219,20 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
 
   return (
     <div className="admin-page">
-      {mode.kind === "create" && <Breadcrumbs items={[{ label: "Acampantes", onClick: () => guardedNav("/campers") }, { label: "Novo" }]} />}
+      {mode.kind === "create" && <Breadcrumbs items={[{ label: tx("Acampantes"), onClick: () => guardedNav("/campers") }, { label: tx("Novo") }]} />}
       {mode.kind === "edit" && editing && (
-        <Breadcrumbs items={[{ label: "Acampantes", onClick: () => guardedNav("/campers") }, { label: editing.name.split(" ")[0], onClick: () => guardedNav(`/campers/${editing.id}`) }, { label: "Editar" }]} />
+        <Breadcrumbs items={[{ label: tx("Acampantes"), onClick: () => guardedNav("/campers") }, { label: editing.name.split(" ")[0], onClick: () => guardedNav(`/campers/${editing.id}`) }, { label: tx("Editar") }]} />
       )}
       <header className="admin-head">
         <h1 className="admin-title">
           {mode.kind === "create" ? (
             <>
-              <img className={`admin-title__icon${createSexBusy ? " admin-title__icon--busy" : ""}`} src={createSex ? kidFaceSrc(createSex) : ICONS.camper} alt="" aria-hidden="true" /> Novo acampante
+              <img className={`admin-title__icon${createSexBusy ? " admin-title__icon--busy" : ""}`} src={createSex ? kidFaceSrc(createSex) : ICONS.camper} alt="" aria-hidden="true" /> {tx("Novo acampante")}
             </>
           ) : mode.kind === "edit" ? (
-            "✏️ Editar acampante"
+            tx("✏️ Editar acampante")
           ) : (
-            "Acampantes"
+            tx("Acampantes")
           )}
         </h1>
         {mode.kind === "view" && !readOnly && (
@@ -232,53 +240,53 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
             <button
               type="button"
               className="button button--secondary admin-head__new"
-              title="Sorteio"
-              aria-label="Sorteio"
+              title={tx("Sorteio")}
+              aria-label={tx("Sorteio")}
               onClick={() => navigate("/campers/giveaway")}
             >
               <img className="admin-head__action-icon" src={ICONS.giveaway} alt="" aria-hidden="true" />
-              <span className="admin-head__action-label">Sorteio</span>
+              <span className="admin-head__action-label">{tx("Sorteio")}</span>
             </button>
             <button
               type="button"
               className="button button--secondary admin-head__new"
-              title="Importar acampantes de uma planilha"
-              aria-label="Importar acampantes de uma planilha"
+              title={tx("Importar acampantes de uma planilha")}
+              aria-label={tx("Importar acampantes de uma planilha")}
               onClick={() => navigate("/campers/import")}
             >
               <img className="admin-head__action-icon" src={ICONS.importCampers} alt="" aria-hidden="true" />
-              <span className="admin-head__action-label">Importar</span>
+              <span className="admin-head__action-label">{tx("Importar")}</span>
             </button>
             <button
               type="button"
               className="button button--secondary admin-head__new"
               disabled={busy || campers.length === 0}
-              title="Baixar todos os acampantes em Excel"
-              aria-label="Baixar todos os acampantes em Excel"
+              title={tx("Baixar todos os acampantes em Excel")}
+              aria-label={tx("Baixar todos os acampantes em Excel")}
               onClick={() => downloadCampersXlsx(campers, bedrooms, labelOf, staff)}
             >
               <DownloadGlyph />
-              <span className="admin-head__action-label">Download</span>
+              <span className="admin-head__action-label">{tx("Download")}</span>
             </button>
             <button
               type="button"
               className="button button--secondary admin-head__new admin-head__print"
               disabled={busy || campers.length === 0}
-              title="Imprimir crachás ou pulseiras"
+              title={tx("Imprimir crachás ou pulseiras")}
               onClick={() => setPrintOpen(true)}
             >
-              🖨️ <span className="admin-head__action-label">Imprimir</span>
+              🖨️ <span className="admin-head__action-label">{tx("Imprimir")}</span>
             </button>
             <button
               type="button"
               className="button button--primary admin-head__new"
               disabled={busy}
-              title="Novo acampante"
-              aria-label="Novo acampante"
+              title={tx("Novo acampante")}
+              aria-label={tx("Novo acampante")}
               onClick={() => navigate("/campers/new")}
             >
               <span className="admin-head__action-plus" aria-hidden="true">+</span>
-              <span className="admin-head__action-label">Novo</span>
+              <span className="admin-head__action-label">{tx("Novo")}</span>
             </button>
           </div>
         )}
@@ -289,12 +297,12 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
               type="button"
               className="button button--secondary admin-head__new"
               disabled={campers.length === 0}
-              title="Baixar a planilha de saúde de todos os acampantes"
-              aria-label="Baixar a planilha de saúde de todos os acampantes"
+              title={tx("Baixar a planilha de saúde de todos os acampantes")}
+              aria-label={tx("Baixar a planilha de saúde de todos os acampantes")}
               onClick={() => downloadMedicalCampersXlsx(campers, bedrooms, labelOf, staff)}
             >
               <DownloadGlyph />
-              <span className="admin-head__action-label">Download</span>
+              <span className="admin-head__action-label">{tx("Download")}</span>
             </button>
           </div>
         )}
@@ -302,8 +310,8 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
           <button
             type="button"
             className="icon-btn icon-btn--lg icon-btn--danger"
-            title={`Excluir ${editing.name}`}
-            aria-label={`Excluir ${editing.name}`}
+            title={tx("Excluir {name}", { name: editing.name })}
+            aria-label={tx("Excluir {name}", { name: editing.name })}
             disabled={busy}
             onClick={() => handleDelete(editing)}
           >
@@ -321,7 +329,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
       {mode.kind === "create" && (
         <CamperForm token={token} categories={categories} busy={busy} onSubmit={handleCreate} onSexChange={onCreateSex} leaveGuardRef={leaveGuardRef} />
       )}
-      {mode.kind === "edit" && !editing && <p className="opt-empty">Acampante não encontrado.</p>}
+      {mode.kind === "edit" && !editing && <p className="opt-empty">{tx("Acampante não encontrado.")}</p>}
       {mode.kind === "edit" && editing && (
         <CamperForm
           key={editing.id}
@@ -339,17 +347,17 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
           <div className="staff-toolbar">
             <label className="staff-toolbar__search">
               <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
-              <input className="cat-input" type="search" placeholder="Buscar por nome, líder, time, quarto…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar" />
+              <input className="cat-input" type="search" placeholder={tx("Buscar por nome, líder, time, quarto…")} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tx("Buscar")} />
             </label>
           </div>
           {/* wing + team chips, in the same row as the health chips; the medical team gets health only */}
           {!readOnly && (
-            <div className="health-filter" role="group" aria-label="Ala e time">
+            <div className="health-filter" role="group" aria-label={tx("Ala e time")}>
               {(
                 [
-                  ["all", "Todos"],
-                  ["girls", "Meninas"],
-                  ["boys", "Meninos"],
+                  ["all", tx("Todos")],
+                  ["girls", tx("Meninas")],
+                  ["boys", tx("Meninos")],
                 ] as [Wing, string][]
               ).map(([key, label]) => (
                 <button key={key} type="button" className={`chip-toggle chip-toggle--small ${wing === key ? "chip-toggle--on" : ""}`} aria-pressed={wing === key} onClick={() => setWing(key)}>
@@ -363,7 +371,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
                   type="button"
                   className={`chip-toggle chip-toggle--small ${teamFilter.size > 0 ? "chip-toggle--on" : ""}`}
                   aria-pressed={teamFilter.size > 0}
-                  title="Filtrar por time"
+                  title={tx("Filtrar por time")}
                   onClick={() => setTeamDialogOpen(true)}
                 >
                   🚩 {teamChipLabel}
@@ -376,13 +384,13 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
           )}
           {/* medical team: the big picture at a glance (tap = filter) */}
           {readOnly && (
-            <div className="stat-grid" role="group" aria-label="Resumo de saúde">
+            <div className="stat-grid" role="group" aria-label={tx("Resumo de saúde")}>
               {(
                 [
-                  [null, <img src={kidFaceSrc()} alt="" />, "Crianças", campers.length],
-                  ["medicines", "💊", "Tomam medicação", healthCounts.medicines ?? 0],
-                  ["allergies", "🤮", "Têm alergias", healthCounts.allergies ?? 0],
-                  ["foodRestrictions", "🍽️", "Restrição alimentar", healthCounts.foodRestrictions ?? 0],
+                  [null, <img src={kidFaceSrc()} alt="" />, tx("Crianças"), campers.length],
+                  ["medicines", "💊", tx("Tomam medicação"), healthCounts.medicines ?? 0],
+                  ["allergies", "🤮", tx("Têm alergias"), healthCounts.allergies ?? 0],
+                  ["foodRestrictions", "🍽️", tx("Restrição alimentar"), healthCounts.foodRestrictions ?? 0],
                 ] as [HealthKey | null, ReactNode, string, number][]
               ).map(([key, emoji, label, n]) => {
                 const on = key ? health.has(key) : health.size === 0;
@@ -402,20 +410,24 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
           {campers.length === 0 && (
             <div className="admin-empty">
               <img className="admin-empty__icon" src={ICONS.camper} alt="" aria-hidden="true" />
-              <p>Nenhum acampante ainda.{!readOnly && " Cadastre a primeira criança!"}</p>
+              <p>{readOnly ? tx("Nenhum acampante ainda.") : tx("Nenhum acampante ainda. Cadastre a primeira criança!")}</p>
               {!readOnly && (
                 <button type="button" className="button button--primary" onClick={() => navigate("/campers/new")}>
-                  + Adicionar
+                  + {tx("Adicionar")}
                 </button>
               )}
             </div>
           )}
-          {campers.length > 0 && visible.length === 0 && <p className="opt-empty">Nenhum resultado. 🔍</p>}
+          {campers.length > 0 && visible.length === 0 && <p className="opt-empty">{tx("Nenhum resultado. 🔍")}</p>}
 
           <p className="admin-intro">
-            {visible.length === campers.length ? `${campers.length} crianças` : `${visible.length} de ${campers.length} crianças`}
-            {orphanCount > 0 && <span className="orphan-tag"> · ⚠️ {orphanCount} sem líder</span>}
-            {noRoomCount > 0 && <span className="orphan-tag"> · ⚠️ {noRoomCount} sem quarto</span>}
+            {visible.length === campers.length ? tx("{n} crianças", { n: campers.length }) : tx("{visible} de {total} crianças", { visible: visible.length, total: campers.length })}
+            {orphanCount > 0 && (
+              importingMode ? <>{" · "}<button type="button" className={`orphan-tag orphan-tag--btn ${showImportAttention ? "orphan-tag--on" : ""}`} aria-pressed={showImportAttention} title={showImportAttention ? tx("Ocultar alertas de alocação") : tx("Mostrar alertas de alocação")} onClick={() => setShowImportAttention((v) => !v)}>⚠️ {tx("{n} sem líder", { n: orphanCount })}</button></> : <span className="orphan-tag"> · ⚠️ {tx("{n} sem líder", { n: orphanCount })}</span>
+            )}
+            {noRoomCount > 0 && (
+              importingMode ? <>{" · "}<button type="button" className={`orphan-tag orphan-tag--btn ${showImportAttention ? "orphan-tag--on" : ""}`} aria-pressed={showImportAttention} title={showImportAttention ? tx("Ocultar alertas de alocação") : tx("Mostrar alertas de alocação")} onClick={() => setShowImportAttention((v) => !v)}>⚠️ {tx("{n} sem quarto", { n: noRoomCount })}</button></> : <span className="orphan-tag"> · ⚠️ {tx("{n} sem quarto", { n: noRoomCount })}</span>
+            )}
           </p>
 
           <ul className="staff-list">
@@ -426,15 +438,16 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
               const orphan = !k.caretakerId;
               const noRoom = !k.bedroom;
               const attention = orphan || noRoom;
+              const showAttention = attentionEnabled && attention;
 
               return (
                 // `staff-card--cover`: every blank spot of the row opens the kid — only the WhatsApp button keeps its own action
-                <li key={k.id} className={`staff-card staff-card--clickable staff-card--cover ${attention ? "staff-card--orphan" : ""} ${k.aiReviewStatus === "pending" || k.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={k.aiReviewStatus === "pending" || k.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
+                <li key={k.id} className={`staff-card staff-card--clickable staff-card--cover ${showAttention ? "staff-card--orphan" : ""} ${k.aiReviewStatus === "pending" || k.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={k.aiReviewStatus === "pending" || k.aiReviewStatus === "processing" ? tx("Cadastro em revisão pela IA") : undefined}>
                   <div
                     className="staff-card__body"
                     role="link"
                     tabIndex={0}
-                    title={`Ver ${k.name}`}
+                    title={tx("Ver {name}", { name: k.name })}
                     onClick={() => navigate(`/campers/${k.id}`)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
@@ -445,16 +458,16 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
                   >
                     <h3 className="staff-card__name">
                       {k.name}
-                      {age !== null && <span className="kid-card__age">{age} anos</span>}
+                      {age !== null && <span className="kid-card__age">{tx("{age} anos", { age })}</span>}
                     </h3>
-                    {attention && (
+                    {showAttention && (
                       <p className="staff-card__meta orphan-msg">
-                        ⚠️ Esta criança está {orphan && noRoom ? "sem líder e sem quarto" : orphan ? "sem líder" : "sem quarto"}.
+                        ⚠️ {orphan && noRoom ? tx("Esta criança está sem líder e sem quarto.") : orphan ? tx("Esta criança está sem líder.") : tx("Esta criança está sem quarto.")}
                       </p>
                     )}
                     {k.guardianName && (
                       <p className="staff-card__meta">
-                        Resp.: {k.guardianName}
+                        {tx("Resp.:")} {k.guardianName}
                       </p>
                     )}
                     {(room || k.team || caretaker || k.transportation) && (
@@ -475,7 +488,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
                     <WhatsAppButton
                       className="wa-btn--sm staff-card__wa"
                       href={whatsappLink(k.guardianPhone, staffGreeting({ toName: k.guardianName, fromName: myName, about: k.name }))}
-                      label={`Falar com ${k.guardianName.split(" ")[0] || "o responsável"} no WhatsApp`}
+                      label={k.guardianName.split(" ")[0] ? tx("Falar com {name} no WhatsApp", { name: k.guardianName.split(" ")[0] }) : tx("Falar com o responsável no WhatsApp")}
                     />
                   )}
                 </li>
@@ -496,5 +509,5 @@ function normalize(s: string): string {
 }
 
 function sortByName(list: Camper[]): Camper[] {
-  return list.slice().sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+  return list.slice().sort((a, b) => a.name.localeCompare(b.name, collatorLocale(), { sensitivity: "base" }));
 }

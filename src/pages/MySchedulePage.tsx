@@ -8,6 +8,7 @@ import { useCollection, useCollectionOrEmpty } from "../store";
 import { useCampTiming } from "../campPhase";
 import { ICONS } from "../icons";
 import { staffSex } from "../api/staff";
+import { collatorLocale, useI18n } from "../i18n";
 
 interface MySchedulePageProps {
   user: LoggedUser;
@@ -15,41 +16,21 @@ interface MySchedulePageProps {
 
 type Filter = "mine" | "all";
 
-/**
- * What one event means for the logged-in person. The server already trims
- * every event to the viewer's own roles (their explicit assignment, or the
- * event's default "for everyone" roles), so the client only has to read it.
- */
 interface MyEvent {
   event: CampEvent;
-  /** the role this person does here (null = the event has nothing for them) */
   role: ScheduleRole | null;
-  /** per-person detail of the assignment (team, base, shift…) */
   detail: string;
-  /** true when the role comes from a "for everyone" default rather than an assignment */
   implicit: boolean;
 }
 
-/** "HH:mm" of now, local time */
 function clock(): { date: string; time: string } {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   return { date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, time: `${pad(d.getHours())}:${pad(d.getMinutes())}` };
 }
 
-/**
- * "Programação" for a team member — read-only. Two views: their own escala
- * (default) and the whole programme. In both, only THEIR roles are shown:
- * what other people do in an event is never displayed (nor sent). It is a
- * single list — no detail pages; the role's instructions open in a dialog.
- *
- * Default view: the whole programme while the camp is happening (from the
- * day of the first event to the day of the last one, as in
- * `services/camp.ts#campInProgress`); their own escala outside it.
- *
- *   /schedule          list (`?all=1` → whole programme, `?all=0` → own escala)
- */
 export default function MySchedulePage({ user }: MySchedulePageProps) {
+  const { tx } = useI18n();
   const storedEvents = useCollection("events");
   const roles = useCollectionOrEmpty("roles");
   const staff = useCollectionOrEmpty("staff");
@@ -57,7 +38,6 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
   const teams = useCollectionOrEmpty("teams");
   const { params, navigate } = useRoute();
   const [instructionsFor, setInstructionsFor] = useState<MyEvent | null>(null);
-  /** past events are collapsed by default so the first card is what's happening now */
   const [showPast, setShowPast] = useState(false);
   const first = user.name.split(" ")[0];
   const me = useMemo(() => staff.find((s) => s.phone === user.phone), [staff, user.phone]);
@@ -74,26 +54,22 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
   const items = useMemo<MyEvent[] | null>(() => {
     if (!storedEvents) return null;
     const roleById = new Map(roles.map((r) => [r.id, r]));
-    // my own team: a "detalhe = time" role is labelled from it
     const myTeam = me?.team ? teams.find((t) => t.id === me.team) : null;
     return storedEvents
       .map((e): MyEvent => {
         const mine = e.assignments[0];
-        // no escala here: the automatic role that covers MY posição no quarto
         const role = mine ? (roleById.get(mine.roleId) ?? null) : (me ? (autoRoleFor(e.roles, me.roomRole, roleById) ?? null) : null);
         return { event: e, role, detail: roleDetailOf(role, mine, myTeam).detail, implicit: !mine && !!role };
       })
-      .sort((a, b) => a.event.date.localeCompare(b.event.date) || a.event.startTime.localeCompare(b.event.startTime) || a.event.title.localeCompare(b.event.title, "pt-BR"));
+      .sort((a, b) => a.event.date.localeCompare(b.event.date) || a.event.startTime.localeCompare(b.event.startTime) || a.event.title.localeCompare(b.event.title, collatorLocale()));
   }, [storedEvents, roles, teams, me]);
 
-  // "agora" marker — re-evaluated every minute
   const [now, setNow] = useState(clock);
   useEffect(() => {
     const t = setInterval(() => setNow(clock()), 60_000);
     return () => clearInterval(t);
   }, []);
 
-  // camp happening now (first day → end of the last event)? → whole programme by default; otherwise only what concerns them
   const { during: campOn } = useCampTiming();
   const chosen = params.get("all");
   const filter: Filter = chosen === "1" ? "all" : chosen === "0" ? "mine" : campOn ? "all" : "mine";
@@ -102,15 +78,13 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
   if (!items) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>
+        <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>
       </div>
     );
   }
 
-  // ── list ───────────────────────────────────────────────────────────────
   const mine = items.filter((i) => i.role);
   const visible = filter === "all" ? items : mine;
-  /** the event happening right now (today, started, not yet ended — the next start counts as the end) */
   const current = (() => {
     const today = items.filter((i) => i.event.date === now.date);
     for (let k = 0; k < today.length; k++) {
@@ -122,7 +96,6 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
   })();
   const isPast = (e: CampEvent) => e.id !== current && (e.date < now.date || (e.date === now.date && (e.endTime ?? e.startTime) < now.time));
   const pastCount = visible.filter((i) => isPast(i.event)).length;
-  // collapse what already happened — unless everything is past (camp is over), then there's nothing to jump to
   const collapsePast = pastCount > 0 && pastCount < visible.length && !showPast;
   const shown = collapsePast ? visible.filter((i) => !isPast(i.event)) : visible;
   const days = [...new Set(shown.map((i) => i.event.date))];
@@ -131,24 +104,24 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
     <div className="admin-page">
       <header className="admin-head">
         <h1 className="admin-title">
-          <img className="admin-title__icon" src={ICONS.schedule} alt="" aria-hidden="true" /> Programação
+          <img className="admin-title__icon" src={ICONS.schedule} alt="" aria-hidden="true" /> {tx("Programação")}
         </h1>
       </header>
       <p className="admin-intro">
         {filter === "mine"
           ? mine.length > 0
-            ? `Olá, ${first}! Aqui está a sua escala — o que você faz em cada momento do acampamento.`
-            : `Olá, ${first}! Você ainda não tem nada na escala.`
-          : "Toda a programação do acampamento. Onde tem algo para você fazer, aparece a sua função."}
+            ? tx("Olá, {name}! Aqui está a sua escala — o que você faz em cada momento do acampamento.", { name: first })
+            : tx("Olá, {name}! Você ainda não tem nada na escala.", { name: first })
+          : tx("Toda a programação do acampamento. Onde tem algo para você fazer, aparece a sua função.")}
       </p>
 
-      <div className="staff-toolbar__filters" role="tablist" aria-label="Filtro da programação">
+      <div className="staff-toolbar__filters" role="tablist" aria-label={tx("Filtro da programação")}>
         <button type="button" role="tab" aria-selected={filter === "mine"} className={`cat-tab ${filter === "mine" ? "cat-tab--active" : ""}`} onClick={() => setFilter("mine")}>
-          <img className="cat-tab__img" src={myFaceSrc} alt="" aria-hidden="true" /> Minha escala
+          <img className="cat-tab__img" src={myFaceSrc} alt="" aria-hidden="true" /> {tx("Minha escala")}
           <span className="cat-tab__count">{mine.length}</span>
         </button>
         <button type="button" role="tab" aria-selected={filter === "all"} className={`cat-tab ${filter === "all" ? "cat-tab--active" : ""}`} onClick={() => setFilter("all")}>
-          <img className="cat-tab__img" src={ICONS.schedule} alt="" aria-hidden="true" /> Tudo
+          <img className="cat-tab__img" src={ICONS.schedule} alt="" aria-hidden="true" /> {tx("Tudo")}
           <span className="cat-tab__count">{items.length}</span>
         </button>
       </div>
@@ -160,10 +133,10 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
           ) : (
             <img className="admin-empty__icon" src={ICONS.schedule} alt="" aria-hidden="true" />
           )}
-          <p>{filter === "mine" ? "Nenhuma função na sua escala por enquanto. Veja a programação completa!" : "A programação ainda não foi publicada."}</p>
+          <p>{filter === "mine" ? tx("Nenhuma função na sua escala por enquanto. Veja a programação completa!") : tx("A programação ainda não foi publicada.")}</p>
           {filter === "mine" && items.length > 0 && (
             <button type="button" className="button button--primary" onClick={() => setFilter("all")}>
-              <img className="admin-head__action-icon" src={ICONS.schedule} alt="" aria-hidden="true" /> Ver tudo
+              <img className="admin-head__action-icon" src={ICONS.schedule} alt="" aria-hidden="true" /> {tx("Ver tudo")}
             </button>
           )}
         </div>
@@ -175,9 +148,9 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
             {showPast ? "▾" : "▸"}
           </span>
           <span className="past-toggle__label">
-            {showPast ? "Esconder o que já aconteceu" : `${pastCount} ${pastCount === 1 ? "item já aconteceu" : "itens já aconteceram"}`}
+            {showPast ? tx("Esconder o que já aconteceu") : pastCount === 1 ? tx("{n} item já aconteceu", { n: pastCount }) : tx("{n} itens já aconteceram", { n: pastCount })}
           </span>
-          <span className="past-toggle__hint">{showPast ? "recolher" : "mostrar"}</span>
+          <span className="past-toggle__hint">{showPast ? tx("recolher") : tx("mostrar")}</span>
         </button>
       )}
 
@@ -185,7 +158,7 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
         <section key={d} className="day-group">
           <header className="room-group__head">
             <h2 className="room-group__title room-group__title--green">📆 {speakDay(d)}</h2>
-            {d === now.date && <span className="room-group__stats">hoje</span>}
+            {d === now.date && <span className="room-group__stats">{tx("hoje")}</span>}
           </header>
           <ol className="timeline">
             {shown
@@ -201,7 +174,7 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
                     </div>
                     <div className={`event-card ${!i.role ? "event-card--plain" : ""} ${isNow ? "event-card--now" : ""}`}>
                       <h3 className="event-card__title">
-                        {isNow && <span className="event-card__now">agora</span>}
+                        {isNow && <span className="event-card__now">{tx("agora")}</span>}
                         <span aria-hidden="true">{e.emoji}</span> {e.title}
                       </h3>
                       {e.notes && <p className="staff-card__meta">{e.notes}</p>}
@@ -209,14 +182,14 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
                         <div className="staff-card__tags my-role">
                           <span
                             className={`staff-tag ${i.implicit ? "staff-tag--everyone" : ""}`}
-                            title={i.implicit && i.role ? `Função automática de ${autoAudienceLabel(i.role)}` : "Você está escalado(a) nesta função"}
+                            title={i.implicit && i.role ? tx("Função automática de {audience}", { audience: autoAudienceLabel(i.role) }) : tx("Você está escalado(a) nesta função")}
                           >
                             {i.role.emoji} {i.role.name}
                             {i.detail && <span className="staff-tag__n">{i.detail}</span>}
                           </span>
                           {i.role.instructions && (
                             <button type="button" className="link-btn" onClick={() => setInstructionsFor(i)}>
-                              📝 instruções
+                              {tx("📝 instruções")}
                             </button>
                           )}
                         </div>
@@ -231,7 +204,7 @@ export default function MySchedulePage({ user }: MySchedulePageProps) {
 
       <InstructionsDialog
         role={instructionsFor?.role ?? null}
-        context={instructionsFor ? `em ${instructionsFor.event.emoji} ${instructionsFor.event.title} · ${speakDay(instructionsFor.event.date, "weekday")} ${instructionsFor.event.startTime}` : undefined}
+        context={instructionsFor ? tx("em {emoji} {title} · {when}", { emoji: instructionsFor.event.emoji, title: instructionsFor.event.title, when: `${speakDay(instructionsFor.event.date, "weekday")} ${instructionsFor.event.startTime}` }) : undefined}
         onClose={() => setInstructionsFor(null)}
       />
     </div>

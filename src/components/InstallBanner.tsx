@@ -1,5 +1,6 @@
 import { useState } from "react";
 import appIcon from "../assets/app-icon.png";
+import { useI18n } from "../i18n";
 import { isIosNonSafari, isMobile, platform, useInstallPrompt, useStandalone } from "../pwa/install";
 import Dialog from "./Dialog";
 
@@ -27,6 +28,7 @@ interface InstallBannerProps {
  * them: they are told to install it to keep up with their kid instead.
  */
 export default function InstallBanner({ parent }: InstallBannerProps) {
+  const { tx } = useI18n();
   const standalone = useStandalone();
   const { canPrompt, prompt } = useInstallPrompt();
   const [hidden, setHidden] = useState(snoozed);
@@ -56,45 +58,45 @@ export default function InstallBanner({ parent }: InstallBannerProps) {
       <aside className="install-banner" role="alert">
         <img className="install-banner__icon" src={appIcon} alt="" aria-hidden="true" width={48} height={48} />
         <div className="install-banner__body">
-          <strong className="install-banner__title">Instale o Acampa Kids no seu celular</strong>
+          <strong className="install-banner__title">{tx("Instale o Acampa Kids no seu celular")}</strong>
           <p className="install-banner__text">
-            {parent ? <>Acompanhe <strong>cada novidade</strong> do acampamento.</> : <>No acampamento <strong>não há internet</strong>.</>}
+            {parent ? tx("Acompanhe cada novidade do acampamento.") : tx("No acampamento não há internet.")}
           </p>
           <div className="install-banner__actions">
             <button type="button" className="button button--primary install-banner__cta" onClick={install}>
-              {canPrompt ? "Instalar agora" : "Como instalar"}
+              {canPrompt ? tx("Instalar agora") : tx("Como instalar")}
             </button>
             <button type="button" className="link-btn install-banner__later" onClick={later}>
-              Depois
+              {tx("Depois")}
             </button>
           </div>
         </div>
       </aside>
 
-      <Dialog open={howOpen} onClose={() => setHowOpen(false)} title="Como instalar" width={480}>
+      <Dialog open={howOpen} onClose={() => setHowOpen(false)} title={tx("Como instalar")} width={480}>
         <div className="install-how">
           <img className="install-how__icon" src={appIcon} alt="" aria-hidden="true" width={72} height={72} />
-          <h2 className="install-how__title">Instalar o Acampa Kids</h2>
+          <h2 className="install-how__title">{tx("Instalar o Acampa Kids")}</h2>
 
           {os === "ios" && wrongBrowser && (
             <p className="message message--error">
-              No iPhone a instalação só funciona pelo <strong>Safari</strong>. Copie este endereço, abra o Safari e cole lá.
+              {tx("No iPhone a instalação só funciona pelo Safari. Copie este endereço, abra o Safari e cole lá.")}
             </p>
           )}
 
           {os === "ios" && (
             <ol className="install-how__steps">
               <li>
-                Toque no botão <strong>Compartilhar</strong> <span className="install-how__glyph" aria-hidden="true">⎋</span> na barra do Safari (o quadrado com a seta para cima).
+                {tx("Toque no botão Compartilhar na barra do Safari (o quadrado com a seta para cima).")} <span className="install-how__glyph" aria-hidden="true">⎋</span>
               </li>
               <li>
-                Role a lista e toque em <strong>Adicionar à Tela de Início</strong> <span className="install-how__glyph" aria-hidden="true">⊕</span>.
+                {tx("Role a lista e toque em Adicionar à Tela de Início.")} <span className="install-how__glyph" aria-hidden="true">⊕</span>
               </li>
               <li>
-                Confirme em <strong>Adicionar</strong>. O ícone do Acampa Kids aparece na sua tela inicial.
+                {tx("Confirme em Adicionar. O ícone do Acampa Kids aparece na sua tela inicial.")}
               </li>
               <li>
-                Abra o app <strong>pelo ícone</strong> e faça login{parent ? "." : <> uma vez com o Wi-Fi ligado.</>}
+                {parent ? tx("Abra o app pelo ícone e faça login.") : tx("Abra o app pelo ícone e faça login uma vez com o Wi-Fi ligado.")}
               </li>
             </ol>
           )}
@@ -102,24 +104,24 @@ export default function InstallBanner({ parent }: InstallBannerProps) {
           {os === "android" && (
             <ol className="install-how__steps">
               <li>
-                Toque no menu <strong>⋮</strong> (canto superior direito do Chrome).
+                {tx("Toque no menu ⋮ (canto superior direito do Chrome).")}
               </li>
               <li>
-                Toque em <strong>Instalar aplicativo</strong> ou <strong>Adicionar à tela inicial</strong>.
+                {tx("Toque em Instalar aplicativo ou Adicionar à tela inicial.")}
               </li>
-              <li>Confirme. O ícone do Acampa Kids aparece na sua tela inicial.</li>
+              <li>{tx("Confirme. O ícone do Acampa Kids aparece na sua tela inicial.")}</li>
               <li>
-                Abra o app <strong>pelo ícone</strong> e faça login{parent ? "." : <> uma vez com o Wi-Fi ligado.</>}
+                {parent ? tx("Abra o app pelo ícone e faça login.") : tx("Abra o app pelo ícone e faça login uma vez com o Wi-Fi ligado.")}
               </li>
             </ol>
           )}
 
           {os === "other" && (
-            <p className="install-how__text">Abra o menu do navegador e procure por "Instalar aplicativo" ou "Adicionar à tela inicial".</p>
+            <p className="install-how__text">{tx("Abra o menu do navegador e procure por \"Instalar aplicativo\" ou \"Adicionar à tela inicial\".")}</p>
           )}
 
           <button type="button" className="button button--secondary" onClick={() => setHowOpen(false)}>
-            Entendi
+            {tx("Entendi")}
           </button>
         </div>
       </Dialog>

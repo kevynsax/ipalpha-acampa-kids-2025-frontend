@@ -5,6 +5,9 @@ interface ChipTipProps {
   /** element the tip points at (the chip) */
   anchor: HTMLElement;
   onClose: () => void;
+  /** the mouse reached / left the tip itself (lets a hover-opened tip stay while its links are used) */
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
   children: ReactNode;
 }
 
@@ -20,7 +23,7 @@ interface Placement {
  * Rendered in a portal so no overflow/stacking context can clip it, clamped
  * to the viewport, with an arrow pointing at the chip.
  */
-export default function ChipTip({ anchor, onClose, children }: ChipTipProps) {
+export default function ChipTip({ anchor, onClose, onMouseEnter, onMouseLeave, children }: ChipTipProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<Placement | null>(null);
 
@@ -55,7 +58,7 @@ export default function ChipTip({ anchor, onClose, children }: ChipTipProps) {
   }, [anchor, onClose]);
 
   return createPortal(
-    <div ref={ref} className={`chip-tip${pos?.below ? " chip-tip--below" : ""}`} style={pos ? { left: pos.left, top: pos.top } : undefined} role="tooltip">
+    <div ref={ref} className={`chip-tip${pos?.below ? " chip-tip--below" : ""}`} style={pos ? { left: pos.left, top: pos.top } : undefined} role="tooltip" onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
       <span className="chip-tip__arrow" aria-hidden="true" />
       {children}
     </div>,

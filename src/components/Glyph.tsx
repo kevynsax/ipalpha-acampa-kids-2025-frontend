@@ -143,6 +143,15 @@ export function SkipGlyph({ size = "1.1em", className }: GlyphProps) {
   );
 }
 
+/** a bold × — "close this" on toasts and sheets, instead of a bare character */
+export function CloseGlyph({ size = "1.1em", className }: GlyphProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
 /** a magnifying glass — sits inside the search fields of the Acampantes / Equipe lists */
 export function SearchGlyph({ size = "1.1em", className }: GlyphProps) {
   return (

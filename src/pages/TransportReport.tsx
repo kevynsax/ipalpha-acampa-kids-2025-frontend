@@ -13,6 +13,7 @@ import { staffGreeting, whatsappLink } from "../whatsapp";
 import { speakTime } from "../dates";
 import { ICONS } from "../icons";
 import { useDefaultBusTrip } from "../hooks/useDefaultBusTrip";
+import { collatorLocale, useI18n } from "../i18n";
 
 interface TransportReportProps {
   onBack: () => void;
@@ -41,10 +42,6 @@ interface TransportReportProps {
  */
 type Leg = "outbound" | "return";
 
-const LEG_META: Record<Leg, { label: string; emoji: string; stamp: (k: Camper) => Camper["checkin"]; verb: string }> = {
-  outbound: { label: "Ida", emoji: "🏕️", stamp: (k) => k.busCheckin, verb: "embarcaram" },
-  return: { label: "Volta", emoji: "⛪", stamp: (k) => k.busReturnCheckin, verb: "embarcaram" },
-};
 const LEGS: Leg[] = ["outbound", "return"];
 
 /** Below this share of boarded kids the vehicle only shows its progress bar — the list is still too long to be useful. */
@@ -72,6 +69,7 @@ interface Vehicle {
  * Only buses are listed: a car is just a family dropping their own kid off.
  */
 export default function TransportReport({ onBack, onHome, onOpenStaff, onOpenCamper, myName = "", via = "church" }: TransportReportProps) {
+  const { tx } = useI18n();
   const campers = useCollection("campers");
   const staff = useCollectionOrEmpty("staff");
   const transports = useCollectionOrEmpty("transports");
@@ -80,17 +78,17 @@ export default function TransportReport({ onBack, onHome, onOpenStaff, onOpenCam
   const defaultTrip = useDefaultBusTrip();
   const [leg, setLeg] = useState<Leg | null>(null);
   const shownLeg: Leg = leg ?? (defaultTrip === "return" ? "return" : "outbound");
-  const meta = LEG_META[shownLeg];
+  const stamp = (k: Camper) => (shownLeg === "return" ? k.busReturnCheckin : k.busCheckin);
+  const legLabel = shownLeg === "return" ? tx("Volta") : tx("Ida");
+  const legLabelLower = shownLeg === "return" ? tx("volta") : tx("ida");
   /** vehicles where the user asked to see everyone, not only the missing */
   const [showAll, setShowAll] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   const roomById = useMemo(() => new Map(bedrooms.map((b) => [b.id, b])), [bedrooms]);
 
-  const stamp = meta.stamp;
-
   const vehicles = useMemo<Vehicle[]>(() => {
-    const byName = <T extends { name: string }>(a: T, b: T) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+    const byName = <T extends { name: string }>(a: T, b: T) => a.name.localeCompare(b.name, collatorLocale(), { sensitivity: "base" });
     const kidsIn = new Map<string, Camper[]>();
     const staffIn = new Map<string, Staff[]>();
     for (const k of campers ?? []) if (k.transportation) (kidsIn.get(k.transportation) ?? kidsIn.set(k.transportation, []).get(k.transportation)!).push(k);
@@ -113,13 +111,13 @@ export default function TransportReport({ onBack, onHome, onOpenStaff, onOpenCam
           staff: (staffIn.get(v.id) ?? []).sort(byName),
         };
       });
-  }, [campers, staff, transports, stamp]);
+  }, [campers, staff, transports, shownLeg]);
 
   /** the header total counts the kids ON THE BUSES — the only ones this report is about */
   const totals = useMemo(() => {
     const kids = vehicles.flatMap((v) => v.kids);
     return { kids: kids.length, arrived: kids.filter((k) => stamp(k)).length };
-  }, [vehicles, stamp]);
+  }, [vehicles, shownLeg]);
 
   const none = useMemo(
     () => ({ kids: (campers ?? []).filter((k) => !k.transportation), staff: staff.filter((s) => s.active && !s.transportation) }),
@@ -136,14 +134,14 @@ export default function TransportReport({ onBack, onHome, onOpenStaff, onOpenCam
   }
 
   const crumbs = onHome
-    ? [{ label: "Check-in", onClick: onHome }, { label: via === "bus" ? "Ônibus" : "Igreja", onClick: onBack }, { label: "Por veículo" }]
-    : [{ label: "Check-in", onClick: onBack }, { label: "Por veículo" }];
+    ? [{ label: tx("Check-in"), onClick: onHome }, { label: via === "bus" ? tx("Ônibus") : tx("Igreja"), onClick: onBack }, { label: tx("Por veículo") }]
+    : [{ label: tx("Check-in"), onClick: onBack }, { label: tx("Por veículo") }];
 
   if (!campers) {
     return (
       <div className="admin-page">
         <Breadcrumbs items={crumbs} />
-        <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>
+        <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>
       </div>
     );
   }
@@ -156,17 +154,18 @@ export default function TransportReport({ onBack, onHome, onOpenStaff, onOpenCam
       <header className="admin-head">
         <h1 className="admin-title">
           <img className="admin-title__icon" src={ICONS.report} alt="" aria-hidden="true" />
-          Por veículo
+          {tx("Por veículo")}
         </h1>
-        <span className="checkin-progress" title={`Crianças de ônibus que já ${meta.verb} — ${meta.label}`}>
+        <span className="checkin-progress" title={tx("Crianças de ônibus que já embarcaram — {leg}", { leg: legLabel })}>
           ✅ {totals.arrived}/{totals.kids}
         </span>
       </header>
 
       {/* which leg of the journey: the same buses take the kids there AND back */}
-      <div className="health-filter" role="tablist" aria-label="Trecho da viagem">
+      <div className="health-filter" role="tablist" aria-label={tx("Trecho da viagem")}>
         {LEGS.map((key) => {
-          const m = LEG_META[key];
+          const label = key === "outbound" ? tx("Ida") : tx("Volta");
+          const emoji = key === "outbound" ? "🏕️" : "⛪";
           return (
             <button
               key={key}
@@ -174,17 +173,17 @@ export default function TransportReport({ onBack, onHome, onOpenStaff, onOpenCam
               role="tab"
               aria-selected={shownLeg === key}
               className={`chip-toggle chip-toggle--small ${shownLeg === key ? "chip-toggle--on" : ""}`}
-              title={key === "outbound" ? "Embarque para o acampamento" : "Embarque de volta para a igreja"}
+              title={key === "outbound" ? tx("Embarque para o acampamento") : tx("Embarque de volta para a igreja")}
               onClick={() => setLeg(key)}
             >
-              <span aria-hidden="true">{m.emoji}</span> {m.label}
+              <span aria-hidden="true">{emoji}</span> {label}
             </button>
           );
         })}
       </div>
 
       {error && <p className="message message--error">{error}</p>}
-      {vehicles.length === 0 && <p className="opt-empty">Nenhum ônibus cadastrado.</p>}
+      {vehicles.length === 0 && <p className="opt-empty">{tx("Nenhum ônibus cadastrado.")}</p>}
 
       {vehicles.map((v) => {
         const pct = v.kids.length ? v.arrived.length / v.kids.length : 1;
@@ -201,37 +200,37 @@ export default function TransportReport({ onBack, onHome, onOpenStaff, onOpenCam
                 {v.label}
               </h2>
               <span className="vehicle__counts">
-                <span title="equipe">
+                <span title={tx("equipe")}>
                   <StaffIcon size={16} /> {v.staff.length}
                 </span>
-                <span title="crianças">
+                <span title={tx("crianças")}>
                   <CamperIcon size={16} /> {v.kids.length}
                 </span>
               </span>
             </header>
 
             {v.kids.length > 0 ? (
-              <div className="vehicle__progress" role="progressbar" aria-valuemin={0} aria-valuemax={v.kids.length} aria-valuenow={v.arrived.length} aria-label={`Crianças que já ${meta.verb} em ${v.label}`}>
+              <div className="vehicle__progress" role="progressbar" aria-valuemin={0} aria-valuemax={v.kids.length} aria-valuenow={v.arrived.length} aria-label={tx("Crianças que já embarcaram em {vehicle}", { vehicle: v.label })}>
                 <span className="vehicle__bar" aria-hidden="true">
                   <span className="vehicle__bar-fill" style={{ width: `${Math.round(pct * 100)}%` }} />
                 </span>
                 <span className="vehicle__pct">
-                  <strong>{v.arrived.length}</strong>/{v.kids.length} crianças · {Math.round(pct * 100)}%
+                  <strong>{v.arrived.length}</strong>/{v.kids.length} {tx("crianças")} · {Math.round(pct * 100)}%
                 </span>
               </div>
             ) : (
-              <p className="vehicle__hint">Nenhuma criança neste veículo.</p>
+              <p className="vehicle__hint">{tx("Nenhuma criança neste veículo.")}</p>
             )}
 
             {canList && (
               <div className="vehicle__kids">
                 <div className="vehicle__subhead">
                   <h3 className="vehicle__h3">
-                    <CamperIcon size={18} /> {all ? "Todas as crianças" : complete ? `Todas ${meta.verb}! 🎉` : `Faltam ${v.missing.length}`}
+                    <CamperIcon size={18} /> {all ? tx("Todas as crianças") : complete ? tx("Todas embarcaram! 🎉") : tx("Faltam {n}", { n: v.missing.length })}
                   </h3>
                   {!complete && (
                     <button type="button" className="staff-tag staff-tag--link staff-tag--soft" onClick={() => toggleAll(v.id)}>
-                      {all ? "Só quem falta" : "Mostrar todos"}
+                      {all ? tx("Só quem falta") : tx("Mostrar todos")}
                     </button>
                   )}
                 </div>
@@ -242,7 +241,7 @@ export default function TransportReport({ onBack, onHome, onOpenStaff, onOpenCam
                       const age = ageOf(k.birthDate);
                       const done = stamp(k);
                       return (
-                        <li key={k.id} className={`vehicle__person ${done ? "vehicle__person--ok" : ""}`} title={done ? `Embarcou às ${speakTime(done.at)}` : undefined}>
+                        <li key={k.id} className={`vehicle__person ${done ? "vehicle__person--ok" : ""}`} title={done ? tx("Embarcou às {time}", { time: speakTime(done.at) }) : undefined}>
                           <span className="vehicle__person-name">
                             {/* the "only missing" list needs no marker; "show all" tells boarded from missing */}
                             {(done || all) && <span aria-hidden="true">{done ? "✅" : "⏳"}</span>}
@@ -253,15 +252,15 @@ export default function TransportReport({ onBack, onHome, onOpenStaff, onOpenCam
                             ) : (
                               k.name
                             )}
-                            {age !== null && <span className="kid-card__age">{age} anos</span>}
+                            {age !== null && <span className="kid-card__age">{tx("{age} anos", { age })}</span>}
                           </span>
                           <span className="vehicle__person-meta">
-                            {room ? <BedroomTag bedroom={room} className="staff-tag--inline" /> : "sem quarto"}
+                            {room ? <BedroomTag bedroom={room} className="staff-tag--inline" /> : tx("sem quarto")}
                             {k.guardianPhone && (
                               <WhatsAppButton
                                 className="wa-btn--sm"
                                 href={whatsappLink(k.guardianPhone, staffGreeting({ toName: k.guardianName, fromName: myName, about: k.name }))}
-                                label={`Falar com ${k.guardianName.split(" ")[0] || "o responsável"} no WhatsApp · ${formatBrazilPhoneClient(k.guardianPhone)}`}
+                                label={tx("Falar com {name} no WhatsApp · {phone}", { name: k.guardianName.split(" ")[0] || tx("o responsável"), phone: formatBrazilPhoneClient(k.guardianPhone) })}
                               />
                             )}
                           </span>
@@ -275,19 +274,19 @@ export default function TransportReport({ onBack, onHome, onOpenStaff, onOpenCam
 
             <div className="vehicle__staff">
               <h3 className="vehicle__h3">
-                <StaffIcon size={18} /> Equipe{" "}
+                <StaffIcon size={18} /> {tx("Equipe")}{" "}
                 {/* a staff record carries ONE stamp (the church arrival), never a per-trip one — so here they are only listed, not counted as boarded */}
                 <span className="cat-tab__count">{v.staff.length}</span>
               </h3>
               {v.staff.length === 0 ? (
-                <p className="vehicle__hint vehicle__hint--warn">⚠️ Nenhum adulto neste veículo.</p>
+                <p className="vehicle__hint vehicle__hint--warn">{tx("⚠️ Nenhum adulto neste veículo.")}</p>
               ) : (
                 <div className="staff-card__tags">
                   {v.staff.map((s) => {
                     const phone = s.phone ? ` · ${formatBrazilPhoneClient(s.phone)}` : "";
-                    const hint = `Vai neste veículo na ${meta.label.toLowerCase()}${phone}`;
+                    const hint = tx("Vai neste veículo na {leg}{phone}", { leg: legLabelLower, phone });
                     return onOpenStaff ? (
-                      <button key={s.id} type="button" className="staff-tag staff-tag--link" title={`${hint} — ver ${s.name}`} onClick={() => onOpenStaff(s.id)}>
+                      <button key={s.id} type="button" className="staff-tag staff-tag--link" title={tx("{hint} — ver {name}", { hint, name: s.name })} onClick={() => onOpenStaff(s.id)}>
                         {s.name} ›
                       </button>
                     ) : (
@@ -306,12 +305,12 @@ export default function TransportReport({ onBack, onHome, onOpenStaff, onOpenCam
       {(none.kids.length > 0 || none.staff.length > 0) && (
         <section className="vehicle vehicle--none">
           <header className="vehicle__head">
-            <h2 className="vehicle__title">⚠️ Sem transporte</h2>
+            <h2 className="vehicle__title">{tx("⚠️ Sem transporte")}</h2>
             <span className="vehicle__counts">
-              <span title="equipe">
+              <span title={tx("equipe")}>
                 <StaffIcon size={16} /> {none.staff.length}
               </span>
-              <span title="crianças">
+              <span title={tx("crianças")}>
                 <CamperIcon size={16} /> {none.kids.length}
               </span>
             </span>
@@ -337,4 +336,3 @@ export default function TransportReport({ onBack, onHome, onOpenStaff, onOpenCam
     </div>
   );
 }
-

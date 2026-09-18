@@ -4,6 +4,7 @@ import type { Camper } from "../api/campers";
 import type { Bedroom } from "../api/bedrooms";
 import { staffSex, type Staff } from "../api/staff";
 import Dialog from "../components/Dialog";
+import { SearchGlyph } from "../components/Glyph";
 import RichHtml from "../components/RichHtml";
 import RichTextEditor from "../components/RichTextEditor";
 import { useCollection } from "../store";
@@ -11,6 +12,7 @@ import { speakDateTime } from "../dates";
 import PageFooter from "../components/PageFooter";
 import { ICONS, kidFaceSrc } from "../icons";
 import { useHideScanFab } from "../scanFab";
+import { collatorLocale, useI18n } from "../i18n";
 
 type OccurrenceAudience = "admin" | "organizer" | "medical";
 
@@ -29,6 +31,7 @@ const normalize = (value: string) =>
 
 
 export default function OccurrencesPage({ token, audience }: OccurrencesPageProps) {
+  const { tx } = useI18n();
   const occurrences = useCollection("occurrences");
   const campers = useCollection("campers");
   const staff = useCollection("staff");
@@ -69,7 +72,7 @@ export default function OccurrencesPage({ token, audience }: OccurrencesPageProp
       setCreating(false);
       setSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível registrar a ocorrência.");
+      setError(err instanceof Error ? err.message : tx("Não foi possível registrar a ocorrência."));
     } finally {
       setBusy(false);
     }
@@ -78,7 +81,7 @@ export default function OccurrencesPage({ token, audience }: OccurrencesPageProp
   if (!occurrences || !campers || !staff) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Sincronizando ocorrências… 🏕️</p>
+        <p className="opt-empty">{tx("Sincronizando ocorrências… 🏕️")}</p>
       </div>
     );
   }
@@ -86,34 +89,34 @@ export default function OccurrencesPage({ token, audience }: OccurrencesPageProp
   return (
     <div className="admin-page admin-page--wide">
       <header className="admin-head">
-        <h1 className="admin-title">📋 Ocorrências</h1>
+        <h1 className="admin-title">📋 {tx("Ocorrências")}</h1>
         {!creating && (
           <button type="button" className="button button--primary admin-head__new" onClick={() => { resetForm(); setSaved(false); setCreating(true); }}>
-            + Registrar
+            {tx("+ Registrar")}
           </button>
         )}
       </header>
       <p className="admin-intro">
-        Registre com clareza o que aconteceu e quem estava envolvido.
+        {tx("Registre com clareza o que aconteceu e quem estava envolvido.")}
       </p>
-      {saved && <p className="message message--ok">✅ Ocorrência registrada.</p>}
+      {saved && <p className="message message--ok">{tx("✅ Ocorrência registrada.")}</p>}
       {error && <p className="message message--error">{error}</p>}
 
       {creating && (
         <form className="cat-form occurrence-form" onSubmit={submit}>
-          <h2 className="cat-form__title">Nova ocorrência</h2>
+          <h2 className="cat-form__title">{tx("Nova ocorrência")}</h2>
           <div className="occurrence-people-grid">
             <PeopleField
-              title="Acampantes relacionados"
-              hint="Opcional. Selecione todas as crianças envolvidas."
+              title={tx("Acampantes relacionados")}
+              hint={tx("Opcional. Selecione todas as crianças envolvidas.")}
               people={selectedCampers}
               onAdd={() => setPicker("camper")}
               onRemove={(id) => setCamperIds((current) => current.filter((item) => item !== id))}
               disabled={busy}
             />
             <PeopleField
-              title="Equipe relacionada"
-              hint="Opcional. Selecione todas as pessoas da equipe envolvidas."
+              title={tx("Equipe relacionada")}
+              hint={tx("Opcional. Selecione todas as pessoas da equipe envolvidas.")}
               people={selectedStaff}
               onAdd={() => setPicker("staff")}
               onRemove={(id) => setStaffIds((current) => current.filter((item) => item !== id))}
@@ -121,16 +124,16 @@ export default function OccurrencesPage({ token, audience }: OccurrencesPageProp
             />
           </div>
           <div className="cat-field">
-            <span className="cat-field__label">Descrição do que aconteceu</span>
-            <p className="cat-hint">Inclua fatos, horário e providências tomadas. Fotos: 🖼️ ou cole / arraste.</p>
-            <RichTextEditor token={token} value={description} onChange={setDescription} disabled={busy} placeholder="Descreva a ocorrência…" tall aiContext="occurrence" />
+            <span className="cat-field__label">{tx("Descrição do que aconteceu")}</span>
+            <p className="cat-hint">{tx("Inclua fatos, horário e providências tomadas. Fotos: 🖼️ ou cole / arraste.")}</p>
+            <RichTextEditor token={token} value={description} onChange={setDescription} disabled={busy} placeholder={tx("Descreva a ocorrência…")} tall aiContext="occurrence" />
           </div>
           <div className="cat-form__actions">
             <button type="button" className="button button--secondary" disabled={busy} onClick={() => { resetForm(); setCreating(false); }}>
-              Cancelar
+              {tx("Cancelar")}
             </button>
             <button type="submit" className="button button--primary" disabled={!valid || busy}>
-              {busy ? "Registrando…" : "Registrar ocorrência"}
+              {busy ? tx("Registrando…") : tx("Registrar ocorrência")}
             </button>
           </div>
         </form>
@@ -153,17 +156,17 @@ export default function OccurrencesPage({ token, audience }: OccurrencesPageProp
         !creating && (
           <div className="admin-empty">
             <span className="admin-empty__emoji">📋</span>
-            <p>Nenhuma ocorrência registrada.</p>
-            <button type="button" className="button button--primary" onClick={() => setCreating(true)}>+ Registrar ocorrência</button>
+            <p>{tx("Nenhuma ocorrência registrada.")}</p>
+            <button type="button" className="button button--primary" onClick={() => setCreating(true)}>{tx("+ Registrar ocorrência")}</button>
           </div>
         )
       ) : (
-        <section className="occurrence-list" aria-label="Ocorrências registradas">
+        <section className="occurrence-list" aria-label={tx("Ocorrências registradas")}>
           {occurrences.map((occurrence) => <OccurrenceCard key={occurrence.id} occurrence={occurrence} campers={camperById} staff={staffById} bedrooms={bedrooms ?? []} />)}
         </section>
       )}
       <PageFooter>
-        {audience === "admin" ? "🔒 Você vê as ocorrências de todos." : audience === "organizer" ? "🔒 Só os organizadores vêem estas ocorrências." : "🔒 Só a equipe médica vê estas ocorrências."}
+        {audience === "admin" ? tx("🔒 Você vê as ocorrências de todos.") : audience === "organizer" ? tx("🔒 Só os organizadores vêem estas ocorrências.") : tx("🔒 Só a equipe médica vê estas ocorrências.")}
       </PageFooter>
     </div>
   );
@@ -177,19 +180,20 @@ function PeopleField({ title, hint, people, onAdd, onRemove, disabled }: {
   onRemove: (id: string) => void;
   disabled: boolean;
 }) {
+  const { tx } = useI18n();
   return (
     <section className="occurrence-people">
       <div className="list-head">
         <h3 className="occurrence-people__title">{title} <span className="cat-tab__count">{people.length}</span></h3>
-        <button type="button" className="button button--secondary occurrence-people__add" disabled={disabled} onClick={onAdd}>+ Adicionar</button>
+        <button type="button" className="button button--secondary occurrence-people__add" disabled={disabled} onClick={onAdd}>+ {tx("Adicionar")}</button>
       </div>
       <p className="cat-hint">{hint}</p>
-      {people.length === 0 ? <p className="occurrence-people__empty">Ninguém selecionado.</p> : (
+      {people.length === 0 ? <p className="occurrence-people__empty">{tx("Ninguém selecionado.")}</p> : (
         <ul className="occurrence-chips">
           {people.map((person) => (
             <li key={person.id} className="staff-tag helpers-tag">
               <span>{person.name}</span>
-              <button type="button" className="helpers-tag__x" disabled={disabled} aria-label={`Remover ${person.name}`} onClick={() => onRemove(person.id)}>✕</button>
+              <button type="button" className="helpers-tag__x" disabled={disabled} aria-label={tx("Remover {name}", { name: person.name })} onClick={() => onRemove(person.id)}>✕</button>
             </li>
           ))}
         </ul>
@@ -207,15 +211,20 @@ function PersonPicker({ open, kind, campers, staff, selectedIds, onPick, onClose
   onPick: (id: string) => void;
   onClose: () => void;
 }) {
+  const { tx } = useI18n();
   const [query, setQuery] = useState("");
   const people = (kind === "camper" ? campers : staff.filter((person) => person.active)).filter((person) => !selectedIds.includes(person.id));
-  const filtered = people.filter((person) => normalize(person.name).includes(normalize(query.trim()))).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  const filtered = people.filter((person) => normalize(person.name).includes(normalize(query.trim()))).sort((a, b) => a.name.localeCompare(b.name, collatorLocale()));
+  const pickerTitle = kind === "camper" ? tx("Adicionar acampante") : tx("Adicionar pessoa da equipe");
   return (
-    <Dialog open={open} onClose={() => { setQuery(""); onClose(); }} title={kind === "camper" ? "Adicionar acampante" : "Adicionar pessoa da equipe"} width={520} autofocus>
+    <Dialog open={open} onClose={() => { setQuery(""); onClose(); }} title={pickerTitle} width={520} autofocus>
       <div className="picker">
-        <h2 className="cat-form__title">{kind === "camper" ? "Adicionar acampante" : "Adicionar pessoa da equipe"}</h2>
-        <input className="cat-input" type="search" value={query} autoFocus placeholder="Digite o nome…" aria-label="Buscar pessoa" onChange={(event) => setQuery(event.target.value)} />
-        {filtered.length === 0 ? <p className="opt-empty">Ninguém encontrado.</p> : (
+        <h2 className="cat-form__title">{pickerTitle}</h2>
+        <label className="staff-toolbar__search">
+          <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
+          <input className="cat-input" type="search" value={query} autoFocus placeholder={tx("Digite o nome…")} aria-label={tx("Buscar pessoa")} onChange={(event) => setQuery(event.target.value)} />
+        </label>
+        {filtered.length === 0 ? <p className="opt-empty">{tx("Ninguém encontrado.")}</p> : (
           <ul className="picker__list">
             {filtered.map((person) => (
               <li key={person.id}>
@@ -232,6 +241,7 @@ function PersonPicker({ open, kind, campers, staff, selectedIds, onPick, onClose
 }
 
 function OccurrenceCard({ occurrence, campers, staff, bedrooms }: { occurrence: Occurrence; campers: Map<string, Camper>; staff: Map<string, Staff>; bedrooms: Bedroom[] }) {
+  const { tx } = useI18n();
   const [open, setOpen] = useState(false);
   const names = occurrence.campers.map((person) => person.name);
   return (
@@ -239,8 +249,8 @@ function OccurrenceCard({ occurrence, campers, staff, bedrooms }: { occurrence: 
       <button type="button" className="occurrence-card__head" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
         <span className="occurrence-card__date">{speakDateTime(occurrence.createdAt)}</span>
         <span className="occurrence-card__summary">
-          <strong>{names.length > 0 ? names.join(", ") : "Sem acampante relacionado"}</strong>
-          <small>Registrado por {occurrence.createdBy.name}</small>
+          <strong>{names.length > 0 ? names.join(", ") : tx("Sem acampante relacionado")}</strong>
+          <small>{tx("Registrado por {name}", { name: occurrence.createdBy.name })}</small>
         </span>
         <span className="occurrence-card__chevron" aria-hidden="true">{open ? "−" : "+"}</span>
       </button>
@@ -263,7 +273,7 @@ function OccurrenceCard({ occurrence, campers, staff, bedrooms }: { occurrence: 
             </span>
           );
         })}
-        {occurrence.campers.length === 0 && occurrence.staff.length === 0 && <span className="occurrence-badge occurrence-badge--private">Sem pessoas relacionadas</span>}
+        {occurrence.campers.length === 0 && occurrence.staff.length === 0 && <span className="occurrence-badge occurrence-badge--private">{tx("Sem pessoas relacionadas")}</span>}
       </div>
       {open && <RichHtml html={occurrence.description} className="instructions occurrence-card__description" />}
     </article>

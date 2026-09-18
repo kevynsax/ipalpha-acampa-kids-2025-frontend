@@ -1,4 +1,5 @@
 import { CheckGlyph } from "./Glyph";
+import { useI18n } from "../i18n";
 
 export interface ImportPhaseInfo {
   key: string;
@@ -29,16 +30,18 @@ export const STAFF_PHASES: ImportPhaseDef[] = CAMPER_PHASES.filter((p) => p.key 
 
 /** live progress of a running analysis: a filling bar plus the label of the phase happening now */
 export default function ImportPhaseBar({ phases, progress }: { phases: ImportPhaseDef[]; progress: ImportPhaseInfo | null }) {
+  const { tx } = useI18n();
   const pct = progress?.pct ?? 0;
   const current = phases.findIndex((_, i) => pct < (phases[i + 1]?.at ?? 100));
   const phase = current >= 0 ? phases[current] : phases[phases.length - 1]!;
   const finished = pct >= 100 || current < 0;
+  const label = tx(phase.label);
   return (
-    <div className="import-progress import-progress--phases" role="status" aria-label={`Analisando: ${phase.label}`}>
+    <div className="import-progress import-progress--phases" role="status" aria-label={tx("Analisando: {label}", { label })}>
       <span style={{ width: `${pct}%` }} />
       <p className="import-phase-current">
         {finished ? <CheckGlyph size="1em" /> : <i className="import-phase-dot" aria-hidden="true" />}
-        {finished ? "Pronto" : phase.label}…
+        {finished ? tx("Pronto") : label}…
       </p>
     </div>
   );

@@ -24,21 +24,13 @@ import EventForm from "./EventForm";
 import RoleForm from "./RoleForm";
 import RichHtml from "../../components/RichHtml";
 import { ICONS } from "../../icons";
+import { collatorLocale, useI18n } from "../../i18n";
 
 interface SchedulePageProps {
   token: string;
 }
 
 type SubTab = "events" | "roles";
-/**
- * URL → what to show:
- *   /schedule                      events timeline      /schedule/roles           roles catalogue
- *   /schedule/events/new?date=…    new event            /schedule/roles/new       new role
- *   /schedule/events/:id           event detail         /schedule/roles/:id       role detail (stack)
- *   /schedule/events/:id/edit      edit event           /schedule/roles/:id/edit  edit role
- * The escala (who does what) is edited on the event detail page itself.
- * Detail pages opened from an event carry `?via=…` (see DetailStack).
- */
 type Mode =
   | { kind: "view" }
   | { kind: "create-event"; date?: string }
@@ -64,13 +56,8 @@ function modeOf(segments: string[], params: URLSearchParams): { sub: SubTab; mod
   return { sub: "events", mode: { kind: "view" } };
 }
 
-/**
- * Admin-only: the camp programme. Two sub-tabs — the timeline of events
- * (grouped by date) and the catalogue of roles staff can fulfil, each with
- * WYSIWYG instructions.
- */
 export default function SchedulePage({ token }: SchedulePageProps) {
-  // everything comes from the local store (localStorage + live WebSocket feed)
+  const { tx } = useI18n();
   const storedEvents = useCollection("events");
   const events = useMemo(() => (storedEvents ? sortEvents(storedEvents) : null), [storedEvents]);
   const storedRoles = useCollectionOrEmpty("roles");
@@ -101,8 +88,6 @@ export default function SchedulePage({ token }: SchedulePageProps) {
     }
   }
 
-  // ── events ─────────────────────────────────────────────────────────────
-
   async function handleCreateEvent(input: CampEventInput) {
     const created = await withBusy(() => createEvent(token, input));
     navigate(`/schedule/events/${created.id}`, { replace: true });
@@ -118,21 +103,19 @@ export default function SchedulePage({ token }: SchedulePageProps) {
     try {
       await updateEvent(token, e.id, { visibleToParents: next });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     }
   }
 
   async function handleDeleteEvent(e: CampEvent) {
-    if (!(await confirm({ emoji: "🗑️", title: `Excluir "${e.title}"?`, message: `${speakDay(e.date, "compact")} ${e.startTime} · Isso não pode ser desfeito.`, confirmLabel: "Excluir", danger: true }))) return;
+    if (!(await confirm({ emoji: "🗑️", title: tx('Excluir "{title}"?', { title: e.title }), message: tx("{when} · Isso não pode ser desfeito.", { when: `${speakDay(e.date, "compact")} ${e.startTime}` }), confirmLabel: tx("Excluir"), danger: true }))) return;
     try {
       await withBusy(() => deleteEvent(token, e.id));
       navigate("/schedule", { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     }
   }
-
-  // ── roles ──────────────────────────────────────────────────────────────
 
   async function handleCreateRole(input: ScheduleRoleInput) {
     await withBusy(() => createRole(token, input));
@@ -144,21 +127,19 @@ export default function SchedulePage({ token }: SchedulePageProps) {
     navigate(`/schedule/roles/${updated.id}`, { replace: true });
   }
   async function handleDeleteRole(r: ScheduleRole) {
-    if (!(await confirm({ emoji: "🗑️", title: `Excluir a função "${r.name}"?`, message: "Isso não pode ser desfeito.", confirmLabel: "Excluir", danger: true }))) return;
+    if (!(await confirm({ emoji: "🗑️", title: tx('Excluir a função "{name}"?', { name: r.name }), message: tx("Isso não pode ser desfeito."), confirmLabel: tx("Excluir"), danger: true }))) return;
     try {
       await withBusy(() => deleteRole(token, r.id));
       navigate("/schedule/roles", { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     }
   }
-
-  // ── render ─────────────────────────────────────────────────────────────
 
   if (!events) {
     return (
       <div className="admin-page">
-        {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>}
+        {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>}
       </div>
     );
   }
@@ -168,14 +149,13 @@ export default function SchedulePage({ token }: SchedulePageProps) {
     if (!ev) {
       return (
         <div className="admin-page">
-          <p className="opt-empty">Evento não encontrado.</p>
+          <p className="opt-empty">{tx("Evento não encontrado.")}</p>
           <button type="button" className="button button--secondary" onClick={() => navigate("/schedule", { replace: true })}>
-            Ver programação
+            {tx("Ver programação")}
           </button>
         </div>
       );
     }
-    // the event is a link in the detail chain like any other page (person → event → função …)
     const me: DetailRef = { kind: "event", id: ev.id };
     rememberTitle(me, `${ev.emoji} ${ev.title}`);
     const { via, crumbs } = viaCrumbs(params);
@@ -186,7 +166,7 @@ export default function SchedulePage({ token }: SchedulePageProps) {
         event={ev}
         roles={roles}
         staff={staff}
-        crumbs={[{ label: "Programação", onClick: () => navigate("/schedule") }, ...crumbs, { label: `${ev.emoji} ${ev.title}` }]}
+        crumbs={[{ label: tx("Programação"), onClick: () => navigate("/schedule") }, ...crumbs, { label: `${ev.emoji} ${ev.title}` }]}
         onEdit={() => navigate(`/schedule/events/${ev.id}/edit`)}
         onOpenStaff={(id) => navigate(detailUrl({ kind: "staff", id }, chain))}
       />
@@ -197,7 +177,7 @@ export default function SchedulePage({ token }: SchedulePageProps) {
       <DetailStack
         token={token}
         current={mode.root}
-        rootCrumbs={[{ label: "Programação", onClick: () => navigate(sub === "roles" ? "/schedule/roles" : "/schedule") }]}
+        rootCrumbs={[{ label: tx("Programação"), onClick: () => navigate(sub === "roles" ? "/schedule/roles" : "/schedule") }]}
         onEditRole={(role) => navigate(`/schedule/roles/${role.id}/edit`)}
       />
     );
@@ -207,7 +187,6 @@ export default function SchedulePage({ token }: SchedulePageProps) {
   const inForm = mode.kind !== "view";
   const editingEvent = mode.kind === "edit-event" ? events.find((e) => e.id === mode.id) : undefined;
   const editingRole = mode.kind === "edit-role" ? roles.find((r) => r.id === mode.id) : undefined;
-  /** Cancelar on a form → the previous screen (history), falling back to the list */
   const cancel = () => goBack(sub === "roles" ? "/schedule/roles" : "/schedule");
 
   return (
@@ -215,10 +194,10 @@ export default function SchedulePage({ token }: SchedulePageProps) {
       {inForm && (
         <Breadcrumbs
           items={[
-            { label: "Programação", onClick: () => navigate(sub === "roles" ? "/schedule/roles" : "/schedule") },
+            { label: tx("Programação"), onClick: () => navigate(sub === "roles" ? "/schedule/roles" : "/schedule") },
             ...(mode.kind === "edit-event" && editingEvent ? [{ label: editingEvent.title, onClick: () => navigate(`/schedule/events/${editingEvent.id}`) }] : []),
             ...(mode.kind === "edit-role" && editingRole ? [{ label: editingRole.name, onClick: () => navigate(`/schedule/roles/${editingRole.id}`) }] : []),
-            { label: mode.kind === "create-event" ? "Novo evento" : mode.kind === "create-role" ? "Nova função" : "Editar" },
+            { label: mode.kind === "create-event" ? tx("Novo evento") : mode.kind === "create-role" ? tx("Nova função") : tx("Editar") },
           ]}
         />
       )}
@@ -226,17 +205,17 @@ export default function SchedulePage({ token }: SchedulePageProps) {
         <h1 className="admin-title">
           {mode.kind === "create-event" ? (
             <>
-              <img className="admin-title__icon" src={ICONS.schedule} alt="" aria-hidden="true" /> Novo evento
+              <img className="admin-title__icon" src={ICONS.schedule} alt="" aria-hidden="true" /> {tx("Novo evento")}
             </>
           ) : mode.kind === "edit-event" ? (
-            "✏️ Editar evento"
+            tx("✏️ Editar evento")
           ) : mode.kind === "create-role" ? (
-            "🎯 Nova função"
+            tx("🎯 Nova função")
           ) : mode.kind === "edit-role" ? (
-            "✏️ Editar função"
+            tx("✏️ Editar função")
           ) : (
             <>
-              <img className="admin-title__icon" src={ICONS.schedule} alt="" aria-hidden="true" /> Programação
+              <img className="admin-title__icon" src={ICONS.schedule} alt="" aria-hidden="true" /> {tx("Programação")}
             </>
           )}
         </h1>
@@ -247,15 +226,15 @@ export default function SchedulePage({ token }: SchedulePageProps) {
             disabled={busy}
             onClick={() => navigate(sub === "events" ? "/schedule/events/new" : "/schedule/roles/new")}
           >
-            {sub === "events" ? "+ Evento" : "+ Função"}
+            {sub === "events" ? tx("+ Evento") : tx("+ Função")}
           </button>
         )}
         {mode.kind === "edit-event" && editingEvent && (
           <button
             type="button"
             className="icon-btn icon-btn--lg icon-btn--danger"
-            title={`Excluir evento "${editingEvent.title}"`}
-            aria-label={`Excluir evento "${editingEvent.title}"`}
+            title={tx('Excluir evento "{title}"', { title: editingEvent.title })}
+            aria-label={tx('Excluir evento "{title}"', { title: editingEvent.title })}
             disabled={busy}
             onClick={() => handleDeleteEvent(editingEvent)}
           >
@@ -268,10 +247,10 @@ export default function SchedulePage({ token }: SchedulePageProps) {
             className="icon-btn icon-btn--lg icon-btn--danger"
             title={
               (usageByRole.get(editingRole.id) ?? 0) > 0
-                ? `Remova esta função dos ${usageByRole.get(editingRole.id)} evento(s) antes de excluir`
-                : `Excluir função "${editingRole.name}"`
+                ? tx("Remova esta função dos {n} evento(s) antes de excluir", { n: usageByRole.get(editingRole.id) ?? 0 })
+                : tx('Excluir função "{name}"', { name: editingRole.name })
             }
-            aria-label={`Excluir função "${editingRole.name}"`}
+            aria-label={tx('Excluir função "{name}"', { name: editingRole.name })}
             disabled={busy || (usageByRole.get(editingRole.id) ?? 0) > 0}
             onClick={() => handleDeleteRole(editingRole)}
           >
@@ -281,7 +260,7 @@ export default function SchedulePage({ token }: SchedulePageProps) {
       </header>
 
       {!inForm && (
-        <div className="staff-toolbar__filters" role="tablist" aria-label="Programação">
+        <div className="staff-toolbar__filters" role="tablist" aria-label={tx("Programação")}>
           <button
             type="button"
             role="tab"
@@ -289,7 +268,7 @@ export default function SchedulePage({ token }: SchedulePageProps) {
             className={`cat-tab ${sub === "events" ? "cat-tab--active" : ""}`}
             onClick={() => setSub("events")}
           >
-            <img className="cat-tab__img" src={ICONS.schedule} alt="" aria-hidden="true" /> Eventos
+            <img className="cat-tab__img" src={ICONS.schedule} alt="" aria-hidden="true" /> {tx("Eventos")}
             <span className="cat-tab__count">{events.length}</span>
           </button>
           <button
@@ -299,7 +278,7 @@ export default function SchedulePage({ token }: SchedulePageProps) {
             className={`cat-tab ${sub === "roles" ? "cat-tab--active" : ""}`}
             onClick={() => setSub("roles")}
           >
-            🎯 Funções
+            🎯 {tx("Funções")}
             <span className="cat-tab__count">{roles.length}</span>
           </button>
         </div>
@@ -307,27 +286,25 @@ export default function SchedulePage({ token }: SchedulePageProps) {
 
       {error && <p className="message message--error">{error}</p>}
 
-      {/* ── forms ── */}
       {mode.kind === "create-event" && (
-        <EventForm key={mode.date ?? "any"} defaultDate={mode.date} busy={busy} onSubmit={handleCreateEvent} onCancel={cancel} />
+        <EventForm key={mode.date ?? "any"} token={token} defaultDate={mode.date} busy={busy} onSubmit={handleCreateEvent} onCancel={cancel} />
       )}
-      {mode.kind === "edit-event" && !editingEvent && <p className="opt-empty">Evento não encontrado.</p>}
+      {mode.kind === "edit-event" && !editingEvent && <p className="opt-empty">{tx("Evento não encontrado.")}</p>}
       {mode.kind === "edit-event" && editingEvent && (
-        <EventForm key={editingEvent.id} event={editingEvent} busy={busy} onSubmit={handleEditEvent} onCancel={cancel} />
+        <EventForm key={editingEvent.id} token={token} event={editingEvent} busy={busy} onSubmit={handleEditEvent} onCancel={cancel} />
       )}
       {mode.kind === "create-role" && <RoleForm token={token} busy={busy} onSubmit={handleCreateRole} onCancel={cancel} />}
-      {mode.kind === "edit-role" && !editingRole && <p className="opt-empty">Função não encontrada.</p>}
+      {mode.kind === "edit-role" && !editingRole && <p className="opt-empty">{tx("Função não encontrada.")}</p>}
       {mode.kind === "edit-role" && editingRole && (
         <RoleForm key={editingRole.id} token={token} role={editingRole} busy={busy} onSubmit={handleEditRole} onCancel={cancel} />
       )}
 
-      {/* ── events timeline ── */}
       {!inForm && sub === "events" && events.length === 0 && (
         <div className="admin-empty">
           <img className="admin-empty__icon" src={ICONS.schedule} alt="" aria-hidden="true" />
-          <p>Nenhum evento ainda. Monte a programação do acampamento!</p>
+          <p>{tx("Nenhum evento ainda. Monte a programação do acampamento!")}</p>
           <button type="button" className="button button--primary" onClick={() => navigate("/schedule/events/new")}>
-            + Criar evento
+            {tx("+ Criar evento")}
           </button>
         </div>
       )}
@@ -338,7 +315,7 @@ export default function SchedulePage({ token }: SchedulePageProps) {
             <header className="room-group__head">
               <h2 className="room-group__title room-group__title--green">📆 {speakDay(d)}</h2>
               <span className="room-group__stats" />
-              <button type="button" className="icon-btn" title={`Novo evento em ${speakDay(d, "compact")}`} disabled={busy} onClick={() => navigate("/schedule/events/new", { query: { date: d } })}>
+              <button type="button" className="icon-btn" title={tx("Novo evento em {day}", { day: speakDay(d, "compact") })} disabled={busy} onClick={() => navigate("/schedule/events/new", { query: { date: d } })}>
                 +
               </button>
             </header>
@@ -355,7 +332,7 @@ export default function SchedulePage({ token }: SchedulePageProps) {
                       className={`event-card event-card--clickable ${e.roles.length === 0 ? "event-card--plain" : ""}`}
                       role="link"
                       tabIndex={0}
-                      title={`Ver evento ${e.title}`}
+                      title={tx("Ver evento {title}", { title: e.title })}
                       onClick={() => navigate(`/schedule/events/${e.id}`)}
                       onKeyDown={(ev) => {
                         if (ev.key === "Enter" || ev.key === " ") {
@@ -366,13 +343,12 @@ export default function SchedulePage({ token }: SchedulePageProps) {
                     >
                       <h3 className="event-card__title">
                         <span className="event-card__title-text"><span aria-hidden="true">{e.emoji}</span> {e.title}</span>
-                        {/* pushed to the card's right edge — see .event-card__parents */}
                         <button
                           type="button"
                           className={`event-card__parents ${e.visibleToParents === false ? "event-card__parents--off" : ""}`}
-                          title={e.visibleToParents === false ? "Só a equipe vê — clicar para os pais verem" : "Os pais veem — clicar para esconder"}
+                          title={e.visibleToParents === false ? tx("Só a equipe vê — clicar para os pais verem") : tx("Os pais veem — clicar para esconder")}
                           aria-pressed={e.visibleToParents !== false}
-                          aria-label={e.visibleToParents === false ? "Os pais não veem este evento" : "Os pais veem este evento"}
+                          aria-label={e.visibleToParents === false ? tx("Os pais não veem este evento") : tx("Os pais veem este evento")}
                           onClick={(ev) => {
                             ev.stopPropagation();
                             void handleParentsVisible(e, e.visibleToParents === false);
@@ -387,13 +363,11 @@ export default function SchedulePage({ token }: SchedulePageProps) {
                           {e.roles.map((id) => {
                             const r = roleById.get(id);
                             if (!r) return null;
-                            /* a role tag opens the role (via this event, so the breadcrumb leads back here) */
                             const openRole = (ev: React.MouseEvent) => {
                               ev.stopPropagation();
                               navigate(detailUrl({ kind: "role", id }, [{ kind: "event", id: e.id }]));
                             };
                             const who = positionsMeta(r.forRoomRoles);
-                            /* escalados à mão neste evento — somam com quem pega pela posição */
                             const n = e.assignments.filter((a) => a.roleId === id).length;
                             if (who) {
                               return (
@@ -401,7 +375,9 @@ export default function SchedulePage({ token }: SchedulePageProps) {
                                   key={id}
                                   type="button"
                                   className="staff-tag staff-tag--everyone staff-tag--link"
-                                  title={`${r.name}: vai sozinha para ${who.label}${n > 0 ? ` + ${n} escalado(s)` : ""} — ver função`}
+                                  title={n > 0
+                                    ? tx("{name}: vai sozinha para {who} + {n} escalado(s) — ver função", { name: r.name, who: who.label, n })
+                                    : tx("{name}: vai sozinha para {who} — ver função", { name: r.name, who: who.label })}
                                   onClick={openRole}
                                 >
                                   <img className="audience-icon" src={who.icon} alt="" aria-hidden="true" /> {r.emoji} {r.name}
@@ -410,7 +386,7 @@ export default function SchedulePage({ token }: SchedulePageProps) {
                               );
                             }
                             return (
-                              <button key={id} type="button" className={`staff-tag staff-tag--link ${n === 0 ? "staff-tag--empty" : ""}`} title={n === 0 ? `${r.name}: ninguém escalado — ver função` : `${r.name}: ${n} escalado(s) — ver função`} onClick={openRole}>
+                              <button key={id} type="button" className={`staff-tag staff-tag--link ${n === 0 ? "staff-tag--empty" : ""}`} title={n === 0 ? tx("{name}: ninguém escalado — ver função", { name: r.name }) : tx("{name}: {n} escalado(s) — ver função", { name: r.name, n })} onClick={openRole}>
                                 {r.emoji} {r.name}
                                 <span className="staff-tag__n">{n}</span>
                               </button>
@@ -425,13 +401,12 @@ export default function SchedulePage({ token }: SchedulePageProps) {
           </section>
         ))}
 
-      {/* ── roles catalogue ── */}
       {!inForm && sub === "roles" && roles.length === 0 && (
         <div className="admin-empty">
           <span className="admin-empty__emoji">🎯</span>
-          <p>Nenhuma função ainda. Cadastre o que a equipe faz em cada evento — com instruções!</p>
+          <p>{tx("Nenhuma função ainda. Cadastre o que a equipe faz em cada evento — com instruções!")}</p>
           <button type="button" className="button button--primary" onClick={() => navigate("/schedule/roles/new")}>
-            + Criar função
+            {tx("+ Criar função")}
           </button>
         </div>
       )}
@@ -447,7 +422,7 @@ export default function SchedulePage({ token }: SchedulePageProps) {
                   className="staff-card__body"
                   role="link"
                   tabIndex={0}
-                  title={`Ver função ${r.name}`}
+                  title={tx("Ver função {name}", { name: r.name })}
                   onClick={() => navigate(`/schedule/roles/${r.id}`)}
                   onKeyDown={(ev) => {
                     if (ev.key === "Enter" || ev.key === " ") {
@@ -462,7 +437,7 @@ export default function SchedulePage({ token }: SchedulePageProps) {
                   <p className="staff-card__meta">
                     <AutoRoleBadge role={r} />
                     {r.forRoomRoles.length > 0 && " · "}
-                    {used === 0 ? "Não usada em nenhum evento" : `Usada em ${used} evento${used > 1 ? "s" : ""}`}
+                    {used === 0 ? tx("Não usada em nenhum evento") : used === 1 ? tx("Usada em {n} evento", { n: used }) : tx("Usada em {n} eventos", { n: used })}
                     {" · "}
                     {r.instructions ? (
                       <button
@@ -473,10 +448,10 @@ export default function SchedulePage({ token }: SchedulePageProps) {
                           setOpenRole(open ? null : r.id);
                         }}
                       >
-                        {open ? "ocultar instruções" : "ver instruções"}
+                        {open ? tx("ocultar instruções") : tx("ver instruções")}
                       </button>
                     ) : (
-                      <span className="cat-hint--error">sem instruções</span>
+                      <span className="cat-hint--error">{tx("sem instruções")}</span>
                     )}
                   </p>
                   {open && r.instructions && (
@@ -493,8 +468,8 @@ export default function SchedulePage({ token }: SchedulePageProps) {
 }
 
 function sortEvents(list: CampEvent[]): CampEvent[] {
-  return list.slice().sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime) || a.title.localeCompare(b.title, "pt-BR"));
+  return list.slice().sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime) || a.title.localeCompare(b.title, collatorLocale()));
 }
 function sortRoles(list: ScheduleRole[]): ScheduleRole[] {
-  return list.slice().sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+  return list.slice().sort((a, b) => a.name.localeCompare(b.name, collatorLocale(), { sensitivity: "base" }));
 }

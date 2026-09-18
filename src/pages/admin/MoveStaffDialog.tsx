@@ -6,6 +6,7 @@ import { BedroomSelect } from "../../components/CategoryFields";
 import Dialog from "../../components/Dialog";
 import { ICONS } from "../../icons";
 import { useCollectionOrEmpty } from "../../store";
+import { useI18n } from "../../i18n";
 
 interface MoveStaffDialogProps {
   token: string;
@@ -28,6 +29,7 @@ const OPTIONS: { key: MoveKids; emoji?: string; icon?: string; label: string; hi
  * in particular a helper is only promoted to leader when explicitly chosen.
  */
 export default function MoveStaffDialog({ token, open, member: s, onClose }: MoveStaffDialogProps) {
+  const { tx } = useI18n();
   const bedrooms = useCollectionOrEmpty("bedrooms");
   const staff = useCollectionOrEmpty("staff");
   const campers = useCollectionOrEmpty("campers");
@@ -94,19 +96,19 @@ export default function MoveStaffDialog({ token, open, member: s, onClose }: Mov
       await moveStaff(token, s.id, { bedroom, kids: mode, ...(mode === "swap" && person ? { swapWith: person } : {}), ...(mode === "assign" && person ? { assignTo: person } : {}) });
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Trocar de quarto" width={600} dismissible={!busy} className="sheet-dialog">
+    <Dialog open={open} onClose={onClose} title={tx("Trocar de quarto")} width={600} dismissible={!busy} className="sheet-dialog">
       <div className="cat-form cat-form--plain">
         {/* phones: this card is a bottom sheet (see .sheet-dialog) */}
         <span className="sheet__handle" aria-hidden="true" />
         <h2 className="cat-form__title change-room__title">
-          <img className="admin-title__icon" src={ICONS.swap} alt="" aria-hidden="true" /> Trocar de quarto
+          <img className="admin-title__icon" src={ICONS.swap} alt="" aria-hidden="true" /> {tx("Trocar de quarto")}
         </h2>
 
         <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={chooseRoom} current={s.bedroom} groups={bedroomGroupsForSex(staffSex(s, bedrooms))} allowFull disabled={busy} />
@@ -114,7 +116,7 @@ export default function MoveStaffDialog({ token, open, member: s, onClose }: Mov
         {askKids && (
           <fieldset className="cat-fieldset change-room__caretaker">
             <legend className="cat-field__label">
-              <RoomRoleIcon role="caretaker" sex={staffSex(s, bedrooms)} /> E as {myKids.length} criança{myKids.length > 1 ? "s" : ""} sob sua responsabilidade?
+              <RoomRoleIcon role="caretaker" sex={staffSex(s, bedrooms)} /> {myKids.length === 1 ? tx("E as {count} criança sob sua responsabilidade?", { count: myKids.length }) : tx("E as {count} crianças sob sua responsabilidade?", { count: myKids.length })}
             </legend>
             <div className="big-options">
               {OPTIONS.filter((o) => (sameRoom ? o.key === "assign" : targetFull ? o.key === "swap" : true)).map((o) => {
@@ -124,21 +126,21 @@ export default function MoveStaffDialog({ token, open, member: s, onClose }: Mov
                     <span className="big-option__emoji" aria-hidden="true">
                       {o.icon ? <img src={o.icon} alt="" width={30} height={30} style={{ display: "block" }} /> : o.emoji}
                     </span>
-                    <span className="big-option__label">{o.label}</span>
-                    <span className="big-option__hint">{o.hint}</span>
+                    <span className="big-option__label">{tx(o.label)}</span>
+                    <span className="big-option__hint">{tx(o.hint)}</span>
                   </button>
                 );
               })}
             </div>
-            {sameRoom && <p className="cat-hint">No mesmo quarto só dá para passar as crianças para outra pessoa.</p>}
-            {targetFull && <p className="cat-hint">O quarto de destino está lotado: só dá para trocar de lugar com alguém de lá.</p>}
+            {sameRoom && <p className="cat-hint">{tx("No mesmo quarto só dá para passar as crianças para outra pessoa.")}</p>}
+            {targetFull && <p className="cat-hint">{tx("O quarto de destino está lotado: só dá para trocar de lugar com alguém de lá.")}</p>}
           </fieldset>
         )}
 
         {needsPerson && (
           <fieldset className="cat-fieldset change-room__caretaker">
-            <legend className="cat-field__label">{kids === "swap" ? `Quem vem do quarto ${target ? bedroomLabel(target) : ""}?` : "Quem assume as crianças?"}</legend>
-            {candidates.length === 0 && <p className="message message--warn">⚠️ Ninguém da equipe {kids === "swap" ? "neste quarto de destino" : "no quarto atual"}.</p>}
+            <legend className="cat-field__label">{kids === "swap" ? tx("Quem vem do quarto {room}?", { room: target ? bedroomLabel(target) : "" }) : tx("Quem assume as crianças?")}</legend>
+            {candidates.length === 0 && <p className="message message--warn">{kids === "swap" ? tx("⚠️ Ninguém da equipe neste quarto de destino.") : tx("⚠️ Ninguém da equipe no quarto atual.")}</p>}
             <div className="big-options">
               {candidates.map((x) => {
                 const on = person === x.id;
@@ -148,9 +150,9 @@ export default function MoveStaffDialog({ token, open, member: s, onClose }: Mov
                     <span className="big-option__emoji" aria-hidden="true"><RoomRoleIcon role={x.roomRole} size={32} sex={staffSex(x, bedrooms)} /></span>
                     <span className="big-option__label">{x.name}</span>
                     <span className="big-option__hint">
-                      {ROOM_ROLE_META[x.roomRole].label}
-                      {x.roomRole === "caretaker" && ` · ${n} criança${n === 1 ? "" : "s"}`}
-                      {x.roomRole === "helper" && " · vira líder"}
+                      {tx(ROOM_ROLE_META[x.roomRole].label)}
+                      {x.roomRole === "caretaker" && (n === 1 ? tx(" · {count} criança", { count: n }) : tx(" · {count} crianças", { count: n }))}
+                      {x.roomRole === "helper" && tx(" · vira líder")}
                     </span>
                   </button>
                 );
@@ -159,16 +161,16 @@ export default function MoveStaffDialog({ token, open, member: s, onClose }: Mov
           </fieldset>
         )}
 
-        {!hasKids && targetFull && <p className="message message--warn">⚠️ O quarto de destino está lotado — alguém precisa sair de lá antes.</p>}
-        {!hasKids && s.roomRole === "caretaker" && <p className="cat-hint">Sem crianças sob responsabilidade: só a pessoa muda.</p>}
+        {!hasKids && targetFull && <p className="message message--warn">{tx("⚠️ O quarto de destino está lotado — alguém precisa sair de lá antes.")}</p>}
+        {!hasKids && s.roomRole === "caretaker" && <p className="cat-hint">{tx("Sem crianças sob responsabilidade: só a pessoa muda.")}</p>}
         {error && <p className="message message--error">{error}</p>}
 
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" onClick={onClose} disabled={busy}>
-            Cancelar
+            {tx("Cancelar")}
           </button>
           <button type="button" className="button button--primary" disabled={busy || !valid} onClick={submit}>
-            {busy ? "Salvando…" : "Confirmar"}
+            {busy ? tx("Salvando…") : tx("Confirmar")}
           </button>
         </div>
       </div>

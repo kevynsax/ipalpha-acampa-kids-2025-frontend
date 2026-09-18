@@ -3,6 +3,7 @@ import { listCamperChanges, medicationLine, PARENT_FIELD_LABEL, type CamperChang
 import Dialog from "../../components/Dialog";
 import { useLabelOf } from "../../store/derive";
 import { speakDateTime } from "../../dates";
+import { useI18n } from "../../i18n";
 
 interface CamperHistoryDialogProps {
   token: string;
@@ -14,6 +15,7 @@ interface CamperHistoryDialogProps {
 
 /** Every edit the kid's parent made to the "Pontos de atenção" block, newest first — read by the admin. */
 export default function CamperHistoryDialog({ token, open, camperId, camperName, onClose }: CamperHistoryDialogProps) {
+  const { tx } = useI18n();
   const [changes, setChanges] = useState<CamperChange[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const labelOf = useLabelOf();
@@ -24,7 +26,7 @@ export default function CamperHistoryDialog({ token, open, camperId, camperName,
     setError(null);
     listCamperChanges(token, camperId)
       .then(setChanges)
-      .catch((e) => setError(e instanceof Error ? e.message : "Algo deu errado."));
+      .catch((e) => setError(e instanceof Error ? e.message : tx("Algo deu errado.")));
   }, [open, token, camperId]);
 
   /** a stored value → readable text (option ids become labels) */
@@ -41,24 +43,24 @@ export default function CamperHistoryDialog({ token, open, camperId, camperName,
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title="Histórico de alterações" width={640}>
+    <Dialog open={open} onClose={onClose} title={tx("Histórico de alterações")} width={640}>
       <div className="cat-form">
-        <h2 className="cat-form__title">🕓 Alterações feitas pelos pais · {camperName.split(" ")[0]}</h2>
+        <h2 className="cat-form__title">{tx("🕓 Alterações feitas pelos pais · {name}", { name: camperName.split(" ")[0] })}</h2>
         {error && <p className="message message--error">{error}</p>}
-        {!error && changes === null && <p className="opt-empty">Carregando…</p>}
-        {changes && changes.length === 0 && <p className="opt-empty">Os pais ainda não alteraram nada.</p>}
+        {!error && changes === null && <p className="opt-empty">{tx("Carregando…")}</p>}
+        {changes && changes.length === 0 && <p className="opt-empty">{tx("Os pais ainda não alteraram nada.")}</p>}
         {changes && changes.length > 0 && (
           <ol className="history-list">
             {changes.map((c) => (
               <li key={c.id} className={`history-item ${c.medical ? "history-item--medical" : ""}`}>
                 <p className="history-item__head">
                   <strong>{c.byName}</strong> · {speakDateTime(c.at)}
-                  <span className={`staff-tag ${c.medical ? "staff-tag--late" : "staff-tag--soft"}`}>{c.medical ? "🩺 dados médicos" : "📝 observações"}</span>
+                  <span className={`staff-tag ${c.medical ? "staff-tag--late" : "staff-tag--soft"}`}>{c.medical ? tx("🩺 dados médicos") : tx("📝 observações")}</span>
                 </p>
                 <ul className="history-item__changes">
                   {c.changes.map((x) => (
                     <li key={x.field}>
-                      <span className="history-item__field">{PARENT_FIELD_LABEL[x.field] ?? x.field}</span>
+                      <span className="history-item__field">{tx(PARENT_FIELD_LABEL[x.field] ?? x.field)}</span>
                       <span className="history-item__before">{show(x.before)}</span>
                       <span aria-hidden="true">→</span>
                       <span className="history-item__after">{show(x.after)}</span>
@@ -71,7 +73,7 @@ export default function CamperHistoryDialog({ token, open, camperId, camperName,
         )}
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" onClick={onClose}>
-            Fechar
+            {tx("Fechar")}
           </button>
         </div>
       </div>

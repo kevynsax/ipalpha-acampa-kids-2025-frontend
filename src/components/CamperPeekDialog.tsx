@@ -7,6 +7,7 @@ import { kidIconSex } from "../icons";
 import { ageOf } from "../api/campers";
 import { navigate } from "../router";
 import { formatBrazilPhoneClient } from "../phoneFormat";
+import { useI18n } from "../i18n";
 import { useCamperDetail, useLabelOf } from "../store/derive";
 
 interface CamperPeekDialogProps {
@@ -26,6 +27,7 @@ interface CamperPeekDialogProps {
  * or transport. "Ver ficha completa" opens the kid's page.
  */
 export default function CamperPeekDialog({ camperId, name, onClose }: CamperPeekDialogProps) {
+  const { tx } = useI18n();
   const data = useCamperDetail(camperId ?? "");
   const labelOf = useLabelOf();
   const k = data?.camper;
@@ -33,24 +35,24 @@ export default function CamperPeekDialog({ camperId, name, onClose }: CamperPeek
   const sex = k ? kidIconSex(data?.bedroom?.group, k.sex, k.probableGender) ?? "girl" : "girl";
 
   return (
-    <Dialog open={!!camperId} onClose={onClose} title={name ?? "Criança"} width={520}>
+    <Dialog open={!!camperId} onClose={onClose} title={name ?? tx("Criança")} width={520}>
       <div className="cat-form cat-form--plain">
         <header className="kid-peek__head">
           <KidIcon sex={sex} size={40} />
           <h2 className="cat-form__title kid-peek__name">
-            {k?.name ?? name ?? "Criança"}
-            {age !== null && <span className="kid-card__age">{age} anos</span>}
+            {k?.name ?? name ?? tx("Criança")}
+            {age !== null && <span className="kid-card__age">{tx("{age} anos", { age })}</span>}
           </h2>
           {k && <GuardianWhatsApp camper={k} className="" />}
         </header>
 
         {!k ? (
-          <p className="opt-empty">Sincronizando… 🏕️</p>
+          <p className="opt-empty">{tx("Sincronizando… 🏕️")}</p>
         ) : (
           <>
             <div className="staff-card__tags">
               {data?.bedroom && <BedroomTag bedroom={data.bedroom} />}
-              {labelOf(k.bed) && <span className="staff-tag">Cama {labelOf(k.bed)!.toLowerCase()}</span>}
+              {labelOf(k.bed) && <span className="staff-tag">{tx("Cama {bed}", { bed: labelOf(k.bed)!.toLowerCase() })}</span>}
               {k.weightKg != null && <span className="staff-tag">{String(k.weightKg).replace(".", ",")} kg</span>}
             </div>
 
@@ -59,7 +61,7 @@ export default function CamperPeekDialog({ camperId, name, onClose }: CamperPeek
             <dl className="detail-grid kid-peek__contacts">
               {k.guardianName && (
                 <>
-                  <dt>Responsável</dt>
+                  <dt>{tx("Responsável")}</dt>
                   <dd>
                     {k.guardianName}
                     {k.guardianPhone && <> · {formatBrazilPhoneClient(k.guardianPhone)}</>}
@@ -68,11 +70,11 @@ export default function CamperPeekDialog({ camperId, name, onClose }: CamperPeek
               )}
               {k.emergencyContact && (
                 <>
-                  <dt>Emergência</dt>
+                  <dt>{tx("Emergência")}</dt>
                   <dd>{k.emergencyContact}</dd>
                 </>
               )}
-              <dt>Convênio</dt>
+              <dt>{tx("Convênio")}</dt>
               <dd>
                 {k.insurance || "—"}
                 {k.insuranceCard && <span className="cat-hint">· {k.insuranceCard}</span>}
@@ -83,19 +85,19 @@ export default function CamperPeekDialog({ camperId, name, onClose }: CamperPeek
 
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" onClick={onClose}>
-            Fechar
+            {tx("Fechar")}
           </button>
           <button
             type="button"
             className="button button--primary"
-            title="Abrir a página da criança"
+            title={tx("Abrir a página da criança")}
             onClick={() => {
               navigate(`/campers/${camperId}`);
               onClose();
             }}
           >
-            <span className="ficha-btn__full">Ver ficha completa</span>
-            <span className="ficha-btn__short">Ver ficha</span>
+            <span className="ficha-btn__full">{tx("Ver ficha completa")}</span>
+            <span className="ficha-btn__short">{tx("Ver ficha")}</span>
           </button>
         </div>
       </div>

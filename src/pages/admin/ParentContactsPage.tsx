@@ -4,6 +4,7 @@ import { useCollection, useCollectionOrEmpty } from "../../store";
 import StaffPicker from "./StaffPicker";
 import { speakWhen } from "../../dates";
 import PageFooter from "../../components/PageFooter";
+import { useI18n } from "../../i18n";
 
 interface ParentContactsPageProps {
   token: string;
@@ -25,18 +26,20 @@ function contactId(): string {
 
 /** These contacts are visible for as long as the parents may use the app (Geral → janela de acesso dos pais). */
 function ParentWindowNote({ window: w }: { window: { from: string | null; until: string | null; open: boolean } }) {
-  const range = w.from && w.until ? `de ${speakWhen(w.from)} até ${speakWhen(w.until)}` : null;
+  const { tx } = useI18n();
+  const range = w.from && w.until ? tx("de {from} até {until}", { from: speakWhen(w.from), until: speakWhen(w.until) }) : null;
   return (
     <p className={`message ${w.open ? "message--ok" : "message--warn"}`}>
-      {w.open ? "🟢" : "🕒"} Os pais veem estes contatos <strong>o tempo todo em que têm acesso ao app</strong> (janela de acesso dos pais, em Geral).{" "}
-      Já a <strong>equipe do quarto</strong> da criança só aparece durante o acampamento
-      {range ? <>: <strong>{range}</strong></> : " (defina a janela de check-in e a programação)"}.
+      {w.open ? "🟢" : "🕒"} {tx("Os pais veem estes contatos")} <strong>{tx("o tempo todo em que têm acesso ao app")}</strong> {tx("(janela de acesso dos pais, em Geral).")}{" "}
+      {tx("Já a")} <strong>{tx("equipe do quarto")}</strong> {tx("da criança só aparece durante o acampamento")}
+      {range ? <>: <strong>{range}</strong></> : ` ${tx("(defina a janela de check-in e a programação)")}`}.
     </p>
   );
 }
 
 /** Admin-only list of the staff contacts shown to parents. */
 export default function ParentContactsPage({ token }: ParentContactsPageProps) {
+  const { tx } = useI18n();
   const staff = useCollectionOrEmpty("staff");
   const settings = useCollection("settings");
   const [contacts, setContacts] = useState<ParentContact[]>([]);
@@ -70,7 +73,7 @@ export default function ParentContactsPage({ token }: ParentContactsPageProps) {
       return true;
     } catch (cause) {
       setContacts(previous);
-      setError(cause instanceof Error ? cause.message : "Algo deu errado.");
+      setError(cause instanceof Error ? cause.message : tx("Algo deu errado."));
       return false;
     } finally {
       setBusy(false);
@@ -110,7 +113,7 @@ export default function ParentContactsPage({ token }: ParentContactsPageProps) {
   if (!settings && !error) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Carregando configurações… 📞</p>
+        <p className="opt-empty">{tx("Carregando configurações… 📞")}</p>
       </div>
     );
   }
@@ -118,22 +121,22 @@ export default function ParentContactsPage({ token }: ParentContactsPageProps) {
   return (
     <div className="admin-page">
       <header className="admin-head">
-        <h1 className="admin-title">📞 Important contacts</h1>
+        <h1 className="admin-title">📞 {tx("Contatos importantes")}</h1>
       </header>
       <p className="admin-intro">
-        Quem os pais podem procurar, com um <strong>título claro</strong> para o assunto. Os pais veem nome e celular de cada pessoa.
+        {tx("Quem os pais podem procurar, com um")} <strong>{tx("título claro")}</strong> {tx("para o assunto. Os pais veem nome e celular de cada pessoa.")}
       </p>
       {settings && <ParentWindowNote window={settings.parentWindow} />}
 
       {error && <p className="message message--error">{error}</p>}
 
       <form className="cat-form contact-form" onSubmit={submitDraft}>
-        <h2 className="cat-form__title">{editing ? "✏️ Editar contato" : "➕ Novo contato"}</h2>
+        <h2 className="cat-form__title">{editing ? tx("✏️ Editar contato") : tx("➕ Novo contato")}</h2>
         <label className="cat-field">
-          <span className="cat-field__label">Título</span>
+          <span className="cat-field__label">{tx("Título")}</span>
           <input
             className="cat-input"
-            placeholder="ex.: Coordenação do acampamento"
+            placeholder={tx("ex.: Coordenação do acampamento")}
             value={draft.title}
             maxLength={80}
             disabled={busy}
@@ -142,24 +145,24 @@ export default function ParentContactsPage({ token }: ParentContactsPageProps) {
           />
         </label>
         <div className="cat-field">
-          <span className="cat-field__label">Pessoa da equipe</span>
+          <span className="cat-field__label">{tx("Pessoa da equipe")}</span>
           <button type="button" className="contact-person" disabled={busy} onClick={() => setPickerOpen(true)}>
             <span className="contact-person__icon" aria-hidden="true">👤</span>
             <span className="contact-person__body">
-              <strong>{selectedStaff?.name ?? "Escolher pessoa"}</strong>
-              <span>{selectedStaff ? "Toque para trocar" : "Busque na equipe ativa"}</span>
+              <strong>{selectedStaff?.name ?? tx("Escolher pessoa")}</strong>
+              <span>{selectedStaff ? tx("Toque para trocar") : tx("Busque na equipe ativa")}</span>
             </span>
-            <span className="contact-person__action">{selectedStaff ? "Trocar" : "Escolher"}</span>
+            <span className="contact-person__action">{selectedStaff ? tx("Trocar") : tx("Escolher")}</span>
           </button>
         </div>
         <div className="cat-form__actions">
           {editing && (
             <button type="button" className="button button--secondary" disabled={busy} onClick={resetDraft}>
-              Cancelar
+              {tx("Cancelar")}
             </button>
           )}
           <button type="submit" className="button button--primary" disabled={busy || !validDraft}>
-            {busy ? "Salvando…" : editing ? "Atualizar contato" : "Adicionar contato"}
+            {busy ? tx("Salvando…") : editing ? tx("Atualizar contato") : tx("Adicionar contato")}
           </button>
         </div>
       </form>
@@ -167,11 +170,11 @@ export default function ParentContactsPage({ token }: ParentContactsPageProps) {
       <section className="contacts-section" aria-labelledby="contacts-list-title">
         <div className="list-head">
           <h2 id="contacts-list-title" className="cat-form__title">
-            Contatos cadastrados <span className="cat-tab__count">{contacts.length}</span>
+            {tx("Contatos cadastrados")} <span className="cat-tab__count">{contacts.length}</span>
           </h2>
         </div>
         {contacts.length === 0 ? (
-          <p className="opt-empty">Nenhum contato cadastrado ainda.</p>
+          <p className="opt-empty">{tx("Nenhum contato cadastrado ainda.")}</p>
         ) : (
           <ol className="contact-list">
             {contacts.map((contact, index) => {
@@ -182,14 +185,14 @@ export default function ParentContactsPage({ token }: ParentContactsPageProps) {
                     <span className="contact-item__icon" aria-hidden="true">👤</span>
                     <div className="contact-item__body">
                       <h3>{contact.title}</h3>
-                      <p>{person?.name ?? "Pessoa não encontrada"}</p>
+                      <p>{person?.name ?? tx("Pessoa não encontrada")}</p>
                     </div>
                   </div>
-                  <div className="contact-item__actions" aria-label={`Ações de ${contact.title}`}>
-                    <button type="button" className="icon-btn" title="Mover para cima" disabled={busy || index === 0} onClick={() => void move(index, -1)}>▲</button>
-                    <button type="button" className="icon-btn" title="Mover para baixo" disabled={busy || index === contacts.length - 1} onClick={() => void move(index, 1)}>▼</button>
-                    <button type="button" className="icon-btn" title="Editar" disabled={busy} onClick={() => edit(contact)}><span className="pencil" aria-hidden="true">✏️</span></button>
-                    <button type="button" className="icon-btn icon-btn--danger" title="Remover" disabled={busy} onClick={() => void remove(contact.id)}>🗑️</button>
+                  <div className="contact-item__actions" aria-label={tx("Ações de {title}", { title: contact.title })}>
+                    <button type="button" className="icon-btn" title={tx("Mover para cima")} disabled={busy || index === 0} onClick={() => void move(index, -1)}>▲</button>
+                    <button type="button" className="icon-btn" title={tx("Mover para baixo")} disabled={busy || index === contacts.length - 1} onClick={() => void move(index, 1)}>▼</button>
+                    <button type="button" className="icon-btn" title={tx("Editar")} disabled={busy} onClick={() => edit(contact)}><span className="pencil" aria-hidden="true">✏️</span></button>
+                    <button type="button" className="icon-btn icon-btn--danger" title={tx("Remover")} disabled={busy} onClick={() => void remove(contact.id)}>🗑️</button>
                   </div>
                 </li>
               );
@@ -198,11 +201,11 @@ export default function ParentContactsPage({ token }: ParentContactsPageProps) {
         )}
       </section>
 
-      <PageFooter>O telefone vem do cadastro da equipe. Quem entra nesta lista passa a ter acesso ao app fora da janela da equipe (como os organizadores).</PageFooter>
+      <PageFooter>{tx("O telefone vem do cadastro da equipe. Quem entra nesta lista passa a ter acesso ao app fora da janela da equipe (como os organizadores).")}</PageFooter>
 
       <StaffPicker
         open={pickerOpen}
-        title="Escolher pessoa da equipe"
+        title={tx("Escolher pessoa da equipe")}
         staff={staff}
         occupied={new Map()}
         onPick={(staffId) => {

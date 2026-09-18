@@ -1,11 +1,9 @@
 import { useConfirm } from "../../components/ConfirmDialog";
 import { useMemo, useState } from "react";
 import BunkIcon from "../../components/BunkIcon";
-import CamperIcon from "../../components/CamperIcon";
 import {
   BEDROOM_GROUPS,
   GROUP_META,
-  bedroomLabel,
   createBedroom,
   deleteBedroom,
   updateBedroom,
@@ -13,7 +11,11 @@ import {
   type BedroomGroup,
   type BedroomInput,
 } from "../../api/bedrooms";
+import type { Camper } from "../../api/campers";
+import { compareRoomStaff, staffSex, type Staff } from "../../api/staff";
 import GroupIcon from "../../components/GroupIcon";
+import KidIcon from "../../components/KidIcon";
+import RoomRoleIcon from "../../components/RoomRoleIcon";
 import StaffIcon from "../../components/StaffIcon";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import BedroomForm from "./BedroomForm";
@@ -23,7 +25,9 @@ import { useCollection, useCollectionOrEmpty } from "../../store";
 import { useLabelOf } from "../../store/derive";
 import { downloadBedroomsXlsx } from "../../export";
 import { DownloadGlyph } from "../../components/Glyph";
-import { ICONS } from "../../icons";
+import { ICONS, kidSexOf } from "../../icons";
+import { collatorLocale, useI18n } from "../../i18n";
+import { shortPersonName } from "../../names";
 
 interface BedroomsPageProps {
   token: string;
@@ -46,11 +50,22 @@ function modeOf(segments: string[], params: URLSearchParams): Mode {
 
 /** Admin: bedrooms grouped by wing, each with its bed layout and occupancy; read-only for the medical team. */
 export default function BedroomsPage({ token, readOnly = false }: BedroomsPageProps) {
+  const { tx } = useI18n();
   // from the local store (localStorage + live WebSocket feed) — occupancy is kept fresh by the server push
   const stored = useCollection("bedrooms");
   const bedrooms = useMemo(() => (stored ? sortRooms(stored) : null), [stored]);
   const campers = useCollectionOrEmpty("campers");
   const staff = useCollectionOrEmpty("staff");
+  const occupants = useMemo(() => occupantsByRoom(campers, staff), [campers, staff]);
+  const [staffOnly, setStaffOnly] = useState(false);
+  const listed = useMemo(
+    () => (!bedrooms ? [] : staffOnly ? bedrooms.filter((b) => (occupants.get(b.id)?.staff.length ?? 0) > 0) : bedrooms),
+    [bedrooms, occupants, staffOnly],
+  );
+  const staffedCount = useMemo(
+    () => (bedrooms ? bedrooms.filter((b) => (occupants.get(b.id)?.staff.length ?? 0) > 0).length : 0),
+    [bedrooms, occupants],
+  );
   const labelOf = useLabelOf();
   const { segments, params, navigate } = useRoute();
   const rawMode = modeOf(segments, params);
@@ -82,19 +97,19 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
   }
 
   async function handleDelete(b: Bedroom) {
-    if (!(await confirm({ emoji: "🗑️", title: `Excluir o quarto ${b.name} (${GROUP_META[b.group].label})?`, message: "Isso não pode ser desfeito.", confirmLabel: "Excluir", danger: true }))) return;
+    if (!(await confirm({ emoji: "🗑️", title: tx("Excluir o quarto {name} ({group})?", { name: b.name, group: tx(GROUP_META[b.group].label) }), message: tx("Isso não pode ser desfeito."), confirmLabel: tx("Excluir"), danger: true }))) return;
     try {
       await withBusy(() => deleteBedroom(token, b.id));
       navigate("/bedrooms", { replace: true });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     }
   }
 
   if (!bedrooms) {
     return (
       <div className="admin-page">
-        {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>}
+        {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>}
       </div>
     );
   }
@@ -104,7 +119,7 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
       <DetailStack
         token={token}
         current={{ kind: "bedroom", id: mode.id }}
-        rootCrumbs={[{ label: "Quartos", onClick: () => navigate("/bedrooms") }]}
+        rootCrumbs={[{ label: tx("Quartos"), onClick: () => navigate("/bedrooms") }]}
         onEditBedroom={readOnly ? undefined : (bedroom) => navigate(`/bedrooms/${bedroom.id}/edit`)}
       />
     );
@@ -112,39 +127,39 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
 
   const editing = mode.kind === "edit" ? bedrooms.find((b) => b.id === mode.id) : undefined;
 
-  const totals = bedrooms.reduce(
+  const totals = listed.reduce(
     (acc, b) => ({ capacity: acc.capacity + b.capacity, occupied: acc.occupied + b.occupied }),
     { capacity: 0, occupied: 0 },
   );
 
   return (
     <div className="admin-page">
-      {mode.kind === "create" && <Breadcrumbs items={[{ label: "Quartos", onClick: () => navigate("/bedrooms") }, { label: "Novo" }]} />}
+      {mode.kind === "create" && <Breadcrumbs items={[{ label: tx("Quartos"), onClick: () => navigate("/bedrooms") }, { label: tx("Novo") }]} />}
       {mode.kind === "edit" && editing && (
-        <Breadcrumbs items={[{ label: "Quartos", onClick: () => navigate("/bedrooms") }, { label: bedroomLabel(editing), onClick: () => navigate(`/bedrooms/${editing.id}`) }, { label: "Editar" }]} />
+        <Breadcrumbs items={[{ label: tx("Quartos"), onClick: () => navigate("/bedrooms") }, { label: `${tx(GROUP_META[editing.group].label)} - ${editing.name}`, onClick: () => navigate(`/bedrooms/${editing.id}`) }, { label: tx("Editar") }]} />
       )}
       <header className="admin-head">
-        <h1 className="admin-title">{mode.kind === "create" ? <><img className="admin-title__icon" src={ICONS.bed} alt="" aria-hidden="true" /> Novo quarto</> : mode.kind === "edit" ? "✏️ Editar quarto" : <><img className="admin-title__icon" src={ICONS.bed} alt="" aria-hidden="true" /> Quartos</>}</h1>
+        <h1 className="admin-title">{mode.kind === "create" ? <><img className="admin-title__icon" src={ICONS.bed} alt="" aria-hidden="true" /> {tx("Novo quarto")}</> : mode.kind === "edit" ? tx("✏️ Editar quarto") : <><img className="admin-title__icon" src={ICONS.bed} alt="" aria-hidden="true" /> {tx("Quartos")}</>}</h1>
         {mode.kind === "view" && !readOnly && (
           <div className="admin-head__actions admin-head__actions--icons">
             <button
               type="button"
               className="button button--secondary admin-head__new"
               disabled={busy}
-              title="Montar os quartos: crianças grudadas por preferência, arrastando para os quartos"
+              title={tx("Montar os quartos: crianças grudadas por preferência, arrastando para os quartos")}
               onClick={() => navigate("/bedrooms/assign")}
             >
               <img className="admin-head__action-icon" src={ICONS.roomAssign} alt="" aria-hidden="true" />
-              <span className="admin-head__action-label">Montar</span>
+              <span className="admin-head__action-label">{tx("Montar")}</span>
             </button>
             <button
               type="button"
               className="button button--secondary admin-head__new"
               disabled={busy || bedrooms.length === 0}
-              title="Baixar todos os quartos em Excel (uma aba por quarto)"
+              title={tx("Baixar todos os quartos em Excel (uma aba por quarto)")}
               onClick={() => downloadBedroomsXlsx(bedrooms, campers, staff, labelOf)}
             >
-              <DownloadGlyph /> <span className="admin-head__action-label">Download</span>
+              <DownloadGlyph /> <span className="admin-head__action-label">{tx("Download")}</span>
             </button>
             <button
               type="button"
@@ -153,7 +168,7 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
               onClick={() => navigate("/bedrooms/new")}
             >
               <span className="admin-head__action-icon" aria-hidden="true">+</span>
-              <span className="admin-head__action-label">Novo</span>
+              <span className="admin-head__action-label">{tx("Novo")}</span>
             </button>
           </div>
         )}
@@ -161,8 +176,8 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
           <button
             type="button"
             className="icon-btn icon-btn--lg icon-btn--danger"
-            title={`Excluir quarto ${editing.name}`}
-            aria-label={`Excluir quarto ${editing.name}`}
+            title={tx("Excluir quarto {name}", { name: editing.name })}
+            aria-label={tx("Excluir quarto {name}", { name: editing.name })}
             disabled={busy}
             onClick={() => handleDelete(editing)}
           >
@@ -176,7 +191,7 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
       {mode.kind === "create" && (
         <BedroomForm key={mode.group ?? "any"} defaultGroup={mode.group} busy={busy} onSubmit={handleCreate} onCancel={() => navigate("/bedrooms")} />
       )}
-      {mode.kind === "edit" && !editing && <p className="opt-empty">Quarto não encontrado.</p>}
+      {mode.kind === "edit" && !editing && <p className="opt-empty">{tx("Quarto não encontrado.")}</p>}
       {mode.kind === "edit" && editing && (
         <BedroomForm
           key={editing.id}
@@ -190,10 +205,10 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
       {mode.kind === "view" && bedrooms.length === 0 && (
         <div className="admin-empty">
           <img className="admin-empty__icon" src={ICONS.bed} alt="" aria-hidden="true" />
-          <p>Nenhum quarto ainda.{!readOnly && " Cadastre o primeiro com seus beliches e camas!"}</p>
+          <p>{tx("Nenhum quarto ainda.")}{!readOnly && ` ${tx("Cadastre o primeiro com seus beliches e camas!")}`}</p>
           {!readOnly && (
             <button type="button" className="button button--primary" onClick={() => navigate("/bedrooms/new")}>
-              + Criar quarto
+              {tx("+ Criar quarto")}
             </button>
           )}
         </div>
@@ -201,30 +216,57 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
 
       {mode.kind === "view" && bedrooms.length > 0 && (
         <>
+          <div className="health-filter" role="group" aria-label={tx("Filtros")}>
+            <button
+              type="button"
+              className={`chip-toggle chip-toggle--small ${!staffOnly ? "chip-toggle--on" : ""}`}
+              aria-pressed={!staffOnly}
+              onClick={() => setStaffOnly(false)}
+            >
+              {tx("Todos")}
+              <span className="cat-tab__count">{bedrooms.length}</span>
+            </button>
+            <button
+              type="button"
+              className={`chip-toggle chip-toggle--small ${staffOnly ? "chip-toggle--on" : ""}`}
+              aria-pressed={staffOnly}
+              title={tx("Quartos com equipe")}
+              onClick={() => setStaffOnly(true)}
+            >
+              <StaffIcon size={20} />
+              {tx("Equipe")}
+              <span className="cat-tab__count">{staffedCount}</span>
+            </button>
+          </div>
+
           <p className="admin-intro">
-            {bedrooms.length} quartos · <strong>{totals.capacity}</strong> camas no total ·{" "}
-            <strong>{totals.occupied}</strong> ocupadas · <strong>{totals.capacity - totals.occupied}</strong> livres
+            {tx("{n} quartos", { n: listed.length })} · <strong>{totals.capacity}</strong> {tx("camas no total")} ·{" "}
+            <strong>{totals.occupied}</strong> {tx("ocupadas")} · <strong>{totals.capacity - totals.occupied}</strong> {tx("livres")}
           </p>
 
+          {staffOnly && listed.length === 0 && <p className="opt-empty">{tx("Nenhum quarto com equipe.")}</p>}
+
           {BEDROOM_GROUPS.map((g) => {
-            const rooms = bedrooms.filter((b) => b.group === g);
+            const rooms = listed.filter((b) => b.group === g);
+            if (staffOnly && rooms.length === 0) return null;
             const m = GROUP_META[g];
             const cap = rooms.reduce((n, b) => n + b.capacity, 0);
             const occ = rooms.reduce((n, b) => n + b.occupied, 0);
+            const groupLabel = tx(m.label);
             return (
               <section key={g} className="room-group">
                 <header className="room-group__head">
                   <h2 className={`room-group__title room-group__title--${m.color}`}>
-                    <GroupIcon group={g} /> {m.label}
+                    <GroupIcon group={g} /> {groupLabel}
                   </h2>
                   <span className="room-group__stats">
-                    {rooms.length} {rooms.length === 1 ? "quarto" : "quartos"} · {occ}/{cap} camas
+                    {tx(rooms.length === 1 ? "{n} quarto · {occ}/{cap} camas" : "{n} quartos · {occ}/{cap} camas", { n: rooms.length, occ, cap })}
                   </span>
                   {!readOnly && (
                     <button
                       type="button"
                       className="icon-btn"
-                      title={`Novo quarto em ${m.label}`}
+                      title={tx("Novo quarto em {group}", { group: groupLabel })}
                       disabled={busy}
                       onClick={() => navigate("/bedrooms/new", { query: { group: g } })}
                     >
@@ -234,12 +276,15 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
                 </header>
 
                 {rooms.length === 0 ? (
-                  <p className="opt-empty">Nenhum quarto nesta ala.</p>
+                  <p className="opt-empty">{tx("Nenhum quarto nesta ala.")}</p>
                 ) : (
                   <ul className="room-grid">
                     {rooms.map((b) => {
                       const pct = b.capacity ? Math.round((b.occupied / b.capacity) * 100) : 0;
                       const free = Math.max(0, b.capacity - b.occupied);
+                      const people = occupants.get(b.id);
+                      const kids = people?.kids ?? [];
+                      const team = people?.staff ?? [];
                       return (
                         <li key={b.id}>
                           <button
@@ -247,49 +292,59 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
                             className={`room-card room-card--${m.color}`}
                             disabled={busy}
                             onClick={() => navigate(`/bedrooms/${b.id}`)}
-                            title="Ver quarto"
+                            title={tx("Ver quarto")}
                           >
                             <span className="room-card__row">
                               <span className="room-card__name">{b.name}</span>
                               <span className={`room-card__availability${free === 0 ? " room-card__availability--full" : ""}`}>
-                                {free === 0 ? "Lotado" : `${free} ${free === 1 ? "livre" : "livres"}`}
+                                {free === 0 ? tx("Lotado") : tx(free === 1 ? "{n} livre" : "{n} livres", { n: free })}
                               </span>
                             </span>
 
                             <span className="room-card__occupancy-copy">
-                              <strong>{b.occupied}</strong> de {b.capacity} camas ocupadas
+                              <strong>{b.occupied}</strong> {tx("de {capacity} camas ocupadas", { capacity: b.capacity })}
                             </span>
                             <span className="room-card__bar" aria-hidden="true">
                               <span className="room-card__bar-fill" style={{ width: `${pct}%` }} />
                             </span>
 
+                            <span className="room-card__people">
+                              {team.length > 0 && (
+                                <span className="room-card__people-row">
+                                  {team.map((s) => (
+                                    <span key={s.id} className="room-card__person" title={s.name}>
+                                      <RoomRoleIcon role={s.roomRole} size={16} sex={staffSex(s, bedrooms)} />
+                                      {shortPersonName(s.name, team)}
+                                    </span>
+                                  ))}
+                                </span>
+                              )}
+                              {kids.length > 0 && (
+                                <span className="room-card__people-row">
+                                  <KidIcon sex={kidSexOf(b.group)} group={kids.length > 1} size={16} />
+                                  <span className="room-card__names" title={kids.map((k) => k.name).join(", ")}>
+                                    {kids.map((k) => shortPersonName(k.name, kids)).join(", ")}
+                                  </span>
+                                </span>
+                              )}
+                              {team.length === 0 && kids.length === 0 && (
+                                <span className="room-card__people-empty">{tx("Ninguém alocado.")}</span>
+                              )}
+                            </span>
+
                             <span className="room-card__details">
                               <span className="room-card__beds">
                                 {b.bunkBeds > 0 && (
-                                  <span title={`${b.bunkBeds} beliche${b.bunkBeds > 1 ? "s" : ""}`}>
-                                    <BunkIcon size={16} /> {b.bunkBeds} {b.bunkBeds === 1 ? "beliche" : "beliches"}
+                                  <span title={tx(b.bunkBeds === 1 ? "{n} beliche" : "{n} beliches", { n: b.bunkBeds })}>
+                                    <BunkIcon size={16} /> {tx(b.bunkBeds === 1 ? "{n} beliche" : "{n} beliches", { n: b.bunkBeds })}
                                   </span>
                                 )}
                                 {b.singleBeds > 0 && (
-                                  <span title={`${b.singleBeds} cama${b.singleBeds > 1 ? "s" : ""} de solteiro`}>
-                                    {b.singleBeds} {b.singleBeds === 1 ? "cama" : "camas"}
+                                  <span title={tx(b.singleBeds === 1 ? "{n} cama de solteiro" : "{n} camas de solteiro", { n: b.singleBeds })}>
+                                    {tx(b.singleBeds === 1 ? "{n} cama" : "{n} camas", { n: b.singleBeds })}
                                   </span>
                                 )}
                               </span>
-                              {(b.occupiedCampers > 0 || b.occupiedStaff > 0) && (
-                                <span className="room-card__who">
-                                  {b.occupiedCampers > 0 && (
-                                    <span title="crianças">
-                                      <CamperIcon size={15} /> {b.occupiedCampers}
-                                    </span>
-                                  )}
-                                  {b.occupiedStaff > 0 && (
-                                    <span title="equipe">
-                                      <StaffIcon size={15} /> {b.occupiedStaff}
-                                    </span>
-                                  )}
-                                </span>
-                              )}
                             </span>
                             {b.notes && <span className="room-card__notes" title={b.notes}>{b.notes}</span>}
                           </button>
@@ -308,5 +363,24 @@ export default function BedroomsPage({ token, readOnly = false }: BedroomsPagePr
 }
 
 function sortRooms(list: Bedroom[]): Bedroom[] {
-  return list.slice().sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { numeric: true }));
+  return list.slice().sort((a, b) => a.name.localeCompare(b.name, collatorLocale(), { numeric: true }));
+}
+
+function occupantsByRoom(campers: Camper[], staff: Staff[]): Map<string, { kids: Camper[]; staff: Staff[] }> {
+  const map = new Map<string, { kids: Camper[]; staff: Staff[] }>();
+  const bucket = (id: string) => {
+    let cur = map.get(id);
+    if (!cur) {
+      cur = { kids: [], staff: [] };
+      map.set(id, cur);
+    }
+    return cur;
+  };
+  for (const k of campers) if (k.bedroom) bucket(k.bedroom).kids.push(k);
+  for (const s of staff) if (s.bedroom) bucket(s.bedroom).staff.push(s);
+  for (const cur of map.values()) {
+    cur.kids.sort((a, b) => a.name.localeCompare(b.name, collatorLocale(), { sensitivity: "base" }));
+    cur.staff.sort(compareRoomStaff);
+  }
+  return map;
 }

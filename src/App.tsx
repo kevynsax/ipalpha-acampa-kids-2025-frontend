@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import RoleSwitchDialog from "./components/RoleSwitchDialog";
 import OtpStep from "./pages/OtpStep";
 import PhoneStep from "./pages/PhoneStep";
+import { useI18n } from "./i18n";
 import { formatBrazilPhoneClient } from "./phoneFormat";
 import type { LoggedUser, Role } from "./roles";
 import { navigate } from "./router";
@@ -22,6 +23,7 @@ interface OtpContext {
 }
 
 export default function App() {
+  const { t } = useI18n();
   const [step, setStep] = useState<Step>("phone");
   const [phoneMasked, setPhoneMasked] = useState("");
   const [otp, setOtp] = useState<OtpContext | null>(null);
@@ -102,7 +104,7 @@ export default function App() {
       <>
         <VersionMark />
         <CampingLayout>
-          <h1 className="camping-panel__title">Quase lá, {session.user.name.split(" ")[0]}! 🏕️</h1>
+          <h1 className="camping-panel__title">{t("login.almostThere", { name: session.user.name.split(" ")[0] })}</h1>
         </CampingLayout>
         <RoleSwitchDialog
           open
@@ -187,5 +189,6 @@ export default function App() {
 }
 
 function VersionMark() {
-  return <span className="version-mark" aria-label={`Versão ${__APP_VERSION__}`}>v{__APP_VERSION__}</span>;
+  const { t } = useI18n();
+  return <span className="version-mark" aria-label={t("common.version", { version: __APP_VERSION__ })}>v{__APP_VERSION__}</span>;
 }

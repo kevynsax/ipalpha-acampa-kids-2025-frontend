@@ -12,6 +12,7 @@ import { goBack, useRoute } from "../../router";
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import { ICONS } from "../../icons";
 import { AiGlyph } from "../../components/Glyph";
+import { useI18n } from "../../i18n";
 
 interface PreparationAdminPageProps {
   token: string;
@@ -30,6 +31,7 @@ const EMOJI_SUGGESTIONS = ["📌", "🎒", "👕", "🧢", "🧴", "💊", "⛪"
  *   /preparation/:id/edit   edit section
  */
 export default function PreparationAdminPage({ token }: PreparationAdminPageProps) {
+  const { tx } = useI18n();
   const sections = useCollection("preparation");
   const { segments, navigate } = useRoute();
   const confirm = useConfirm();
@@ -46,7 +48,7 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
     try {
       return await fn();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
       throw err;
     } finally {
       setBusy(false);
@@ -62,7 +64,7 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
     navigate("/preparation", { replace: true });
   }
   async function handleDelete(s: PrepSection) {
-    if (!(await confirm({ emoji: "🗑️", title: `Excluir a comunicação "${s.title}"?`, message: "Isso não pode ser desfeito.", confirmLabel: "Excluir", danger: true }))) return;
+    if (!(await confirm({ emoji: "🗑️", title: tx('Excluir a comunicação "{title}"?', { title: s.title }), message: tx("Isso não pode ser desfeito."), confirmLabel: tx("Excluir"), danger: true }))) return;
     await withBusy(() => deletePrepSection(token, s.id)).catch(() => {});
     navigate("/preparation", { replace: true });
   }
@@ -79,7 +81,7 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
   if (!sections) {
     return (
       <div className="admin-page">
-        {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>}
+        {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>}
       </div>
     );
   }
@@ -90,21 +92,21 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
   return (
     <div className="admin-page">
       {mode.kind !== "list" && (
-        <Breadcrumbs items={[{ label: "Preparação", onClick: () => navigate("/preparation") }, ...(editing ? [{ label: editing.title }] : []), { label: mode.kind === "new" ? "Nova comunicação" : "Editar" }]} />
+        <Breadcrumbs items={[{ label: tx("Preparação"), onClick: () => navigate("/preparation") }, ...(editing ? [{ label: editing.title }] : []), { label: mode.kind === "new" ? tx("Nova comunicação") : tx("Editar") }]} />
       )}
       <header className="admin-head">
-        <h1 className="admin-title">{mode.kind === "new" ? <><img className="admin-title__icon" src={ICONS.preparation} alt="" aria-hidden="true" /> Nova comunicação</> : mode.kind === "edit" ? "✏️ Editar comunicação" : <><img className="admin-title__icon" src={ICONS.preparation} alt="" aria-hidden="true" /> Preparação</>}</h1>
+        <h1 className="admin-title">{mode.kind === "new" ? <><img className="admin-title__icon" src={ICONS.preparation} alt="" aria-hidden="true" /> {tx("Nova comunicação")}</> : mode.kind === "edit" ? tx("✏️ Editar comunicação") : <><img className="admin-title__icon" src={ICONS.preparation} alt="" aria-hidden="true" /> {tx("Preparação")}</>}</h1>
         {mode.kind === "list" && (
           <button type="button" className="button button--primary admin-head__new" disabled={busy} onClick={() => navigate("/preparation/new")}>
-            + Comunicação
+            {tx("+ Comunicação")}
           </button>
         )}
         {mode.kind === "edit" && editing && (
           <button
             type="button"
             className="icon-btn icon-btn--lg icon-btn--danger"
-            title={`Excluir comunicação "${editing.title}"`}
-            aria-label={`Excluir comunicação "${editing.title}"`}
+            title={tx('Excluir comunicação "{title}"', { title: editing.title })}
+            aria-label={tx('Excluir comunicação "{title}"', { title: editing.title })}
             disabled={busy}
             onClick={() => handleDelete(editing)}
           >
@@ -116,12 +118,12 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
       {mode.kind === "list" && (
         <>
           <p className="admin-intro">
-            O que a equipe e os pais precisam saber, levar e vestir <strong>antes</strong> do acampamento.
+            {tx("O que a equipe e os pais precisam saber, levar e vestir")} <strong>{tx("antes")}</strong> {tx("do acampamento.")}
           </p>
           <p className="cat-hint">
-            🎯 A preparação <strong>por função</strong> (ex.: “Inspeção: roupa verde estilo exército com boné”) é escrita na própria função da programação.{" "}
+            {tx("🎯 A preparação")} <strong>{tx("por função")}</strong> {tx("(ex.: “Inspeção: roupa verde estilo exército com boné”) é escrita na própria função da programação.")}{" "}
             <button type="button" className="link-btn" onClick={() => navigate("/schedule/roles")}>
-              Ver Programação → Funções
+              {tx("Ver Programação → Funções")}
             </button>
           </p>
         </>
@@ -130,7 +132,7 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
       {error && <p className="message message--error">{error}</p>}
 
       {mode.kind === "new" && <SectionForm token={token} busy={busy} onSubmit={handleCreate} onCancel={cancel} />}
-      {mode.kind === "edit" && !editing && <p className="opt-empty">Comunicação não encontrada.</p>}
+      {mode.kind === "edit" && !editing && <p className="opt-empty">{tx("Comunicação não encontrada.")}</p>}
       {mode.kind === "edit" && editing && (
         <SectionForm key={editing.id} token={token} section={editing} busy={busy} onSubmit={(i) => handleEdit(editing, i)} onCancel={cancel} />
       )}
@@ -138,9 +140,9 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
       {mode.kind === "list" && sections.length === 0 && (
         <div className="admin-empty">
           <img className="admin-empty__icon" src={ICONS.preparation} alt="" aria-hidden="true" />
-          <p>Nenhuma comunicação ainda. Comece com “O que levar”, “Chegada na igreja” ou “Uniforme da equipe”.</p>
+          <p>{tx("Nenhuma comunicação ainda. Comece com “O que levar”, “Chegada na igreja” ou “Uniforme da equipe”.")}</p>
           <button type="button" className="button button--primary" onClick={() => navigate("/preparation/new")}>
-            + Criar comunicação
+            {tx("+ Criar comunicação")}
           </button>
         </div>
       )}
@@ -154,13 +156,13 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
                   <span aria-hidden="true">{s.emoji}</span> {s.title}
                 </h3>
                 <div className="opt-item__actions">
-                  <button type="button" className="icon-btn" title="Subir" aria-label="Subir" disabled={busy || i === 0} onClick={() => move(s, -1)}>
+                  <button type="button" className="icon-btn" title={tx("Subir")} aria-label={tx("Subir")} disabled={busy || i === 0} onClick={() => move(s, -1)}>
                     ↑
                   </button>
-                  <button type="button" className="icon-btn" title="Descer" aria-label="Descer" disabled={busy || i === sections.length - 1} onClick={() => move(s, 1)}>
+                  <button type="button" className="icon-btn" title={tx("Descer")} aria-label={tx("Descer")} disabled={busy || i === sections.length - 1} onClick={() => move(s, 1)}>
                     ↓
                   </button>
-                  <button type="button" className="icon-btn" title="Editar" aria-label="Editar" disabled={busy} onClick={() => navigate(`/preparation/${s.id}/edit`)}>
+                  <button type="button" className="icon-btn" title={tx("Editar")} aria-label={tx("Editar")} disabled={busy} onClick={() => navigate(`/preparation/${s.id}/edit`)}>
                     <span className="pencil" aria-hidden="true">✏️</span>
                   </button>
                 </div>
@@ -169,7 +171,7 @@ export default function PreparationAdminPage({ token }: PreparationAdminPageProp
               <div className="prep-section__audiences">
                 <PrepAudienceTags audiences={s.audiences} />
               </div>
-              {s.content ? <RichHtml html={s.content} /> : <p className="opt-empty">Sem conteúdo.</p>}
+              {s.content ? <RichHtml html={s.content} /> : <p className="opt-empty">{tx("Sem conteúdo.")}</p>}
             </article>
           ))}
         </div>
@@ -187,12 +189,13 @@ interface SectionFormProps {
 }
 
 function SectionForm({ token, section, busy, onSubmit, onCancel }: SectionFormProps) {
+  const { tx } = useI18n();
   const [title, setTitle] = useState(section?.title ?? "");
   const [emoji, setEmoji] = useState(section?.emoji ?? "📌");
   const [audiences, setAudiences] = useState<PrepAudience[]>(section?.audiences ?? ["caretaker", "helper"]);
   const [content, setContent] = useState(section?.content ?? "");
   const valid = title.trim().length > 0 && audiences.length > 0;
-  const ai = useAiAutoFill({ token, context: "preparation", title, setTitle, emoji, setEmoji, defaultEmoji: "📌", existing: !!section });
+  const ai = useAiAutoFill({ token, context: "preparation", title, setTitle, emoji, setEmoji, defaultEmoji: "📌", existing: !!section, html: content });
 
   return (
     <form
@@ -204,29 +207,29 @@ function SectionForm({ token, section, busy, onSubmit, onCancel }: SectionFormPr
     >
       <div className="cat-form__row">
         <div className="cat-field cat-field--emoji">
-          <span className="cat-field__label">Ícone</span>
-          <EmojiPicker value={emoji} onChange={ai.pickEmoji} suggestions={EMOJI_SUGGESTIONS} disabled={busy} />
+          <span className="cat-field__label">{tx("Ícone")}</span>
+          <EmojiPicker value={emoji} onChange={ai.pickEmoji} suggestions={EMOJI_SUGGESTIONS} disabled={busy} guessing={ai.suggestingEmoji} />
         </div>
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Título{ai.suggesting && <span className="cat-field__ai"> <AiGlyph /> sugerindo…</span>}</span>
+          <span className="cat-field__label">{tx("Título")}{ai.suggesting && <span className="cat-field__ai"> <AiGlyph /> {tx("sugerindo…")}</span>}</span>
           <span className="cat-input-wrap">
-            <input className="cat-input" placeholder="ex.: O que levar na mala" value={title} maxLength={80} autoFocus disabled={busy} onChange={(e) => setTitle(e.target.value)} />
+            <input className="cat-input" placeholder={tx("ex.: O que levar na mala")} value={title} maxLength={80} autoFocus disabled={busy} onChange={(e) => setTitle(e.target.value)} />
             <AiTitleButton html={content} busy={ai.suggesting} disabled={busy} onClick={() => void ai.regenerateTitle(content)} />
           </span>
         </label>
       </div>
       <PrepAudiencePicker value={audiences} onChange={setAudiences} disabled={busy} />
       <div className="cat-field">
-        <span className="cat-field__label">📝 Conteúdo</span>
-        <p className="cat-hint">Texto, listas, links e fotos (🖼️ ou cole / arraste uma imagem).</p>
-        <RichTextEditor token={token} value={content} onChange={setContent} disabled={busy} placeholder="ex.: Leve roupa de banho, toalha, protetor solar…" aiContext="preparation" aiTitle={title} onAiApplied={ai.onAiApplied} />
+        <span className="cat-field__label">{tx("📝 Conteúdo")}</span>
+        <p className="cat-hint">{tx("Texto, listas, links e fotos (🖼️ ou cole / arraste uma imagem).")}</p>
+        <RichTextEditor token={token} value={content} onChange={setContent} disabled={busy} placeholder={tx("ex.: Leve roupa de banho, toalha, protetor solar…")} aiContext="preparation" aiTitle={title} onAiApplied={ai.onAiApplied} />
       </div>
       <div className="cat-form__actions">
         <button type="button" className="button button--secondary" onClick={onCancel} disabled={busy}>
-          Cancelar
+          {tx("Cancelar")}
         </button>
         <button type="submit" className="button button--primary" disabled={!valid || busy}>
-          {busy ? "Salvando…" : section ? "Salvar" : "Criar comunicação 🎉"}
+          {busy ? tx("Salvando…") : section ? tx("Salvar") : tx("Criar comunicação 🎉")}
         </button>
       </div>
     </form>

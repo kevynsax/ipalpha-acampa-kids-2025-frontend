@@ -8,6 +8,7 @@
  */
 import type { ReactNode } from "react";
 import { medicationLine, type Medication } from "../api/campers";
+import { useI18n } from "../i18n";
 import NoPillIcon from "./NoPillIcon";
 
 export interface HealthLike {
@@ -52,14 +53,15 @@ export function healthLines(p: HealthLike, labelOf: HealthAlertsProps["labelOf"]
 
 /** one medicine per line, with the times standing out — what the medical checklist will tick */
 function MedicationLines({ list }: { list: Medication[] }) {
+  const { tx } = useI18n();
   return (
     <ul className="meds__list">
       {list.map((m, i) => {
-        const when = m.asNeeded ? "quando necessário" : m.times.length ? m.times.join(" · ") : "horário a confirmar";
+        const when = m.asNeeded ? tx("quando necessário") : m.times.length ? m.times.join(" · ") : tx("horário a confirmar");
         const missing = !m.asNeeded && m.times.length === 0;
         return (
-          <li key={i} className="staff-card__alert" title="Medicação">
-            <span className="staff-card__alert-icon" role="img" aria-label="Medicação">
+          <li key={i} className="staff-card__alert" title={tx("Medicação")}>
+            <span className="staff-card__alert-icon" role="img" aria-label={tx("Medicação")}>
               💊
             </span>{" "}
             <span>
@@ -74,17 +76,18 @@ function MedicationLines({ list }: { list: Medication[] }) {
 }
 
 export default function HealthAlerts({ person, labelOf, boxed }: HealthAlertsProps) {
+  const { tx } = useI18n();
   const lines = healthLines(person, labelOf);
   if (lines.length === 0) return null;
   const items = lines.map((l) =>
     l.title === "Medicação" && person.medications.length ? (
       <MedicationLines key={l.title} list={person.medications} />
     ) : (
-      <p key={l.title} className={`staff-card__alert ${l.soft ? "staff-card__alert--soft" : ""}`} title={l.title}>
-        <span className="staff-card__alert-icon" role="img" aria-label={l.title}>
+      <p key={l.title} className={`staff-card__alert ${l.soft ? "staff-card__alert--soft" : ""}`} title={tx(l.title)}>
+        <span className="staff-card__alert-icon" role="img" aria-label={tx(l.title)}>
           {l.icon}
         </span>{" "}
-        {l.text}
+        {l.title === "Neurodivergente" ? tx(l.text) : l.text}
       </p>
     ),
   );

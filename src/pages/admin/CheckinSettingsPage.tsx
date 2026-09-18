@@ -8,6 +8,7 @@ import StaffListEditor from "./StaffListEditor";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { speakWhen } from "../../dates";
 import { ICONS } from "../../icons";
+import { useI18n } from "../../i18n";
 
 interface CheckinSettingsPageProps {
   token: string;
@@ -72,6 +73,7 @@ const sameMinute = (a: string | null, b: string | null) => (a ? Math.floor(new D
  * Each section saves on its own, so a change in one never touches the others.
  */
 export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps) {
+  const { tx } = useI18n();
   const settings = useCollection("settings");
   /** phones: the "new meeting point" button shrinks to a bare ➕ */
   const phone = useMediaQuery("(max-width: 760px)");
@@ -116,7 +118,7 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
       await updateSettings(token, patch);
       setSaved(section);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBusy(null);
     }
@@ -133,7 +135,7 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
       await updateSettings(token, { checkinHelpers: { staffIds: nextIds } });
     } catch (err) {
       setChurch(previous);
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBusy(null);
     }
@@ -149,7 +151,7 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
       await updateSettings(token, { busHelpers: { helpers: nextHelpers } });
     } catch (err) {
       setBus(previous);
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBusy(null);
     }
@@ -158,7 +160,7 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
   if (!settings && !error) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Carregando configurações… ⚙️</p>
+        <p className="opt-empty">{tx("Carregando configurações… ⚙️")}</p>
       </div>
     );
   }
@@ -203,9 +205,9 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
     if (busy) return;
     const okReset = await confirm({
       emoji: "🧹",
-      title: "Zerar todos os check-ins?",
-      message: `Isso apaga o check-in de ${kidsChecked} criança(s) e ${staffChecked} pessoa(s) da equipe, os coletes e o histórico. Não pode ser desfeito.`,
-      confirmLabel: "Zerar check-ins",
+      title: tx("Zerar todos os check-ins?"),
+      message: tx("Isso apaga o check-in de {kids} criança(s) e {staff} pessoa(s) da equipe, os coletes e o histórico. Não pode ser desfeito.", { kids: kidsChecked, staff: staffChecked }),
+      confirmLabel: tx("Zerar check-ins"),
       danger: true,
     });
     if (!okReset) return;
@@ -216,7 +218,7 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
       await resetCheckins(token);
       setSaved("reset");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(null);
     }
@@ -227,7 +229,7 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
   return (
     <div className="admin-page">
       <header className="admin-head">
-        <h1 className="admin-title">✅ Check-in</h1>
+        <h1 className="admin-title">✅ {tx("Check-in")}</h1>
       </header>
       {error && <p className="message message--error">{error}</p>}
 
@@ -239,37 +241,37 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
           if (orderOk) void save("window", { checkinWindow: { from: fromIso, until: untilIso } });
         }}
       >
-        <h2 className="cat-form__title">⏰ Janela de horário do check-in</h2>
+        <h2 className="cat-form__title">{tx("⏰ Janela de horário do check-in")}</h2>
         <p className="cat-hint">
-          Nesse horário os ajudantes da igreja <strong>e</strong> do ônibus recebem os dados das crianças e fazem o check-in.
+          {tx("Nesse horário os ajudantes da igreja")} <strong>{tx("e")}</strong>{tx(" do ônibus recebem os dados das crianças e fazem o check-in.")}
         </p>
         <div className="cat-form__row staff-form__row">
           <label className="cat-field cat-field--grow">
-            <span className="cat-field__label">Abre em</span>
+            <span className="cat-field__label">{tx("Abre em")}</span>
             <input className="cat-input" type="datetime-local" value={from} disabled={!!busy} onChange={(e) => setFrom(e.target.value)} />
           </label>
           <label className="cat-field cat-field--grow">
-            <span className="cat-field__label">Fecha em</span>
+            <span className="cat-field__label">{tx("Fecha em")}</span>
             <input className="cat-input" type="datetime-local" value={until} disabled={!!busy} onChange={(e) => setUntil(e.target.value)} />
           </label>
         </div>
-        {testMode && <p className="cat-hint">🧪 Modo de teste ligado — igreja e ônibus estão liberados agora, independente da janela.</p>}
+        {testMode && <p className="cat-hint">{tx("🧪 Modo de teste ligado — igreja e ônibus estão liberados agora, independente da janela.")}</p>}
         {!orderOk ? (
-          <p className="cat-hint cat-hint--error">O fim da janela precisa ser depois do início.</p>
+          <p className="cat-hint cat-hint--error">{tx("O fim da janela precisa ser depois do início.")}</p>
         ) : windowComplete ? (
           <p className="cat-hint">
             {openNow
-              ? `🟢 Aberta agora — fecha ${speakWhen(untilIso!)}`
+              ? tx("🟢 Aberta agora — fecha {when}", { when: speakWhen(untilIso!) })
               : new Date(fromIso!).getTime() > now
-                ? `🕒 Abre ${speakWhen(fromIso!)} até ${speakWhen(untilIso!)}`
-                : `⚫ Fechada — era ${speakWhen(fromIso!)} até ${speakWhen(untilIso!)}`}
+                ? tx("🕒 Abre {from} até {until}", { from: speakWhen(fromIso!), until: speakWhen(untilIso!) })
+                : tx("⚫ Fechada — era {from} até {until}", { from: speakWhen(fromIso!), until: speakWhen(untilIso!) })}
             .
           </p>
         ) : null}
-        {ok("window", openNow ? "Janela salva — está aberta agora." : "Janela salva.")}
+        {ok("window", openNow ? tx("Janela salva — está aberta agora.") : tx("Janela salva."))}
         <div className="cat-form__actions">
           <button type="submit" className="button button--primary" disabled={!orderOk || !windowDirty || !!busy}>
-            {busy === "window" ? "Salvando…" : "Salvar horário ⏰"}
+            {busy === "window" ? tx("Salvando…") : tx("Salvar horário ⏰")}
           </button>
         </div>
       </form>
@@ -283,34 +285,34 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
         }}
       >
         <h2 className="cat-form__title">
-          <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> Janela da volta para a igreja
+          <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> {tx("Janela da volta para a igreja")}
         </h2>
-        <p className="cat-hint">Horário em que os ajudantes fazem a chamada no ônibus antes de sair do acampamento.</p>
+        <p className="cat-hint">{tx("Horário em que os ajudantes fazem a chamada no ônibus antes de sair do acampamento.")}</p>
         <div className="cat-form__row staff-form__row">
           <label className="cat-field cat-field--grow">
-            <span className="cat-field__label">Abre em</span>
+            <span className="cat-field__label">{tx("Abre em")}</span>
             <input className="cat-input" type="datetime-local" value={returnFrom} disabled={!!busy} onChange={(e) => setReturnFrom(e.target.value)} />
           </label>
           <label className="cat-field cat-field--grow">
-            <span className="cat-field__label">Fecha em</span>
+            <span className="cat-field__label">{tx("Fecha em")}</span>
             <input className="cat-input" type="datetime-local" value={returnUntil} disabled={!!busy} onChange={(e) => setReturnUntil(e.target.value)} />
           </label>
         </div>
         {!returnOrderOk ? (
-          <p className="cat-hint cat-hint--error">O fim da janela precisa ser depois do início.</p>
+          <p className="cat-hint cat-hint--error">{tx("O fim da janela precisa ser depois do início.")}</p>
         ) : returnComplete ? (
           <p className="cat-hint">
             {returnOpenNow
-              ? `🟢 Aberta agora — fecha ${speakWhen(returnUntilIso!)}`
+              ? tx("🟢 Aberta agora — fecha {when}", { when: speakWhen(returnUntilIso!) })
               : new Date(returnFromIso!).getTime() > now
-                ? `🕒 Abre ${speakWhen(returnFromIso!)} até ${speakWhen(returnUntilIso!)}`
-                : `⚫ Fechada — era ${speakWhen(returnFromIso!)} até ${speakWhen(returnUntilIso!)}`}.
+                ? tx("🕒 Abre {from} até {until}", { from: speakWhen(returnFromIso!), until: speakWhen(returnUntilIso!) })
+                : tx("⚫ Fechada — era {from} até {until}", { from: speakWhen(returnFromIso!), until: speakWhen(returnUntilIso!) })}.
           </p>
         ) : null}
-        {ok("return-window", returnOpenNow ? "Janela da volta salva — está aberta agora." : "Janela da volta salva.")}
+        {ok("return-window", returnOpenNow ? tx("Janela da volta salva — está aberta agora.") : tx("Janela da volta salva."))}
         <div className="cat-form__actions">
           <button type="submit" className="button button--primary" disabled={!returnOrderOk || !returnDirty || !!busy}>
-            {busy === "return-window" ? "Salvando…" : "Salvar volta"}
+            {busy === "return-window" ? tx("Salvando…") : tx("Salvar volta")}
           </button>
         </div>
       </form>
@@ -318,17 +320,17 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
       {/* ── 2. church helpers ── */}
       <section className="cat-form">
         <StaffListEditor
-          title="⛪ Ajudantes do check-in na igreja"
+          title={tx("⛪ Ajudantes do check-in na igreja")}
           hint={
             <>
-              Durante a janela, veem <strong>todas as crianças</strong> (com os dados de saúde, para conferir com os pais)
+              {tx("Durante a janela, veem")} <strong>{tx("todas as crianças")}</strong>{tx(" (com os dados de saúde, para conferir com os pais)")}
             </>
           }
           value={church}
           onChange={(ids) => void saveChurch(ids)}
           disabled={!!busy}
-          pickerTitle="Adicionar ajudante da igreja"
-          empty="Ninguém escolhido. Só o admin faz o check-in na igreja."
+          pickerTitle={tx("Adicionar ajudante da igreja")}
+          empty={tx("Ninguém escolhido. Só o admin faz o check-in na igreja.")}
         />
       </section>
 
@@ -346,14 +348,13 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
         }}
       >
         <div className="list-head">
-          <h2 className="cat-form__title">📍 Pontos de encontro da equipe</h2>
-          <button type="button" className="button button--secondary list-head__add" disabled={!!busy} onClick={addSpot} title="Novo ponto" aria-label="Novo ponto">
-            {phone ? "➕" : "➕ Novo ponto"}
+          <h2 className="cat-form__title">{tx("📍 Pontos de encontro da equipe")}</h2>
+          <button type="button" className="button button--secondary list-head__add" disabled={!!busy} onClick={addSpot} title={tx("Novo ponto")} aria-label={tx("Novo ponto")}>
+            {phone ? "➕" : tx("➕ Novo ponto")}
           </button>
         </div>
         <p className="cat-hint">
-          Cada pessoa da equipe faz o <strong>próprio check-in</strong> pelo celular ao chegar em um destes pontos (a igreja, o acampamento para quem vai
-          direto…), dentro do raio.
+          {tx("Cada pessoa da equipe faz o")} <strong>{tx("próprio check-in")}</strong>{tx(" pelo celular ao chegar em um destes pontos (a igreja, o acampamento para quem vai direto…), dentro do raio.")}
         </p>
 
         {spots.map((d, i) => {
@@ -372,32 +373,32 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
               )}
               <div className="cat-form__row staff-form__row">
                 <label className="cat-field cat-field--grow">
-                  <span className="cat-field__label">Nome</span>
-                  <input className="cat-input" placeholder="Igreja, Acampamento…" maxLength={60} value={d.name} disabled={!!busy} onChange={(e) => patchSpot(d.id, { name: e.target.value })} />
+                  <span className="cat-field__label">{tx("Nome")}</span>
+                  <input className="cat-input" placeholder={tx("Igreja, Acampamento…")} maxLength={60} value={d.name} disabled={!!busy} onChange={(e) => patchSpot(d.id, { name: e.target.value })} />
                 </label>
                 <label className="cat-field spot-card__radius">
-                  <span className="cat-field__label">Raio (metros)</span>
+                  <span className="cat-field__label">{tx("Raio (metros)")}</span>
                   <input className="cat-input" type="number" inputMode="numeric" min={RADIUS_MIN} max={RADIUS_MAX} step={10} value={d.radius} disabled={!!busy} onChange={(e) => patchSpot(d.id, { radius: e.target.value })} />
                 </label>
               </div>
               <div className="cat-form__row staff-form__row">
                 <label className="cat-field cat-field--grow">
-                  <span className="cat-field__label">Latitude</span>
+                  <span className="cat-field__label">{tx("Latitude")}</span>
                   <input className="cat-input" inputMode="decimal" placeholder="-23.480536" value={d.lat} disabled={!!busy} onChange={(e) => patchSpot(d.id, { lat: e.target.value })} onPaste={(e) => handleLatPaste(d.id, e)} />
                 </label>
                 <label className="cat-field cat-field--grow">
-                  <span className="cat-field__label">Longitude</span>
+                  <span className="cat-field__label">{tx("Longitude")}</span>
                   <input className="cat-input" inputMode="decimal" placeholder="-46.830779" value={d.lng} disabled={!!busy} onChange={(e) => patchSpot(d.id, { lng: e.target.value })} />
                 </label>
               </div>
               {!d.name.trim() ? (
-                <p className="cat-hint cat-hint--error">Dê um nome ao ponto.</p>
+                <p className="cat-hint cat-hint--error">{tx("Dê um nome ao ponto.")}</p>
               ) : (d.lat.trim() !== "" && !latOk) || (d.lng.trim() !== "" && !lngOk) ? (
-                <p className="cat-hint cat-hint--error">Latitude entre -90 e 90, longitude entre -180 e 180.</p>
+                <p className="cat-hint cat-hint--error">{tx("Latitude entre -90 e 90, longitude entre -180 e 180.")}</p>
               ) : !radiusOk ? (
-                <p className="cat-hint cat-hint--error">O raio precisa estar entre {RADIUS_MIN} e {RADIUS_MAX} metros.</p>
+                <p className="cat-hint cat-hint--error">{tx("O raio precisa estar entre {min} e {max} metros.", { min: RADIUS_MIN, max: RADIUS_MAX })}</p>
               ) : !parsed ? (
-                <p className="cat-hint cat-hint--error">Informe latitude e longitude.</p>
+                <p className="cat-hint cat-hint--error">{tx("Informe latitude e longitude.")}</p>
               ) : null}
               <div className="settings-tools">
                 {mappable && (
@@ -409,12 +410,12 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
                       <path fill="#FBBC05" d="M5.27 14.29a7.2 7.2 0 0 1 0-4.58V6.62H1.29a12 12 0 0 0 0 10.76l3.98-3.09z" />
                       <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42A11.97 11.97 0 0 0 12 0 11.99 11.99 0 0 0 1.29 6.62l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z" />
                     </svg>
-                    Abrir no Google Maps
+                    {tx("Abrir no Google Maps")}
                   </a>
                 )}
                 {spots.length > 1 && (
                   <button type="button" className="button button--secondary" disabled={!!busy} onClick={() => removeSpot(d.id)}>
-                    🗑️ Remover ponto
+                    {tx("🗑️ Remover ponto")}
                   </button>
                 )}
               </div>
@@ -423,20 +424,19 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
         })}
 
         <p className="cat-hint">
-          Dica: no Google Maps, clique com o botão direito no local e copie as coordenadas (dá para colar as duas de uma vez no campo Latitude), ou
-          arraste o 📍 no mapa. 200–500 m é um bom raio.
+          {tx("Dica: no Google Maps, clique com o botão direito no local e copie as coordenadas (dá para colar as duas de uma vez no campo Latitude), ou arraste o 📍 no mapa. 200–500 m é um bom raio.")}
         </p>
         {!spots.some((d) => d.id === DEFAULT_CHECKIN_LOCATION.id) && (
           <div className="settings-tools">
             <button type="button" className="button button--secondary" disabled={!!busy} title="Igreja Presbiteriana em Alphaville" onClick={() => setSpots((list) => [toDraft(DEFAULT_CHECKIN_LOCATION), ...list])}>
-              ↺ Adicionar padrão (IPAlpha Tamboré)
+              {tx("↺ Adicionar padrão (IPAlpha Tamboré)")}
             </button>
           </div>
         )}
-        {ok("location", "Pontos salvos! A equipe já pode usar no dia da saída.")}
+        {ok("location", tx("Pontos salvos! A equipe já pode usar no dia da saída."))}
         <div className="cat-form__actions">
           <button type="submit" className="button button--primary" disabled={!spotsValid || !spotsDirty || !!busy}>
-            {busy === "location" ? "Salvando…" : "Salvar pontos 📍"}
+            {busy === "location" ? tx("Salvando…") : tx("Salvar pontos 📍")}
           </button>
         </div>
       </form>
@@ -444,12 +444,12 @@ export default function CheckinSettingsPage({ token }: CheckinSettingsPageProps)
       {/* ── 5. reset (only once someone is checked in) ── */}
       {kidsChecked + staffChecked > 0 && (
       <section className="cat-form">
-        <h2 className="cat-form__title">🧹 Zerar check-ins</h2>
-        <p className="cat-hint">Apaga o check-in de todas as crianças (igreja, ida e volta), da equipe, os coletes e o histórico.</p>
-        {ok("reset", "Check-ins zerados.")}
+        <h2 className="cat-form__title">{tx("🧹 Zerar check-ins")}</h2>
+        <p className="cat-hint">{tx("Apaga o check-in de todas as crianças (igreja, ida e volta), da equipe, os coletes e o histórico.")}</p>
+        {ok("reset", tx("Check-ins zerados."))}
         <div className="settings-tools">
           <button type="button" className="button button--danger" disabled={!!busy} onClick={() => void reset()}>
-            {busy === "reset" ? "Zerando…" : `🧹 Zerar check-ins (${kidsChecked} crianças · ${staffChecked} equipe)`}
+            {busy === "reset" ? tx("Zerando…") : tx("🧹 Zerar check-ins ({kids} crianças · {staff} equipe)", { kids: kidsChecked, staff: staffChecked })}
           </button>
         </div>
       </section>

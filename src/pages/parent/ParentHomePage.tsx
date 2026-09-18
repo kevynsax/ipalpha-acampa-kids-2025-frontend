@@ -22,6 +22,7 @@ import TransportTag from "../../components/TransportTag";
 import AttentionEditDialog from "./AttentionEditDialog";
 import CheckinQrDialog from "./CheckinQrDialog";
 import { speakBirth, speakWhen } from "../../dates";
+import { useI18n } from "../../i18n";
 
 interface ParentHomePageProps {
   user: LoggedUser;
@@ -31,41 +32,45 @@ interface ParentHomePageProps {
 
 
 function ContactBody({ staff: s, title }: { staff: Staff; title?: ReactNode }) {
+  const { tx } = useI18n();
   return (
     <>
       {title && <p className="parent-contact__title">{title}</p>}
       <h3 className="staff-card__name">{s.name}</h3>
-      <p className="staff-card__meta">{s.phone ? formatBrazilPhoneClient(s.phone) : <em className="staff-card__missing">sem celular</em>}</p>
+      <p className="staff-card__meta">{s.phone ? formatBrazilPhoneClient(s.phone) : <em className="staff-card__missing">{tx("sem celular")}</em>}</p>
     </>
   );
 }
 
 /** Compact chip: important contacts sit in one stretching row. */
 function ImportantContact({ staff: s, title, from }: { staff: Staff; title?: ReactNode; from: string }) {
+  const { tx } = useI18n();
   return (
     <li className="parent-chip">
       <div className="parent-chip__body">
         <ContactBody staff={s} title={title} />
       </div>
-      {s.phone && <WhatsAppButton className="wa-btn--sm" href={whatsappLink(s.phone, staffGreeting({ toName: s.name, fromName: from }))} label={`Falar com ${s.name.split(" ")[0]} no WhatsApp`} />}
+      {s.phone && <WhatsAppButton className="wa-btn--sm" href={whatsappLink(s.phone, staffGreeting({ toName: s.name, fromName: from }))} label={tx("Falar com {name} no WhatsApp", { name: s.name.split(" ")[0] })} />}
     </li>
   );
 }
 
 /** Full-width card for the kid's room team — same padding as the identity card. */
 function TeamContact({ staff: s, title, from, about }: { staff: Staff; title?: ReactNode; from: string; about?: string }) {
+  const { tx } = useI18n();
   return (
     <li className="parent-team-card">
       <div className="parent-team-card__body">
         <ContactBody staff={s} title={title} />
       </div>
-      {s.phone && <WhatsAppButton href={whatsappLink(s.phone, staffGreeting({ toName: s.name, fromName: from, about }))} label={`Falar com ${s.name.split(" ")[0]} no WhatsApp`} />}
+      {s.phone && <WhatsAppButton href={whatsappLink(s.phone, staffGreeting({ toName: s.name, fromName: from, about }))} label={tx("Falar com {name} no WhatsApp", { name: s.name.split(" ")[0] })} />}
     </li>
   );
 }
 
 /** One kid: registration data, the team looking after them, the "Pontos de atenção" block and the QR code. */
 function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string; user: LoggedUser; showTeam: boolean }) {
+  const { tx } = useI18n();
   const { camper: k, bedroom, caretaker, roomStaff } = kid;
   const labelOf = useLabelOf();
   const bedrooms = useCollectionOrEmpty("bedrooms");
@@ -73,6 +78,7 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
   const age = ageOf(k.birthDate);
   const sex = kidIconSex(bedroom?.group, k.sex, k.probableGender);
   const first = k.name.split(" ")[0];
+  const bedLabel = labelOf(k.bed);
 
   return (
     <section className="detail-section parent-kid">
@@ -81,45 +87,45 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
           <KidIcon sex={sex} size={40} />
           <span className="parent-kid__identity">
             <span className="parent-kid__name">{k.name}</span>
-            {age !== null && <span className="kid-card__age">{age} anos</span>}
+            {age !== null && <span className="kid-card__age">{tx("{age} anos", { age })}</span>}
           </span>
           <span className="parent-kid__break" aria-hidden="true" />
-          {k.checkin && <span className="parent-kid__status staff-tag staff-tag--here">✅ check-in feito</span>}
+          {k.checkin && <span className="parent-kid__status staff-tag staff-tag--here">{tx("✅ check-in feito")}</span>}
         </h2>
       </header>
 
       <div className="detail-card">
         <dl className="detail-grid">
-          <dt>Nascimento</dt>
+          <dt>{tx("Nascimento")}</dt>
           <dd>{speakBirth(k.birthDate) ?? "—"}</dd>
-          <dt>Time</dt>
+          <dt>{tx("Time")}</dt>
           <dd>
             <TeamTag teamId={k.team} fallback="—" />
           </dd>
-          <dt>Quarto</dt>
+          <dt>{tx("Quarto")}</dt>
           <dd>
             {bedroom ? <BedroomTag bedroom={bedroom} /> : "—"}
-            {labelOf(k.bed) && <span className="staff-tag">Cama {labelOf(k.bed)!.toLowerCase()}</span>}
+            {bedLabel && <span className="staff-tag">{tx("Cama {bed}", { bed: bedLabel.toLowerCase() })}</span>}
           </dd>
-          <dt>Transporte</dt>
+          <dt>{tx("Transporte")}</dt>
           <dd>{k.transportation ? <TransportTag transportId={k.transportation} /> : "—"}</dd>
-          <dt>Líder</dt>
-          <dd>{showTeam ? (caretaker ? <><RoomRoleIcon role="caretaker" sex={staffSex(caretaker, bedrooms)} /> {caretaker.name}</> : "—") : <em className="staff-card__missing">disponível a partir do check-in</em>}</dd>
+          <dt>{tx("Líder")}</dt>
+          <dd>{showTeam ? (caretaker ? <><RoomRoleIcon role="caretaker" sex={staffSex(caretaker, bedrooms)} /> {caretaker.name}</> : "—") : <em className="staff-card__missing">{tx("disponível a partir do check-in")}</em>}</dd>
         </dl>
       </div>
 
       {showTeam && (
         <div className="detail-section">
           <h3 className="detail-h2">
-            <StaffIcon size={24} /> Equipe que cuida de {first}
+            <StaffIcon size={24} /> {tx("Equipe que cuida de {name}", { name: first })}
           </h3>
           {!caretaker && roomStaff.length === 0 ? (
-            <p className="opt-empty">A equipe do quarto ainda não foi definida.</p>
+            <p className="opt-empty">{tx("A equipe do quarto ainda não foi definida.")}</p>
           ) : (
             <ul className="parent-team">
-              {caretaker && <TeamContact staff={caretaker} title={<><RoomRoleIcon role="caretaker" sex={staffSex(caretaker, bedrooms)} /> Líder de {first}</>} from={user.name} about={k.name} />}
+              {caretaker && <TeamContact staff={caretaker} title={<><RoomRoleIcon role="caretaker" sex={staffSex(caretaker, bedrooms)} /> {tx("Líder de {name}", { name: first })}</>} from={user.name} about={k.name} />}
               {roomStaff.map((s) => (
-                <TeamContact key={s.id} staff={s} title={`Equipe do quarto${bedroom ? ` ${bedroom.name}` : ""}`} from={user.name} about={k.name} />
+                <TeamContact key={s.id} staff={s} title={bedroom ? tx("Equipe do quarto {name}", { name: bedroom.name }) : tx("Equipe do quarto")} from={user.name} about={k.name} />
               ))}
             </ul>
           )}
@@ -128,32 +134,32 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
 
       <div className="detail-section">
         <div className="detail-h2-row">
-          <h3 className="detail-h2">⚠️ Pontos de atenção</h3>
+          <h3 className="detail-h2">{tx("⚠️ Pontos de atenção")}</h3>
           <button type="button" className="button button--edit" onClick={() => setEditing(true)}>
-            <span className="pencil" aria-hidden="true">✏️</span> Editar
+            <span className="pencil" aria-hidden="true">✏️</span> {tx("Editar")}
           </button>
         </div>
         <div className="detail-card">
           <dl className="detail-grid">
-            <dt>Peso</dt>
-            <dd>{k.weightKg != null ? `${String(k.weightKg).replace(".", ",")} kg` : "—"}</dd>
-            <dt>Convênio</dt>
+            <dt>{tx("Peso")}</dt>
+            <dd>{k.weightKg != null ? tx("{weight} kg", { weight: String(k.weightKg).replace(".", ",") }) : "—"}</dd>
+            <dt>{tx("Convênio")}</dt>
             <dd>
               {k.insurance || "—"}
-              {k.insuranceCard && <span className="cat-hint">· carteirinha {k.insuranceCard}</span>}
+              {k.insuranceCard && <span className="cat-hint">{tx("· carteirinha {n}", { n: k.insuranceCard })}</span>}
             </dd>
           </dl>
           <HealthAlerts person={k} labelOf={labelOf} boxed />
           {!k.allergies.length && !k.drugAllergies.length && !k.healthIssues.length && !k.medications.length && !k.foodRestrictions && !k.healthNotes && (
-            <p className="cat-hint">Nenhuma alergia, condição ou medicação informada.</p>
+            <p className="cat-hint">{tx("Nenhuma alergia, condição ou medicação informada.")}</p>
           )}
-          <p className="detail-note">📝 {k.generalNotes || <em className="staff-card__missing">sem observações</em>}</p>
+          <p className="detail-note">📝 {k.generalNotes || <em className="staff-card__missing">{tx("sem observações")}</em>}</p>
         </div>
       </div>
 
       <div className="detail-section parent-qr">
-        <h3 className="detail-h2">🎟️ QR code de {first}</h3>
-        <p className="admin-intro">Mostre à equipe na entrada do acampamento para o check-in.</p>
+        <h3 className="detail-h2">{tx("🎟️ QR code de {name}", { name: first })}</h3>
+        <p className="admin-intro">{tx("Mostre à equipe na entrada do acampamento para o check-in.")}</p>
         <CamperQr camperId={k.id} name={k.name} />
       </div>
 
@@ -170,6 +176,7 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
  * ROOM TEAM is not sent by the server; the contacts are.
  */
 export default function ParentHomePage({ user, token, access }: ParentHomePageProps) {
+  const { tx } = useI18n();
   const data = useParentHome();
   const first = user.name.split(" ")[0];
   const [selectedKidId, setSelectedKidId] = useState<string | null>(null);
@@ -184,7 +191,7 @@ export default function ParentHomePage({ user, token, access }: ParentHomePagePr
   if (data === null) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>
+        <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>
       </div>
     );
   }
@@ -192,11 +199,11 @@ export default function ParentHomePage({ user, token, access }: ParentHomePagePr
   if (data.kids.length === 0) {
     return (
       <div className="admin-page">
-        <h1 className="admin-title">Olá, {first}! 👋</h1>
+        <h1 className="admin-title">{tx("Olá, {name}! 👋", { name: first })}</h1>
         <p className="opt-empty">
-          Não encontramos nenhuma criança inscrita com o seu celular.
+          {tx("Não encontramos nenhuma criança inscrita com o seu celular.")}
           <br />
-          Fale com a organização para ajustar o cadastro.
+          {tx("Fale com a organização para ajustar o cadastro.")}
         </p>
       </div>
     );
@@ -208,13 +215,13 @@ export default function ParentHomePage({ user, token, access }: ParentHomePagePr
 
   return (
     <div className="admin-page">
-      <h1 className="admin-title">Olá, {first}! 👋</h1>
+      <h1 className="admin-title">{tx("Olá, {name}! 👋", { name: first })}</h1>
       <p className="admin-intro">
         {access.open
-          ? "O acampamento está rolando! Aqui estão os contatos e as informações das suas crianças."
+          ? tx("O acampamento está rolando! Aqui estão os contatos e as informações das suas crianças.")
           : access.opensAt && new Date(access.opensAt).getTime() > Date.now()
-            ? `A equipe do quarto aparece aqui a partir do check-in (${speakWhen(access.opensAt, { long: true })}).`
-            : "O acampamento terminou. Obrigado por confiar em nós! 💚"}
+            ? tx("A equipe do quarto aparece aqui a partir do check-in ({when}).", { when: speakWhen(access.opensAt, { long: true }) })
+            : tx("O acampamento terminou. Obrigado por confiar em nós! 💚")}
       </p>
 
       <CheckinQrDialog kids={kids} active={access.checkin} />
@@ -222,7 +229,7 @@ export default function ParentHomePage({ user, token, access }: ParentHomePagePr
       {/* the numbers to call — shown the whole time the parent has access, not only during the camp */}
       {data.contacts.length > 0 && (
         <section className="detail-section">
-          <h2 className="detail-h2">📞 Contatos importantes</h2>
+          <h2 className="detail-h2">📞 {tx("Contatos importantes")}</h2>
           <ul className="parent-contacts">
             {data.contacts.map((c) => (
               <ImportantContact key={c.id} staff={c.staff} title={c.title} from={user.name} />

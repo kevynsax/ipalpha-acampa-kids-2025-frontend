@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import ParentIcon from "../../components/ParentIcon";
 import ParentKidTabs from "../../components/ParentKidTabs";
 import { formatCpf } from "../../cpf";
+import { useI18n } from "../../i18n";
 import { formatBrazilPhoneClient } from "../../phoneFormat";
 import { roleMeta, type LoggedUser, type Role } from "../../roles";
 import { useParentHome, type MyKid } from "../../store/derive";
@@ -16,6 +17,7 @@ interface ParentProfileProps {
 
 /** The emergency block of ONE kid — what the registration form collected, read-only. */
 function KidEmergency({ kid: { camper: k }, tabbed }: { kid: MyKid; tabbed: boolean }) {
+  const { tx } = useI18n();
   return (
     <section
       id="parent-profile-kid-panel"
@@ -23,41 +25,41 @@ function KidEmergency({ kid: { camper: k }, tabbed }: { kid: MyKid; tabbed: bool
       aria-labelledby={tabbed ? `parent-profile-kid-tab-${k.id}` : undefined}
       className="detail-section"
     >
-      <h2 className="detail-h2">🚨 Emergência · {k.name.split(" ")[0]}</h2>
+      <h2 className="detail-h2">{tx("🚨 Emergência · {name}", { name: k.name.split(" ")[0] })}</h2>
       <div className="detail-card">
         <dl className="detail-grid">
-          <dt>Responsável</dt>
+          <dt>{tx("Responsável")}</dt>
           <dd>{k.guardianName || "—"}</dd>
-          <dt>Telefone</dt>
+          <dt>{tx("Telefone")}</dt>
           <dd>{k.guardianPhone ? formatBrazilPhoneClient(k.guardianPhone) : "—"}</dd>
           {k.guardianEmail && (
             <>
-              <dt>E-mail</dt>
+              <dt>{tx("E-mail")}</dt>
               <dd>{k.guardianEmail}</dd>
             </>
           )}
           {k.guardianCpf && (
             <>
-              <dt>CPF</dt>
+              <dt>{tx("CPF")}</dt>
               <dd>{formatCpf(k.guardianCpf)}</dd>
             </>
           )}
-          <dt>Emergência</dt>
+          <dt>{tx("Emergência")}</dt>
           <dd>{k.emergencyContact || "—"}</dd>
-          <dt>Convênio</dt>
+          <dt>{tx("Convênio")}</dt>
           <dd>
             {k.insurance || "—"}
-            {k.insuranceCard && <span className="cat-hint">· carteirinha {k.insuranceCard}</span>}
+            {k.insuranceCard && <span className="cat-hint">{tx("· carteirinha {n}", { n: k.insuranceCard })}</span>}
           </dd>
           {(k.rg || k.cpf) && (
             <>
-              <dt>Documentos</dt>
-              <dd>{[k.rg && `RG ${k.rg}`, k.cpf && `CPF ${formatCpf(k.cpf)}`].filter(Boolean).join(" · ")}</dd>
+              <dt>{tx("Documentos")}</dt>
+              <dd>{[k.rg && tx("RG {n}", { n: k.rg }), k.cpf && tx("CPF {n}", { n: formatCpf(k.cpf) })].filter(Boolean).join(" · ")}</dd>
             </>
           )}
         </dl>
       </div>
-      <p className="cat-hint">Para corrigir o contato de emergência ou os documentos, fale com a organização. O convênio você edita em Início → Pontos de atenção.</p>
+      <p className="cat-hint">{tx("Para corrigir o contato de emergência ou os documentos, fale com a organização. O convênio você edita em Início → Pontos de atenção.")}</p>
     </section>
   );
 }
@@ -69,6 +71,7 @@ function KidEmergency({ kid: { camper: k }, tabbed }: { kid: MyKid; tabbed: bool
  * the same tab strip as Início picks which one is shown.
  */
 export default function ParentProfile({ user, onLogout, loggingOut, onSwitchRole }: ParentProfileProps) {
+  const { tx } = useI18n();
   const meta = roleMeta(user.activeRole);
   const data = useParentHome();
   const [selectedKidId, setSelectedKidId] = useState<string | null>(null);
@@ -84,7 +87,7 @@ export default function ParentProfile({ user, onLogout, loggingOut, onSwitchRole
     try {
       await onSwitchRole(role);
     } catch (err) {
-      setSwitchError(err instanceof Error ? err.message : "Não foi possível trocar de perfil.");
+      setSwitchError(err instanceof Error ? err.message : tx("Não foi possível trocar de perfil."));
       setSwitchingTo(null);
     }
   }
@@ -106,24 +109,22 @@ export default function ParentProfile({ user, onLogout, loggingOut, onSwitchRole
           <ParentIcon size={40} /> {user.name}
         </h1>
       </header>
-      <p className="admin-intro">
-        Você entrou como <strong>{meta.personLabel}</strong>.
-      </p>
+      <p className="admin-intro">{tx("Você entrou como {role}.", { role: tx(meta.personLabel) })}</p>
 
       <section className="detail-card">
         <dl className="detail-grid">
-          <dt>Celular</dt>
+          <dt>{tx("Celular")}</dt>
           <dd>{formatBrazilPhoneClient(user.phone)}</dd>
-          <dt>Perfil</dt>
+          <dt>{tx("Perfil")}</dt>
           <dd>
             {/* the one they are already in: a plain label, nothing to tap */}
             <span className="role-chip role-chip--small role-chip--bare">
-              <img className="role-chip__icon" src={meta.icon} alt="" aria-hidden="true" /> {meta.label}
+              <img className="role-chip__icon" src={meta.icon} alt="" aria-hidden="true" /> {tx(meta.label)}
             </span>
           </dd>
           {otherRoles.length > 0 && (
             <>
-              <dt>Outros perfis</dt>
+              <dt>{tx("Outros perfis")}</dt>
               <dd>
                 {otherRoles.map((r) => {
                   const m = roleMeta(r);
@@ -134,9 +135,9 @@ export default function ParentProfile({ user, onLogout, loggingOut, onSwitchRole
                       className={`role-chip role-chip--${m.color} role-chip--small role-chip--switch`}
                       disabled={!!switchingTo}
                       onClick={() => void enterAs(r)}
-                      title={`Entrar como ${m.label}`}
+                      title={tx("Entrar como {role}", { role: tx(m.label) })}
                     >
-                      <img className="role-chip__icon" src={m.icon} alt="" aria-hidden="true" /> {switchingTo === r ? "Entrando…" : m.label}
+                      <img className="role-chip__icon" src={m.icon} alt="" aria-hidden="true" /> {switchingTo === r ? tx("Entrando…") : tx(m.label)}
                     </button>
                   );
                 })}
@@ -154,7 +155,7 @@ export default function ParentProfile({ user, onLogout, loggingOut, onSwitchRole
 
       <div className="profile-actions">
         <button type="button" className="button button--danger profile-logout" onClick={onLogout} disabled={loggingOut}>
-          {loggingOut ? "Saindo…" : "Sair do aplicativo"}
+          {loggingOut ? tx("Saindo…") : tx("Sair do aplicativo")}
         </button>
       </div>
     </div>

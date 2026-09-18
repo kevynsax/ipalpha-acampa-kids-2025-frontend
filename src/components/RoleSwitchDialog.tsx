@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Dialog from "./Dialog";
 import { ICONS } from "../icons";
+import { useI18n } from "../i18n";
 import { roleMeta, type LoggedUser, type Role } from "../roles";
 
 interface RoleSwitchDialogProps {
@@ -23,6 +24,7 @@ interface RoleSwitchDialogProps {
  * dialog) — see pages/Dashboard#ProfileView and pages/parent/ParentProfile.
  */
 export default function RoleSwitchDialog({ open, onClose, user, onSwitch }: RoleSwitchDialogProps) {
+  const { tx, t } = useI18n();
   const [busy, setBusy] = useState<Role | null>(null);
   const [error, setError] = useState<string | null>(null);
   const current = user.activeRole;
@@ -36,20 +38,20 @@ export default function RoleSwitchDialog({ open, onClose, user, onSwitch }: Role
     try {
       await onSwitch(role);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível entrar com este perfil.");
+      setError(err instanceof Error ? err.message : tx("Não foi possível entrar com este perfil."));
       setBusy(null);
     }
   }
 
   return (
-    <Dialog open={open} onClose={onClose} width={520} title="Escolha o perfil" dismissible={false}>
+    <Dialog open={open} onClose={onClose} width={520} title={tx("Escolha o perfil")} dismissible={false}>
       <div className="role-switch">
         <div className="role-switch__sky" aria-hidden="true">
           <img className="role-switch__emoji" src={ICONS.badge} alt="" />
         </div>
         <div className="role-switch__body">
-          <h2 className="role-switch__title">Com qual perfil você quer entrar?</h2>
-          <p className="role-switch__text">Você tem mais de um perfil no acampamento.</p>
+          <h2 className="role-switch__title">{t("login.chooseProfile")}</h2>
+          <p className="role-switch__text">{tx("Você tem mais de um perfil no acampamento.")}</p>
 
           {error && <p className="message message--error">{error}</p>}
 
@@ -66,8 +68,8 @@ export default function RoleSwitchDialog({ open, onClose, user, onSwitch }: Role
                   >
                     <img className="role-switch__icon" src={meta.icon} alt="" aria-hidden="true" />
                     <span className="role-switch__option-body">
-                      <span className="role-switch__option-label">{meta.label}</span>
-                      <span className="role-switch__option-hint">{busy === role ? "entrando…" : meta.description}</span>
+                      <span className="role-switch__option-label">{tx(meta.label)}</span>
+                      <span className="role-switch__option-hint">{busy === role ? tx("entrando…") : tx(meta.description)}</span>
                     </span>
                   </button>
                 </li>

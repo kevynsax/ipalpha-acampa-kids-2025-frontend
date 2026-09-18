@@ -14,6 +14,7 @@ import { createTransport, deleteTransport, updateTransport, type Transport, type
 import TransportForm from "./TransportForm";
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import { ICONS } from "../../icons";
+import { collatorLocale, useI18n } from "../../i18n";
 
 /** which side of the board the filter is focused on */
 type ScopeFilter = "all" | "campers" | "staff";
@@ -63,6 +64,7 @@ const COLORS_BY_WING: Record<BedroomGroup, readonly CrewColor[]> = {
  * the left takes it off the vehicle.
  */
 export default function BusAssignPage({ token }: BusAssignPageProps) {
+  const { tx } = useI18n();
   const storedBedrooms = useCollection("bedrooms");
   const storedTransports = useCollection("transports");
   const campers = useCollectionOrEmpty("campers");
@@ -86,7 +88,7 @@ export default function BusAssignPage({ token }: BusAssignPageProps) {
 
   const bedrooms = useMemo(() => (storedBedrooms ? sortRooms(storedBedrooms) : null), [storedBedrooms]);
   const vehicles = useMemo(() => (storedTransports ? storedTransports.slice().sort((a, b) => a.order - b.order) : null), [storedTransports]);
-  const kids = useMemo(() => campers.slice().sort((a, b) => a.name.localeCompare(b.name, "pt-BR")), [campers]);
+  const kids = useMemo(() => campers.slice().sort((a, b) => a.name.localeCompare(b.name, collatorLocale())), [campers]);
 
   const vehicleIds = useMemo(() => new Set(vehicles?.map((v) => v.id) ?? []), [vehicles]);
   /** a transportation id that matches no vehicle (deleted) counts as "sem ônibus" */
@@ -94,14 +96,14 @@ export default function BusAssignPage({ token }: BusAssignPageProps) {
   const waitingAll = kids.filter((k) => !isPlaced(k));
   const placedCount = kids.length - waitingAll.length;
   /** the team travels too — one by one, never dragged along by their crew */
-  const team = staff.filter((s) => s.active).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  const team = staff.filter((s) => s.active).sort((a, b) => a.name.localeCompare(b.name, collatorLocale()));
   const teamWaiting = team.filter((s) => !(s.transportation && vehicleIds.has(s.transportation)));
 
   // ── who looks after whom ──
 
   /** the líderes of a room, in a stable order (their colour index) */
   function caretakersOf(roomId: string): Staff[] {
-    return staff.filter((s) => s.bedroom === roomId && s.roomRole === "caretaker").sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    return staff.filter((s) => s.bedroom === roomId && s.roomRole === "caretaker").sort((a, b) => a.name.localeCompare(b.name, collatorLocale()));
   }
 
   /** a crew's colour: their líder's colour in the room (null = no líder) */
@@ -123,7 +125,7 @@ export default function BusAssignPage({ token }: BusAssignPageProps) {
       byLead.get(key)!.members.push(k);
     }
     return [...byLead.values()].sort((a, b) =>
-      (a.lead?.name ?? a.members[0].name).localeCompare(b.lead?.name ?? b.members[0].name, "pt-BR"),
+      (a.lead?.name ?? a.members[0].name).localeCompare(b.lead?.name ?? b.members[0].name, collatorLocale()),
     );
   }
 
@@ -153,7 +155,7 @@ export default function BusAssignPage({ token }: BusAssignPageProps) {
       try {
         for (const s of moving) await updateStaff(token, s.id, { transportation: busId });
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Algo deu errado.");
+        setError(e instanceof Error ? e.message : tx("Algo deu errado."));
       } finally {
         setSaving((prev) => {
           const next = new Set(prev);
@@ -170,7 +172,7 @@ export default function BusAssignPage({ token }: BusAssignPageProps) {
     try {
       for (const k of moving) await updateCamper(token, k.id, { transportation: busId });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setSaving((prev) => {
         const next = new Set(prev);
@@ -330,20 +332,25 @@ export default function BusAssignPage({ token }: BusAssignPageProps) {
     if (
       !(await confirm({
         emoji: "🗑️",
-        title: `Excluir "${v.label}"?`,
-        message: aboard > 0 ? `${aboard} ${aboard === 1 ? "criança fica sem" : "crianças ficam sem"} ônibus. Isso não pode ser desfeito.` : "Isso não pode ser desfeito.",
-        confirmLabel: "Excluir",
+        title: tx('Excluir "{label}"?', { label: v.label }),
+        message:
+          aboard > 0
+            ? aboard === 1
+              ? tx("{n} criança fica sem ônibus. Isso não pode ser desfeito.", { n: aboard })
+              : tx("{n} crianças ficam sem ônibus. Isso não pode ser desfeito.", { n: aboard })
+            : tx("Isso não pode ser desfeito."),
+        confirmLabel: tx("Excluir"),
         danger: true,
       }))
     )
       return;
-    await deleteTransport(token, v.id).catch((e) => setError(e instanceof Error ? e.message : "Algo deu errado."));
+    await deleteTransport(token, v.id).catch((e) => setError(e instanceof Error ? e.message : tx("Algo deu errado.")));
   }
 
   if (!bedrooms || !vehicles) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>
+        <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>
       </div>
     );
   }
@@ -355,35 +362,39 @@ export default function BusAssignPage({ token }: BusAssignPageProps) {
 
   return (
     <div className="admin-page" onPointerDown={boardPointerDown}>
-      <DesktopBoardNotice what="alocar os ônibus" icon={ICONS.desktopBetterBus} />
+      <DesktopBoardNotice what={tx("alocar os ônibus")} icon={ICONS.desktopBetterBus} />
       <header className="admin-head">
         <h1 className="admin-title">
-          <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> Ônibus
+          <img className="admin-title__icon" src={ICONS.transport} alt="" aria-hidden="true" /> {tx("Ônibus")}
         </h1>
         <div className="admin-head__actions">
           <button type="button" className="button button--primary admin-head__new" disabled={!!dragUnit || vehicleBusy} onClick={() => setVehicleForm({ kind: "create" })}>
-            + Novo
+            {tx("+ Novo")}
           </button>
         </div>
       </header>
 
       {error && <p className="message message--error">{error}</p>}
       {waitingAll.length > 0 ? (
-        <p className="message message--warn">⚠️ {waitingAll.length} {waitingAll.length === 1 ? "criança ainda sem" : "crianças ainda sem"} ônibus.</p>
+        <p className="message message--warn">
+          {waitingAll.length === 1
+            ? tx("⚠️ {n} criança ainda sem ônibus.", { n: waitingAll.length })
+            : tx("⚠️ {n} crianças ainda sem ônibus.", { n: waitingAll.length })}
+        </p>
       ) : (
-        kids.length > 0 && <p className="message message--ok">Todas as crianças têm ônibus. 🎉</p>
+        kids.length > 0 && <p className="message message--ok">{tx("Todas as crianças têm ônibus. 🎉")}</p>
       )}
 
       <p className="admin-intro">
-        {vehicles.length} {vehicles.length === 1 ? "veículo" : "veículos"} · <strong>{placedCount}</strong> de {kids.length} crianças alocadas
+        {vehicles.length} {vehicles.length === 1 ? tx("veículo") : tx("veículos")} · <strong>{placedCount}</strong> {tx("de {n} crianças alocadas", { n: kids.length })}
       </p>
 
-      <div className="assign-toolbar" role="group" aria-label="Filtros">
+      <div className="assign-toolbar" role="group" aria-label={tx("Filtros")}>
         {(
           [
-            { key: "all" as const, label: "Todos", icon: null as string | null, count: waitingAll.length + teamWaiting.length },
-            { key: "campers" as const, label: "Crianças", icon: ICONS.camper, count: waitingAll.length },
-            { key: "staff" as const, label: "Equipe", icon: GROUP_META.staff.icon ?? null, count: teamWaiting.length },
+            { key: "all" as const, label: tx("Todos"), icon: null as string | null, count: waitingAll.length + teamWaiting.length },
+            { key: "campers" as const, label: tx("Crianças"), icon: ICONS.camper, count: waitingAll.length },
+            { key: "staff" as const, label: tx("Equipe"), icon: GROUP_META.staff.icon ?? null, count: teamWaiting.length },
           ] satisfies { key: ScopeFilter; label: string; icon: string | null; count: number }[]
         ).map((f) => (
           <button
@@ -398,17 +409,17 @@ export default function BusAssignPage({ token }: BusAssignPageProps) {
             <span className="cat-tab__count">{f.count}</span>
           </button>
         ))}
-        <Toggle checked={showStaff} onChange={setShowStaff} label="Mostrar os líderes" />
+        <Toggle checked={showStaff} onChange={setShowStaff} label={tx("Mostrar os líderes")} />
       </div>
 
       <div className="assign-layout">
         {/* ── left: the rooms, kids grouped per líder, waiting for a bus ── */}
         <section className={`assign-pool${dropState("pool")}`} data-assign-drop="pool">
-          {waitingAll.length === 0 && teamWaiting.length === 0 && <p className="opt-empty">Todo mundo tem ônibus. 🎉</p>}
+          {waitingAll.length === 0 && teamWaiting.length === 0 && <p className="opt-empty">{tx("Todo mundo tem ônibus. 🎉")}</p>}
 
           {showCampers && poolKids.length > 0 && (
             <div className="bus-wing">
-              <h3 className="bus-wing__title">Sem quarto</h3>
+              <h3 className="bus-wing__title">{tx("Sem quarto")}</h3>
               <div className="bus-room__chips">
                 {crewsOf(poolKids).map((crew) => (
                   <CrewCard key={crew.key} crew={crew} saving={saving} colorOf={crewColor} bedrooms={bedrooms} showLead={showStaff} onBeginDrag={(e) => beginDrag(e, { kind: "kids", ids: crew.members.map((k) => k.id), from: null })} onBeginKidDrag={(e, k) => beginDrag(e, { kind: "kids", ids: [k.id], from: null })} />
@@ -440,7 +451,7 @@ export default function BusAssignPage({ token }: BusAssignPageProps) {
           {showTeam && teamWaiting.length > 0 && (
             <div className="bus-wing">
               <h3 className="bus-wing__title room-group__title--green">
-                <img className="bus-wing__icon" src={GROUP_META.staff.icon} alt="" aria-hidden="true" /> Equipe
+                <img className="bus-wing__icon" src={GROUP_META.staff.icon} alt="" aria-hidden="true" /> {tx("Equipe")}
               </h3>
               <div className="bus-room__chips">
                 {teamWaiting.map((s) => (
@@ -457,11 +468,10 @@ export default function BusAssignPage({ token }: BusAssignPageProps) {
             <div className="admin-empty">
               <img className="admin-empty__img" src={ICONS.transport} alt="" aria-hidden="true" />
               <p>
-                Cadastre cada <strong>ônibus</strong> (com sua cor e número) e cada <strong>carro</strong> que traz as
-                crianças ao acampamento.
+                {tx("Cadastre cada")} <strong>{tx("ônibus")}</strong> {tx("(com sua cor e número) e cada")} <strong>{tx("carro")}</strong> {tx("que traz as crianças ao acampamento.")}
               </p>
               <button type="button" className="button button--primary" onClick={() => setVehicleForm({ kind: "create" })}>
-                + Criar o primeiro
+                {tx("+ Criar o primeiro")}
               </button>
             </div>
           ) : (
@@ -504,22 +514,24 @@ export default function BusAssignPage({ token }: BusAssignPageProps) {
                         <span className="bus-card__name">{v.label}</span>
                         <span className={`bus-card__seats${over ? " bus-card__seats--over" : ""}`}>
                           {v.capacity != null
-                            ? <>{aboardAll.length} de {v.capacity} {v.capacity === 1 ? "lugar" : "lugares"}</>
-                            : <>{aboardAll.length} {aboardAll.length === 1 ? "pessoa" : "pessoas"}</>}
-                          {over ? " · lotado" : ""}
+                            ? v.capacity === 1
+                              ? tx("{n} de {capacity} lugar", { n: aboardAll.length, capacity: v.capacity })
+                              : tx("{n} de {capacity} lugares", { n: aboardAll.length, capacity: v.capacity })
+                            : <>{aboardAll.length} {aboardAll.length === 1 ? tx("pessoa") : tx("pessoas")}</>}
+                          {over ? tx(" · lotado") : ""}
                         </span>
                       </div>
                       <div className="bus-card__tools">
-                        <button type="button" className="icon-btn icon-btn--bare" title="Editar transporte" disabled={vehicleBusy} onClick={() => setVehicleForm({ kind: "edit", transport: v })}>
+                        <button type="button" className="icon-btn icon-btn--bare" title={tx("Editar transporte")} disabled={vehicleBusy} onClick={() => setVehicleForm({ kind: "edit", transport: v })}>
                           <span className="pencil" aria-hidden="true">✏️</span>
                         </button>
-                        <button type="button" className="icon-btn icon-btn--bare icon-btn--danger" title="Excluir transporte" disabled={vehicleBusy} onClick={() => handleDeleteVehicle(v)}>
+                        <button type="button" className="icon-btn icon-btn--bare icon-btn--danger" title={tx("Excluir transporte")} disabled={vehicleBusy} onClick={() => handleDeleteVehicle(v)}>
                           🗑️
                         </button>
                       </div>
                     </header>
                     {aboardAll.length === 0 && staffAboardAll.length === 0 ? (
-                      <p className="bus-card__empty">Arraste a turma de um líder para cá.</p>
+                      <p className="bus-card__empty">{tx("Arraste a turma de um líder para cá.")}</p>
                     ) : (
                       <>
                         {/* the team rides in the front of the bus — its own section, set apart by spacing */}
@@ -607,7 +619,7 @@ export default function BusAssignPage({ token }: BusAssignPageProps) {
       <Dialog
         open={!!vehicleForm}
         onClose={() => setVehicleForm(null)}
-        title={vehicleForm?.kind === "edit" ? "Editar transporte" : "Novo transporte"}
+        title={vehicleForm?.kind === "edit" ? tx("Editar transporte") : tx("Novo transporte")}
         width={560}
       >
         {vehicleForm && (
@@ -650,6 +662,7 @@ function CrewCard({
   /** grab a single kid by their own chip — e.g. one child riding in a parent's car */
   onBeginKidDrag: (e: React.PointerEvent, kid: Camper) => void;
 }) {
+  const { tx } = useI18n();
   const busy = crew.members.some((k) => saving.has(k.id));
   // all members share the líder, so the first kid's colour is the crew's
   const color = colorOf(crew.members[0]);
@@ -660,7 +673,7 @@ function CrewCard({
       onPointerDown={onBeginDrag}
       role="button"
       tabIndex={0}
-      aria-label={crewLabel(crew)}
+      aria-label={crewLabel(crew, tx)}
     >
       {lead && (
         <span className="bus-crew__lead">
@@ -716,11 +729,11 @@ function StaffChip({
   );
 }
 
-function crewLabel(crew: Crew): string {
+function crewLabel(crew: Crew, tx: (pt: string, vars?: Record<string, string | number>) => string): string {
   const who = crew.members.map((k) => firstName(k.name)).join(", ");
-  return crew.lead ? `Turma de ${firstName(crew.lead.name)}: ${who}` : who;
+  return crew.lead ? tx("Turma de {name}: {who}", { name: firstName(crew.lead.name), who }) : who;
 }
 
 function sortRooms(list: Bedroom[]): Bedroom[] {
-  return list.slice().sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { numeric: true }));
+  return list.slice().sort((a, b) => a.name.localeCompare(b.name, collatorLocale(), { numeric: true }));
 }

@@ -10,6 +10,7 @@ import { QrGlyph } from "./Glyph";
 import { ICONS } from "../icons";
 import { goBack, useRoute } from "../router";
 import Breadcrumbs from "./Breadcrumbs";
+import { useI18n } from "../i18n";
 
 interface EmergencyScanFabProps {
   token: string;
@@ -26,6 +27,7 @@ interface EmergencyScanFabProps {
  */
 export default function EmergencyScanFab({ token, page = false }: EmergencyScanFabProps) {
   const { navigate } = useRoute();
+  const { tx } = useI18n();
   const [scannerOpen, setScannerOpen] = useState(page);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +37,7 @@ export default function EmergencyScanFab({ token, page = false }: EmergencyScanF
     async (raw: string) => {
       const id = camperIdFromQr(raw);
       if (!id) {
-        setError("Esse QR code não é de um crachá / pulseira do Acampa Kids.");
+        setError(tx("Esse QR code não é de um crachá / pulseira do Acampa Kids."));
         setScannerOpen(false);
         return;
       }
@@ -53,12 +55,12 @@ export default function EmergencyScanFab({ token, page = false }: EmergencyScanF
       } catch (e) {
         setScannerOpen(false);
         if (e instanceof ApiError) setError(e.message);
-        else setError(e instanceof Error ? e.message : "Não foi possível ler o crachá.");
+        else setError(e instanceof Error ? e.message : tx("Não foi possível ler o crachá."));
       } finally {
         setBusy(false);
       }
     },
-    [token],
+    [token, tx],
   );
 
   function scanAnother() {
@@ -83,12 +85,12 @@ export default function EmergencyScanFab({ token, page = false }: EmergencyScanF
       <button
         type="button"
         className="fab fab--emergency"
-        title="Ler o crachá de qualquer criança (emergência)"
-        aria-label="Ler o crachá de qualquer criança"
+        title={tx("Ler o crachá de qualquer criança (emergência)")}
+        aria-label={tx("Ler o crachá de qualquer criança")}
         onClick={() => navigate("/badge")}
       >
         <img className="fab__kid" src={ICONS.boyFace} alt="" aria-hidden="true" />
-        <span className="fab__label">Ler crachá</span>
+        <span className="fab__label">{tx("Ler crachá")}</span>
         <span className="fab__icon" aria-hidden="true">
           <QrGlyph size="1.4em" />
         </span>
@@ -101,11 +103,11 @@ export default function EmergencyScanFab({ token, page = false }: EmergencyScanF
     <div className="admin-page lookup-result">
       {!result && (
         <>
-          <Breadcrumbs items={[{ label: "Voltar", onClick: back }, { label: "Ler crachá" }]} />
+          <Breadcrumbs items={[{ label: tx("Voltar"), onClick: back }, { label: tx("Ler crachá") }]} />
           <header className="admin-head">
-            <h1 className="admin-title"><QrGlyph /> Ler crachá</h1>
+            <h1 className="admin-title"><QrGlyph /> {tx("Ler crachá")}</h1>
             <button type="button" className="button button--primary" onClick={scanAnother}>
-              Ler pulseira ou crachá
+              {tx("Ler pulseira ou crachá")}
             </button>
           </header>
         </>
@@ -114,13 +116,13 @@ export default function EmergencyScanFab({ token, page = false }: EmergencyScanF
       <QrScannerDialog open={scannerOpen} busy={busy} onScan={(v) => void onScan(v)} onClose={closeScanner} />
 
       {error && (
-        <Dialog open onClose={() => setError(null)} title="Não deu para ler" width={420}>
+        <Dialog open onClose={() => setError(null)} title={tx("Não deu para ler")} width={420}>
           <div className="cat-form cat-form--plain">
-            <h2 className="cat-form__title">Não deu para ler</h2>
+            <h2 className="cat-form__title">{tx("Não deu para ler")}</h2>
             <p className="message message--error">{error}</p>
             <div className="cat-form__actions">
               <button type="button" className="button button--secondary" onClick={() => setError(null)}>
-                Fechar
+                {tx("Fechar")}
               </button>
               <button
                 type="button"
@@ -130,7 +132,7 @@ export default function EmergencyScanFab({ token, page = false }: EmergencyScanF
                   setScannerOpen(true);
                 }}
               >
-                Tentar de novo
+                {tx("Tentar de novo")}
               </button>
             </div>
           </div>
@@ -141,8 +143,11 @@ export default function EmergencyScanFab({ token, page = false }: EmergencyScanF
         <>
           {!result.belonged && (
             <p className="message message--warn">
-              ⚠️ Esta criança <strong>não é do seu quarto</strong>. Use só em emergência
-              {result.foreignLookupCount > 0 ? ` (leitura fora do escopo nº ${result.foreignLookupCount})` : ""}.
+              ⚠️ {tx("Esta criança")} <strong>{tx("não é do seu quarto")}</strong>
+              {result.foreignLookupCount > 0
+                ? tx(". Use só em emergência (leitura fora do escopo nº {n})", { n: result.foreignLookupCount })
+                : tx(". Use só em emergência")}
+              .
             </p>
           )}
           <CamperDetail
@@ -152,16 +157,16 @@ export default function EmergencyScanFab({ token, page = false }: EmergencyScanF
             bedroomOverride={result.bedroom}
             caretakerOverride={result.caretaker}
             nav={{
-              crumbs: [{ label: "Voltar", onClick: back }, { label: "Criança" }],
+              crumbs: [{ label: tx("Voltar"), onClick: back }, { label: tx("Criança") }],
               setTitle: () => undefined,
             }}
           />
           <div className="cat-form__actions">
             <button type="button" className="button button--secondary" onClick={back}>
-              Voltar
+              {tx("Voltar")}
             </button>
             <button type="button" className="button button--primary" onClick={scanAnother}>
-              Ler outro
+              {tx("Ler outro")}
             </button>
           </div>
         </>

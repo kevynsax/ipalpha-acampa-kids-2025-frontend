@@ -4,6 +4,7 @@ import { estimateCostUsd, usd } from "../../aiCost";
 import AiVendorLogo from "../../components/AiVendorLogo";
 import { AiGlyph } from "../../components/Glyph";
 import { speakStamp } from "../../dates";
+import { useI18n } from "../../i18n";
 import { useUsdtBrl } from "../../usdtRate";
 
 interface AboutPageProps {
@@ -19,6 +20,7 @@ const VENDOR_NAMES: Record<string, string> = {
   meta: "Meta",
   zhipu: "Zhipu AI",
   google: "Google",
+  alibaba: "Alibaba",
 };
 
 /** slice colour per lab, from the app palette */
@@ -30,6 +32,7 @@ const VENDOR_COLORS: Record<string, string> = {
   meta: "var(--pine)",
   zhipu: "var(--sage)",
   google: "var(--sky)",
+  alibaba: "var(--orange, #e08a1e)",
 };
 
 /** the kinds of AI request the backend records (AiUsageEntry.kind) */
@@ -56,10 +59,6 @@ const KIND_COLORS: Record<string, string> = {
 
 /** backup format of backend/scripts/backup.ts — keep both numbers in sync */
 const BACKUP_VERSION = 1;
-
-const num = new Intl.NumberFormat("pt-BR");
-const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const brlPlain = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 interface Slice {
   label: string;
@@ -134,11 +133,16 @@ function PieChart({ title, slices, total, format }: { title: string; slices: Sli
 
 /** Admin-only "Sobre": app version and how much each AI company has been used. */
 export default function AboutPage({ token }: AboutPageProps) {
+  const { tx, tag } = useI18n();
   const [vendors, setVendors] = useState<AiVendorUsage[] | null>(null);
   const [kinds, setKinds] = useState<AiKindUsage[] | null>(null);
   const [sms, setSms] = useState<SmsUsage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const usdtBrl = useUsdtBrl();
+
+  const num = useMemo(() => new Intl.NumberFormat(tag), [tag]);
+  const brl = useMemo(() => new Intl.NumberFormat(tag, { style: "currency", currency: "BRL" }), [tag]);
+  const brlPlain = useMemo(() => new Intl.NumberFormat(tag, { minimumFractionDigits: 2, maximumFractionDigits: 2 }), [tag]);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,11 +153,11 @@ export default function AboutPage({ token }: AboutPageProps) {
         setKinds(r.kinds);
         setSms(r.sms ?? null);
       })
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : "Não foi possível carregar o uso de IA."));
+      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : tx("Não foi possível carregar o uso de IA.")));
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, tx]);
 
   /** per lab (not per model): tokens + estimated cost */
   const rows = useMemo(
@@ -178,64 +182,74 @@ export default function AboutPage({ token }: AboutPageProps) {
   return (
     <div className="admin-page">
       <header className="admin-head">
-        <h1 className="admin-title">ℹ️ Sobre</h1>
+        <h1 className="admin-title">ℹ️ {tx("Sobre")}</h1>
       </header>
 
       <section className="cat-form">
-        <h2 className="cat-form__title">🏕️ Acampamento Kids</h2>
+        <h2 className="cat-form__title">{tx("🏕️ Acampamento Kids")}</h2>
         <dl className="about-facts">
           <div>
-            <dt>Versão</dt>
+            <dt>{tx("Versão")}</dt>
             <dd>{__APP_VERSION__}</dd>
           </div>
           <div>
-            <dt>Backup</dt>
+            <dt>{tx("Backup")}</dt>
             <dd>v{BACKUP_VERSION}</dd>
           </div>
           <div>
-            <dt>Chamadas de IA</dt>
+            <dt>{tx("Chamadas de IA")}</dt>
             <dd>{vendors ? num.format(totalCalls) : "…"}</dd>
           </div>
           <div>
-            <dt>Tokens</dt>
+            <dt>{tx("Tokens")}</dt>
             <dd>{vendors ? num.format(totalTokens) : "…"}</dd>
           </div>
           <div>
-            <dt>Custo estimado</dt>
+            <dt>{tx("Custo estimado")}</dt>
             <dd>{vendors ? fmtCost(totalCost) : "…"}</dd>
           </div>
           <div>
-            <dt>SMS enviados</dt>
+            <dt>{tx("SMS enviados")}</dt>
             <dd>{sms ? num.format(sms.sent) : "…"}</dd>
           </div>
           <div>
-            <dt>Custo de SMS</dt>
+            <dt>{tx("Custo de SMS")}</dt>
             <dd>{sms ? brl.format(sms.costBrl) : "…"}</dd>
           </div>
         </dl>
       </section>
 
       <section className="cat-form">
-        <h2 className="cat-form__title"><AiGlyph /> Uso de IA por empresa</h2>
+        <h2 className="cat-form__title"><AiGlyph /> {tx("Uso de IA por empresa")}</h2>
         <p className="cat-hint">
-          Assistente do editor e sugestões de título/emoji, somados desde o início. Custo estimado pela tabela do gateway, em reais pela cotação do
-          USDT{usdtBrl != null ? ` de R$ ${brlPlain.format(usdtBrl)}` : ""} (cross-otc.com).
+          {usdtBrl != null
+            ? tx(
+                "Assistente do editor e sugestões de título/emoji, somados desde o início. Custo estimado pela tabela do gateway, em reais pela cotação do USDT de R$ {n} (cross-otc.com).",
+                { n: brlPlain.format(usdtBrl) },
+              )
+            : tx(
+                "Assistente do editor e sugestões de título/emoji, somados desde o início. Custo estimado pela tabela do gateway, em reais pela cotação do USDT (cross-otc.com).",
+              )}
         </p>
         {error && <p className="message message--error">{error}</p>}
-        {!error && !vendors && <p className="opt-empty">Carregando…</p>}
-        {vendors && !vendors.length && <p className="opt-empty">Ninguém usou a IA ainda.</p>}
+        {!error && !vendors && <p className="opt-empty">{tx("Carregando…")}</p>}
+        {vendors && !vendors.length && <p className="opt-empty">{tx("Ninguém usou a IA ainda.")}</p>}
         {rows.length > 0 && (
           <>
             <div className="about-pies">
-              <PieChart title="Tokens por empresa" slices={rows.map((r) => ({ label: r.name, color: r.color, value: r.tokens }))} total={totalTokens} format={num.format} />
+              <PieChart title={tx("Tokens por empresa")} slices={rows.map((r) => ({ label: r.name, color: r.color, value: r.tokens }))} total={totalTokens} format={num.format} />
               {totalCost > 0 && (
-                <PieChart title="Custo por empresa" slices={rows.map((r) => ({ label: r.name, color: r.color, value: r.cost }))} total={totalCost} format={fmtCost} />
+                <PieChart title={tx("Custo por empresa")} slices={rows.map((r) => ({ label: r.name, color: r.color, value: r.cost }))} total={totalCost} format={fmtCost} />
               )}
-              <PieChart title="Chamadas por empresa" slices={rows.map((r) => ({ label: r.name, color: r.color, value: r.calls }))} total={totalCalls} format={num.format} />
+              <PieChart title={tx("Chamadas por empresa")} slices={rows.map((r) => ({ label: r.name, color: r.color, value: r.calls }))} total={totalCalls} format={num.format} />
               {kinds && kinds.length > 0 && (
                 <PieChart
-                  title="Chamadas por pedido"
-                  slices={kinds.map((k) => ({ label: KIND_LABELS[k.kind] ?? k.kind, color: KIND_COLORS[k.kind] ?? "var(--muted)", value: k.calls }))}
+                  title={tx("Chamadas por pedido")}
+                  slices={kinds.map((k) => ({
+                    label: KIND_LABELS[k.kind] ? tx(KIND_LABELS[k.kind]) : k.kind,
+                    color: KIND_COLORS[k.kind] ?? "var(--muted)",
+                    value: k.calls,
+                  }))}
                   total={totalCalls}
                   format={num.format}
                 />
@@ -251,19 +265,20 @@ export default function AboutPage({ token }: AboutPageProps) {
                   </div>
                   <div className="about-vendor__stats">
                     <span>
-                      <b>{num.format(v.calls)}</b> chamadas{v.errors ? ` · ${num.format(v.errors)} falhas` : ""}
+                      <b>{num.format(v.calls)}</b> {tx("chamadas")}
+                      {v.errors ? ` · ${num.format(v.errors)} ${tx("falhas")}` : ""}
                     </span>
                     <span>
-                      <b>{num.format(v.tokens)}</b> tokens ({num.format(v.promptTokens)} entrada · {num.format(v.completionTokens)} saída)
+                      <b>{num.format(v.tokens)}</b> {tx("tokens")} ({num.format(v.promptTokens)} {tx("entrada")} · {num.format(v.completionTokens)} {tx("saída")})
                     </span>
-                    {v.lastAt && <span>último uso {speakStamp(v.lastAt)}</span>}
+                    {v.lastAt && <span>{tx("último uso {when}", { when: speakStamp(v.lastAt) })}</span>}
                   </div>
                   <ul className="about-vendor__models">
                     {v.models.map((m) => {
                       const cost = estimateCostUsd(m.model, m.promptTokens, m.completionTokens);
                       return (
                         <li key={m.model}>
-                          <code>{m.model}</code> — {num.format(m.calls)} chamadas · {num.format(m.promptTokens + m.completionTokens)} tokens
+                          <code>{m.model}</code> — {num.format(m.calls)} {tx("chamadas")} · {num.format(m.promptTokens + m.completionTokens)} {tx("tokens")}
                           {cost != null && ` · ≈ ${fmtCost(cost)}`}
                         </li>
                       );

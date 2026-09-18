@@ -1,22 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { type CampEvent } from "../../api/schedule";
 import { speakDay } from "../../dates";
+import { collatorLocale, useI18n } from "../../i18n";
 import { ICONS } from "../../icons";
 import { useCollection } from "../../store";
 
-/** "HH:mm" of now, local time */
 function clock(): { date: string; time: string } {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   return { date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, time: `${pad(d.getHours())}:${pad(d.getMinutes())}` };
 }
 
-/**
- * "Programação" for a PARENT — read-only. The server only sends events the
- * organizer marked visible to parents, never roles or assignments. Past items
- * are collapsed by default so the first card is what's happening now.
- */
 export default function ParentSchedulePage() {
+  const { tx } = useI18n();
   const storedEvents = useCollection("events");
   const [showPast, setShowPast] = useState(false);
   const [now, setNow] = useState(clock);
@@ -27,13 +23,13 @@ export default function ParentSchedulePage() {
 
   const items = useMemo<CampEvent[] | null>(() => {
     if (!storedEvents) return null;
-    return [...storedEvents].sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime) || a.title.localeCompare(b.title, "pt-BR"));
+    return [...storedEvents].sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime) || a.title.localeCompare(b.title, collatorLocale()));
   }, [storedEvents]);
 
   if (!items) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>
+        <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>
       </div>
     );
   }
@@ -57,23 +53,23 @@ export default function ParentSchedulePage() {
     <div className="admin-page parent-schedule">
       <header className="admin-head">
         <h1 className="admin-title">
-          <img className="admin-title__icon" src={ICONS.schedule} alt="" aria-hidden="true" /> Programação
+          <img className="admin-title__icon" src={ICONS.schedule} alt="" aria-hidden="true" /> {tx("Programação")}
         </h1>
       </header>
-      <p className="admin-intro">Toda a programação do acampamento.</p>
+      <p className="admin-intro">{tx("Toda a programação do acampamento.")}</p>
 
       {items.length === 0 && (
         <div className="admin-empty">
           <img className="admin-empty__icon" src={ICONS.schedule} alt="" aria-hidden="true" />
-          <p>A programação ainda não foi publicada.</p>
+          <p>{tx("A programação ainda não foi publicada.")}</p>
         </div>
       )}
 
       {pastCount > 0 && pastCount < items.length && (
         <button type="button" className={`past-toggle ${showPast ? "past-toggle--open" : ""}`} aria-expanded={showPast} onClick={() => setShowPast((v) => !v)}>
           <span className="past-toggle__icon" aria-hidden="true">{showPast ? "▾" : "▸"}</span>
-          <span className="past-toggle__label">{showPast ? "Esconder o que já aconteceu" : `${pastCount} ${pastCount === 1 ? "item já aconteceu" : "itens já aconteceram"}`}</span>
-          <span className="past-toggle__hint">{showPast ? "recolher" : "mostrar"}</span>
+          <span className="past-toggle__label">{showPast ? tx("Esconder o que já aconteceu") : pastCount === 1 ? tx("{n} item já aconteceu", { n: pastCount }) : tx("{n} itens já aconteceram", { n: pastCount })}</span>
+          <span className="past-toggle__hint">{showPast ? tx("recolher") : tx("mostrar")}</span>
         </button>
       )}
 
@@ -81,7 +77,7 @@ export default function ParentSchedulePage() {
         <section key={d} className="day-group">
           <header className="room-group__head">
             <h2 className="room-group__title room-group__title--green">📆 {speakDay(d)}</h2>
-            {d === now.date && <span className="room-group__stats">hoje</span>}
+            {d === now.date && <span className="room-group__stats">{tx("hoje")}</span>}
           </header>
           <ol className="timeline">
             {shown
@@ -96,7 +92,7 @@ export default function ParentSchedulePage() {
                     </div>
                     <div className={`event-card event-card--plain ${isNow ? "event-card--now" : ""}`}>
                       <h3 className="event-card__title">
-                        {isNow && <span className="event-card__now">agora</span>}
+                        {isNow && <span className="event-card__now">{tx("agora")}</span>}
                         <span aria-hidden="true">{e.emoji}</span> {e.title}
                       </h3>
                       {e.notes && <p className="staff-card__meta">{e.notes}</p>}

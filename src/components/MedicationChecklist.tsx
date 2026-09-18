@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { CheckGlyph, UndoGlyph } from "./Glyph";
+import { CheckGlyph, SearchGlyph, UndoGlyph } from "./Glyph";
 import { giveMedication, SOS_SLOT, undoMedication, type MedicationDose } from "../api/medications";
 import { bedroomLabel, type Bedroom } from "../api/bedrooms";
 import BedIcon from "./BedIcon";
@@ -11,6 +11,7 @@ import { useDoseGrace } from "../hooks/useDoseGrace";
 import { speakStamp, todayIso } from "../dates";
 import { useCollectionOrEmpty } from "../store";
 import { navigate } from "../router";
+import { useI18n } from "../i18n";
 
 interface MedicationChecklistProps {
   token: string;
@@ -46,6 +47,7 @@ const ARRIVE_MS = 600;
  * are always the ones at the top.
  */
 export default function MedicationChecklist({ token, day, variant = "page", title }: MedicationChecklistProps) {
+  const { tx } = useI18n();
   const bedrooms = useCollectionOrEmpty("bedrooms");
   /** the kid opened in the popup — the list (and the search) stay exactly as they were */
   const [peek, setPeek] = useState<{ id: string; name: string } | null>(null);
@@ -107,7 +109,7 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
     try {
       await action();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível salvar a marcação.");
+      setError(err instanceof Error ? err.message : tx("Não foi possível salvar a marcação."));
     } finally {
       setPending((p) => {
         const n = new Set(p);
@@ -131,14 +133,14 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
   }
 
   const body = (() => {
-    if (loading) return <p className="opt-empty">Sincronizando medicações… 🏕️</p>;
+    if (loading) return <p className="opt-empty">{tx("Sincronizando medicações… 🏕️")}</p>;
     if (kidsWithMeds === 0)
       return card ? (
-        <p className="opt-empty">Nenhuma criança com medicação cadastrada.</p>
+        <p className="opt-empty">{tx("Nenhuma criança com medicação cadastrada.")}</p>
       ) : (
         <div className="admin-empty">
           <img className="admin-empty__icon" src={ICONS.medications} alt="" aria-hidden="true" />
-          <p>Nenhuma criança com medicação cadastrada.</p>
+          <p>{tx("Nenhuma criança com medicação cadastrada.")}</p>
         </div>
       );
 
@@ -167,22 +169,22 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
             <span className="meds-round__emoji" aria-hidden="true">
               🆘
             </span>
-            <span className="meds-round__when">Quando necessário</span>
+            <span className="meds-round__when">{tx("Quando necessário")}</span>
             <span className="meds-round__chips">
               <span className="cat-tab__count">{sos.length}</span>
             </span>
           </h2>
-          <p className="cat-hint">Sem horário fixo. Cada dose fica registrada com a hora e quem deu.</p>
+          <p className="cat-hint">{tx("Sem horário fixo. Cada dose fica registrada com a hora e quem deu.")}</p>
           <ul className="meds-rows meds-rows--sos">
             {sos.map((e) => {
               const key = `${e.kid.id}|${e.medKey}`;
               const taken = sosToday.get(key) ?? [];
               return (
-                <li key={key} className={`bus-row meds-row meds-row--tick meds-row--sos ${taken.length ? "bus-row--on" : ""} ${e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
+                <li key={key} className={`bus-row meds-row meds-row--tick meds-row--sos ${taken.length ? "bus-row--on" : ""} ${e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? tx("Cadastro em revisão pela IA") : undefined}>
                   {/* the kid + WhatsApp are ONE line: on a phone the icon is simply the last
                       item of that line (top right of the card), never a floating overlay */}
                   <div className="meds-sos__top">
-                    <button type="button" className="meds-row__hit" title={`Ver ${e.kid.name}`} onClick={() => setPeek({ id: e.kid.id, name: e.kid.name })}>
+                    <button type="button" className="meds-row__hit" title={tx("Ver {name}", { name: e.kid.name })} onClick={() => setPeek({ id: e.kid.id, name: e.kid.name })}>
                       <MedBody entry={e} sosDoses={taken} room={roomOf(e.kid.bedroom)} />
                     </button>
                     <GuardianWhatsApp camper={e.kid} className="wa-btn--sm meds-sos__wa" />
@@ -192,8 +194,8 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
                       <button
                         type="button"
                         className="icon-btn meds-row__undo"
-                        title="Desfazer a última dose"
-                        aria-label="Desfazer a última dose"
+                        title={tx("Desfazer a última dose")}
+                        aria-label={tx("Desfazer a última dose")}
                         disabled={pending.has(key)}
                         onClick={() => void run(key, () => undoMedication(token, taken[taken.length - 1].id))}
                       >
@@ -206,7 +208,7 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
                       disabled={pending.has(key)}
                       onClick={() => void run(key, () => giveMedication(token, { camperId: e.kid.id, medName: e.med.name, day, slot: SOS_SLOT }))}
                     >
-                      + Dose
+                      {tx("+ Dose")}
                     </button>
                   </span>
                 </li>
@@ -231,7 +233,7 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
                 <span className="cat-tab__count">
                   {done}/{rows.length}
                 </span>
-                {slot === currentSlot && <span className="meds-slot__now">agora</span>}
+                {slot === currentSlot && <span className="meds-slot__now">{tx("agora")}</span>}
               </span>
             </h2>
             <ul className={`meds-rows ${card ? "meds-rows--flat" : ""}`}>
@@ -251,15 +253,15 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
                   .join(" ");
                 return (
                   <li key={key} className={cls}>
-                    <div className={`bus-row meds-row meds-row--tick ${given ? "bus-row--on" : ""} ${justTicked ? "meds-row--ticked" : ""} ${e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
+                    <div className={`bus-row meds-row meds-row--tick ${given ? "bus-row--on" : ""} ${justTicked ? "meds-row--ticked" : ""} ${e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? tx("Cadastro em revisão pela IA") : undefined}>
                       {/* the tick lives in its own checkbox: the rest of the card opens the kid */}
-                      <label className="meds-check" title={given ? `Dado por ${given.by.name} · ${speakStamp(given.givenAt)} — desmarque para desfazer` : "Marcar como dado"}>
+                      <label className="meds-check" title={given ? tx("Dado por {name} · {when} — desmarque para desfazer", { name: given.by.name, when: speakStamp(given.givenAt) }) : tx("Marcar como dado")}>
                         <input
                           type="checkbox"
                           className="meds-check__input"
                           checked={!!given}
                           disabled={pending.has(key)}
-                          aria-label={`${e.med.name} de ${e.kid.name} — marcar como dado`}
+                          aria-label={tx("{med} de {name} — marcar como dado", { med: e.med.name, name: e.kid.name })}
                           onChange={() => void toggle(e)}
                         />
                         {/* an empty box until it is ticked — nothing inside competes with the tick */}
@@ -267,13 +269,13 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
                           {given && <CheckGlyph size="1.2em" />}
                         </span>
                       </label>
-                      <button type="button" className="meds-row__hit" title={`Ver ${e.kid.name}`} onClick={() => setPeek({ id: e.kid.id, name: e.kid.name })}>
+                      <button type="button" className="meds-row__hit" title={tx("Ver {name}", { name: e.kid.name })} onClick={() => setPeek({ id: e.kid.id, name: e.kid.name })}>
                         <MedBody entry={e} given={given} room={roomOf(e.kid.bedroom)} />
                       </button>
                       {/* while the dose can still be taken back, the corner offers exactly that */}
                       {justTicked ? (
                         <button type="button" className="button button--secondary meds-row__undo-btn" disabled={pending.has(key)} onClick={() => void toggle(e)}>
-                          <UndoGlyph /> Desfazer
+                          <UndoGlyph /> {tx("Desfazer")}
                         </button>
                       ) : (
                         <GuardianWhatsApp camper={e.kid} className="wa-btn--sm meds-row__wa" />
@@ -301,13 +303,16 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
       <>
         {!card && (
           <div className="meds-toolbar">
-            <input className="cat-input" type="search" value={search} placeholder="Procurar criança…" aria-label="Procurar criança" onChange={(e) => setSearch(e.target.value)} />
+            <label className="staff-toolbar__search">
+              <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
+              <input className="cat-input" type="search" value={search} placeholder={tx("Procurar criança…")} aria-label={tx("Procurar criança")} onChange={(e) => setSearch(e.target.value)} />
+            </label>
             <button type="button" className={`cat-tab ${onlyMissing ? "cat-tab--active" : ""}`} aria-pressed={onlyMissing} onClick={() => setOnlyMissing((v) => !v)}>
-              ⏳ Só o que falta
+              ⏳ {tx("Só o que falta")}
             </button>
             {total > 0 && (
               <span className={`meds-progress ${doneCount === total ? "meds-progress--done" : ""}`}>
-                {doneCount}/{total} dadas
+                {tx("{done}/{total} dadas", { done: doneCount, total })}
               </span>
             )}
           </div>
@@ -322,20 +327,20 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
               <span className="meds-round__emoji" aria-hidden="true">
                 ⚠️
               </span>
-              <span className="meds-round__when">Horário a confirmar</span>
+              <span className="meds-round__when">{tx("Horário a confirmar")}</span>
               <span className="meds-round__chips">
                 <span className="cat-tab__count">{unscheduled.length}</span>
               </span>
             </h2>
-            <p className="cat-hint">Sem horário nem "quando necessário": confirme com os pais antes de dar.</p>
+            <p className="cat-hint">{tx('Sem horário nem "quando necessário": confirme com os pais antes de dar.')}</p>
             <ul className={`meds-rows ${card ? "meds-rows--flat" : ""}`}>
               {unscheduled.map((e) => (
                 <li key={`${e.kid.id}|${e.medKey}`} className="meds-item">
-                  <div className={`bus-row meds-row meds-row--tick meds-row--warn ${e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
+                  <div className={`bus-row meds-row meds-row--tick meds-row--warn ${e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? tx("Cadastro em revisão pela IA") : undefined}>
                     <span className="bus-row__check meds-row__check meds-row__check--warn" aria-hidden="true">
                       ?
                     </span>
-                    <button type="button" className="meds-row__hit" title={`Abrir a ficha de ${e.kid.name}`} onClick={() => navigate(`/campers/${e.kid.id}`)}>
+                    <button type="button" className="meds-row__hit" title={tx("Abrir a ficha de {name}", { name: e.kid.name })} onClick={() => navigate(`/campers/${e.kid.id}`)}>
                       <MedBody entry={e} room={roomOf(e.kid.bedroom)} />
                     </button>
                     <GuardianWhatsApp camper={e.kid} className="wa-btn--sm meds-row__wa" />
@@ -352,9 +357,9 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
 
         {nothingLeft &&
           (card ? (
-            <p className="meds-clear">✅ Tudo em dia por aqui.</p>
+            <p className="meds-clear">{tx("✅ Tudo em dia por aqui.")}</p>
           ) : (
-            <p className="opt-empty">{total === 0 && sos.length === 0 ? "Nenhuma criança encontrada." : "Nada pendente por aqui. ✅"}</p>
+            <p className="opt-empty">{total === 0 && sos.length === 0 ? tx("Nenhuma criança encontrada.") : tx("Nada pendente por aqui. ✅")}</p>
           ))}
       </>
     );
@@ -372,15 +377,15 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
 
   const allDone = total > 0 && doneCount === total;
   return (
-    <section className="detail-card meds-day" aria-label="Medicações de hoje">
+    <section className="detail-card meds-day" aria-label={tx("Medicações de hoje")}>
       <header className="meds-day__head">
         <h2 className="detail-h2 meds-day__title">
           <img className="audience-icon" src={ICONS.medications} alt="" aria-hidden="true" />
-          {title ?? "Medicações de hoje"}
+          {title ?? tx("Medicações de hoje")}
         </h2>
         {total > 0 && (
           <span className={`meds-progress ${allDone ? "meds-progress--done" : ""}`}>
-            {doneCount}/{total} dadas
+            {tx("{done}/{total} dadas", { done: doneCount, total })}
           </span>
         )}
       </header>
@@ -392,6 +397,7 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
 
 /** name + room chip + medicine + dose, plus who gave it and any warning about the kid */
 function MedBody({ entry, given, sosDoses, room }: { entry: MedEntry; given?: MedicationDose; sosDoses?: MedicationDose[]; room?: Pick<Bedroom, "name" | "group"> | null }) {
+  const { tx } = useI18n();
   const { kid, med } = entry;
   const cannotTake = kid.drugAllergies.length > 0;
   return (
@@ -405,7 +411,7 @@ function MedBody({ entry, given, sosDoses, room }: { entry: MedEntry; given?: Me
           </span>
         )}
         {cannotTake && (
-          <span className="meds-row__flag" title="A criança tem alergia a medicamentos — confira antes de dar">
+          <span className="meds-row__flag" title={tx("A criança tem alergia a medicamentos — confira antes de dar")}>
             🚫💊
           </span>
         )}

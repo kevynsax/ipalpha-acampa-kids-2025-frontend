@@ -12,8 +12,10 @@ export interface KnownPlaceRoom {
   /** room name as the team calls it ("104", "Chalé 2"…) */
   name: string;
   group: BedroomGroup;
-  bunkBeds: number;
-  singleBeds: number;
+  /** null while the field is cleared in the editor */
+  bunkBeds: number | null;
+  /** null while the field is cleared in the editor */
+  singleBeds: number | null;
 }
 
 export interface KnownPlace {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import { STYLE_ATTRS, STYLE_LABELS, type StyleAttr } from "../htmlStyle";
+import { useI18n } from "../i18n";
 import { activeStyleTokens, inList } from "./StyleTokens";
 
 interface StyleMenuProps {
@@ -17,6 +18,7 @@ interface StyleMenuProps {
  * every document already written.
  */
 export default function StyleMenu({ editor, disabled }: StyleMenuProps) {
+  const { tx } = useI18n();
   const [open, setOpen] = useState(false);
   const [, force] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
@@ -62,8 +64,8 @@ export default function StyleMenu({ editor, disabled }: StyleMenuProps) {
       <button
         type="button"
         className={`rte__btn ${open || count ? "rte__btn--active" : ""}`}
-        title="Estilo do bloco (espaçamento, tamanho, cor, fundo)"
-        aria-label="Estilo do bloco"
+        title={tx("Estilo do bloco (espaçamento, tamanho, cor, fundo)")}
+        aria-label={tx("Estilo do bloco")}
         aria-haspopup="dialog"
         aria-expanded={open}
         disabled={disabled}
@@ -73,12 +75,12 @@ export default function StyleMenu({ editor, disabled }: StyleMenuProps) {
         Aa{count ? <span className="rte-style__count">{count}</span> : null}
       </button>
       {open && (
-        <div className="rte-style__menu" role="dialog" aria-label="Estilo do bloco">
+        <div className="rte-style__menu" role="dialog" aria-label={tx("Estilo do bloco")}>
           {attrs.map((attr: StyleAttr) => {
             const spec = STYLE_LABELS[attr];
             return (
               <div className="rte-style__group" key={attr}>
-                <span className="rte-style__label">{spec.label}</span>
+                <span className="rte-style__label">{tx(spec.label)}</span>
                 <div className="rte-style__options">
                   <button
                     type="button"
@@ -86,7 +88,7 @@ export default function StyleMenu({ editor, disabled }: StyleMenuProps) {
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => editor.commands.setStyleToken(attr, null)}
                   >
-                    Padrão
+                    {tx("Padrão")}
                   </button>
                   {spec.options.map((opt) => (
                     <button
@@ -96,17 +98,17 @@ export default function StyleMenu({ editor, disabled }: StyleMenuProps) {
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => editor.commands.setStyleToken(attr, active[attr] === opt.value ? null : opt.value)}
                     >
-                      {opt.label}
+                      {tx(opt.label)}
                     </button>
                   ))}
                 </div>
-                <span className="rte-style__hint">{spec.hint}</span>
+                <span className="rte-style__hint">{tx(spec.hint)}</span>
               </div>
             );
           })}
           <div className="rte-style__foot">
             <button type="button" className="rte-style__clear" disabled={!count} onMouseDown={(e) => e.preventDefault()} onClick={() => editor.commands.clearStyleTokens()}>
-              Limpar estilo do bloco
+              {tx("Limpar estilo do bloco")}
             </button>
           </div>
         </div>

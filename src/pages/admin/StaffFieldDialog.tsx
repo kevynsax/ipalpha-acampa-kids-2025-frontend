@@ -3,6 +3,7 @@ import { updateStaff, type Staff } from "../../api/staff";
 import { TeamSelect, TransportSelect } from "../../components/CategoryFields";
 import Dialog from "../../components/Dialog";
 import { ICONS } from "../../icons";
+import { useI18n } from "../../i18n";
 
 export type StaffQuickField = "team" | "transportation";
 
@@ -21,6 +22,7 @@ interface StaffFieldDialogProps {
 
 /** Admin: change ONE quick field of a team member (team or transportation) from the detail page. */
 export default function StaffFieldDialog({ token, open, member: s, field, onClose }: StaffFieldDialogProps) {
+  const { tx } = useI18n();
   const [value, setValue] = useState<string | null>(s[field]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,21 +43,21 @@ export default function StaffFieldDialog({ token, open, member: s, field, onClos
       await updateStaff(token, s.id, { [field]: value });
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title={META[field].title} width={480} dismissible={!busy} className="sheet-dialog">
+    <Dialog open={open} onClose={onClose} title={tx(META[field].title)} width={480} dismissible={!busy} className="sheet-dialog">
       <div className="cat-form cat-form--plain">
         {/* phones: this card is a bottom sheet (see .sheet-dialog) */}
         <span className="sheet__handle" aria-hidden="true" />
         {field === "team" ? (
           <>
             <h2 className="cat-form__title change-room__title">
-              <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" /> {META.team.title}
+              <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" /> {tx(META.team.title)}
             </h2>
             <TeamSelect value={value} onChange={setValue} disabled={busy} hideLabel />
           </>
@@ -67,7 +69,7 @@ export default function StaffFieldDialog({ token, open, member: s, field, onClos
             audience="staff"
             title={
               <>
-                <img className="pencil-icon" src={ICONS.transport} alt="" aria-hidden="true" /> {META.transportation.title}
+                <img className="pencil-icon" src={ICONS.transport} alt="" aria-hidden="true" /> {tx(META.transportation.title)}
               </>
             }
           />
@@ -77,10 +79,10 @@ export default function StaffFieldDialog({ token, open, member: s, field, onClos
 
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" onClick={onClose} disabled={busy}>
-            Cancelar
+            {tx("Cancelar")}
           </button>
           <button type="button" className="button button--primary" disabled={busy || !changed} onClick={submit}>
-            {busy ? "Salvando…" : "Confirmar"}
+            {busy ? tx("Salvando…") : tx("Confirmar")}
           </button>
         </div>
       </div>

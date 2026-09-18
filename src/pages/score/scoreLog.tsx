@@ -3,6 +3,7 @@ import type { ScoreEntry } from "../../api/scores";
 import type { CampEvent } from "../../api/schedule";
 import { dayKey, speakDay, speakStamp, speakTime } from "../../dates";
 import type { Team } from "../../api/teams";
+import { useI18n } from "../../i18n";
 
 /**
  * Shared bits of the scoreboard history pages (Placar → Histórico / Time /
@@ -139,8 +140,10 @@ interface ScoreLogListProps {
 }
 
 /** The ledger lines, newest first — each says what, who, why and when. */
-export function ScoreLogList({ entries, teams, events, hideTeam, hideEvent, onTeam, onEvent, canDelete, onDelete, deletingId, byDay = true, emptyText = "Nenhum lançamento." }: ScoreLogListProps) {
-  if (entries.length === 0) return <p className="opt-empty">{emptyText}</p>;
+export function ScoreLogList({ entries, teams, events, hideTeam, hideEvent, onTeam, onEvent, canDelete, onDelete, deletingId, byDay = true, emptyText }: ScoreLogListProps) {
+  const { tx } = useI18n();
+  const empty = emptyText ?? tx("Nenhum lançamento.");
+  if (entries.length === 0) return <p className="opt-empty">{empty}</p>;
   const groups = byDay ? groupByDay(entries) : [{ key: "all", label: "", entries, total: 0 }];
   return (
     <div className="score-days">
@@ -150,7 +153,7 @@ export function ScoreLogList({ entries, teams, events, hideTeam, hideEvent, onTe
             <h3 className="score-day__title">
               <span>{g.label}</span>
               <span className="score-day__meta">
-                {g.entries.length} lançamento{g.entries.length !== 1 ? "s" : ""} · <strong className={g.total < 0 ? "score-neg" : "score-pos"}>{fmtPoints(g.total)}</strong>
+                {g.entries.length === 1 ? tx("{n} lançamento", { n: g.entries.length }) : tx("{n} lançamentos", { n: g.entries.length })} · <strong className={g.total < 0 ? "score-neg" : "score-pos"}>{fmtPoints(g.total)}</strong>
               </span>
             </h3>
           )}
@@ -179,6 +182,7 @@ interface ItemProps {
 }
 
 function ScoreLogItem({ entry: e, team, event, hideTeam, hideEvent, onTeam, onEvent, deletable, deleting, onDelete }: ItemProps) {
+  const { tx } = useI18n();
   const kind = lineKind(e);
   const meta = KIND_META[kind];
   const ptsClass = kind === "reset" ? "score-log__pts--reset" : e.points < 0 ? "score-log__pts--remove" : "";
@@ -189,16 +193,16 @@ function ScoreLogItem({ entry: e, team, event, hideTeam, hideEvent, onTeam, onEv
       <span className={`score-log__pts ${ptsClass}`}>{fmtPoints(e.points)}</span>
       <div className="score-log__body">
         <span className="score-log__line">
-          <span className="score-log__kind" title={meta.label}>
+          <span className="score-log__kind" title={tx(meta.label)}>
             {meta.emoji}
           </span>{" "}
           {kind === "scan" ? (
             <>
-              <strong>{e.camperName || "Criança"}</strong>
+              <strong>{e.camperName || tx("Criança")}</strong>
               {!hideEvent && (
                 <>
                   {" "}
-                  em{" "}
+                  {tx("em")}{" "}
                   {event ? (
                     onEvent ? (
                       <button type="button" className="link-btn" onClick={() => onEvent(event.id)}>
@@ -210,13 +214,13 @@ function ScoreLogItem({ entry: e, team, event, hideTeam, hideEvent, onTeam, onEv
                       </strong>
                     )
                   ) : (
-                    <em>evento removido</em>
+                    <em>{tx("evento removido")}</em>
                   )}
                 </>
               )}
             </>
           ) : (
-            <strong>{meta.label}</strong>
+            <strong>{tx(meta.label)}</strong>
           )}
           {!hideTeam && (
             <>
@@ -231,18 +235,18 @@ function ScoreLogItem({ entry: e, team, event, hideTeam, hideEvent, onTeam, onEv
                   <strong>{team.name}</strong>
                 )
               ) : (
-                <em>time removido</em>
+                <em>{tx("time removido")}</em>
               )}
             </>
           )}
         </span>
         {showNote && <span className="score-log__note">“{e.note}”</span>}
         <span className="score-log__meta">
-          {fmtTime(e.createdAt)} · por {e.by.name || "—"}
+          {fmtTime(e.createdAt)} · {tx("por {name}", { name: e.by.name || "—" })}
         </span>
       </div>
       {deletable && (
-        <button type="button" className="icon-btn icon-btn--danger score-log__del" title="Apagar lançamento (desfaz os pontos)" aria-label="Apagar lançamento" disabled={deleting} onClick={() => onDelete?.(e)}>
+        <button type="button" className="icon-btn icon-btn--danger score-log__del" title={tx("Apagar lançamento (desfaz os pontos)")} aria-label={tx("Apagar lançamento")} disabled={deleting} onClick={() => onDelete?.(e)}>
           {deleting ? "…" : "🗑️"}
         </button>
       )}

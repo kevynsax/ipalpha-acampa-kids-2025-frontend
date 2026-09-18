@@ -20,6 +20,7 @@ import {
 import AudienceIcon from "../../components/AudienceIcon";
 import CategoryForm from "./CategoryForm";
 import CategoryOptions from "./CategoryOptions";
+import { useI18n } from "../../i18n";
 
 interface CategoriesPageProps {
   token: string;
@@ -45,6 +46,7 @@ export default function CategoriesPage({ token }: CategoriesPageProps) {
   const { segments, navigate } = useRoute();
   const { mode, selectedId: routeId } = modeOf(segments);
   const confirm = useConfirm();
+  const { tx } = useI18n();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,7 +84,7 @@ export default function CategoriesPage({ token }: CategoriesPageProps) {
   }
 
   async function handleDelete(cat: Category) {
-    if (!(await confirm({ emoji: "🗑️", title: `Excluir a categoria "${cat.name}"?`, message: `Suas ${cat.options.length} opções também serão excluídas. Isso não pode ser desfeito.`, confirmLabel: "Excluir", danger: true }))) return;
+    if (!(await confirm({ emoji: "🗑️", title: tx('Excluir a categoria "{name}"?', { name: cat.name }), message: tx("Suas {n} opções também serão excluídas. Isso não pode ser desfeito.", { n: cat.options.length }), confirmLabel: tx("Excluir"), danger: true }))) return;
     await withBusy(() => deleteCategory(token, cat.id)).catch((e) => setError(e.message));
     navigate("/categories", { replace: true });
   }
@@ -123,7 +125,7 @@ export default function CategoriesPage({ token }: CategoriesPageProps) {
   if (!categories) {
     return (
       <div className="admin-page">
-        {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>}
+        {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>}
       </div>
     );
   }
@@ -136,13 +138,13 @@ export default function CategoriesPage({ token }: CategoriesPageProps) {
         disabled={busy}
         onClick={() => navigate("/categories/new")}
       >
-        + Nova categoria
+        + {tx("Nova categoria")}
       </button>
 
       {categories.length === 0 ? (
-        <p className="cat-side__empty">Nenhuma categoria ainda.</p>
+        <p className="cat-side__empty">{tx("Nenhuma categoria ainda.")}</p>
       ) : (
-        <nav className="cat-side__list" role="tablist" aria-orientation="vertical" aria-label="Categorias">
+        <nav className="cat-side__list" role="tablist" aria-orientation="vertical" aria-label={tx("Categorias")}>
           {categories.map((c) => {
             const active = c.id === selectedId && mode.kind === "view";
             return (
@@ -168,7 +170,7 @@ export default function CategoriesPage({ token }: CategoriesPageProps) {
   return (
     <div className="admin-page admin-page--wide">
       <header className="admin-head">
-        <h1 className="admin-title">Categorias</h1>
+        <h1 className="admin-title">{tx("Categorias")}</h1>
       </header>
 
       {error && <p className="message message--error">{error}</p>}
@@ -178,11 +180,12 @@ export default function CategoriesPage({ token }: CategoriesPageProps) {
 
         <div className="cat-main">
           {mode.kind === "create" && (
-            <CategoryForm busy={busy} onSubmit={handleCreate} onCancel={() => goBack("/categories")} />
+            <CategoryForm token={token} busy={busy} onSubmit={handleCreate} onCancel={() => goBack("/categories")} />
           )}
-          {mode.kind === "edit" && !selected && <p className="opt-empty">Categoria não encontrada.</p>}
+          {mode.kind === "edit" && !selected && <p className="opt-empty">{tx("Categoria não encontrada.")}</p>}
           {mode.kind === "edit" && selected && (
             <CategoryForm
+              token={token}
               key={selected.id}
               category={selected}
               busy={busy}
@@ -195,11 +198,11 @@ export default function CategoriesPage({ token }: CategoriesPageProps) {
             <div className="admin-empty">
               <span className="admin-empty__emoji">🗂️</span>
               <p>
-                Cada categoria é uma <strong>lista fechada de opções</strong> que aparece nos formulários de
-                acampante e/ou equipe — cama, alergias, condições de saúde…
+                {tx("Cada categoria é uma")} <strong>{tx("lista fechada de opções")}</strong>{" "}
+                {tx("que aparece nos formulários de acampante e/ou equipe — cama, alergias, condições de saúde…")}
               </p>
               <button type="button" className="button button--primary" onClick={() => navigate("/categories/new")}>
-                + Criar a primeira
+                + {tx("Criar a primeira")}
               </button>
             </div>
           )}
@@ -215,11 +218,11 @@ export default function CategoriesPage({ token }: CategoriesPageProps) {
                     <div className="cat-panel__meta">
                       {selected.appliesTo.map((a) => (
                         <span key={a} className="meta-chip meta-chip--audience">
-                          <AudienceIcon audience={a} /> {AUDIENCE_META[a].label}
+                          <AudienceIcon audience={a} /> {tx(AUDIENCE_META[a].label)}
                         </span>
                       ))}
                       <span className="meta-chip">
-                        {SELECTION_META[selected.selection].emoji} {SELECTION_META[selected.selection].label}
+                        {SELECTION_META[selected.selection].emoji} {tx(SELECTION_META[selected.selection].label)}
                       </span>
                     </div>
                   </div>
@@ -229,7 +232,7 @@ export default function CategoriesPage({ token }: CategoriesPageProps) {
                   <button
                     type="button"
                     className="icon-btn"
-                    title="Mover para cima na lista"
+                    title={tx("Mover para cima na lista")}
                     disabled={busy || categories[0].id === selected.id}
                     onClick={() => moveCategory(selected, -1)}
                   >
@@ -238,7 +241,7 @@ export default function CategoriesPage({ token }: CategoriesPageProps) {
                   <button
                     type="button"
                     className="icon-btn"
-                    title="Mover para baixo na lista"
+                    title={tx("Mover para baixo na lista")}
                     disabled={busy || categories[categories.length - 1].id === selected.id}
                     onClick={() => moveCategory(selected, 1)}
                   >
@@ -247,7 +250,7 @@ export default function CategoriesPage({ token }: CategoriesPageProps) {
                   <button
                     type="button"
                     className="icon-btn"
-                    title="Editar categoria"
+                    title={tx("Editar categoria")}
                     disabled={busy}
                     onClick={() => navigate(`/categories/${selected.id}/edit`)}
                   >
@@ -256,7 +259,7 @@ export default function CategoriesPage({ token }: CategoriesPageProps) {
                   <button
                     type="button"
                     className="icon-btn icon-btn--danger"
-                    title="Excluir categoria"
+                    title={tx("Excluir categoria")}
                     disabled={busy}
                     onClick={() => handleDelete(selected)}
                   >

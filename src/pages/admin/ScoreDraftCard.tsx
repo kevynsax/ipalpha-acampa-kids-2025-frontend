@@ -2,6 +2,7 @@ import { useState } from "react";
 import { updateSettings } from "../../api/settings";
 import { useCampTiming } from "../../campPhase";
 import Toggle from "../../components/Toggle";
+import { useI18n } from "../../i18n";
 import { useCollection } from "../../store";
 
 interface ScoreDraftCardProps {
@@ -16,6 +17,7 @@ interface ScoreDraftCardProps {
  * flow (QR scan included) before the camp.
  */
 export default function ScoreDraftCard({ token }: ScoreDraftCardProps) {
+  const { tx } = useI18n();
   const settings = useCollection("settings");
   const { during } = useCampTiming();
   const [busy, setBusy] = useState(false);
@@ -29,7 +31,7 @@ export default function ScoreDraftCard({ token }: ScoreDraftCardProps) {
     try {
       await updateSettings(token, { scoreDraft: value });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -38,16 +40,18 @@ export default function ScoreDraftCard({ token }: ScoreDraftCardProps) {
   return (
     <section className="cat-form">
       <div className="cat-form__head">
-        <h2 className="cat-form__title">🏆 Placar em teste</h2>
-        <Toggle checked={draft} disabled={!settings || busy} label={draft ? "Teste ligado" : "Teste desligado"} onChange={(v) => void toggle(v)} />
+        <h2 className="cat-form__title">🏆 {tx("Placar em teste")}</h2>
+        <Toggle checked={draft} disabled={!settings || busy} label={draft ? tx("Teste ligado") : tx("Teste desligado")} onChange={(v) => void toggle(v)} />
       </div>
       <p className="cat-hint">
-        O <strong>Placar</strong> só aparece e recebe pontos <strong>nos dias do acampamento</strong>. Ligue o teste para a organização dos jogos e os ajudantes do placar{" "}
-        <strong>ensaiarem antes</strong> — só eles (e o admin / organizadores) veem a aba.
+        {tx("O")} <strong>{tx("Placar")}</strong> {tx("só aparece e recebe pontos")} <strong>{tx("nos dias do acampamento")}</strong>
+        {tx(". Ligue o teste para a organização dos jogos e os ajudantes do placar")}{" "}
+        <strong>{tx("ensaiarem antes")}</strong>
+        {tx(" — só eles (e o admin / organizadores) veem a aba.")}
       </p>
       {error && <p className="message message--error">{error}</p>}
-      {draft && !during && <p className="cat-hint cat-hint--error">⚠️ Placar liberado fora do acampamento. Zere os times e desligue antes do primeiro dia!</p>}
-      {draft && during && <p className="cat-hint">ℹ️ O acampamento está acontecendo: o placar já estaria aberto de qualquer forma. Pode desligar.</p>}
+      {draft && !during && <p className="cat-hint cat-hint--error">{tx("⚠️ Placar liberado fora do acampamento. Zere os times e desligue antes do primeiro dia!")}</p>}
+      {draft && during && <p className="cat-hint">{tx("ℹ️ O acampamento está acontecendo: o placar já estaria aberto de qualquer forma. Pode desligar.")}</p>}
     </section>
   );
 }

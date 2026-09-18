@@ -3,6 +3,7 @@ import QrScanner from "qr-scanner";
 import Dialog from "./Dialog";
 import { keepOverlayInPlace, visibleScanRegion } from "./scanOverlay";
 import { QrGlyph } from "./Glyph";
+import { useI18n } from "../i18n";
 
 interface QrScannerDialogProps {
   open: boolean;
@@ -16,11 +17,16 @@ interface QrScannerDialogProps {
 }
 
 /** Phone-camera QR reader. The camera only runs while the dialog is open; full screen on phones. */
-export default function QrScannerDialog({ open, busy = false, onScan, onClose, title = "Ler pulseira ou crachá", hint = "Aponte a câmera para o QR code.", children }: QrScannerDialogProps) {
+export default function QrScannerDialog({ open, busy = false, onScan, onClose, title, hint, children }: QrScannerDialogProps) {
+  const { tx } = useI18n();
+  const resolvedTitle = title ?? tx("Ler pulseira ou crachá");
+  const resolvedHint = hint ?? tx("Aponte a câmera para o QR code.");
   const videoRef = useRef<HTMLVideoElement>(null);
   const scannerRef = useRef<QrScanner | null>(null);
   const onScanRef = useRef(onScan);
   const busyRef = useRef(busy);
+  const txRef = useRef(tx);
+  txRef.current = tx;
   const acceptingRef = useRef(true);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
@@ -78,7 +84,7 @@ export default function QrScannerDialog({ open, busy = false, onScan, onClose, t
       .catch((err) => {
         if (disposed) return;
         setStarting(false);
-        setError(cameraError(err));
+        setError(cameraError(err, txRef.current));
       });
 
     return () => {
@@ -96,19 +102,19 @@ export default function QrScannerDialog({ open, busy = false, onScan, onClose, t
       await scanner.toggleFlash();
       setFlash(scanner.isFlashOn());
     } catch {
-      setError("Não foi possível ligar a lanterna.");
+      setError(tx("Não foi possível ligar a lanterna."));
     }
   }
 
   return (
-    <Dialog open={open} onClose={() => !busy && onClose()} title={title} width={560} fullscreenOnMobile>
+    <Dialog open={open} onClose={() => !busy && onClose()} title={resolvedTitle} width={560} fullscreenOnMobile>
       <div className="qr-scanner">
         <header className="qr-scanner__head">
           <div>
-            <h2 className="cat-form__title"><QrGlyph /> {title}</h2>
-            <p className="cat-hint">{hint}</p>
+            <h2 className="cat-form__title"><QrGlyph /> {resolvedTitle}</h2>
+            <p className="cat-hint">{resolvedHint}</p>
           </div>
-          <button type="button" className="qr-scanner__close" aria-label="Fechar câmera" title="Fechar" disabled={busy} onClick={onClose}>
+          <button type="button" className="qr-scanner__close" aria-label={tx("Fechar câmera")} title={tx("Fechar")} disabled={busy} onClick={onClose}>
             ✕
           </button>
         </header>
@@ -118,7 +124,7 @@ export default function QrScannerDialog({ open, busy = false, onScan, onClose, t
           {(starting || busy) && (
             <div className="qr-scanner__status" role="status">
               <span className="qr-scanner__spinner" aria-hidden="true" />
-              {busy ? "Fazendo check-in…" : "Abrindo câmera…"}
+              {busy ? tx("Fazendo check-in…") : tx("Abrindo câmera…")}
             </div>
           )}
         </div>
@@ -129,11 +135,11 @@ export default function QrScannerDialog({ open, busy = false, onScan, onClose, t
         <div className="qr-scanner__actions">
           {hasFlash && (
             <button type="button" className="button button--secondary" disabled={busy} aria-pressed={flash} onClick={toggleFlash}>
-              {flash ? "🔦 Desligar lanterna" : "🔦 Ligar lanterna"}
+              {flash ? tx("🔦 Desligar lanterna") : tx("🔦 Ligar lanterna")}
             </button>
           )}
           <button type="button" className="button button--secondary" disabled={busy} onClick={onClose}>
-            Cancelar
+            {tx("Cancelar")}
           </button>
         </div>
       </div>
@@ -141,11 +147,11 @@ export default function QrScannerDialog({ open, busy = false, onScan, onClose, t
   );
 }
 
-function cameraError(err: unknown): string {
+function cameraError(err: unknown, tx: (pt: string, vars?: Record<string, string | number>) => string): string {
   const name = typeof err === "object" && err && "name" in err ? String((err as { name: unknown }).name) : "";
-  if (name === "NotAllowedError") return "Permita o acesso à câmera nas configurações do navegador e tente novamente.";
-  if (name === "NotFoundError") return "Nenhuma câmera foi encontrada neste aparelho.";
-  if (name === "NotReadableError") return "A câmera está sendo usada por outro aplicativo.";
-  if (!window.isSecureContext) return "A câmera só funciona em uma conexão segura (HTTPS).";
-  return "Não foi possível abrir a câmera. Confira a permissão e tente novamente.";
+  if (name === "NotAllowedError") return tx("Permita o acesso à câmera nas configurações do navegador e tente novamente.");
+  if (name === "NotFoundError") return tx("Nenhuma câmera foi encontrada neste aparelho.");
+  if (name === "NotReadableError") return tx("A câmera está sendo usada por outro aplicativo.");
+  if (!window.isSecureContext) return tx("A câmera só funciona em uma conexão segura (HTTPS).");
+  return tx("Não foi possível abrir a câmera. Confira a permissão e tente novamente.");
 }

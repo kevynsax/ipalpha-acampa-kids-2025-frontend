@@ -18,6 +18,8 @@ export interface Staff {
   probableGender: import("./campers").CamperSex | null;
   /** E.164, or null while the person hasn't registered a phone */
   phone: string | null;
+  /** optional — notification emails; null/empty = skip email */
+  email: string | null;
   /** an ADMIN's own roster record: can't be deleted, deactivated or have the phone changed */
   admin?: boolean;
   active: boolean;
@@ -85,6 +87,7 @@ export interface StaffInput {
   sex: import("./campers").CamperSex | null;
   probableGender: import("./campers").CamperSex | null;
   phone: string | null;
+  email: string | null;
   active: boolean;
   team: string | null;
   bedroom: string | null;

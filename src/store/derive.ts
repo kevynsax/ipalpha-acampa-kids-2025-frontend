@@ -15,7 +15,8 @@ import { useCollection, useCollectionOrEmpty } from "./index";
  * Each function mirrors its backend counterpart in routes/*.ts.
  */
 
-const byName = <T extends { name: string }>(a: T, b: T) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+const byName = <T extends { name: string }>(a: T, b: T) =>
+  a.name.localeCompare(b.name, typeof document !== "undefined" ? document.documentElement.lang || "pt-BR" : "pt-BR", { sensitivity: "base" });
 
 /** `null` while the collections haven't arrived; `undefined` when the id doesn't exist. */
 export function useCamperDetail(camperId: string): CamperDetail | null | undefined {
@@ -91,7 +92,7 @@ export function useStaffDetail(staffId: string): StaffDetail | null | undefined 
         defaultRole: fallback ? { id: fallback.id, name: fallback.name, emoji: fallback.emoji } : null,
       });
     }
-    schedule.sort((x, y) => x.date.localeCompare(y.date) || x.startTime.localeCompare(y.startTime) || x.title.localeCompare(y.title, "pt-BR"));
+    schedule.sort((x, y) => x.date.localeCompare(y.date) || x.startTime.localeCompare(y.startTime) || x.title.localeCompare(y.title, typeof document !== "undefined" ? document.documentElement.lang || "pt-BR" : "pt-BR"));
 
     return {
       staff: s,
@@ -221,7 +222,7 @@ export function useMyPrepRoles(phone: string): MyPrepRole[] | null {
       cur.events.push({ id: e.id, date: e.date, startTime: e.startTime, endTime: e.endTime, title: e.title, emoji: e.emoji, detail });
       acc.set(r.id, cur);
     };
-    const ordered = [...events].sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime) || a.title.localeCompare(b.title, "pt-BR"));
+    const ordered = [...events].sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime) || a.title.localeCompare(b.title, typeof document !== "undefined" ? document.documentElement.lang || "pt-BR" : "pt-BR"));
     for (const e of ordered) {
       const a = e.assignments.find((x) => x.staffId === me.id);
       if (a) add(roleById.get(a.roleId), roleDetailOf(roleById.get(a.roleId), a, myTeam).detail, e);

@@ -17,6 +17,7 @@ import HtmlSourceEditor from "./HtmlSourceEditor";
 import StyleMenu from "./StyleMenu";
 import { StyleTokens } from "./StyleTokens";
 import type { AiContext } from "../api/ai";
+import { useI18n } from "../i18n";
 import { AiGlyph } from "./Glyph";
 
 interface RichTextEditorProps {
@@ -130,6 +131,7 @@ const CalloutPreview = Extension.create({
  * (uploaded to /api/files, stored as relative urls).
  */
 export default function RichTextEditor({ value, onChange, placeholder, disabled, token, tall, aiContext, aiTitle, onAiApplied, autoOpenAi, onDone, doneBusy }: RichTextEditorProps) {
+  const { tx } = useI18n();
   const fileInput = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -265,37 +267,37 @@ export default function RichTextEditor({ value, onChange, placeholder, disabled,
 
   const editorBox = (
     <div className={`rte ${disabled ? "rte--disabled" : ""} ${tall || aiOpen ? "rte--tall" : ""} ${aiOpen ? "rte--workspace" : ""}`}>
-      <div className="rte__bar" role="toolbar" aria-label="Formatação">
-        {btn("B", "Negrito", editor.isActive("bold"), () => c().toggleBold().run(), "rte__btn--b")}
-        {btn("I", "Itálico", editor.isActive("italic"), () => c().toggleItalic().run(), "rte__btn--i")}
-        {btn("S", "Riscado", editor.isActive("strike"), () => c().toggleStrike().run(), "rte__btn--s")}
+      <div className="rte__bar" role="toolbar" aria-label={tx("Formatação")}>
+        {btn("B", tx("Negrito"), editor.isActive("bold"), () => c().toggleBold().run(), "rte__btn--b")}
+        {btn("I", tx("Itálico"), editor.isActive("italic"), () => c().toggleItalic().run(), "rte__btn--i")}
+        {btn("S", tx("Riscado"), editor.isActive("strike"), () => c().toggleStrike().run(), "rte__btn--s")}
         <span className="rte__sep" />
-        {btn("H2", "Título", editor.isActive("heading", { level: 2 }), () => c().toggleHeading({ level: 2 }).run())}
-        {btn("H3", "Subtítulo", editor.isActive("heading", { level: 3 }), () => c().toggleHeading({ level: 3 }).run())}
+        {btn("H2", tx("Título"), editor.isActive("heading", { level: 2 }), () => c().toggleHeading({ level: 2 }).run())}
+        {btn("H3", tx("Subtítulo"), editor.isActive("heading", { level: 3 }), () => c().toggleHeading({ level: 3 }).run())}
         <span className="rte__sep" />
-        {btn("•", "Lista", editor.isActive("bulletList"), () => c().toggleBulletList().run())}
-        {btn("1.", "Lista numerada", editor.isActive("orderedList"), () => c().toggleOrderedList().run())}
-        {btn("❝", "Caixa de destaque (comece com ✅, 🔓 ou ⚠️ para colorir)", editor.isActive("blockquote"), () => c().toggleBlockquote().run())}
-        {btn("—", "Linha", false, () => c().setHorizontalRule().run())}
+        {btn("•", tx("Lista"), editor.isActive("bulletList"), () => c().toggleBulletList().run())}
+        {btn("1.", tx("Lista numerada"), editor.isActive("orderedList"), () => c().toggleOrderedList().run())}
+        {btn("❝", tx("Caixa de destaque (comece com ✅, 🔓 ou ⚠️ para colorir)"), editor.isActive("blockquote"), () => c().toggleBlockquote().run())}
+        {btn("—", tx("Linha"), false, () => c().setHorizontalRule().run())}
         <span className="rte__sep" />
-        {btn("▸▾", editor.isActive("details") ? "Desfazer seção recolhível" : "Seção recolhível (título que abre e fecha)", editor.isActive("details"), () =>
+        {btn("▸▾", editor.isActive("details") ? tx("Desfazer seção recolhível") : tx("Seção recolhível (título que abre e fecha)"), editor.isActive("details"), () =>
           editor.isActive("details") ? c().unsetDetails().run() : c().setDetails().run(),
         )}
-        {btn("🏷️", "Etiqueta (pílula colorida)", editor.isActive("chip"), () => c().toggleChip().run())}
+        {btn("🏷️", tx("Etiqueta (pílula colorida)"), editor.isActive("chip"), () => c().toggleChip().run())}
         <span className="rte__sep" />
         <StyleMenu editor={editor} disabled={disabled} />
-        {btn("</>", "Editar o HTML do documento", sourceOpen, () => setSourceOpen((v) => !v), "rte__btn--code")}
-        {btn("🔗", "Link", editor.isActive("link"), setLink)}
+        {btn("</>", tx("Editar o HTML do documento"), sourceOpen, () => setSourceOpen((v) => !v), "rte__btn--code")}
+        {btn("🔗", tx("Link"), editor.isActive("link"), setLink)}
         {token &&
-          btn(uploading ? "⏳" : "🖼️", uploading ? "Enviando imagem…" : "Imagem (ou cole / arraste uma foto)", false, () => fileInput.current?.click(), "", uploading)}
-        {token && btn("🎨", "Desenhar uma imagem com IA", drawOpen, () => setDrawOpen(true))}
+          btn(uploading ? "⏳" : "🖼️", uploading ? tx("Enviando imagem…") : tx("Imagem (ou cole / arraste uma foto)"), false, () => fileInput.current?.click(), "", uploading)}
+        {token && btn("🎨", tx("Desenhar uma imagem com IA"), drawOpen, () => setDrawOpen(true))}
         <span className="rte__sep" />
-        {btn("↶", "Desfazer", false, () => c().undo().run())}
-        {btn("↷", "Refazer", false, () => c().redo().run())}
+        {btn("↶", tx("Desfazer"), false, () => c().undo().run())}
+        {btn("↷", tx("Refazer"), false, () => c().redo().run())}
         {token && (
           <>
             <span className="rte__spacer" />
-            {btn(<><AiGlyph /> IA</>, aiOpen ? "Fechar assistente de IA" : "Assistente de IA", aiOpen, () => setAiOpen((v) => !v), "rte__btn--ai")}
+            {btn(<><AiGlyph /> IA</>, aiOpen ? tx("Fechar assistente de IA") : tx("Assistente de IA"), aiOpen, () => setAiOpen((v) => !v), "rte__btn--ai")}
           </>
         )}
       </div>
@@ -339,20 +341,20 @@ export default function RichTextEditor({ value, onChange, placeholder, disabled,
   return (
     <>
       <div className="rte rte--placeholder" aria-hidden="true">
-        <p><AiGlyph /> Editando com o assistente…</p>
+        <p><AiGlyph /> {tx("Editando com o assistente…")}</p>
       </div>
       {createPortal(
-        <div className="ai-workspace" role="dialog" aria-modal="true" aria-label="Editor com assistente de IA">
+        <div className="ai-workspace" role="dialog" aria-modal="true" aria-label={tx("Editor com assistente de IA")}>
           <header className="ai-workspace__head">
-            <span className="ai-workspace__title"><AiGlyph /> {aiTitle?.trim() || "Editor com assistente"}</span>
+            <span className="ai-workspace__title"><AiGlyph /> {aiTitle?.trim() || tx("Editor com assistente")}</span>
             <button
               type="button"
               className="button button--secondary ai-workspace__done"
-              title={onDone ? "Salvar o texto e fechar" : "Fechar o assistente"}
+              title={onDone ? tx("Salvar o texto e fechar") : tx("Fechar o assistente")}
               disabled={doneBusy}
               onClick={() => (onDone ? onDone() : setAiOpen(false))}
             >
-              {doneBusy ? "Salvando…" : "Concluir"}
+              {doneBusy ? tx("Salvando…") : tx("Concluir")}
             </button>
           </header>
           <div className="ai-workspace__body">

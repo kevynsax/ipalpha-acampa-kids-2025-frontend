@@ -3,6 +3,7 @@ import { updateSettings } from "../../api/settings";
 import Toggle from "../../components/Toggle";
 import { useCollection } from "../../store";
 import { speakWhen } from "../../dates";
+import { useI18n } from "../../i18n";
 
 interface CheckinReminderCardProps {
   token: string;
@@ -34,6 +35,7 @@ const sameMinute = (a: string | null, b: string | null) => (a ? Math.floor(new D
  * it is sent once per date — picking a new date re-arms it.
  */
 export default function CheckinReminderCard({ token, embedded }: CheckinReminderCardProps) {
+  const { tx } = useI18n();
   const settings = useCollection("settings");
   const [at, setAt] = useState("");
   const [busy, setBusy] = useState<"date" | "toggle" | null>(null);
@@ -60,30 +62,30 @@ export default function CheckinReminderCard({ token, embedded }: CheckinReminder
       await updateSettings(token, patch);
       if (kind === "date") setSaved(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(null);
     }
   }
 
   const status = !current.at
-    ? "⚫ Sem data — nenhum lembrete será enviado."
+    ? tx("⚫ Sem data — nenhum lembrete será enviado.")
     : current.sentAt
-      ? `✅ Enviado ${speakWhen(current.sentAt)}. Escolha outra data para enviar de novo.`
+      ? tx("✅ Enviado {when}. Escolha outra data para enviar de novo.", { when: speakWhen(current.sentAt) })
       : !on
-        ? `⏸️ Marcado para ${speakWhen(current.at)}, mas o aviso está desligado — ligue para enviar.`
+        ? tx("⏸️ Marcado para {when}, mas o aviso está desligado — ligue para enviar.", { when: speakWhen(current.at) })
         : new Date(current.at).getTime() > Date.now()
-          ? `🕒 Será enviado ${speakWhen(current.at)}.`
-          : "📲 Enviando…";
+          ? tx("🕒 Será enviado {when}.", { when: speakWhen(current.at) })
+          : tx("📲 Enviando…");
 
   return (
     <section className={`cat-form ${embedded ? "cat-form--embedded" : ""}`}>
       <div className="cat-form__head">
-        <h2 className="cat-form__title">⏰ Lembrete de check-in para a equipe</h2>
-        <Toggle checked={on} disabled={!settings || busy !== null} label={on ? "Ligado" : "Desligado"} onChange={(v) => void run("toggle", { notifications: { checkinReminder: v } })} />
+        <h2 className="cat-form__title">{tx("⏰ Lembrete de check-in para a equipe")}</h2>
+        <Toggle checked={on} disabled={!settings || busy !== null} label={on ? tx("Ligado") : tx("Desligado")} onChange={(v) => void run("toggle", { notifications: { checkinReminder: v } })} />
       </div>
       <p className="cat-hint">
-        Na data e hora abaixo <strong>toda a equipe</strong> recebe um SMS lembrando de fazer o self check-in.
+        {tx("Na data e hora abaixo")} <strong>{tx("toda a equipe")}</strong> {tx("recebe um SMS lembrando de fazer o self check-in.")}
       </p>
       <form
         className="cat-form__row staff-form__row reminder-save"
@@ -93,18 +95,18 @@ export default function CheckinReminderCard({ token, embedded }: CheckinReminder
         }}
       >
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Enviar em</span>
+          <span className="cat-field__label">{tx("Enviar em")}</span>
           <input className="cat-input" type="datetime-local" value={at} disabled={!settings || busy !== null} onChange={(e) => setAt(e.target.value)} />
         </label>
         <div className="cat-form__actions">
           <button type="submit" className="button button--primary" disabled={!settings || !dirty || busy !== null}>
-            {busy === "date" ? "Salvando…" : <>Salvar<span className="btn-extra"> data ⏰</span></>}
+            {busy === "date" ? tx("Salvando…") : <>{tx("Salvar")}<span className="btn-extra"> {tx("data ⏰")}</span></>}
           </button>
         </div>
       </form>
-      {dirty && past && <p className="cat-hint cat-hint--error">Essa data já passou: ao salvar, o lembrete sai imediatamente (se o aviso estiver ligado).</p>}
+      {dirty && past && <p className="cat-hint cat-hint--error">{tx("Essa data já passou: ao salvar, o lembrete sai imediatamente (se o aviso estiver ligado).")}</p>}
       <p className="cat-hint">{status}</p>
-      {saved && <p className="message message--ok">✅ Lembrete salvo.</p>}
+      {saved && <p className="message message--ok">{tx("✅ Lembrete salvo.")}</p>}
       {error && <p className="message message--error">{error}</p>}
     </section>
   );

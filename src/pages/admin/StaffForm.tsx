@@ -18,6 +18,7 @@ import { useGuessCamperSex } from "../../hooks/useGuessCamperSex";
 import type { DedupField } from "../../api/ai";
 import { maskBrazilPhone, toE164 } from "../../phone";
 import { useHideScanFab } from "../../scanFab";
+import { useI18n } from "../../i18n";
 
 interface StaffFormProps {
   /** session token — lets the form ask the AI to sort the health observations */
@@ -42,6 +43,7 @@ interface StaffFormProps {
  * topic is a switch — off = nothing to declare (field hidden, cleared on save).
  */
 export default function StaffForm({ token, member, categories, busy, onSubmit, onSexChange, leaveGuardRef }: StaffFormProps) {
+  const { tx } = useI18n();
   // the "Ler crachá" FAB would sit on top of Salvar / Cancelar
   useHideScanFab();
   const editing = !!member;
@@ -52,6 +54,7 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
 
   const [name, setName] = useState(member?.name ?? "");
   const [phone, setPhone] = useState(member?.phone ? maskBrazilPhone(member.phone.replace(/^\+55/, "")) : "");
+  const [email, setEmail] = useState(member?.email ?? "");
   const [active, setActive] = useState(member?.active ?? true);
   const [roomRole, setRoomRole] = useState<RoomRole>(isAdmin ? "helper" : (member?.roomRole ?? "helper"));
   const bedrooms = useCollectionOrEmpty("bedrooms");
@@ -88,7 +91,7 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
   // any change from the values the form opened with → ask save/discard before leaving
   const askChoice = useConfirmChoice();
   const snapshot = JSON.stringify([
-    name, phone, active, roomRole, team, bedroom, transportation,
+    name, phone, email, active, roomRole, team, bedroom, transportation,
     allergies, drugAllergies, foodRestrictions, healthIssues, medications, healthNotes,
     hasAllergies, hasDrugAllergies, hasHealthIssues, hasMedicines, hasFoodRestrictions,
   ]);
@@ -105,11 +108,11 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
     leaveGuardRef.current = async () => {
       if (!dirtyRef.current) return true;
       const r = await askChoice({
-        title: "Salvar alterações?",
-        message: "Você fez alterações que ainda não foram salvas.",
-        confirmLabel: "Salvar",
-        discardLabel: "Descartar",
-        cancelLabel: "Cancelar",
+        title: tx("Salvar alterações?"),
+        message: tx("Você fez alterações que ainda não foram salvas."),
+        confirmLabel: tx("Salvar"),
+        discardLabel: tx("Descartar"),
+        cancelLabel: tx("Cancelar"),
         emoji: "💾",
       });
       if (r === "cancel") return false;
@@ -126,13 +129,14 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
   const phoneE164 = toE164(phone);
   const phoneTwin = phoneE164 ? roster.find((s) => s.phone === phoneE164 && s.id !== member?.id) : undefined;
   const phoneError = !phone.trim()
-    ? "Informe o celular: é por ele que a pessoa entra no app."
+    ? tx("Informe o celular: é por ele que a pessoa entra no app.")
     : !phoneE164
-      ? "Informe um celular válido com DDD."
+      ? tx("Informe um celular válido com DDD.")
       : phoneTwin
-        ? `Este celular já é de ${phoneTwin.name}.`
+        ? tx("Este celular já é de {name}.", { name: phoneTwin.name })
         : null;
-  const valid = name.trim().length > 0 && !phoneError;
+  const emailError = email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ? tx("Informe um e-mail válido.") : null;
+  const valid = name.trim().length > 0 && !phoneError && !emailError;
 
   // ✨ background "remove repeats" on individual free-text fields (fires on blur and after the sorter fills them)
   const dedup = useFieldDedup({ token, busy });
@@ -195,6 +199,7 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
         sex,
         probableGender,
         phone: phoneE164 ?? null,
+        email: email.trim() ? email.trim().toLowerCase() : null,
         active,
         roomRole,
         // when editing, team, room and transport are changed from the detail page (pencil dialogs), not here
@@ -210,7 +215,7 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
       });
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
       return false;
     }
   }
@@ -245,10 +250,10 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
     <form className="cat-form cat-form--plain" onSubmit={handleSubmit}>
       <div className="cat-form__row staff-form__row">
         <label className="cat-field cat-field--grow">
-          <span className={`cat-field__label${sexBusy ? " cat-field__label--guessing" : ""}`}>Nome</span>
+          <span className={`cat-field__label${sexBusy ? " cat-field__label--guessing" : ""}`}>{tx("Nome")}</span>
           <input
             className={`cat-input${sexBusy ? " cat-input--busy" : ""}`}
-            placeholder="ex.: Abimael"
+            placeholder={tx("ex.: Abimael")}
             value={name}
             maxLength={80}
             autoFocus
@@ -258,7 +263,7 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
         </label>
         <input type="hidden" name="sex" value={sex ?? ""} />
         <div className="cat-field cat-field--grow">
-          <span className="cat-field__label">Celular</span>
+          <span className="cat-field__label">{tx("Celular")}</span>
           <PhoneInput
             value={phone}
             onChange={(v) => {
@@ -268,35 +273,42 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
             disabled={busy || !!member?.admin}
           />
           {phoneError && <p className={`cat-hint${phoneTouched || phone.trim() ? " cat-hint--error" : ""}`}>{phoneError}</p>}
-          {member?.admin && <p className="cat-hint">🔑 Celular de admin — é o login, não muda por aqui.</p>}
+          {member?.admin && <p className="cat-hint">🔑 {tx("Celular de admin — é o login, não muda por aqui.")}</p>}
         </div>
+      </div>
+      <div className="cat-form__row staff-form__row">
+        <label className="cat-field cat-field--grow">
+          <span className="cat-field__label">{tx("E-mail")}</span>
+          <input className="cat-input" type="email" inputMode="email" autoComplete="email" placeholder={tx("ex.: nome@email.com")} value={email} maxLength={160} disabled={busy} onChange={(e) => setEmail(e.target.value)} />
+          {emailError && <p className="cat-hint cat-hint--error">{emailError}</p>}
+        </label>
         <div className="cat-field">
-          <span className="cat-field__label">Status</span>
-          <Toggle checked={active} onChange={setActive} disabled={busy || !!member?.admin} label={active ? "Ativo" : "Inativo"} />
+          <span className="cat-field__label">{tx("Status")}</span>
+          <Toggle checked={active} onChange={setActive} disabled={busy || !!member?.admin} label={active ? tx("Ativo") : tx("Inativo")} />
         </div>
       </div>
 
       <fieldset className="cat-fieldset">
-        <legend className="cat-field__label">Função no quarto</legend>
+        <legend className="cat-field__label">{tx("Função no quarto")}</legend>
         <div className="big-options big-options--row">
           {(Object.keys(ROOM_ROLE_META) as RoomRole[]).filter((r) => !isAdmin || r !== "caretaker").map((r) => {
             const on = roomRole === r;
             return (
               <button key={r} type="button" className={`big-option ${on ? "big-option--on" : ""}`} aria-pressed={on} disabled={busy} onClick={() => setRoomRole(r)}>
                 <span className="big-option__emoji" aria-hidden="true"><RoomRoleIcon role={r} size={32} sex={sex ?? "M"} /></span>
-                <span className="big-option__label">{ROOM_ROLE_META[r].label}</span>
-                <span className="big-option__hint">{ROOM_ROLE_META[r].hint}</span>
+                <span className="big-option__label">{tx(ROOM_ROLE_META[r].label)}</span>
+                <span className="big-option__hint">{tx(ROOM_ROLE_META[r].hint)}</span>
               </button>
             );
           })}
         </div>
-        {editing && member?.roomRole === "caretaker" && roomRole === "helper" && <p className="cat-hint cat-hint--error">Ao virar auxiliar, as crianças sob sua responsabilidade ficam sem líder.</p>}
-        {isAdmin && <p className="cat-hint">🔑 Admin do app: tem quarto e transporte, mas não cuida de crianças nem entra em um time.</p>}
+        {editing && member?.roomRole === "caretaker" && roomRole === "helper" && <p className="cat-hint cat-hint--error">{tx("Ao virar auxiliar, as crianças sob sua responsabilidade ficam sem líder.")}</p>}
+        {isAdmin && <p className="cat-hint">🔑 {tx("Admin do app: tem quarto e transporte, mas não cuida de crianças nem entra em um time.")}</p>}
       </fieldset>
 
       {!editing && (
         <section className="form-box form-box--plain" aria-labelledby="staff-alloc-title">
-          <h3 id="staff-alloc-title" className="form-box__title">🏕️ Time, quarto e transporte</h3>
+          <h3 id="staff-alloc-title" className="form-box__title">{tx("🏕️ Time, quarto e transporte")}</h3>
           <div className="cat-form__row staff-form__row">
             <TeamSelect value={team} onChange={setTeam} disabled={busy} />
             <TransportSelect value={transportation} onChange={setTransportation} disabled={busy} audience="staff" />
@@ -306,19 +318,19 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
       )}
 
       <section className="form-box form-box--plain" aria-labelledby="staff-health-title">
-        <h3 id="staff-health-title" className="form-box__title">📝 Saúde e observações</h3>
-        {optional("🤮 Alergias", hasAllergies, setHasAllergies, <CategoryChips label="Quais" category={byKey(STAFF_CATEGORY_KEYS.allergies)} value={allergies} onChange={setAllergies} disabled={busy} />)}
+        <h3 id="staff-health-title" className="form-box__title">{tx("📝 Saúde e observações")}</h3>
+        {optional(tx("🤮 Alergias"), hasAllergies, setHasAllergies, <CategoryChips label={tx("Quais")} category={byKey(STAFF_CATEGORY_KEYS.allergies)} value={allergies} onChange={setAllergies} disabled={busy} />)}
         {optional(
           <>
-            <NoPillIcon /> Alergia a medicamentos
+            <NoPillIcon /> {tx("Alergia a medicamentos")}
           </>,
           hasDrugAllergies,
           setHasDrugAllergies,
-          <CategoryChips label="Quais" category={byKey(STAFF_CATEGORY_KEYS.drugAllergies)} value={drugAllergies} onChange={setDrugAllergies} disabled={busy} />,
+          <CategoryChips label={tx("Quais")} category={byKey(STAFF_CATEGORY_KEYS.drugAllergies)} value={drugAllergies} onChange={setDrugAllergies} disabled={busy} />,
         )}
-        {optional("🩺 Condição crônica", hasHealthIssues, setHasHealthIssues, <CategoryChips label="Quais" category={byKey(STAFF_CATEGORY_KEYS.healthIssues)} value={healthIssues} onChange={setHealthIssues} disabled={busy} />)}
+        {optional(tx("🩺 Condição crônica"), hasHealthIssues, setHasHealthIssues, <CategoryChips label={tx("Quais")} category={byKey(STAFF_CATEGORY_KEYS.healthIssues)} value={healthIssues} onChange={setHealthIssues} disabled={busy} />)}
         {optional(
-          "💊 Medicação de uso diário",
+          tx("💊 Medicação de uso diário"),
           hasMedicines,
           (on) => {
             setHasMedicines(on);
@@ -326,15 +338,15 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
           },
           <MedicationsEditor value={medications} onChange={setMedications} disabled={busy} />,
         )}
-        {optional("🍽️ Alimentação / restrições", hasFoodRestrictions, setHasFoodRestrictions, text("Quais", foodRestrictions, setFoodRestrictions, "ex.: vegetariano, sem lactose", 2, "foodRestrictions"))}
-        <AiNotesField label="📝 Outras observações de saúde" value={healthNotes} onChange={setHealthNotes} placeholder="ex.: cole aqui o que a pessoa escreveu na inscrição" maxLength={500} disabled={busy} sorter={ai} />
+        {optional(tx("🍽️ Alimentação / restrições"), hasFoodRestrictions, setHasFoodRestrictions, text(tx("Quais"), foodRestrictions, setFoodRestrictions, tx("ex.: vegetariano, sem lactose"), 2, "foodRestrictions"))}
+        <AiNotesField label={tx("📝 Outras observações de saúde")} value={healthNotes} onChange={setHealthNotes} placeholder={tx("ex.: cole aqui o que a pessoa escreveu na inscrição")} maxLength={500} disabled={busy} sorter={ai} />
       </section>
 
       {error && <p className="message message--error">{error}</p>}
 
       <div className="cat-form__actions">
-        <button type="submit" className="button button--primary" disabled={!valid || busy || ai.holding} title={ai.holding ? "Aguardando a IA organizar as observações…" : undefined}>
-          {busy ? "Salvando…" : ai.holding ? "Organizando…" : editing ? "Salvar" : "Adicionar 🎉"}
+        <button type="submit" className="button button--primary" disabled={!valid || busy || ai.holding} title={ai.holding ? tx("Aguardando a IA organizar as observações…") : undefined}>
+          {busy ? tx("Salvando…") : ai.holding ? tx("Organizando…") : editing ? tx("Salvar") : tx("Adicionar 🎉")}
         </button>
       </div>
     </form>

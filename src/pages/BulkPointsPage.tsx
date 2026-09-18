@@ -3,13 +3,16 @@ import { deleteScore, repointEventScans, scanScore } from "../api/scores";
 import { speakDay } from "../dates";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import Breadcrumbs from "../components/Breadcrumbs";
+import { SearchGlyph } from "../components/Glyph";
 import ScanFab from "../components/ScanFab";
 import ScanPointsDialog, { currentEvent, defaultEvent } from "../components/ScanPointsDialog";
+import { collatorLocale, useI18n } from "../i18n";
 
 interface BulkPointsPageProps {
   token: string;
-  /** back to the scoreboard */
+  /** back to the scoreboard or its parent Teams page */
   onClose: () => void;
+  parentLabel?: string;
 }
 
 const POINTS_MAX = 100_000;
@@ -32,7 +35,8 @@ function normalize(s: string): string {
  * by name there is no wristband to prove the kid is here (the QR scan, on
  * the other hand, checks the kid in by itself).
  */
-export default function BulkPointsPage({ token, onClose }: BulkPointsPageProps) {
+export default function BulkPointsPage({ token, onClose, parentLabel }: BulkPointsPageProps) {
+  const { tx } = useI18n();
   const events = useCollection("events");
   const campers = useCollectionOrEmpty("campers");
   const scores = useCollectionOrEmpty("scores");
@@ -40,9 +44,10 @@ export default function BulkPointsPage({ token, onClose }: BulkPointsPageProps) 
   const sorted = useMemo(() => (events ?? []).slice().sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)), [events]);
   const current = useMemo(() => currentEvent(sorted), [sorted]);
   const initial = useMemo(() => defaultEvent(sorted), [sorted]);
+  const resolvedParent = parentLabel ?? tx("Placar");
 
   const [eventId, setEventId] = useState<string>(initial?.id ?? "");
-  const [points, setPoints] = useState(1);
+  const [points, setPoints] = useState<number>(1);
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   /** kids just given points (camperId → the new score line): stay in the list while the celebration plays, undo at hand, then slide down to "já receberam" */
@@ -93,7 +98,7 @@ export default function BulkPointsPage({ token, onClose }: BulkPointsPageProps) 
     const q = normalize(search.trim());
     return campers
       .filter((c) => c.checkin && (!scannedIds.has(c.id) || cheering.has(c.id)) && (!q || normalize(c.name).includes(q)))
-      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+      .sort((a, b) => a.name.localeCompare(b.name, collatorLocale()));
   }, [campers, scannedIds, cheering, search]);
   const pendingCount = pending.length - [...cheering.keys()].filter((id) => pending.some((c) => c.id === id)).length;
 
@@ -109,7 +114,7 @@ export default function BulkPointsPage({ token, onClose }: BulkPointsPageProps) 
       setCheering((m) => new Map(m).set(camperId, res.score.id));
       cheerTimers.current.set(camperId, window.setTimeout(() => stopCheer(camperId), CHEER_MS));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusyId(null);
     }
@@ -123,7 +128,7 @@ export default function BulkPointsPage({ token, onClose }: BulkPointsPageProps) 
     try {
       await deleteScore(token, scoreId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setUndoingId(null);
       if (camperId) stopCheer(camperId);
@@ -137,7 +142,7 @@ export default function BulkPointsPage({ token, onClose }: BulkPointsPageProps) 
     try {
       await repointEventScans(token, eventId, points);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setRepointing(false);
     }
@@ -145,29 +150,31 @@ export default function BulkPointsPage({ token, onClose }: BulkPointsPageProps) 
 
   return (
     <div className="admin-page bulk-points">
-      <Breadcrumbs items={[{ label: "Placar", onClick: onClose }, { label: "Pontos em massa" }]} />
+      <Breadcrumbs items={[{ label: resolvedParent, onClick: onClose }, { label: tx("Pontos em massa") }]} />
       <header className="admin-head">
-        <h1 className="admin-title">📋 Pontos em massa</h1>
+        <h1 className="admin-title">📋 {tx("Pontos em massa")}</h1>
       </header>
-      <p className="admin-intro">Toque no nome da criança: o time dela ganha {pointsValid ? points : "—"} ponto{points !== 1 ? "s" : ""}. Uma vez por criança neste evento.</p>
+      <p className="admin-intro">
+        {tx("Toque no nome da criança: o time dela ganha")} {pointsValid ? points : "—"} {points !== 1 ? tx("pontos") : tx("ponto")}. {tx("Uma vez por criança neste evento.")}
+      </p>
 
       <div className="cat-form cat-form--plain">
 
         <div className="scan-points__fields">
           <label className="cat-field">
-            <span className="cat-field__label">Evento</span>
+            <span className="cat-field__label">{tx("Evento")}</span>
             <select className="cat-input" value={eventId} onChange={(e) => setEventId(e.target.value)}>
-              <option value="">{sorted.length ? "Escolha o evento…" : "Sem programação"}</option>
+              <option value="">{sorted.length ? tx("Escolha o evento…") : tx("Sem programação")}</option>
               {sorted.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.emoji} {e.title} · {speakDay(e.date, "short")} {e.startTime}
-                  {e.id === current?.id ? " (agora)" : ""}
+                  {e.id === current?.id ? tx(" (agora)") : ""}
                 </option>
               ))}
             </select>
           </label>
           <label className="cat-field scan-points__points">
-            <span className="cat-field__label">Qtd.</span>
+            <span className="cat-field__label">{tx("Qtd.")}</span>
             <input
               className="cat-input"
               type="number"
@@ -175,20 +182,23 @@ export default function BulkPointsPage({ token, onClose }: BulkPointsPageProps) 
               min={1}
               max={POINTS_MAX}
               step={1}
-              value={Number.isNaN(points) ? "" : points}
-              onChange={(e) => setPoints(Math.max(1, Math.floor(Number(e.target.value) || 0)))}
-              onBlur={() => setPoints((p) => (Number.isInteger(p) && p >= 1 ? p : 1))}
-              aria-label="Pontos por criança"
+              value={Number.isFinite(points) ? points : ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setPoints(raw === "" ? Number.NaN : Math.floor(Number(raw)));
+              }}
+              aria-label={tx("Pontos por criança")}
             />
           </label>
         </div>
-        {!eventId && sorted.length > 0 && <p className="cat-hint cat-hint--error">Escolha o evento para liberar a lista.</p>}
+        {!eventId && sorted.length > 0 && <p className="cat-hint cat-hint--error">{tx("Escolha o evento para liberar a lista.")}</p>}
         {pointsDiverge && (
           <p className="cat-hint cat-hint--error scan-points__repoint">
-            ⚠️ {eventScans.length} criança{eventScans.length !== 1 ? "s" : ""} já com <strong>{eventPoints}</strong> ponto{eventPoints !== 1 ? "s" : ""}. O valor é um só por evento: o próximo
-            lançamento (ou o botão) muda todas para <strong>{points}</strong>.{" "}
+            ⚠️{" "}
+            {eventScans.length === 1 ? tx("{n} criança já com", { n: eventScans.length }) : tx("{n} crianças já com", { n: eventScans.length })}{" "}
+            <strong>{eventPoints}</strong> {eventPoints === 1 ? tx("ponto") : tx("pontos")}. {tx("O valor é um só por evento: o próximo lançamento (ou o botão) muda todas para")} <strong>{points}</strong>.{" "}
             <button type="button" className="button button--secondary scan-points__repoint-btn" disabled={repointing} onClick={() => void applyRepoint()}>
-              {repointing ? "Atualizando…" : `Atualizar todas para ${points}`}
+              {repointing ? tx("Atualizando…") : tx("Atualizar todas para {n}", { n: points })}
             </button>
           </p>
         )}
@@ -196,17 +206,20 @@ export default function BulkPointsPage({ token, onClose }: BulkPointsPageProps) 
 
         {event && (
           <>
-            <input className="cat-input" type="search" placeholder="Buscar pelo nome…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar criança" />
+            <label className="staff-toolbar__search">
+              <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
+              <input className="cat-input" type="search" placeholder={tx("Buscar pelo nome…")} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tx("Buscar criança")} />
+            </label>
             <p className="scan-points__summary" aria-live="polite">
-              <strong>{eventScans.length}</strong> com pontos · <strong>{pendingCount}</strong> sem pontos
+              <strong>{eventScans.length}</strong> {tx("com pontos")} · <strong>{pendingCount}</strong> {tx("sem pontos")}
               {notArrived > 0 && (
                 <span className="scan-points__summary-hint">
-                  · {notArrived} sem check-in (só pelo crachá)
+                  · {tx("{n} sem check-in (só pelo crachá)", { n: notArrived })}
                 </span>
               )}
             </p>
             {pending.length === 0 ? (
-              <p className="opt-empty">{search ? "Ninguém com check-in e sem pontos com esse nome." : "Todas as crianças com check-in já receberam os pontos deste evento. 🎉"}</p>
+              <p className="opt-empty">{search ? tx("Ninguém com check-in e sem pontos com esse nome.") : tx("Todas as crianças com check-in já receberam os pontos deste evento. 🎉")}</p>
             ) : (
               <ul className="bulk-points__list">
                 {pending.map((c) => {
@@ -219,14 +232,14 @@ export default function BulkPointsPage({ token, onClose }: BulkPointsPageProps) 
                         <div className="bulk-points__kid bulk-points__kid--cheer" style={{ borderLeftColor: team?.color ?? "#ccc" }}>
                           <span className="bulk-points__name">{c.name}</span>
                           <small className="bulk-points__team">
-                            {team?.name ?? "sem time"} · +{points}
+                            {team?.name ?? tx("sem time")} · +{points}
                           </small>
                           <span className="bulk-points__cheer-actions">
                             <span className="bulk-points__plus bulk-points__plus--given" aria-hidden="true">
                               ✓ +{points}
                             </span>
                             <button type="button" className="link-btn bulk-points__undo" disabled={!!undoingId} onClick={() => void undo(scoreId, c.id)}>
-                              {undoing ? "…" : "↩︎ Desfazer"}
+                              {undoing ? "…" : tx("↩︎ Desfazer")}
                             </button>
                           </span>
                           {!undoing && (
@@ -246,7 +259,7 @@ export default function BulkPointsPage({ token, onClose }: BulkPointsPageProps) 
                     <li key={c.id}>
                       <button type="button" className="bulk-points__kid" disabled={!!busyId || !pointsValid || !team} onClick={() => void give(c.id)} style={{ borderLeftColor: team?.color ?? "#ccc" }}>
                         <span className="bulk-points__name">{c.name}</span>
-                        <small className="bulk-points__team">{team ? team.name : "sem time"}</small>
+                        <small className="bulk-points__team">{team ? team.name : tx("sem time")}</small>
                         <span className="bulk-points__plus" aria-hidden="true">
                           {busyId === c.id ? "…" : `+${pointsValid ? points : "—"}`}
                         </span>
@@ -259,7 +272,7 @@ export default function BulkPointsPage({ token, onClose }: BulkPointsPageProps) 
 
             {eventScans.length > 0 && (
               <section className="bulk-points__done">
-                <h3 className="bulk-points__done-title">Já receberam</h3>
+                <h3 className="bulk-points__done-title">{tx("Já receberam")}</h3>
                 <ul className="bulk-points__list">
                   {eventScans
                     .filter((s) => !cheering.has(s.camperId as string))
@@ -269,10 +282,10 @@ export default function BulkPointsPage({ token, onClose }: BulkPointsPageProps) 
                         <li key={s.id} className="bulk-points__kid bulk-points__kid--done" style={{ borderLeftColor: team?.color ?? "#ccc" }}>
                           <span className="bulk-points__name">{s.camperName}</span>
                           <small className="bulk-points__team">
-                            {team?.name ?? "Time removido"} · +{s.points} · {s.by.name.split(" ")[0]}
+                            {team?.name ?? tx("Time removido")} · +{s.points} · {s.by.name.split(" ")[0]}
                           </small>
                           <button type="button" className="link-btn bulk-points__undo" disabled={!!undoingId} onClick={() => void undo(s.id)}>
-                            {undoingId === s.id ? "…" : "↩︎ Desfazer"}
+                            {undoingId === s.id ? "…" : tx("↩︎ Desfazer")}
                           </button>
                         </li>
                       );
@@ -285,7 +298,7 @@ export default function BulkPointsPage({ token, onClose }: BulkPointsPageProps) 
 
       </div>
 
-      <ScanFab label="Ler os crachás com a câmera" onClick={() => setScanning(true)} />
+      <ScanFab label={tx("Ler os crachás com a câmera")} onClick={() => setScanning(true)} />
       {scanning && (
         <ScanPointsDialog
           token={token}

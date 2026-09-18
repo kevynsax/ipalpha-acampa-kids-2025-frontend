@@ -28,6 +28,7 @@ import TransportTag from "../../components/TransportTag";
 import { formatBrazilPhoneClient } from "../../phoneFormat";
 import { staffGreeting, whatsappLink } from "../../whatsapp";
 import type { DetailNav } from "./DetailStack";
+import { useI18n } from "../../i18n";
 
 
 /**
@@ -38,12 +39,16 @@ import type { DetailNav } from "./DetailStack";
 function stampBy(
   c: { byName: string },
   self: string,
+  tx: (pt: string, vars?: Record<string, string | number>) => string,
   prep: "por" | "para" = "por",
 ): string {
   if (!c.byName) return "";
+  const name = c.byName.split(" ")[0];
   return c.byName === self
-    ? "pelo próprio celular"
-    : `${prep} ${c.byName.split(" ")[0]}`;
+    ? tx("pelo próprio celular")
+    : prep === "para"
+      ? tx("para {name}", { name })
+      : tx("por {name}", { name });
 }
 
 interface StaffDetailProps {
@@ -71,10 +76,11 @@ export default function StaffDetail({
   onOpenRole,
   onOpenEvent,
 }: StaffDetailProps) {
+  const { tx } = useI18n();
   // joined locally from the store — works offline and updates live (no reload needed after (un)assigning)
   const data = useStaffDetail(staffId);
   const [actionError, setError] = useState<string | null>(null);
-  const error = data === undefined ? "Pessoa não encontrada." : actionError;
+  const error = data === undefined ? tx("Pessoa não encontrada.") : actionError;
   /** the schedule item whose instructions are open in the dialog */
   const [instructionsFor, setInstructionsFor] =
     useState<StaffScheduleItem | null>(null);
@@ -102,7 +108,7 @@ export default function StaffDetail({
       await unassignStaff(token, eventId, staffId);
       reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -115,7 +121,7 @@ export default function StaffDetail({
         {error ? (
           <p className="message message--error">{error}</p>
         ) : (
-          <p className="opt-empty">Sincronizando… 🏕️</p>
+          <p className="opt-empty">{tx("Sincronizando… 🏕️")}</p>
         )}
       </div>
     );
@@ -159,7 +165,7 @@ export default function StaffDetail({
         <>
           {roommates.map((r, i) => (
             <span key={r.id}>
-              {i > 0 && (i === roommates.length - 1 ? " e " : ", ")}
+              {i > 0 && (i === roommates.length - 1 ? tx(" e ") : ", ")}
               {onOpenStaff ? (
                 <button
                   type="button"
@@ -171,14 +177,14 @@ export default function StaffDetail({
               ) : (
                 <strong>{r.name.split(" ")[0]}</strong>
               )}
-              {bedroom.group !== "staff" && ` (${ROOM_ROLE_META[r.roomRole].label.toLowerCase()})`}
+              {bedroom.group !== "staff" && ` (${tx(ROOM_ROLE_META[r.roomRole].label).toLowerCase()})`}
             </span>
           ))}{" "}
-          {roommates.length === 1 ? "está" : "estão"} no mesmo quarto:
+          {roommates.length === 1 ? tx("está") : tx("estão")} {tx("no mesmo quarto:")}
         </>
       ) : (
         <>
-          <strong>{firstName}</strong> é a única pessoa da equipe no quarto:
+          <strong>{firstName}</strong> {tx("é a única pessoa da equipe no quarto:")}
         </>
       )}{" "}
       <BedroomTag bedroom={bedroom} onClick={onOpenBedroom ? () => onOpenBedroom(bedroom.id) : undefined} />
@@ -193,18 +199,18 @@ export default function StaffDetail({
           <AdultIcon sex={adultIcon} size={40} />
           {s.name}
           {s.admin && (
-            <span className="staff-card__inactive" title="Admin do app">
+            <span className="staff-card__inactive" title={tx("Admin do app")}>
               admin
             </span>
           )}
-          {!s.active && <span className="staff-card__inactive">inativo</span>}
+          {!s.active && <span className="staff-card__inactive">{tx("inativo")}</span>}
         </h1>
         {onEdit && (
           <button
             type="button"
             className="icon-btn icon-btn--lg"
-            title="Editar"
-            aria-label="Editar"
+            title={tx("Editar")}
+            aria-label={tx("Editar")}
             onClick={() => onEdit(s)}
           >
             <span className="pencil" aria-hidden="true">
@@ -218,7 +224,7 @@ export default function StaffDetail({
       <section className="detail-card">
         <dl className="detail-grid">
           {/* whoever may see this person may see their phone */}
-          <dt>Celular</dt>
+          <dt>{tx("Celular")}</dt>
           <dd>
             {s.phone ? (
               <>
@@ -229,24 +235,30 @@ export default function StaffDetail({
                     s.phone,
                     staffGreeting({ toName: s.name, fromName: myName }),
                   )}
-                  label={`Falar com ${s.name.split(" ")[0]} no WhatsApp`}
+                  label={tx("Falar com {name} no WhatsApp", { name: s.name.split(" ")[0] })}
                 />
               </>
             ) : (
-              <em className="staff-card__missing">sem celular</em>
+              <em className="staff-card__missing">{tx("sem celular")}</em>
             )}
           </dd>
-          <dt>Time</dt>
+          {!s.redacted && (
+            <>
+              <dt>{tx("E-mail")}</dt>
+              <dd>{s.email ? <a href={`mailto:${s.email}`}>{s.email}</a> : "—"}</dd>
+            </>
+          )}
+          <dt>{tx("Time")}</dt>
           <dd>
             {/* an admin is on the roster for the room / transport / vest only: no time, no kids */}
-            <TeamTag teamId={s.team} fallback={s.admin ? "— admin não entra em time" : "—"} />
+            <TeamTag teamId={s.team} fallback={s.admin ? tx("— admin não entra em time") : "—"} />
             {onEdit && !s.admin && (
-              <button type="button" className="icon-btn icon-btn--bare" title="Trocar de time" aria-label="Trocar de time" onClick={() => setFieldOpen("team")}>
+              <button type="button" className="icon-btn icon-btn--bare" title={tx("Trocar de time")} aria-label={tx("Trocar de time")} onClick={() => setFieldOpen("team")}>
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
               </button>
             )}
           </dd>
-          <dt>Quarto</dt>
+          <dt>{tx("Quarto")}</dt>
           <dd>
             {bedroom ? (
               <BedroomTag bedroom={bedroom} onClick={onOpenBedroom ? () => onOpenBedroom(bedroom.id) : undefined} />
@@ -257,8 +269,8 @@ export default function StaffDetail({
               <button
                 type="button"
                 className="icon-btn icon-btn--bare"
-                title="Trocar de quarto"
-                aria-label="Trocar de quarto"
+                title={tx("Trocar de quarto")}
+                aria-label={tx("Trocar de quarto")}
                 onClick={() => setMoveOpen(true)}
               >
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
@@ -267,32 +279,32 @@ export default function StaffDetail({
             {bedroom && bedroom.group !== "staff" && !s.admin && (
               <span
                 className="staff-tag"
-                title={ROOM_ROLE_META[s.roomRole].hint}
+                title={tx(ROOM_ROLE_META[s.roomRole].hint)}
               >
-                <RoomRoleIcon role={s.roomRole} sex={staffSex(s, bedroom ? [bedroom] : [])} /> {ROOM_ROLE_META[s.roomRole].label}
+                <RoomRoleIcon role={s.roomRole} sex={staffSex(s, bedroom ? [bedroom] : [])} /> {tx(ROOM_ROLE_META[s.roomRole].label)}
               </span>
             )}
           </dd>
-          <dt>Transporte</dt>
+          <dt>{tx("Transporte")}</dt>
           <dd>
             {s.transportation ? <TransportTag transportId={s.transportation} /> : "—"}
             {onEdit && (
-              <button type="button" className="icon-btn icon-btn--bare" title="Trocar o transporte" aria-label="Trocar o transporte" onClick={() => setFieldOpen("transportation")}>
+              <button type="button" className="icon-btn icon-btn--bare" title={tx("Trocar o transporte")} aria-label={tx("Trocar o transporte")} onClick={() => setFieldOpen("transportation")}>
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
               </button>
             )}
           </dd>
           {!s.redacted && (
             <>
-              <dt>Check-in</dt>
+              <dt>{tx("Check-in")}</dt>
               <dd>
                 {s.checkin
-                  ? `✅ ${speakStamp(s.checkin.at)} · ${stampBy(s.checkin, s.name)}`
-                  : "Ainda não chegou"}
+                  ? `✅ ${speakStamp(s.checkin.at)} · ${stampBy(s.checkin, s.name, tx)}`
+                  : tx("Ainda não chegou")}
               </dd>
               {s.vest?.delivered && (
                 <>
-                  <dt>Colete</dt>
+                  <dt>{tx("Colete")}</dt>
                   <dd>
                     <span
                       className={
@@ -301,16 +313,16 @@ export default function StaffDetail({
                           : "vest-status"
                       }
                     >
-                      {vestReturned ? "Devolvido" : "Não devolvido"}
+                      {vestReturned ? tx("Devolvido") : tx("Não devolvido")}
                     </span>
                     <button
                       type="button"
                       className={`icon-btn icon-btn--bare vest-toggle ${vestOpen ? "vest-toggle--open" : ""}`}
-                      title={vestOpen ? "Ocultar detalhes" : "Ver detalhes"}
+                      title={vestOpen ? tx("Ocultar detalhes") : tx("Ver detalhes")}
                       aria-label={
                         vestOpen
-                          ? "Ocultar detalhes do colete"
-                          : "Ver detalhes do colete"
+                          ? tx("Ocultar detalhes do colete")
+                          : tx("Ver detalhes do colete")
                       }
                       aria-expanded={vestOpen}
                       onClick={() => setVestOpen((v) => !v)}
@@ -321,12 +333,10 @@ export default function StaffDetail({
                     </button>
                     {vestOpen && (
                       <small className="vest-details">
-                        🦺 Entregue {speakStamp(s.vest.delivered.at)} ·{" "}
-                        {stampBy(s.vest.delivered, s.name)}
+                        {tx("🦺 Entregue {when} · {by}", { when: speakStamp(s.vest.delivered.at), by: stampBy(s.vest.delivered, s.name, tx) })}
                         {s.vest.returned && (
                           <>
-                            <br />✅ Devolvido {speakStamp(s.vest.returned.at)} ·{" "}
-                            {stampBy(s.vest.returned, s.name, "para")}
+                            <br />{tx("✅ Devolvido {when} · {by}", { when: speakStamp(s.vest.returned.at), by: stampBy(s.vest.returned, s.name, tx, "para") })}
                           </>
                         )}
                       </small>
@@ -337,9 +347,9 @@ export default function StaffDetail({
             </>
           )}
         </dl>
-        <div className={reviewing ? "camper-ai-observation" : ""} title={reviewing ? "Este campo está sendo revisado pela IA" : undefined}>
+        <div className={reviewing ? "camper-ai-observation" : ""} title={reviewing ? tx("Este campo está sendo revisado pela IA") : undefined}>
           <HealthAlerts person={s} labelOf={labelOf} boxed />
-          {reviewing && !s.healthNotes && <p className="detail-note">Observações em revisão pela IA…</p>}
+          {reviewing && !s.healthNotes && <p className="detail-note">{tx("Observações em revisão pela IA…")}</p>}
         </div>
       </section>
 
@@ -347,18 +357,18 @@ export default function StaffDetail({
       <section className="detail-section">
         <div className="detail-h2-row">
           <h2 className="detail-h2">
-            🎯 Funções <span className="cat-tab__count">{explicit.length}</span>
+            🎯 {tx("Funções")} <span className="cat-tab__count">{explicit.length}</span>
           </h2>
           <button
             type="button"
             className="button button--primary admin-head__new"
             onClick={() => setAssignOpen(true)}
           >
-            + Vincular função
+            {tx("+ Vincular função")}
           </button>
         </div>
         {explicit.length === 0 && (
-          <p className="opt-empty">Nenhuma função específica.</p>
+          <p className="opt-empty">{tx("Nenhuma função específica.")}</p>
         )}
         {explicit.length > 0 && (
           <ul className="escala-list">
@@ -371,8 +381,8 @@ export default function StaffDetail({
                       <button
                         type="button"
                         className="icon-btn escala-item__corner-btn"
-                        title="Ver instruções"
-                        aria-label={`Ver instruções de ${x.role.name}`}
+                        title={tx("Ver instruções")}
+                        aria-label={tx("Ver instruções de {name}", { name: x.role.name })}
                         onClick={() => setInstructionsFor(x)}
                       >
                         📝
@@ -381,8 +391,8 @@ export default function StaffDetail({
                     <button
                       type="button"
                       className="icon-btn icon-btn--danger escala-item__corner-btn"
-                      title="Desvincular função"
-                      aria-label={`Desvincular ${x.role?.name ?? "função"} em ${x.title}`}
+                      title={tx("Desvincular função")}
+                      aria-label={tx("Desvincular {role} em {title}", { role: x.role?.name ?? tx("Função"), title: x.title })}
                       disabled={busy}
                       onClick={() => handleUnassign(x)}
                     >
@@ -401,7 +411,7 @@ export default function StaffDetail({
                         <button
                           type="button"
                           className="text-link"
-                          title={`Ver função ${x.role.name}`}
+                          title={tx("Ver função {name}", { name: x.role.name })}
                           onClick={() => onOpenRole(x.role!.id)}
                         >
                           {x.role.emoji} {x.role.name}
@@ -414,12 +424,12 @@ export default function StaffDetail({
                       {x.detail && (
                         <span className="staff-tag__n">{x.detail}</span>
                       )}
-                      <span className="escala-item__prep"> em </span>
+                      <span className="escala-item__prep">{tx(" em ")}</span>
                       {onOpenEvent ? (
                         <button
                           type="button"
                           className="text-link"
-                          title={`Ver evento ${x.title}`}
+                          title={tx("Ver evento {title}", { title: x.title })}
                           onClick={() => onOpenEvent(x.eventId)}
                         >
                           <span aria-hidden="true">{x.emoji}</span> {x.title}
@@ -458,7 +468,11 @@ export default function StaffDetail({
         role={instructionsFor?.role ?? null}
         context={
           instructionsFor
-            ? `em ${instructionsFor.emoji} ${instructionsFor.title} · ${speakDay(instructionsFor.date, "weekday")} ${instructionsFor.startTime}`
+            ? tx("em {emoji} {title} · {when}", {
+                emoji: instructionsFor.emoji,
+                title: instructionsFor.title,
+                when: `${speakDay(instructionsFor.date, "weekday")} ${instructionsFor.startTime}`,
+              })
             : undefined
         }
         onClose={() => setInstructionsFor(null)}
@@ -473,20 +487,20 @@ export default function StaffDetail({
             size={26}
           />{" "}
           {s.roomRole === "caretaker"
-            ? "Crianças sob responsabilidade"
-            : "Crianças do quarto"}{" "}
+            ? tx("Crianças sob responsabilidade")
+            : tx("Crianças do quarto")}{" "}
           <span className="cat-tab__count">{campers.length}</span>
         </h2>
         {!bedroom && (
           <p className="opt-empty">
-            Sem quarto definido — nenhuma criança vinculada.
+            {tx("Sem quarto definido — nenhuma criança vinculada.")}
           </p>
         )}
         {bedroom && bedroom.group === "staff" && (
-          <p className="opt-empty">Quarto da equipe — sem crianças.</p>
+          <p className="opt-empty">{tx("Quarto da equipe — sem crianças.")}</p>
         )}
         {bedroom && bedroom.group !== "staff" && campers.length === 0 && (
-          <p className="opt-empty">Nenhuma criança neste quarto ainda.</p>
+          <p className="opt-empty">{tx("Nenhuma criança neste quarto ainda.")}</p>
         )}
         {campers.length > 0 && (
           <>
@@ -514,17 +528,16 @@ export default function StaffDetail({
         otherCampers.length > 0 && (
           <section className="detail-section">
             <h2 className="detail-h2">
-              <KidIcon sex={kidSexOf(bedroom.group)} group size={26} /> Outras
-              crianças do quarto{" "}
+              <KidIcon sex={kidSexOf(bedroom.group)} group size={26} /> {tx("Outras crianças do quarto")}{" "}
               <span className="cat-tab__count">{otherCampers.length}</span>
             </h2>
             <p className="admin-intro">
               {otherLeaders.length > 0 && (
                 <>
-                  {otherLeaders.length === 1 ? "Líder: " : "Líderes: "}
+                  {otherLeaders.length === 1 ? tx("Líder: ") : tx("Líderes: ")}
                   {otherLeaders.map(({ staff: r, n }, i) => (
                     <span key={r.id}>
-                      {i > 0 && (i === otherLeaders.length - 1 ? " e " : ", ")}
+                      {i > 0 && (i === otherLeaders.length - 1 ? tx(" e ") : ", ")}
                       {onOpenStaff ? (
                         <button
                           type="button"
@@ -544,8 +557,7 @@ export default function StaffDetail({
               )}
               {otherOrphans > 0 && (
                 <span className="orphan-tag">
-                  {otherLeaders.length > 0 ? " " : ""}⚠️ {otherOrphans} sem
-                  líder
+                  {otherLeaders.length > 0 ? " " : ""}{tx("⚠️ {count} sem líder", { count: otherOrphans })}
                 </span>
               )}
             </p>

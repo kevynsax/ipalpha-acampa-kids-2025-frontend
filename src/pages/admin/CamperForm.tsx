@@ -21,6 +21,7 @@ import PhoneInput from "../../components/PhoneInput";
 import Toggle from "../../components/Toggle";
 import { formatCpf } from "../../cpf";
 import { maskBrazilPhone, toE164 } from "../../phone";
+import { collatorLocale, useI18n } from "../../i18n";
 
 interface CamperFormProps {
   /** session token — lets the form ask the AI to sort the observations */
@@ -40,6 +41,7 @@ interface CamperFormProps {
 
 /** Create / edit a camper (kid). The health block is collapsible; the guardian box is always open. */
 export default function CamperForm({ token, camper, categories, busy, onSubmit, onSexChange, leaveGuardRef }: CamperFormProps) {
+  const { tx } = useI18n();
   // the "Ler crachá" FAB would sit on top of Salvar / Cancelar
   useHideScanFab();
   const editing = !!camper;
@@ -75,7 +77,7 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
   const [transportation, setTransportation] = useState<string | null>(camper?.transportation ?? null);
   /** the líderes of the chosen room: the only people who may look after the kid */
   const caretakers = useMemo(
-    () => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "caretaker").sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) : []),
+    () => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "caretaker").sort((a, b) => a.name.localeCompare(b.name, collatorLocale())) : []),
     [staff, bedroom],
   );
   // one líder → picked for you; room changed → a líder from elsewhere is dropped
@@ -133,11 +135,11 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
     leaveGuardRef.current = async () => {
       if (!dirtyRef.current) return true;
       const r = await askChoice({
-        title: "Salvar alterações?",
-        message: "Você fez alterações que ainda não foram salvas.",
-        confirmLabel: "Salvar",
-        discardLabel: "Descartar",
-        cancelLabel: "Cancelar",
+        title: tx("Salvar alterações?"),
+        message: tx("Você fez alterações que ainda não foram salvas."),
+        confirmLabel: tx("Salvar"),
+        discardLabel: tx("Descartar"),
+        cancelLabel: tx("Cancelar"),
         emoji: "💾",
       });
       if (r === "cancel") return false;
@@ -292,7 +294,7 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
       });
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
       return false;
     }
   }
@@ -327,10 +329,10 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
     <form className="cat-form cat-form--plain" onSubmit={handleSubmit}>
       <div className="cat-form__row staff-form__row staff-form__row--inline">
         <label className="cat-field cat-field--grow">
-          <span className={`cat-field__label${sexBusy ? " cat-field__label--guessing" : ""}`}>Nome</span>
+          <span className={`cat-field__label${sexBusy ? " cat-field__label--guessing" : ""}`}>{tx("Nome")}</span>
           <input
             className={`cat-input${sexBusy ? " cat-input--busy" : ""}`}
-            placeholder="ex.: Helena Sparvoli"
+            placeholder={tx("ex.: Helena Sparvoli")}
             value={name}
             maxLength={100}
             autoFocus
@@ -339,20 +341,20 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
           />
         </label>
         <label className="cat-field">
-          <span className="cat-field__label">Nascimento</span>
+          <span className="cat-field__label">{tx("Nascimento")}</span>
           <input className="cat-input" type="date" value={birthDate} disabled={busy} onChange={(e) => setBirthDate(e.target.value)} />
         </label>
         <input type="hidden" name="sex" value={sex ?? ""} />
       </div>
 
       <div className="cat-form__row staff-form__row">
-        <CategoryRadio label="Cama" category={cat(CAMPER_CATEGORY_KEYS.bed)} value={bed} onChange={setBed} disabled={busy} />
-        {text(<><BunkIcon size={18} /> Prefere dividir quarto com</>, bedroomPreference, setBedroomPreference, "ex.: Bernardo Faria, Lucas (primo)", undefined, "bedroomPreference")}
+        <CategoryRadio label={tx("Cama")} category={cat(CAMPER_CATEGORY_KEYS.bed)} value={bed} onChange={setBed} disabled={busy} />
+        {text(<><BunkIcon size={18} /> {tx("Prefere dividir quarto com")}</>, bedroomPreference, setBedroomPreference, tx("ex.: Bernardo Faria, Lucas (primo)"), undefined, "bedroomPreference")}
       </div>
 
       {!editing && (
         <section className="form-box form-box--plain" aria-labelledby="alloc-title">
-          <h3 id="alloc-title" className="form-box__title">🏕️ Time, quarto e transporte</h3>
+          <h3 id="alloc-title" className="form-box__title">{tx("🏕️ Time, quarto e transporte")}</h3>
           <div className="cat-form__row staff-form__row">
             <TeamSelect value={team} onChange={setTeam} disabled={busy} />
             <TransportSelect value={transportation} onChange={setTransportation} disabled={busy} />
@@ -360,9 +362,9 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
           <div className="cat-form__row staff-form__row">
             <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} groups={bedroomGroupsForSex(sex, probableGender)} disabled={busy} />
             <label className="cat-field cat-field--grow">
-              <span className="cat-field__label"><RoomRoleIcon role="caretaker" sex={sex ?? "M"} /> Líder</span>
+              <span className="cat-field__label"><RoomRoleIcon role="caretaker" sex={sex ?? "M"} /> {tx("Líder")}</span>
               <select className="cat-input" value={caretakerId ?? ""} disabled={busy || !bedroom || caretakers.length === 0} onChange={(e) => setCaretakerId(e.target.value || null)}>
-                <option value="">{!bedroom ? "Escolha o quarto primeiro" : caretakers.length ? "Sem líder" : "Nenhum líder neste quarto"}</option>
+                <option value="">{!bedroom ? tx("Escolha o quarto primeiro") : caretakers.length ? tx("Sem líder") : tx("Nenhum líder neste quarto")}</option>
                 {caretakers.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -375,75 +377,75 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
       )}
 
       <section className="form-box form-box--plain" aria-labelledby="extra-title">
-        <h3 id="extra-title" className="form-box__title">🪪 Documentos e escola</h3>
+        <h3 id="extra-title" className="form-box__title">{tx("🪪 Documentos e escola")}</h3>
         <div className="cat-form__row staff-form__row">
           <label className="cat-field cat-field--grow">
-            <span className="cat-field__label">CPF</span>
-            <CpfInput value={cpf} onChange={setCpf} disabled={busy} placeholder="ex.: 123.456.789-00" />
+            <span className="cat-field__label">{tx("CPF")}</span>
+            <CpfInput value={cpf} onChange={setCpf} disabled={busy} placeholder={tx("ex.: 123.456.789-00")} />
           </label>
-          {text("RG", rg, setRg)}
+          {text(tx("RG"), rg, setRg)}
         </div>
         <div className="cat-form__row staff-form__row">
-          {text("Escola", school, setSchool, "ex.: Mackenzie")}
-          {text("Série", schoolGrade, setSchoolGrade, "ex.: 4º ano")}
+          {text(tx("Escola"), school, setSchool, tx("ex.: Mackenzie"))}
+          {text(tx("Série"), schoolGrade, setSchoolGrade, tx("ex.: 4º ano"))}
         </div>
         <div className="cat-form__row staff-form__row">
-          {text("Frequenta igreja", church, setChurch, "ex.: IPAlpha")}
-          {text("Convidado por", invitedBy, setInvitedBy, "ex.: Pedro Brassioli")}
+          {text(tx("Frequenta igreja"), church, setChurch, tx("ex.: IPAlpha"))}
+          {text(tx("Convidado por"), invitedBy, setInvitedBy, tx("ex.: Pedro Brassioli"))}
         </div>
       </section>
 
       <section className="form-box form-box--plain" aria-labelledby="guardian-title">
         <h3 id="guardian-title" className="form-box__title">
-          <ParentIcon size={22} /> Pai ou Responsável
+          <ParentIcon size={22} /> {tx("Pai ou Responsável")}
         </h3>
         <div className="cat-form__row staff-form__row">
-          {text("Nome do responsável", guardianName, setGuardianName, "ex.: Daniela Sparvoli")}
+          {text(tx("Nome do responsável"), guardianName, setGuardianName, tx("ex.: Daniela Sparvoli"))}
           <div className="cat-field cat-field--grow">
-            <span className="cat-field__label">Telefone do responsável</span>
+            <span className="cat-field__label">{tx("Telefone do responsável")}</span>
             <PhoneInput value={guardianPhone} onChange={setGuardianPhone} disabled={busy} />
-            {guardianPhone && !phoneE164 && <p className="cat-hint cat-hint--error">Informe um celular válido com DDD.</p>}
+            {guardianPhone && !phoneE164 && <p className="cat-hint cat-hint--error">{tx("Informe um celular válido com DDD.")}</p>}
           </div>
         </div>
         <div className="cat-form__row staff-form__row">
           <label className="cat-field cat-field--grow">
-            <span className="cat-field__label">CPF do responsável</span>
-            <CpfInput value={guardianCpf} onChange={setGuardianCpf} disabled={busy} ariaLabel="CPF do responsável" />
+            <span className="cat-field__label">{tx("CPF do responsável")}</span>
+            <CpfInput value={guardianCpf} onChange={setGuardianCpf} disabled={busy} ariaLabel={tx("CPF do responsável")} />
           </label>
-          {text("E-mail do responsável", guardianEmail, setGuardianEmail, "ex.: nome@email.com")}
+          {text(tx("E-mail do responsável"), guardianEmail, setGuardianEmail, tx("ex.: nome@email.com"))}
         </div>
-        {text("Contato de emergência", emergencyContact, setEmergencyContact, "ex.: Marcos (pai) 11 99999-0000", undefined, "emergencyContact")}
+        {text(tx("Contato de emergência"), emergencyContact, setEmergencyContact, tx("ex.: Marcos (pai) 11 99999-0000"), undefined, "emergencyContact")}
         <div className="cat-form__row staff-form__row">
-          {text("Convênio médico", insurance, setInsurance, "ex.: Bradesco")}
-          {text("Carteirinha", insuranceCard, setInsuranceCard)}
+          {text(tx("Convênio médico"), insurance, setInsurance, tx("ex.: Bradesco"))}
+          {text(tx("Carteirinha"), insuranceCard, setInsuranceCard)}
         </div>
       </section>
 
       <section className="form-box form-box--plain" aria-labelledby="health-title">
-        <h3 id="health-title" className="form-box__title">📝 Saúde e observações</h3>
+        <h3 id="health-title" className="form-box__title">{tx("📝 Saúde e observações")}</h3>
         <label className="cat-field cat-field--weight">
-          <span className="cat-field__label">⚖️ Peso (kg)</span>
-          <input className="cat-input" inputMode="decimal" placeholder="ex.: 28,5" value={weight} maxLength={6} disabled={busy} onChange={(e) => setWeight(e.target.value)} />
-          {weight.trim() && !weightOk && <p className="cat-hint cat-hint--error">Entre 5 e 200 kg.</p>}
+          <span className="cat-field__label">{tx("⚖️ Peso (kg)")}</span>
+          <input className="cat-input" inputMode="decimal" placeholder={tx("ex.: 28,5")} value={weight} maxLength={6} disabled={busy} onChange={(e) => setWeight(e.target.value)} />
+          {weight.trim() && !weightOk && <p className="cat-hint cat-hint--error">{tx("Entre 5 e 200 kg.")}</p>}
         </label>
-        {optional("🤮 Alergias", hasAllergies, setHasAllergies, <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.allergies)} value={allergies} onChange={setAllergies} disabled={busy} />)}
+        {optional(tx("🤮 Alergias"), hasAllergies, setHasAllergies, <CategoryChips label={tx("Quais")} category={cat(CAMPER_CATEGORY_KEYS.allergies)} value={allergies} onChange={setAllergies} disabled={busy} />)}
         {optional(
           <>
-            <NoPillIcon /> Alergia a medicamentos
+            <NoPillIcon /> {tx("Alergia a medicamentos")}
           </>,
           hasDrugAllergies,
           setHasDrugAllergies,
-          <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.drugAllergies)} value={drugAllergies} onChange={setDrugAllergies} disabled={busy} />,
+          <CategoryChips label={tx("Quais")} category={cat(CAMPER_CATEGORY_KEYS.drugAllergies)} value={drugAllergies} onChange={setDrugAllergies} disabled={busy} />,
         )}
-        {optional("🩺 Condição crônica", hasHealthIssues, setHasHealthIssues, <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.healthIssues)} value={healthIssues} onChange={setHealthIssues} disabled={busy} />)}
+        {optional(tx("🩺 Condição crônica"), hasHealthIssues, setHasHealthIssues, <CategoryChips label={tx("Quais")} category={cat(CAMPER_CATEGORY_KEYS.healthIssues)} value={healthIssues} onChange={setHealthIssues} disabled={busy} />)}
         <div className="cat-field opt-field">
           <div className="opt-field__head">
-            <Toggle checked={neurodivergent} onChange={setNeurodivergent} disabled={busy} label="🧩 Neurodivergente" />
+            <Toggle checked={neurodivergent} onChange={setNeurodivergent} disabled={busy} label={tx("🧩 Neurodivergente")} />
           </div>
-          <p className="cat-hint">TEA, TDAH… Visível só para a organização e a equipe médica.</p>
+          <p className="cat-hint">{tx("TEA, TDAH… Visível só para a organização e a equipe médica.")}</p>
         </div>
         {optional(
-          "💊 Medicação de uso diário",
+          tx("💊 Medicação de uso diário"),
           hasMedicines,
           (on) => {
             setHasMedicines(on);
@@ -451,13 +453,13 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
           },
           <MedicationsEditor value={medications} onChange={setMedications} disabled={busy} />,
         )}
-        {optional("🍽️ Alimentação / restrições", hasFoodRestrictions, setHasFoodRestrictions, text("Quais", foodRestrictions, setFoodRestrictions, "ex.: sem lactose", 2, "foodRestrictions"))}
-        {optional("🩺 Observações médicas", hasHealthNotes, setHasHealthNotes, text("Observações", healthNotes, setHealthNotes, "ex.: em caso de crise, 4 puffs de Aerolin…", 3, "healthNotes"))}
+        {optional(tx("🍽️ Alimentação / restrições"), hasFoodRestrictions, setHasFoodRestrictions, text(tx("Quais"), foodRestrictions, setFoodRestrictions, tx("ex.: sem lactose"), 2, "foodRestrictions"))}
+        {optional(tx("🩺 Observações médicas"), hasHealthNotes, setHasHealthNotes, text(tx("Observações"), healthNotes, setHealthNotes, tx("ex.: em caso de crise, 4 puffs de Aerolin…"), 3, "healthNotes"))}
         <AiNotesField
-          label="📝 Observações gerais"
+          label={tx("📝 Observações gerais")}
           value={generalNotes}
           onChange={setGeneralNotes}
-          placeholder="ex.: cole aqui o texto da inscrição — saúde, contatos e preferências vão para os campos certos"
+          placeholder={tx("ex.: cole aqui o texto da inscrição — saúde, contatos e preferências vão para os campos certos")}
           disabled={busy}
           sorter={ai}
         />
@@ -466,8 +468,8 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
       {error && <p className="message message--error">{error}</p>}
 
       <div className="cat-form__actions">
-        <button type="submit" className="button button--primary" disabled={!valid || busy || ai.holding} title={ai.holding ? "Aguardando a IA organizar as observações…" : undefined}>
-          {busy ? "Salvando…" : ai.holding ? "Organizando…" : editing ? "Salvar" : "Adicionar 🎉"}
+        <button type="submit" className="button button--primary" disabled={!valid || busy || ai.holding} title={ai.holding ? tx("Aguardando a IA organizar as observações…") : undefined}>
+          {busy ? tx("Salvando…") : ai.holding ? tx("Organizando…") : editing ? tx("Salvar") : tx("Adicionar 🎉")}
         </button>
       </div>
     </form>

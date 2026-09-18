@@ -33,6 +33,24 @@ export async function reorderTeams(token: string, ids: string[]): Promise<void> 
   await command(`/api/teams/reorder`, { method: "PUT", headers: json(token), body: JSON.stringify({ ids }) }, ["teams"]);
 }
 
+export type TeamPersonKind = "camper" | "staff";
+
+/** Immediately moves one camper or staff member to a team, then waits for the WebSocket update. */
+export async function assignPersonToTeam(token: string, kind: TeamPersonKind, id: string, teamId: string | null): Promise<void> {
+  await assignPeopleToTeam(token, kind, [id], teamId);
+}
+
+/** Moves a whole visible group in one database write and one WebSocket publish. */
+export async function assignPeopleToTeam(token: string, kind: TeamPersonKind, ids: string[], teamId: string | null): Promise<void> {
+  await command("/api/teams/assignments", { method: "PUT", headers: json(token), body: JSON.stringify({ kind, ids, teamId }) }, [kind === "camper" ? "campers" : "staff"]);
+}
+
+/** Deals the supplied camper groups evenly across all teams. */
+export async function autoAssignCamperTeams(token: string, groups: string[][]): Promise<number> {
+  const res = await command<{ assigned: number }>("/api/teams/auto-assign-campers", { method: "POST", headers: json(token), body: JSON.stringify({ groups }) }, ["campers"]);
+  return res.assigned;
+}
+
 /** Unlinks every kid / staff member from the team and drops its score lines. */
 export async function deleteTeam(token: string, id: string): Promise<void> {
   await command(`/api/teams/${id}`, { method: "DELETE", headers: bearer(token) }, ["teams", "campers", "staff", "scores"]);

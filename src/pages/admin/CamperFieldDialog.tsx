@@ -3,13 +3,9 @@ import { updateCamper, type Camper } from "../../api/campers";
 import { TeamSelect, TransportSelect } from "../../components/CategoryFields";
 import Dialog from "../../components/Dialog";
 import { ICONS } from "../../icons";
+import { useI18n } from "../../i18n";
 
 export type CamperQuickField = "team" | "transportation";
-
-const META: Record<CamperQuickField, { title: string }> = {
-  team: { title: "Trocar de time" },
-  transportation: { title: "Trocar o transporte" },
-};
 
 interface CamperFieldDialogProps {
   token: string;
@@ -21,6 +17,11 @@ interface CamperFieldDialogProps {
 
 /** Admin: change ONE quick field of a kid (team or transportation) from the detail page. */
 export default function CamperFieldDialog({ token, open, camper: k, field, onClose }: CamperFieldDialogProps) {
+  const { tx } = useI18n();
+  const META: Record<CamperQuickField, { title: string }> = {
+    team: { title: tx("Trocar de time") },
+    transportation: { title: tx("Trocar o transporte") },
+  };
   const [value, setValue] = useState<string | null>(k[field]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +42,7 @@ export default function CamperFieldDialog({ token, open, camper: k, field, onClo
       await updateCamper(token, k.id, { [field]: value });
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -76,10 +77,10 @@ export default function CamperFieldDialog({ token, open, camper: k, field, onClo
 
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" onClick={onClose} disabled={busy}>
-            Cancelar
+            {tx("Cancelar")}
           </button>
           <button type="button" className="button button--primary" disabled={busy || !changed} onClick={submit}>
-            {busy ? "Salvando…" : "Confirmar"}
+            {busy ? tx("Salvando…") : tx("Confirmar")}
           </button>
         </div>
       </div>

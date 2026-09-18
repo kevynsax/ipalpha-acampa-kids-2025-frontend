@@ -10,6 +10,7 @@ import { useAiNotesSorter } from "../../hooks/useAiNotesSorter";
 import { useFieldDedup } from "../../hooks/useFieldDedup";
 import type { DedupField } from "../../api/ai";
 import { useCategories } from "../../store/derive";
+import { useI18n } from "../../i18n";
 
 interface AttentionEditDialogProps {
   token: string;
@@ -25,8 +26,10 @@ interface AttentionEditDialogProps {
  * server logs them and texts the team.
  */
 export default function AttentionEditDialog({ token, open, camper: k, onClose }: AttentionEditDialogProps) {
+  const { tx } = useI18n();
   const categories = useCategories("camper");
   const cat = (key: string) => categories.find((c) => c.key === key);
+  const first = k.name.split(" ")[0];
 
   const [insurance, setInsurance] = useState(k.insurance);
   const [insuranceCard, setInsuranceCard] = useState(k.insuranceCard);
@@ -142,7 +145,7 @@ export default function AttentionEditDialog({ token, open, camper: k, onClose }:
       await parentUpdateCamper(token, k.id, patch);
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -175,38 +178,38 @@ export default function AttentionEditDialog({ token, open, camper: k, onClose }:
   );
 
   return (
-    <Dialog open={open} onClose={onClose} title="Editar pontos de atenção" width={620} dismissible={!busy} className="attention-sheet-dialog">
+    <Dialog open={open} onClose={onClose} title={tx("Editar pontos de atenção")} width={620} dismissible={!busy} className="attention-sheet-dialog">
       <div className="cat-form attention-sheet">
         <header className="attention-sheet__head">
           <span className="attention-sheet__handle" aria-hidden="true" />
-          <h2 className="cat-form__title">⚠️ Pontos de atenção de {k.name.split(" ")[0]}</h2>
-          <p className="cat-hint">O que você alterar aqui é avisado à equipe que cuida de {k.name.split(" ")[0]} no acampamento.</p>
+          <h2 className="cat-form__title">{tx("⚠️ Pontos de atenção de {name}", { name: first })}</h2>
+          <p className="cat-hint">{tx("O que você alterar aqui é avisado à equipe que cuida de {name} no acampamento.", { name: first })}</p>
         </header>
 
         <div className="attention-sheet__body">
         <div className="cat-form__row staff-form__row">
-          {text("🏥 Convênio médico", insurance, setInsurance, "ex.: Bradesco")}
-          {text("Carteirinha", insuranceCard, setInsuranceCard)}
+          {text(tx("🏥 Convênio médico"), insurance, setInsurance, tx("ex.: Bradesco"))}
+          {text(tx("Carteirinha"), insuranceCard, setInsuranceCard)}
         </div>
 
         <label className="cat-field cat-field--weight">
-          <span className="cat-field__label">⚖️ Peso (kg)</span>
-          <input className="cat-input" inputMode="decimal" placeholder="ex.: 28,5" value={weight} maxLength={6} disabled={busy} onChange={(e) => setWeight(e.target.value)} />
-          {weight.trim() && !weightOk && <p className="cat-hint cat-hint--error">Entre 5 e 200 kg.</p>}
+          <span className="cat-field__label">{tx("⚖️ Peso (kg)")}</span>
+          <input className="cat-input" inputMode="decimal" placeholder={tx("ex.: 28,5")} value={weight} maxLength={6} disabled={busy} onChange={(e) => setWeight(e.target.value)} />
+          {weight.trim() && !weightOk && <p className="cat-hint cat-hint--error">{tx("Entre 5 e 200 kg.")}</p>}
         </label>
 
-        {optional("🤮 Alergias", hasAllergies, setHasAllergies, <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.allergies)} value={allergies} onChange={setAllergies} disabled={busy} />)}
+        {optional(tx("🤮 Alergias"), hasAllergies, setHasAllergies, <CategoryChips label={tx("Quais")} category={cat(CAMPER_CATEGORY_KEYS.allergies)} value={allergies} onChange={setAllergies} disabled={busy} />)}
         {optional(
           <>
-            <NoPillIcon /> Alergia a medicamentos
+            <NoPillIcon /> {tx("Alergia a medicamentos")}
           </>,
           hasDrugAllergies,
           setHasDrugAllergies,
-          <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.drugAllergies)} value={drugAllergies} onChange={setDrugAllergies} disabled={busy} />,
+          <CategoryChips label={tx("Quais")} category={cat(CAMPER_CATEGORY_KEYS.drugAllergies)} value={drugAllergies} onChange={setDrugAllergies} disabled={busy} />,
         )}
-        {optional("🩺 Condição crônica", hasHealthIssues, setHasHealthIssues, <CategoryChips label="Quais" category={cat(CAMPER_CATEGORY_KEYS.healthIssues)} value={healthIssues} onChange={setHealthIssues} disabled={busy} />)}
+        {optional(tx("🩺 Condição crônica"), hasHealthIssues, setHasHealthIssues, <CategoryChips label={tx("Quais")} category={cat(CAMPER_CATEGORY_KEYS.healthIssues)} value={healthIssues} onChange={setHealthIssues} disabled={busy} />)}
         {optional(
-          "💊 Medicação de uso diário",
+          tx("💊 Medicação de uso diário"),
           hasMedicines,
           (on) => {
             setHasMedicines(on);
@@ -214,14 +217,14 @@ export default function AttentionEditDialog({ token, open, camper: k, onClose }:
           },
           <MedicationsEditor value={medications} onChange={setMedications} disabled={busy} />,
         )}
-        {optional("🍽️ Alimentação / restrições", hasFoodRestrictions, setHasFoodRestrictions, text("Quais", foodRestrictions, setFoodRestrictions, "ex.: sem lactose", 2, "foodRestrictions"))}
-        {optional("🩺 Observações médicas", hasHealthNotes, setHasHealthNotes, text("Observações", healthNotes, setHealthNotes, "ex.: em caso de crise, 4 puffs de Aerolin…", 3, "healthNotes"))}
+        {optional(tx("🍽️ Alimentação / restrições"), hasFoodRestrictions, setHasFoodRestrictions, text(tx("Quais"), foodRestrictions, setFoodRestrictions, tx("ex.: sem lactose"), 2, "foodRestrictions"))}
+        {optional(tx("🩺 Observações médicas"), hasHealthNotes, setHasHealthNotes, text(tx("Observações"), healthNotes, setHealthNotes, tx("ex.: em caso de crise, 4 puffs de Aerolin…"), 3, "healthNotes"))}
 
-        <AiNotesField label="📝 Observações gerais" value={generalNotes} onChange={setGeneralNotes} placeholder="ex.: tem dificuldade em dormir sozinha" disabled={busy} sorter={ai} />
+        <AiNotesField label={tx("📝 Observações gerais")} value={generalNotes} onChange={setGeneralNotes} placeholder={tx("ex.: tem dificuldade em dormir sozinha")} disabled={busy} sorter={ai} />
 
         {changed && (
           <p className="cat-hint">
-            {medicalChange ? "🩺 A equipe médica, a organização e o líder do quarto serão avisados." : "O líder do quarto será avisado."}
+            {medicalChange ? tx("🩺 A equipe médica, a organização e o líder do quarto serão avisados.") : tx("O líder do quarto será avisado.")}
           </p>
         )}
         {error && <p className="message message--error">{error}</p>}
@@ -229,10 +232,10 @@ export default function AttentionEditDialog({ token, open, camper: k, onClose }:
 
         <div className="cat-form__actions attention-sheet__actions">
           <button type="button" className="button button--secondary" onClick={onClose} disabled={busy}>
-            Cancelar
+            {tx("Cancelar")}
           </button>
-          <button type="button" className="button button--primary" disabled={busy || !changed || !weightOk || ai.holding} title={ai.holding ? "Aguardando a IA organizar as observações…" : undefined} onClick={submit}>
-            {busy ? "Salvando…" : ai.holding ? "Organizando…" : "Salvar"}
+          <button type="button" className="button button--primary" disabled={busy || !changed || !weightOk || ai.holding} title={ai.holding ? tx("Aguardando a IA organizar as observações…") : undefined} onClick={submit}>
+            {busy ? tx("Salvando…") : ai.holding ? tx("Organizando…") : tx("Salvar")}
           </button>
         </div>
       </div>

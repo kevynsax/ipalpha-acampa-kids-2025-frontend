@@ -1,18 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Breadcrumbs from "../../components/Breadcrumbs";
-import ChipTip from "../../components/ChipTip";
+import { PreferenceTipPortal, usePreferenceTip } from "../../components/PreferenceTip";
 import DesktopBoardNotice from "../../components/DesktopBoardNotice";
+import DistributeRoomsDialog from "./DistributeRoomsDialog";
+import Toast from "../../components/Toast";
+import type { DistributionPlan } from "../../roomDistribution";
 import Dialog from "../../components/Dialog";
 import RoomRoleIcon from "../../components/RoomRoleIcon";
-import { SaveGlyph, UndoGlyph } from "../../components/Glyph";
+import { AssignmentCamperChip, AssignmentStaffChip } from "../../components/AssignmentChips";
+import PreferenceGroupCard from "../../components/PreferenceGroupCard";
+import PreferenceStrategyControl, { usePreferenceStrategy } from "../../components/PreferenceStrategyControl";
+import { SaveGlyph, SearchGlyph, UndoGlyph } from "../../components/Glyph";
 import { ageOf, type Camper, type CamperSex } from "../../api/campers";
 import { staffSex, type Staff } from "../../api/staff";
 import { applyRooms, BEDROOM_GROUPS, GROUP_META, previewRooms, type Bedroom, type BedroomGroup, type RoomsAppliedMessage } from "../../api/bedrooms";
 import { applyCamperDraft, applyStaffDraft, clearRoomsDraft, draftHasChanges, emptyRoomsDraft, loadRoomsDraft, roomsDelta, saveRoomsDraft, type RoomsDraft } from "../../roomDraft";
-import { buildUnits, matchAllPreferences, normName, type PrefMatch } from "../../roomGroups";
+import { blobLimitHint, buildPreferenceUnits, matchAllPreferences, normName, type PrefMatch } from "../../roomGroups";
+import { medianAgeFloor, shortPersonName } from "../../names";
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import { ICONS } from "../../icons";
+import { collatorLocale, useI18n } from "../../i18n";
 
 interface RoomAssignPageProps {
   token: string;
@@ -31,9 +39,6 @@ interface DragUnit {
 }
 
 const firstName = (name: string) => name.split(" ")[0];
-
-/** how long the mouse must rest on a chip before its tooltip opens (taps are instant) */
-const TIP_DELAY = 450;
 
 /**
  * Room colours.
@@ -65,6 +70,7 @@ const COLORS_BY_WING: Record<BedroomGroup, readonly CaretakerColor[]> = {
  * at once and texts each person concerned with one SMS.
  */
 export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
+  const { tx } = useI18n();
   const storedBedrooms = useCollection("bedrooms");
   const storedCampers = useCollectionOrEmpty("campers");
   const storedStaff = useCollectionOrEmpty("staff");
@@ -79,8 +85,6 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
   const [detached, setDetached] = useState<Set<string>>(new Set());
   /** kids the admin glued together by dropping one on another (this session only) */
   const [glued, setGlued] = useState<Map<string, string>>(new Map());
-  /** kid id whose preference tooltip is open (hover on desktop, tap on mobile) */
-  const [tip, setTip] = useState<string | null>(null);
   /** the kid the admin last tapped (their líder's whole crew lights up) */
   const [selected, setSelected] = useState<string | null>(null);
   /** a líder tapped in a shared room: every kid of that room lights up */
@@ -94,8 +98,22 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
   const [error, setError] = useState<string | null>(null);
   /** the Concluir summary dialog: what changes + who gets an SMS */
   const [confirmOpen, setConfirmOpen] = useState(false);
-  /** the pending-adjustments dialog (banner tap, or Concluir with kids unplaced / without a líder) */
-  const [pendOpen, setPendOpen] = useState(false);
+  /** the Distribuir dialog */
+  const [distributeOpen, setDistributeOpen] = useState(false);
+  /** kids the last Distribuir had to pull out of their preference group (shown with a mark until the next draft change to them) */
+  const [splitKids, setSplitKids] = useState<Set<string>>(new Set());
+  /** the draft as it was right before the last Distribuir — what "Desfazer" restores (null = nothing to undo) */
+  const [undoDistribution, setUndoDistribution] = useState<{ draft: RoomsDraft; summary: string } | null>(null);
+
+  /** admins + everyone on an admin list: they have another job, so Distribuir never puts them in a kids' room */
+  const excludeStaffIds = useMemo(() => {
+    const s = settings;
+    if (!s) return new Set<string>();
+    return new Set<string>([
+      ...s.organizers.staffIds, ...s.gameOrganizers.staffIds, ...s.scoreHelpers.staffIds, ...s.medicalStaff.staffIds,
+      ...s.vestHelpers.staffIds, ...s.photographers.staffIds, ...s.parentContacts.map((c) => c.staffId),
+    ]);
+  }, [settings]);
   /** the SMS preview (who would be texted + the exact message), loaded when the dialog opens */
   const [preview, setPreview] = useState<{ messages: RoomsAppliedMessage[]; smsEnabled: boolean } | null>(null);
   /** whether the example messages are expanded in the dialog */
@@ -107,36 +125,6 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
   /** the local draft — every change stays on this device until Concluir */
   const [draft, setDraft] = useState<RoomsDraft>(() => loadRoomsDraft());
 
-  const chipEls = useRef(new Map<string, HTMLElement>());
-  const suppressClick = useRef(false);
-  const pointerType = useRef("mouse");
-  /** hover only opens the tooltip after a beat, so sweeping the mouse over the board stays quiet */
-  const tipTimer = useRef<number | null>(null);
-
-  function cancelTipTimer() {
-    if (tipTimer.current !== null) {
-      window.clearTimeout(tipTimer.current);
-      tipTimer.current = null;
-    }
-  }
-
-  /** mouse rested on a chip: open the tooltip only after TIP_DELAY */
-  function hoverTip(kidId: string) {
-    cancelTipTimer();
-    if (!hasPreference(kidId)) return;
-    tipTimer.current = window.setTimeout(() => {
-      tipTimer.current = null;
-      setTip(kidId);
-    }, TIP_DELAY);
-  }
-
-  function leaveTip(kidId: string) {
-    cancelTipTimer();
-    setTip((t) => (t === kidId ? null : t));
-  }
-
-  // a pending hover must never fire after the board is gone
-  useEffect(() => cancelTipTimer, []);
 
   // a tap anywhere that is not a kid chip drops the selection
   useEffect(() => {
@@ -156,7 +144,7 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
   /** the roster as the DRAFT leaves it — the board only ever shows this */
   const campers = useMemo(() => storedCampers.map((k) => applyCamperDraft(k, draft)), [storedCampers, draft]);
   const staff = useMemo(() => storedStaff.map((s) => applyStaffDraft(s, draft)), [storedStaff, draft]);
-  const kids = useMemo(() => campers.slice().sort((a, b) => a.name.localeCompare(b.name, "pt-BR")), [campers]);
+  const kids = useMemo(() => campers.slice().sort((a, b) => a.name.localeCompare(b.name, collatorLocale())), [campers]);
   /** who sleeps in each room as the draft leaves it (the store's counts are the server's) */
   const occupied = useMemo(() => {
     const m = new Map<string, number>();
@@ -165,45 +153,18 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
     return m;
   }, [campers, staff]);
   const prefs = useMemo(() => matchAllPreferences(kids), [kids]);
-  const units = useMemo(() => {
-    const all = buildUnits(kids, prefs);
-    const single = (k: Camper) => ({ id: k.id, members: [k] });
-    // dissolved clusters → one unit per kid; kids dragged out on their own leave their cluster
-    const base = all.flatMap((u) => {
-      if (ungrouped.has(u.id)) return u.members.map(single);
-      const stay = u.members.filter((k) => !detached.has(k.id));
-      const left = u.members.filter((k) => detached.has(k.id)).map(single);
-      if (!stay.length) return left;
-      return [{ id: stay.reduce((min, k) => (k.id < min ? k.id : min), stay[0].id), members: stay }, ...left];
-    });
-    if (!glued.size) return base;
-    // …then the glue the admin made by hand this session (drop a kid onto another)
-    const keyOf = new Map<string, string>();
-    for (const u of base) for (const m of u.members) keyOf.set(m.id, u.id);
-    for (const [kidId, target] of glued) {
-      const from = keyOf.get(kidId);
-      const to = keyOf.get(target);
-      if (!from || !to || from === to) continue;
-      for (const [id, key] of keyOf) if (key === from) keyOf.set(id, to);
-    }
-    const merged = new Map<string, Camper[]>();
-    for (const u of base) {
-      for (const m of u.members) {
-        const key = keyOf.get(m.id) ?? u.id;
-        if (!merged.has(key)) merged.set(key, []);
-        merged.get(key)!.push(m);
-      }
-    }
-    return [...merged.values()].map((members) => ({
-      id: members.reduce((min, k) => (k.id < min ? k.id : min), members[0].id),
-      members: members.slice().sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
-    }));
-  }, [kids, prefs, ungrouped, detached, glued]);
+  /** the shared "prefere dividir com" tooltip (hover / tap), same as Montar times */
+  const tipCtl = usePreferenceTip(prefs);
+  /** Smart | Strict | Loose + the Smart limit (this device, shared with Montar times) */
+  const [grouping, setGrouping] = usePreferenceStrategy("rooms");
+  const units = useMemo(() => buildPreferenceUnits(kids, prefs, { ungrouped, detached, glued }, bedrooms ?? [], grouping), [kids, prefs, ungrouped, detached, glued, bedrooms, grouping]);
 
   const poolKids = kids.filter((k) => !k.bedroom);
   const poolStaff = staff.filter((s) => !s.bedroom && s.active);
   /** the name-search box, normalised for accent-free matching */
   const nq = normName(search.trim());
+  /** the name box also finds a kid by whoever they asked to share the room with ("Ana" finds the kid who wrote "Ana Souza") */
+  const kidMatches = (k: Camper) => !nq || normName(k.name).includes(nq) || normName(k.bedroomPreference).includes(nq);
 
   // kids placed in a room but with nobody responsible for them + kids still unplaced
   const noCaretaker = kids.filter((k) => k.bedroom && !k.caretakerId);
@@ -241,20 +202,18 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
       } else if (was.roomRole !== m.roomRole) staffRoleOnly++;
     }
 
-    const kid = (num: number) => `${num} criança${num === 1 ? "" : "s"}`;
-    const team = (num: number) => `${num} da equipe`;
     const lines: string[] = [];
-    if (kidsGotRoom) lines.push(`${kid(kidsGotRoom)} ganh${kidsGotRoom === 1 ? "ou" : "aram"} quarto`);
-    if (kidsSwappedRoom) lines.push(`${kid(kidsSwappedRoom)} trocaram de quarto`);
-    if (kidsLeftRoom) lines.push(`${kid(kidsLeftRoom)} saíram do quarto`);
-    if (kidsLeadOnly) lines.push(`${kid(kidsLeadOnly)} mudaram de líder`);
-    if (staffGotRoom) lines.push(`${team(staffGotRoom)} ganh${staffGotRoom === 1 ? "ou" : "aram"} quarto`);
-    if (staffSwappedRoom) lines.push(`${team(staffSwappedRoom)} trocaram de quarto`);
-    if (staffLeftRoom) lines.push(`${team(staffLeftRoom)} saíram do quarto`);
-    if (staffRoleOnly) lines.push(`${team(staffRoleOnly)} mudaram de função`);
+    if (kidsGotRoom) lines.push(kidsGotRoom === 1 ? tx("{n} criança ganhou quarto", { n: kidsGotRoom }) : tx("{n} crianças ganharam quarto", { n: kidsGotRoom }));
+    if (kidsSwappedRoom) lines.push(kidsSwappedRoom === 1 ? tx("{n} criança trocaram de quarto", { n: kidsSwappedRoom }) : tx("{n} crianças trocaram de quarto", { n: kidsSwappedRoom }));
+    if (kidsLeftRoom) lines.push(kidsLeftRoom === 1 ? tx("{n} criança saíram do quarto", { n: kidsLeftRoom }) : tx("{n} crianças saíram do quarto", { n: kidsLeftRoom }));
+    if (kidsLeadOnly) lines.push(kidsLeadOnly === 1 ? tx("{n} criança mudaram de líder", { n: kidsLeadOnly }) : tx("{n} crianças mudaram de líder", { n: kidsLeadOnly }));
+    if (staffGotRoom) lines.push(staffGotRoom === 1 ? tx("{n} da equipe ganhou quarto", { n: staffGotRoom }) : tx("{n} da equipe ganharam quarto", { n: staffGotRoom }));
+    if (staffSwappedRoom) lines.push(tx("{n} da equipe trocaram de quarto", { n: staffSwappedRoom }));
+    if (staffLeftRoom) lines.push(tx("{n} da equipe saíram do quarto", { n: staffLeftRoom }));
+    if (staffRoleOnly) lines.push(tx("{n} da equipe mudaram de função", { n: staffRoleOnly }));
 
     return { lines, total: delta.staff.length + delta.campers.length };
-  }, [draft, storedCampers, storedStaff]);
+  }, [draft, storedCampers, storedStaff, tx]);
 
   /** the scissors: break the group apart — every member goes back to being on their own */
   function ungroup(unitId: string, members: Camper[]) {
@@ -421,6 +380,8 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
     setError(null);
     // a kid moved on their own has left their preference group behind
     if (unit.kind === "kids" && movingKids.length === 1) detach(movingKids[0].id);
+    // the admin took over: the "pulled out by Distribuir" mark is no longer telling them anything
+    if (movingKids.length && splitKids.size) setSplitKids((prev) => { const next = new Set(prev); for (const k of movingKids) next.delete(k.id); return next; });
 
     mutateDraft((d) => {
       for (const k of movingKids) {
@@ -459,8 +420,7 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
 
   function beginDrag(e: React.PointerEvent, unit: DragUnit) {
     if (e.pointerType === "mouse" && e.button !== 0) return;
-    pointerType.current = e.pointerType;
-    suppressClick.current = false; // fresh gesture: only a real drag suppresses the tap
+    tipCtl.gestureStart(e.pointerType); // fresh gesture: only a real drag suppresses the tap
     const startX = e.clientX;
     const startY = e.clientY;
     let active = false;
@@ -472,7 +432,6 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
       setDragUnit(null);
       setGhost(null);
       setHover(null);
-      if (active) suppressClick.current = true; // a drag is not a tap → keep the tooltip closed
     };
     const move = (ev: PointerEvent) => {
       if (ev.pointerId !== e.pointerId) return;
@@ -480,8 +439,7 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
         if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 8) return;
         active = true;
         setDragUnit(unit);
-        cancelTipTimer();
-        setTip(null); // the drag takes over from the tooltip
+        tipCtl.gestureDragged(); // the drag takes over from the tooltip; the closing click is not a tap
       }
       setGhost({ x: ev.clientX, y: ev.clientY });
       const el = document.elementFromPoint(ev.clientX, ev.clientY)?.closest("[data-assign-drop]");
@@ -518,29 +476,49 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
     return (prefs.get(kidId) ?? []).length > 0;
   }
 
-  /** false when this click is just the end of a drag gesture */
-  function wasTap(): boolean {
-    if (suppressClick.current) {
-      suppressClick.current = false;
-      return false;
-    }
-    return true;
-  }
+  const wasTap = tipCtl.wasTap;
+  const tapTip = tipCtl.tap;
+  const hoverTip = tipCtl.hover;
+  const leaveTip = tipCtl.leave;
+  const setTip = tipCtl.setTip;
 
   function chipClick(kidId: string) {
     if (!wasTap()) return;
     tapTip(kidId);
   }
 
-  /** the tooltip half of a tap (mouse users already got it on hover) */
-  function tapTip(kidId: string) {
-    if (pointerType.current === "mouse") return;
-    if (!hasPreference(kidId)) return;
-    setTip((t) => (t === kidId ? null : kidId));
+  /** "Descartar": wipe the draft (and every session gesture), staying on the board */
+  /** Distribuir → the whole plan lands in the draft in one go; kids pulled out of their group get a mark */
+  function applyDistribution(plan: DistributionPlan) {
+    setError(null);
+    // remember where we were, so one tap brings it all back
+    const before: RoomsDraft = { campers: { ...draft.campers }, staff: { ...draft.staff }, savedAt: draft.savedAt };
+    const n = plan.score;
+    setUndoDistribution({ draft: before, summary: tx("Quartos distribuídos — {kept} grupo(s) inteiro(s){broken}{unplaced}.", { kept: plan.groups.length - n.brokenGroups, broken: n.brokenGroups ? tx(", {n} separado(s)", { n: n.brokenGroups }) : "", unplaced: n.unplaced ? tx(", {n} sem quarto", { n: n.unplaced }) : "" }) });
+    mutateDraft((d) => {
+      for (const [id, v] of Object.entries(plan.campers)) d.campers[id] = { bedroom: v.bedroom, caretakerId: v.caretakerId };
+      for (const [id, v] of Object.entries(plan.staff)) d.staff[id] = { bedroom: v.bedroom, roomRole: v.roomRole };
+    });
+    setSplitKids(new Set(plan.groups.flatMap((g) => g.movedIds)));
+    setSelected(null);
+    setSelectedRoom(null);
+    setSelectedLead(null);
+    setDistributeOpen(false);
   }
 
-  /** "Descartar alterações": wipe the draft (and every session gesture), staying on the board */
+  /** "Desfazer" on the toast: the draft goes back to the moment before Distribuir */
+  function revertDistribution() {
+    if (!undoDistribution) return;
+    const back = undoDistribution.draft;
+    setDraft(back);
+    saveRoomsDraft(back);
+    setSplitKids(new Set());
+    setUndoDistribution(null);
+  }
+
   function discard() {
+    setUndoDistribution(null);
+    setSplitKids(new Set());
     clearRoomsDraft();
     setDraft(emptyRoomsDraft());
     setUngrouped(new Set());
@@ -594,7 +572,7 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
       clearRoomsDraft();
       onBack();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
       setSubmitting(false);
     }
   }
@@ -602,7 +580,7 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
   if (!bedrooms) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>
+        <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>
       </div>
     );
   }
@@ -617,7 +595,7 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
   // the name search also looks inside the rooms: if anyone there matches, show only
   // those rooms; with no match at all the board stays whole (search only filters the pool)
   const roomHasMatch = (b: Bedroom) =>
-    campers.some((k) => k.bedroom === b.id && normName(k.name).includes(nq)) ||
+    campers.some((k) => k.bedroom === b.id && kidMatches(k)) ||
     staff.some((s) => s.bedroom === b.id && normName(s.name).includes(nq));
   const roomMatches = nq ? roomsForWing.filter(roomHasMatch) : [];
   const roomsOnShow: Bedroom[] = roomMatches.length ? roomMatches : roomsForWing;
@@ -627,41 +605,36 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
 
   return (
     <div className="admin-page">
-      <DesktopBoardNotice what="montar os quartos" />
-      <Breadcrumbs items={[{ label: "Quartos", onClick: onBack }, { label: "Montar" }]} />
+      <DesktopBoardNotice what={tx("montar os quartos")} />
+      <Breadcrumbs items={[{ label: tx("Quartos"), onClick: onBack }, { label: tx("Montar") }]} />
       <header className="admin-head">
         <h1 className="admin-title">
-          <img className="admin-title__icon" src={ICONS.roomAssign} alt="" aria-hidden="true" /> Montar quartos
+          <img className="admin-title__icon" src={ICONS.roomAssign} alt="" aria-hidden="true" /> {tx("Montar quartos")}
         </h1>
         <div className="admin-head__actions admin-head__actions--icons">
+          <button type="button" className="button button--secondary admin-head__new" title={tx("Distribuir todo mundo nos quartos automaticamente")} onClick={() => setDistributeOpen(true)} disabled={submitting}>
+            <img className="admin-head__action-icon" src={ICONS.teamDistribute} alt="" aria-hidden="true" /> <span className="admin-head__action-label">{tx("Distribuir")}</span>
+          </button>
           {hasChanges && (
             <button type="button" className="button button--warn admin-head__new" onClick={discard} disabled={submitting}>
-              <UndoGlyph /> <span className="admin-head__action-label">Descartar alterações</span>
+              <UndoGlyph /> <span className="admin-head__action-label">{tx("Descartar")}</span>
             </button>
           )}
           <button type="button" className="button button--primary admin-head__new" onClick={() => void concluir()} disabled={submitting}>
-            <SaveGlyph /> <span className="admin-head__action-label">{submitting ? "Aplicando…" : "Salvar"}</span>
+            <SaveGlyph /> <span className="admin-head__action-label">{submitting ? tx("Aplicando…") : tx("Salvar")}</span>
           </button>
         </div>
       </header>
 
-      {(noCaretaker.length > 0 || noRoom.length > 0) && (
-        <p className="message message--warn assign-warn">
-          ⚠️ {noCaretaker.length > 0 && <>{noCaretaker.length} criança{noCaretaker.length !== 1 ? "s" : ""} sem líder</>}
-          {noCaretaker.length > 0 && noRoom.length > 0 && " · "}
-          {noRoom.length > 0 && <>{noRoom.length} sem quarto</>}
-        </p>
-      )}
-
       {error && <p className="message message--error">{error}</p>}
 
-      <div className="assign-toolbar" role="group" aria-label="Filtros">
+      <div className="assign-toolbar" role="group" aria-label={tx("Filtros")}>
         {(
           [
-            { key: "all" as const, label: "Todas", icon: null, count: poolKids.length + poolStaff.length },
-            { key: "F" as const, label: "Meninas", icon: ICONS.girlFace, count: genderPoolCount("F") },
-            { key: "M" as const, label: "Meninos", icon: ICONS.boyFace, count: genderPoolCount("M") },
-            { key: "staff" as const, label: GROUP_META.staff.label, icon: GROUP_META.staff.icon ?? null, count: poolStaff.length },
+            { key: "all" as const, label: tx("Todas"), icon: null, count: poolKids.length + poolStaff.length },
+            { key: "F" as const, label: tx("Meninas"), icon: ICONS.girlFace, count: genderPoolCount("F") },
+            { key: "M" as const, label: tx("Meninos"), icon: ICONS.boyFace, count: genderPoolCount("M") },
+            { key: "staff" as const, label: tx(GROUP_META.staff.label), icon: GROUP_META.staff.icon ?? null, count: poolStaff.length },
           ] satisfies { key: WingFilter; label: string; icon: string | null; count: number }[]
         ).map((f) => (
           <button
@@ -684,12 +657,12 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
             const lead = staff.find((s) => s.id === selectedCaretakerId);
             return lead ? (
               <>
-                <RoomRoleIcon role="caretaker" size={20} sex={staffSex(lead, bedrooms)} /> Crianças de <strong>{firstName(lead.name)}</strong> em destaque · toque numa delas para passar para {otherCaretakerName(caretakersOf(selectedKid.bedroom ?? ""), selectedCaretakerId)}.
+                <RoomRoleIcon role="caretaker" size={20} sex={staffSex(lead, bedrooms)} /> {tx("Crianças de")} <strong>{firstName(lead.name)}</strong> {tx("em destaque · toque numa delas para passar para {other}.", { other: otherCaretakerName(caretakersOf(selectedKid.bedroom ?? ""), selectedCaretakerId) ?? tx("outro líder") })}
               </>
             ) : null;
           })()}
           <button type="button" className="button button--secondary assign-linking__done" onClick={() => setSelected(null)}>
-            Pronto
+            {tx("Pronto")}
           </button>
         </p>
       )}
@@ -702,79 +675,44 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
         >
           <header className="assign-pool__head">
             <h2 className="assign-pool__title">
-              <img className="admin-title__icon" src={ICONS.roomAssign} alt="" aria-hidden="true" /> Sem quarto
+              <img className="admin-title__icon" src={ICONS.roomAssign} alt="" aria-hidden="true" /> {tx("Sem quarto")}
               <span className="cat-tab__count">{(wing === "staff" ? 0 : poolKids.length) + poolStaff.length}</span>
             </h2>
             <p className="assign-pool__hint">
               {wing === "staff"
-                ? "Arraste a equipe para os quartos da ala Equipe à direita."
-                : "Arraste para um quarto à direita. Solte uma criança em cima de outra para grudá-las; para fora do grupo para separar."}
+                ? tx("Arraste a equipe para os quartos da ala Equipe à direita.")
+                : tx("Arraste para um quarto à direita. Solte uma criança em cima de outra para grudá-las; para fora do grupo para separar.")}
             </p>
-            <input
-              type="search"
-              className="assign-pool__search"
-              placeholder="Buscar por nome…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              aria-label="Buscar por nome"
-            />
+            <label className="assign-pool__search">
+              <SearchGlyph className="assign-pool__search-icon" size="1.1em" />
+              <input
+                type="search"
+                placeholder={tx("Buscar por nome ou preferência…")}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label={tx("Buscar por nome ou preferência")}
+              />
+            </label>
           </header>
 
-          {(wing === "staff" || poolKids.length === 0) && poolStaff.length === 0 && <p className="opt-empty">Todo mundo tem quarto. 🎉</p>}
+          {(wing === "staff" || poolKids.length === 0) && poolStaff.length === 0 && <p className="opt-empty">{tx("Todo mundo tem quarto. 🎉")}</p>}
 
           <ul className="assign-pool__list">
             {wing !== "staff" && poolUnits(units, wing).map((u) => {
-              const members = u.members.filter((k) => !k.bedroom && (wing === "all" || (k.sex ?? k.probableGender) === wing) && (!nq || normName(k.name).includes(nq)));
+              const members = u.members.filter((k) => !k.bedroom && (wing === "all" || (k.sex ?? k.probableGender) === wing) && kidMatches(k));
               if (!members.length) return null;
               const group = members.length > 1;
               const ids = members.map((m) => m.id);
-              const names = members.map((k) => firstName(k.name)).join(", ");
+              const names = members.map((k) => shortPersonName(k.name, campers)).join(", ");
               return (
-                <li key={u.id} className={`assign-unit${group ? " assign-unit--group" : ""}`} data-assign-drop={group ? `unit:${u.id}` : undefined}>
-                  {/* the yellow card itself carries the whole group: drag it anywhere on the card */}
-                  <div
-                    className="assign-unit__chips"
-                    onPointerDown={group ? (e) => beginDrag(e, { kind: "kids", ids, from: null }) : undefined}
-                    role={group ? "button" : undefined}
-                    tabIndex={group ? 0 : undefined}
-                    aria-label={group ? `Grupo ${names}` : undefined}
-                  >
-                    {members.map((k) => (
-                      <KidChip
-                        key={k.id}
-                        kid={k}
-                        inGroup={group}
-                        missing={hasMissingPref(k.id)}
-                        noPref={!hasPreference(k.id)}
-                        // dropping a kid onto this one glues the two together
-                        dropId={`kid:${k.id}`}
-                        onBeginDrag={(e) => {
-                          if (group) e.stopPropagation(); // the chip drags alone, the card drags the group
-                          beginDrag(e, { kind: "kids", ids: [k.id], from: null });
-                        }}
-                        onClick={() => chipClick(k.id)}
-                        onHover={() => hoverTip(k.id)}
-                        onLeave={() => leaveTip(k.id)}
-                        registerEl={(el) => {
-                          if (el) chipEls.current.set(k.id, el);
-                          else chipEls.current.delete(k.id);
-                        }}
-                      />
-                    ))}
-                    {group && (
-                      <button
-                        type="button"
-                        className="icon-btn icon-btn--bare assign-unit__ungroup"
-                        title={`Desgrudar ${names}`}
-                        aria-label={`Desgrudar ${names}`}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => ungroup(u.id, members)}
-                      >
-                        ✂️
-                      </button>
-                    )}
-                  </div>
-                  <PrefRow members={members} prefs={prefs} />
+                <li key={u.id} data-assign-drop={group ? `unit:${u.id}` : undefined}>
+                  <PreferenceGroupCard
+                    unit={{ id: u.id, members }}
+                    prefs={prefs}
+                    onGroupPointerDown={group ? (e) => beginDrag(e, { kind: "kids", ids, from: null }) : undefined}
+                    action={group ? <button type="button" className="icon-btn icon-btn--bare preference-group__action" title={tx("Desgrudar {names}", { names })} aria-label={tx("Desgrudar {names}", { names })} onPointerDown={(e) => e.stopPropagation()} onClick={() => ungroup(u.id, members)}>✂️</button> : undefined}
+                    renderCamper={(k, state) => <AssignmentCamperChip key={k.id} camper={k} peers={campers} {...state} data-assign-kid={k.id} data-assign-drop={`kid:${k.id}`} buttonRef={tipCtl.register(k.id)} onPointerDown={(e) => { if (group) e.stopPropagation(); beginDrag(e, { kind: "kids", ids: [k.id], from: null }); }} onClick={() => chipClick(k.id)} onMouseEnter={() => hoverTip(k.id)} onMouseLeave={() => leaveTip(k.id)} />}
+                  />
                 </li>
               );
             })}
@@ -785,10 +723,14 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
             <ul className="assign-pool__staff">
               {poolStaff.filter((s) => !nq || normName(s.name).includes(nq)).map((s) => (
                 <li key={s.id}>
-                  <StaffChip staff={s} bedrooms={bedrooms} onBeginDrag={(e) => beginDrag(e, { kind: "staff", ids: [s.id], from: null })} />
+                  <AssignmentStaffChip staff={s} bedrooms={bedrooms} onPointerDown={(e) => beginDrag(e, { kind: "staff", ids: [s.id], from: null })} />
                 </li>
               ))}
             </ul>
+          )}
+
+          {wing !== "staff" && (
+            <PreferenceStrategyControl value={grouping} onChange={setGrouping} medianHint={blobLimitHint(bedrooms)} />
           )}
         </section>
 
@@ -801,9 +743,9 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
             return (
               <section key={g} className="room-group">
                 <header className="room-group__head">
-                  <h2 className={`room-group__title room-group__title--${m.color}`}>{m.label}</h2>
+                  <h2 className={`room-group__title room-group__title--${m.color}`}>{tx(m.label)}</h2>
                   <span className="room-group__stats">
-                    {rooms.length} {rooms.length === 1 ? "quarto" : "quartos"} · {people} {people === 1 ? "pessoa" : "pessoas"}
+                    {rooms.length === 1 ? tx("{n} quarto", { n: rooms.length }) : tx("{n} quartos", { n: rooms.length })} · {people === 1 ? tx("{n} pessoa", { n: people }) : tx("{n} pessoas", { n: people })}
                   </span>
                 </header>
                 <div className="assign-room-grid">
@@ -829,10 +771,36 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
                     // drop zone, so the small, out-of-the-way corner is easy to hit
                     const staffDrag = dragUnit?.kind === "staff";
                     const bodyClass = `${staffDrag ? " assign-room__body--zone" : ""}${bodyHover ? (hoverValid ? " assign-room__body--over" : " assign-room__body--bad") : ""}`;
+                    // free beds as the DRAFT leaves the room (kids + staff); negative = overbooked
+                    const used = occupied.get(b.id) ?? 0;
+                    const free = b.capacity - used;
+                    const medianAge = b.group === "staff" ? null : medianAgeFloor(inRoom);
+                    const capacityStatus =
+                      free < 0
+                        ? tx("{used}/{capacity} · {extra} a mais que as {capacity} camas", { used, capacity: b.capacity, extra: -free })
+                        : free === 0
+                          ? tx("{used}/{capacity} · lotado", { used, capacity: b.capacity })
+                          : free === 1
+                            ? tx("{used}/{capacity} · {free} cama livre", { used, capacity: b.capacity, free })
+                            : tx("{used}/{capacity} · {free} camas livres", { used, capacity: b.capacity, free });
                     return (
                       <div key={b.id} className={`assign-room${staffDrag ? " assign-room--zones" : ""}`}>
                         <header className="assign-room__head">
-                          <span className="assign-room__name">{b.name}</span>
+                          <span className="assign-room__name">
+                            {b.name}
+                            <span
+                              className={`assign-room__free${free < 0 ? " assign-room__free--over" : free === 0 ? " assign-room__free--full" : ""}`}
+                              title={capacityStatus}
+                              aria-label={capacityStatus}
+                            >
+                              {free < 0 ? `+${-free}` : free}
+                            </span>
+                            {medianAge !== null && (
+                              <span className="assign-room__age" title={tx("Idade mediana: {age} anos", { age: medianAge })}>
+                                ~ {medianAge} {tx("Anos")}
+                              </span>
+                            )}
+                          </span>
                           {/* líderes corner: drop a team member here to make them a líder of the room */}
                           <span
                             className={
@@ -843,38 +811,38 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
                               data-assign-drop={`lead:${b.id}`}
                             >
                               {caretakers.map((s) => (
-                                <StaffChip
+                                <AssignmentStaffChip
                                   key={s.id}
                                   staff={s}
                                   bedrooms={bedrooms}
-                                  color={leadColor(s.id)}
-                                  active={!!selectedCaretakerId && s.id === selectedCaretakerId}
+                                  className={colorClass(leadColor(s.id), !!selectedCaretakerId && s.id === selectedCaretakerId)}
+                                  data-assign-lead={s.id}
                                   onClick={() => tapCaretaker(s, caretakers.length)}
-                                  onBeginDrag={(e) => beginDrag(e, { kind: "staff", ids: [s.id], from: b.id })}
+                                  onPointerDown={(e) => beginDrag(e, { kind: "staff", ids: [s.id], from: b.id })}
                                 />
                               ))}
                               {/* no líder yet: a placeholder holds a chip's worth of space, so the card keeps
                                   its size when one is dropped. Invisible at rest; shows the "líder" label to
                                   mark the drop zone while a team member is on the move. */}
                               {caretakers.length === 0 && (
-                                <span className="assign-room__staff-ph" aria-hidden="true">{staffDrag ? "líder" : ""}</span>
+                                <span className="assign-room__staff-ph" aria-hidden="true">{staffDrag ? tx("líder") : ""}</span>
                               )}
                             </span>
                         </header>
                         {inRoom.length === 0 && helpers.length === 0 ? (
                           <p className={`assign-room__empty${bodyClass}`} data-assign-drop={`room:${b.id}`}>
-                            {b.group === "staff" ? "Arraste a equipe para cá" : "Arraste crianças para cá"}
+                            {b.group === "staff" ? tx("Arraste a equipe para cá") : tx("Arraste crianças para cá")}
                           </p>
                         ) : (
                           <div className={`assign-room__chips${bodyClass}`} data-assign-drop={`room:${b.id}`}>
                             {/* auxiliares are just another face in the room — listed with the kids */}
                             {helpers.map((s) => (
-                                <StaffChip
+                                <AssignmentStaffChip
                                   key={s.id}
                                   staff={s}
                                   bedrooms={bedrooms}
-                                  color={HELPER_COLOR}
-                                  onBeginDrag={(e) => beginDrag(e, { kind: "staff", ids: [s.id], from: b.id })}
+                                  className={colorClass(HELPER_COLOR, false)}
+                                  onPointerDown={(e) => beginDrag(e, { kind: "staff", ids: [s.id], from: b.id })}
                                 />
                               ))}
                             {inRoom.map((k) => {
@@ -882,27 +850,24 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
                               const mates = roomUnitIds(units, k, inRoom);
                               const group = mates.length > 1;
                               return (
-                                <KidChip
+                                <AssignmentCamperChip
                                   key={k.id}
-                                  kid={k}
-                                  inGroup={group}
+                                  camper={k}
+                                  peers={campers}
+                                  grouped={group}
                                   missing={hasMissingPref(k.id)}
-                                  noPref={!hasPreference(k.id)}
-                                  color={kidColor(k.caretakerId)}
-                                  active={!!selectedCaretakerId && k.caretakerId === selectedCaretakerId}
-                                  selected={selected === k.id || selectedRoom === b.id}
-                                  onBeginDrag={(e) => beginDrag(e, { kind: "kids", ids: mates, from: b.id })}
+                                  noPreference={!hasPreference(k.id)}
+                                  className={`${colorClass(kidColor(k.caretakerId), !!selectedCaretakerId && k.caretakerId === selectedCaretakerId)}${selected === k.id || selectedRoom === b.id ? " assign-chip--picked" : ""}${splitKids.has(k.id) ? " assign-chip--split" : ""}`}
+                                  data-assign-kid={k.id}
+                                  buttonRef={tipCtl.register(k.id)}
+                                  onPointerDown={(e) => beginDrag(e, { kind: "kids", ids: mates, from: b.id })}
                                   onClick={() => {
                                     if (!wasTap()) return; // the click that closes a drag is not a tap
                                     tapKid(k);
                                     tapTip(k.id);
                                   }}
-                                  onHover={() => hoverTip(k.id)}
-                                  onLeave={() => leaveTip(k.id)}
-                                  registerEl={(el) => {
-                                    if (el) chipEls.current.set(k.id, el);
-                                    else chipEls.current.delete(k.id);
-                                  }}
+                                  onMouseEnter={() => hoverTip(k.id)}
+                                  onMouseLeave={() => leaveTip(k.id)}
                                 />
                               );
                             })}
@@ -933,8 +898,8 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
                 return (
                   <span key={id} className={`assign-chip${s ? " assign-chip--staff" : ""}`}>
                     {s && <RoomRoleIcon role={s.roomRole} size={16} sex={staffSex(s, bedrooms)} />}
-                    {(k ?? s)?.name.split(" ")[0]}
-                    {k && <AgeTag kid={k} />}
+                    {k ? shortPersonName(k.name, campers) : s?.name.split(" ")[0]}
+                    {k && ageOf(k.birthDate) !== null && <span className="assign-chip__age">{ageOf(k.birthDate)}</span>}
                   </span>
                 );
               })}
@@ -946,24 +911,26 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
       )}
 
       {/* the preference tooltip — one at a time, hover (desktop) or tap (mobile) */}
-      {tip && chipEls.current.get(tip) && (
-        <ChipTip anchor={chipEls.current.get(tip)!} onClose={() => setTip((t) => (t === tip ? null : t))}>
-          <TipBody kid={kids.find((k) => k.id === tip)} prefs={prefs} kids={kids} bedrooms={bedrooms} />
-        </ChipTip>
-      )}
+      <PreferenceTipPortal tip={tipCtl.tip} anchor={tipCtl.anchor} onClose={tipCtl.close} onEnter={tipCtl.enterTip} onLeave={tipCtl.leaveTip} kids={kids} prefs={prefs} bedrooms={bedrooms} />
 
-      <Dialog open={confirmOpen} onClose={() => (submitting ? undefined : setConfirmOpen(false))} title="Confirmar alterações" width={560}>
+      <DistributeRoomsDialog open={distributeOpen} bedrooms={bedrooms} campers={campers} staff={staff} units={units} prefs={prefs} excludeStaffIds={excludeStaffIds} onApply={applyDistribution} onClose={() => setDistributeOpen(false)} />
+
+      <Toast message={undoDistribution?.summary ?? null} action={undoDistribution ? { label: <><UndoGlyph /> {tx("Desfazer")}</>, onClick: revertDistribution } : undefined} onClose={() => setUndoDistribution(null)} />
+
+      <Dialog open={confirmOpen} onClose={() => (submitting ? undefined : setConfirmOpen(false))} title={tx("Confirmar alterações")} width={560}>
         <div className="cat-form cat-form--plain">
           <h2 className="cat-form__title">
-            <img className="admin-title__icon" src={ICONS.roomAssign} alt="" aria-hidden="true" /> Resumo das alterações
+            <img className="admin-title__icon" src={ICONS.roomAssign} alt="" aria-hidden="true" /> {tx("Resumo das alterações")}
           </h2>
 
           {(noCaretaker.length > 0 || noRoom.length > 0) && (
             <p className="message message--warn assign-summary-pending">
-              ⚠️ Pendências:{" "}
-              {noCaretaker.length > 0 && <>{noCaretaker.length} sem líder</>}
-              {noCaretaker.length > 0 && noRoom.length > 0 && " · "}
-              {noRoom.length > 0 && <>{noRoom.length} sem quarto</>}. Você pode aplicar assim mesmo.
+              {tx("⚠️ Pendências: {details}. Você pode aplicar assim mesmo.", {
+                details: [
+                  noCaretaker.length > 0 ? tx("{n} sem líder", { n: noCaretaker.length }) : null,
+                  noRoom.length > 0 ? tx("{n} sem quarto", { n: noRoom.length }) : null,
+                ].filter(Boolean).join(tx(" · ")),
+              })}
             </p>
           )}
 
@@ -974,12 +941,12 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
               ))}
             </ul>
           ) : (
-            <p className="cat-hint">Nenhuma alteração para aplicar.</p>
+            <p className="cat-hint">{tx("Nenhuma alteração para aplicar.")}</p>
           )}
 
           {/* who gets an SMS — only shown when there IS someone to tell (server preview) */}
           {preview === null ? (
-            <p className="cat-hint">Verificando avisos…</p>
+            <p className="cat-hint">{tx("Verificando avisos…")}</p>
           ) : preview.messages.length > 0 ? (
             <div className="assign-notify-box">
               <label className="assign-notify-toggle">
@@ -987,13 +954,13 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
                 <img className="assign-notify-toggle__icon" src={notifyOn ? ICONS.notifications : ICONS.notifyOff} alt="" aria-hidden="true" />
                 <span>
                   {notifyOn
-                    ? <>Avisar <strong>{preview.messages.length}</strong> por SMS</>
-                    : <>Não avisar ninguém</>}
+                    ? tx("Avisar {n} por SMS", { n: preview.messages.length })
+                    : tx("Não avisar ninguém")}
                 </span>
               </label>
               {notifyOn && (
                 <button type="button" className="link-btn assign-notify-examples" onClick={() => setShowMessages((v) => !v)}>
-                  {showMessages ? "Ocultar exemplos" : "Ver exemplos de mensagem"}
+                  {showMessages ? tx("Ocultar exemplos") : tx("Ver exemplos de mensagem")}
                 </button>
               )}
               {notifyOn && showMessages && (
@@ -1004,7 +971,7 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
                       <span className="assign-notify-list__msg">{m.text}</span>
                     </li>
                   ))}
-                  {preview.messages.length > 5 && <li className="assign-notify-list__more">+{preview.messages.length - 5} mensagem(ns)</li>}
+                  {preview.messages.length > 5 && <li className="assign-notify-list__more">{tx("+{n} mensagem(ns)", { n: preview.messages.length - 5 })}</li>}
                 </ul>
               )}
             </div>
@@ -1014,10 +981,10 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
 
           <div className="cat-form__actions">
             <button type="button" className="button button--secondary" onClick={() => setConfirmOpen(false)} disabled={submitting}>
-              Voltar
+              {tx("Voltar")}
             </button>
             <button type="button" className="button button--primary" onClick={() => void applyNow()} disabled={submitting || preview === null}>
-              {submitting ? "Aplicando…" : notifyOn && (preview?.messages.length ?? 0) > 0 ? "Aplicar e avisar" : "Salvar"}
+              {submitting ? tx("Aplicando…") : notifyOn && (preview?.messages.length ?? 0) > 0 ? tx("Aplicar e avisar") : tx("Salvar")}
             </button>
           </div>
         </div>
@@ -1028,145 +995,14 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
 
 // ── chips ──
 
-interface KidChipProps {
-  kid: Camper;
-  inGroup: boolean;
-  /** one of the names this kid asked for matched nobody → yellow border, whatever the colour */
-  missing?: boolean;
-  /** the kid asked for nobody at all → calm green border */
-  noPref?: boolean;
-  /** marks the chip as a drop target (gluing two kids into one group) */
-  dropId?: string;
-  /** líder colour of the room (null = no líder yet) */
-  color?: CaretakerColor | null;
-  /** this kid belongs to the líder whose crew is selected → strong colour */
-  active?: boolean;
-  /** the kid the admin actually tapped */
-  selected?: boolean;
-  onBeginDrag: (e: React.PointerEvent) => void;
-  onClick: () => void;
-  onHover: () => void;
-  onLeave: () => void;
-  registerEl: (el: HTMLElement | null) => void;
-}
-
-function AgeTag({ kid }: { kid: Camper }) {
-  const age = ageOf(kid.birthDate);
-  if (age === null) return null;
-  return <span className="assign-chip__age">{age}</span>;
-}
-
-function KidChip({ kid, inGroup, missing, noPref, dropId, color, active, selected, onBeginDrag, onClick, onHover, onLeave, registerEl }: KidChipProps) {
-  return (
-    <button
-      ref={registerEl}
-      data-assign-kid={kid.id}
-      data-assign-drop={dropId}
-      type="button"
-      className={
-        `assign-chip${inGroup ? " assign-chip--grouped" : ""}` +
-        `${color ? ` assign-chip--${color}${active ? "-on" : ""}` : ""}${selected ? " assign-chip--picked" : ""}` +
-        `${missing ? " assign-chip--missing" : noPref ? " assign-chip--nopref" : ""}`
-      }
-      onPointerDown={onBeginDrag}
-      onClick={onClick}
-      onMouseEnter={onHover}
-      onMouseLeave={onLeave}
-      aria-label={`${kid.name}${ageOf(kid.birthDate) !== null ? `, ${ageOf(kid.birthDate)} anos` : ""}${missing ? " — pediu alguém que não foi encontrado" : ""}`}
-    >
-      {firstName(kid.name)}
-      <AgeTag kid={kid} />
-    </button>
-  );
-}
-
-function StaffChip({
-  staff: s,
-  bedrooms,
-  color,
-  active,
-  onClick,
-  onBeginDrag,
-}: {
-  staff: Staff;
-  bedrooms: Bedroom[];
-  color?: CaretakerColor | null;
-  /** their crew is the selected one → strong colour */
-  active?: boolean;
-  /** líderes in a shared room: tapping selects the whole room */
-  onClick?: () => void;
-  onBeginDrag: (e: React.PointerEvent) => void;
-}) {
-  const role = s.roomRole === "caretaker" ? "líder" : "auxiliar";
-  return (
-    <button
-      type="button"
-      data-assign-lead={onClick ? s.id : undefined}
-      className={`assign-chip assign-chip--staff${color ? ` assign-chip--${color}${active ? "-on" : ""}` : ""}`}
-      onPointerDown={onBeginDrag}
-      onClick={onClick}
-      aria-label={`${s.name}, ${role}`}
-    >
-      <RoomRoleIcon role={s.roomRole} size={18} sex={staffSex(s, bedrooms)} />
-      {s.name.split(" ")[0]}
-    </button>
-  );
-}
-
-/** the names a kid asked for, as small chips — the ones nobody matched stay red */
-/** Only the requested names nobody matched — the ones the admin still has to chase.
-    Matched preferences already found their person, so there is nothing to show. */
-function PrefRow({ members, prefs }: { members: Camper[]; prefs: Map<string, PrefMatch[]> }) {
-  const rows = members
-    .map((k) => ({ kid: k, list: (prefs.get(k.id) ?? []).filter((p) => !p.camperId) }))
-    .filter((r) => r.list.length > 0);
-  if (!rows.length) return null;
-  return (
-    <div className="assign-unit__prefs">
-      {rows.map(({ kid, list }) => (
-        <span key={kid.id} className="assign-pref-line">
-          {rows.length > 1 && <em className="assign-pref-line__owner">{firstName(kid.name)}:</em>}
-          {list.map((p, i) => (
-            <span key={`${p.raw}-${i}`} className="assign-pref assign-pref--missing">
-              ✗ {p.raw}
-            </span>
-          ))}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function TipBody({ kid, prefs, kids, bedrooms }: { kid: Camper | undefined; prefs: Map<string, PrefMatch[]>; kids: Camper[]; bedrooms: Bedroom[] }) {
-  if (!kid) return null;
-  const list = prefs.get(kid.id) ?? [];
-  return (
-    <>
-      <p className="chip-tip__title">{kid.name}</p>
-      {list.length === 0 ? (
-        <p>Sem preferência de quarto informada.</p>
-      ) : (
-        <p className="chip-tip__chips">
-          <span className="chip-tip__lead">prefere dividir com:</span>
-          {list.map((p, i) => {
-            const target = p.camperId ? kids.find((k) => k.id === p.camperId) : undefined;
-            const room = target?.bedroom ? bedrooms.find((b) => b.id === target.bedroom) : undefined;
-            return (
-              <span key={`${p.raw}-${i}`} className={`chip-tip__chip${p.camperId ? "" : " chip-tip__chip--missing"}`}>
-                {p.raw}
-                {room ? ` · ${room.name}` : p.camperId ? " · sem quarto" : " — ninguém com esse nome"}
-              </span>
-            );
-          })}
-        </p>
-      )}
-    </>
-  );
+/** líder colour class of the room board: light while idle, strong when the crew is selected */
+function colorClass(color: CaretakerColor | null, active: boolean): string {
+  return color ? `assign-chip--${color}${active ? "-on" : ""}` : "";
 }
 
 /** the name shown on the swap hint: the next líder of the same room */
-function otherCaretakerName(roomCaretakers: Staff[], currentId: string): string {
-  if (roomCaretakers.length < 2) return "outro líder";
+function otherCaretakerName(roomCaretakers: Staff[], currentId: string): string | null {
+  if (roomCaretakers.length < 2) return null;
   const i = roomCaretakers.findIndex((s) => s.id === currentId);
   return firstName(roomCaretakers[(i + 1) % roomCaretakers.length].name);
 }
@@ -1184,10 +1020,10 @@ function poolUnits(units: { id: string; members: Camper[] }[], wing: WingFilter)
   return units
     .map((u) => ({ unit: u, free: u.members.filter((k) => !k.bedroom && (wing === "all" || (k.sex ?? k.probableGender) === wing)).length }))
     .filter((x) => x.free > 0)
-    .sort((a, b) => Number(b.free > 1) - Number(a.free > 1) || b.free - a.free || a.unit.members[0].name.localeCompare(b.unit.members[0].name, "pt-BR"))
+    .sort((a, b) => Number(b.free > 1) - Number(a.free > 1) || b.free - a.free || a.unit.members[0].name.localeCompare(b.unit.members[0].name, collatorLocale()))
     .map((x) => x.unit);
 }
 
 function sortRooms(list: Bedroom[]): Bedroom[] {
-  return list.slice().sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { numeric: true }));
+  return list.slice().sort((a, b) => a.name.localeCompare(b.name, collatorLocale(), { numeric: true }));
 }

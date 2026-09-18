@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import type { Staff } from "../../api/staff";
+import { useI18n } from "../../i18n";
 import { useCollectionOrEmpty } from "../../store";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import StaffPicker from "./StaffPicker";
@@ -29,8 +30,10 @@ interface StaffListEditorProps {
  * team). Same layout everywhere: title on the left, "add" button top-right.
  * Pure UI: the parent owns the ids and saves them.
  */
-export default function StaffListEditor({ title, hint, value, onChange, disabled, pickerTitle, empty, detail, addLabel = "➕ Adicionar pessoa" }: StaffListEditorProps) {
+export default function StaffListEditor({ title, hint, value, onChange, disabled, pickerTitle, empty, detail, addLabel }: StaffListEditorProps) {
+  const { tx } = useI18n();
   const staff = useCollectionOrEmpty("staff");
+  const addText = addLabel ?? tx("➕ Adicionar pessoa");
   const [pickerOpen, setPickerOpen] = useState(false);
   const byId = useMemo(() => new Map(staff.map((s) => [s.id, s])), [staff]);
   const people = value.map((id) => byId.get(id)).filter((s): s is Staff => !!s);
@@ -40,7 +43,7 @@ export default function StaffListEditor({ title, hint, value, onChange, disabled
 
   const addButton = (
     <button type="button" className="button button--secondary list-head__add" disabled={disabled} onClick={() => setPickerOpen(true)}>
-      {addLabel}
+      {addText}
     </button>
   );
 
@@ -56,9 +59,9 @@ export default function StaffListEditor({ title, hint, value, onChange, disabled
       {people.length === 0 ? (
         <p className="opt-empty">{empty}</p>
       ) : (
-        <ul className="staff-card__tags helpers-list" aria-label="Pessoas">
+        <ul className="staff-card__tags helpers-list" aria-label={tx("Pessoas")}>
           {people.map((s) => (
-            <li key={s.id} className={`staff-tag helpers-tag ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
+            <li key={s.id} className={`staff-tag helpers-tag ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? tx("Cadastro em revisão pela IA") : undefined}>
               <span className="helpers-tag__name">
                 {s.name}
                 {detail && <span className="helpers-tag__detail">{detail(s)}</span>}
@@ -66,8 +69,8 @@ export default function StaffListEditor({ title, hint, value, onChange, disabled
               <button
                 type="button"
                 className="helpers-tag__x"
-                aria-label={`Remover ${s.name}`}
-                title="Remover"
+                aria-label={tx("Remover {name}", { name: s.name })}
+                title={tx("Remover")}
                 disabled={disabled}
                 onClick={() => onChange(value.filter((x) => x !== s.id))}
               >

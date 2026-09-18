@@ -8,6 +8,7 @@ import { useCollection, useCollectionOrEmpty } from "../store";
 import Dialog from "./Dialog";
 import { keepOverlayInPlace, visibleScanRegion } from "./scanOverlay";
 import { QrGlyph } from "./Glyph";
+import { useI18n } from "../i18n";
 
 interface ScanPointsDialogProps {
   token: string;
@@ -94,6 +95,7 @@ function beep(kind: "ok" | "error") {
  * flash + buzz with the reason on failure.
  */
 export default function ScanPointsDialog({ token, onClose, initialEventId, initialPoints, onChange }: ScanPointsDialogProps) {
+  const { tx } = useI18n();
   const events = useCollection("events");
   const campers = useCollectionOrEmpty("campers");
   const scores = useCollectionOrEmpty("scores");
@@ -102,7 +104,7 @@ export default function ScanPointsDialog({ token, onClose, initialEventId, initi
   const initial = useMemo(() => defaultEvent(sorted), [sorted]);
 
   const [eventId, setEventId] = useState<string>(initialEventId || initial?.id || "");
-  const [points, setPoints] = useState(initialPoints && initialPoints >= 1 ? initialPoints : 1);
+  const [points, setPoints] = useState<number>(initialPoints && initialPoints >= 1 ? initialPoints : 1);
   const [flash, setFlash] = useState<Flash | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [starting, setStarting] = useState(true);
@@ -137,6 +139,7 @@ export default function ScanPointsDialog({ token, onClose, initialEventId, initi
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   useEffect(() => {
+    if (!Number.isInteger(points) || points < 1) return;
     onChangeRef.current?.({ eventId, points });
   }, [eventId, points]);
 
@@ -148,6 +151,8 @@ export default function ScanPointsDialog({ token, onClose, initialEventId, initi
   const stateRef = useRef({ eventId, points, campers, scannedIds });
   stateRef.current = { eventId, points, campers, scannedIds };
   const flashTimer = useRef<number | null>(null);
+  const txRef = useRef(tx);
+  txRef.current = tx;
 
   function showFlash(f: Flash) {
     setFlash(f);
@@ -167,18 +172,20 @@ export default function ScanPointsDialog({ token, onClose, initialEventId, initi
     lastRef.current = { raw, at: now };
     busyRef.current = true;
     const { eventId, points, campers, scannedIds } = stateRef.current;
+    const t = txRef.current;
     try {
-      if (!eventId) throw new Error("Escolha o evento da programação antes de ler.");
-      if (!Number.isInteger(points) || points < 1) throw new Error("Informe uma quantidade de pontos maior que zero.");
+      if (!eventId) throw new Error(t("Escolha o evento da programação antes de ler."));
+      if (!Number.isInteger(points) || points < 1) throw new Error(t("Informe uma quantidade de pontos maior que zero."));
       const id = camperIdFromQr(raw);
-      if (!id) throw new Error("Este QR code não é de uma pulseira ou crachá do Acampa Kids.");
+      if (!id) throw new Error(t("Este QR code não é de uma pulseira ou crachá do Acampa Kids."));
       const known = campers.find((x) => x.id === id);
-      if (scannedIds.has(id)) throw new Error(`${known ? known.name.split(" ")[0] : "Esta criança"} já foi lido(a) neste evento.`);
-      if (known && !known.team) throw new Error(`${known.name.split(" ")[0]} não está em nenhum time.`);
+      if (scannedIds.has(id)) throw new Error(t("{name} já foi lido(a) neste evento.", { name: known ? known.name.split(" ")[0] : t("Esta criança") }));
+      if (known && !known.team) throw new Error(t("{name} não está em nenhum time.", { name: known.name.split(" ")[0] }));
       const res = await scanScore(token, { camperId: id, eventId, points });
-      showFlash({ kind: "ok", text: `${res.score.camperName.split(" ")[0]} · +${points} para ${res.team.name}${res.checkedIn ? " · ✅ check-in feito" : ""}`, color: res.team.color });
+      const checkin = res.checkedIn ? t(" · ✅ check-in feito") : "";
+      showFlash({ kind: "ok", text: t("{name} · +{n} para {team}{checkin}", { name: res.score.camperName.split(" ")[0], n: points, team: res.team.name, checkin }), color: res.team.color });
     } catch (e) {
-      showFlash({ kind: "error", text: e instanceof Error ? e.message : "Não foi possível ler este QR code." });
+      showFlash({ kind: "error", text: e instanceof Error ? e.message : t("Não foi possível ler este QR code.") });
     } finally {
       busyRef.current = false;
     }
@@ -212,7 +219,7 @@ export default function ScanPointsDialog({ token, onClose, initialEventId, initi
       .catch((err) => {
         if (disposed) return;
         setStarting(false);
-        setCameraError(cameraErrorText(err));
+        setCameraError(cameraErrorText(err, txRef.current));
       });
     return () => {
       disposed = true;
@@ -230,7 +237,7 @@ export default function ScanPointsDialog({ token, onClose, initialEventId, initi
       await s.toggleFlash();
       setTorch(s.isFlashOn());
     } catch {
-      setCameraError("Não foi possível ligar a lanterna.");
+      setCameraError(tx("Não foi possível ligar a lanterna."));
     }
   }
 
@@ -245,42 +252,42 @@ export default function ScanPointsDialog({ token, onClose, initialEventId, initi
     try {
       await repointEventScans(token, eventId, points);
     } catch (e) {
-      setRepointError(e instanceof Error ? e.message : "Algo deu errado.");
+      setRepointError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setRepointing(false);
     }
   }
 
   return (
-    <Dialog open onClose={onClose} title="Lançar pontos em massa" width={560} fullscreenOnMobile>
+    <Dialog open onClose={onClose} title={tx("Lançar pontos em massa")} width={560} fullscreenOnMobile>
       <div className="qr-scanner scan-points">
         <header className="qr-scanner__head">
           <div>
-            <h2 className="cat-form__title"><QrGlyph /> Pontos por QR code</h2>
+            <h2 className="cat-form__title"><QrGlyph /> {tx("Pontos por QR code")}</h2>
             <p className="cat-hint">
-              Cada crachá lido dá {pointsValid ? points : "—"} ponto{points !== 1 ? "s" : ""} ao time da criança.
+              {tx("Cada crachá lido dá")} {pointsValid ? points : "—"} {points !== 1 ? tx("pontos") : tx("ponto")} {tx("ao time da criança.")}
             </p>
           </div>
-          <button type="button" className="qr-scanner__close" aria-label="Encerrar leitura" title="Encerrar" onClick={onClose}>
+          <button type="button" className="qr-scanner__close" aria-label={tx("Encerrar leitura")} title={tx("Encerrar")} onClick={onClose}>
             ✕
           </button>
         </header>
 
         <div className="scan-points__fields">
           <label className="cat-field">
-            <span className="cat-field__label">Evento</span>
+            <span className="cat-field__label">{tx("Evento")}</span>
             <select className="cat-input" value={eventId} onChange={(e) => setEventId(e.target.value)}>
-              <option value="">{sorted.length ? "Escolha o evento…" : "Sem programação"}</option>
+              <option value="">{sorted.length ? tx("Escolha o evento…") : tx("Sem programação")}</option>
               {sorted.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.emoji} {e.title} · {speakDay(e.date, "short")} {e.startTime}
-                  {e.id === current?.id ? " (agora)" : ""}
+                  {e.id === current?.id ? tx(" (agora)") : ""}
                 </option>
               ))}
             </select>
           </label>
           <label className="cat-field scan-points__points">
-            <span className="cat-field__label">Qtd.</span>
+            <span className="cat-field__label">{tx("Qtd.")}</span>
             <input
               className="cat-input"
               type="number"
@@ -288,21 +295,24 @@ export default function ScanPointsDialog({ token, onClose, initialEventId, initi
               min={1}
               max={POINTS_MAX}
               step={1}
-              value={Number.isNaN(points) ? "" : points}
-              onChange={(e) => setPoints(Math.max(1, Math.floor(Number(e.target.value) || 0)))}
-              onBlur={() => setPoints((p) => (Number.isInteger(p) && p >= 1 ? p : 1))}
-              aria-label="Pontos por criança"
+              value={Number.isFinite(points) ? points : ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setPoints(raw === "" ? Number.NaN : Math.floor(Number(raw)));
+              }}
+              aria-label={tx("Pontos por criança")}
             />
           </label>
         </div>
-        {!eventId && sorted.length > 0 && <p className="cat-hint cat-hint--error">Escolha o evento: a leitura fica bloqueada até lá.</p>}
-        {!pointsValid && <p className="message message--error">Os pontos precisam ser um número inteiro maior que zero.</p>}
+        {!eventId && sorted.length > 0 && <p className="cat-hint cat-hint--error">{tx("Escolha o evento: a leitura fica bloqueada até lá.")}</p>}
+        {!pointsValid && <p className="message message--error">{tx("Os pontos precisam ser um número inteiro maior que zero.")}</p>}
         {pointsDiverge && (
           <p className="cat-hint cat-hint--error scan-points__repoint">
-            ⚠️ {eventScans.length} criança{eventScans.length !== 1 ? "s" : ""} já lida{eventScans.length !== 1 ? "s" : ""} com <strong>{eventPoints}</strong> ponto{eventPoints !== 1 ? "s" : ""}. O
-            valor é um só por evento: a próxima leitura (ou o botão) muda todas para <strong>{points}</strong>.{" "}
+            ⚠️{" "}
+            {eventScans.length === 1 ? tx("{n} criança já lida com", { n: eventScans.length }) : tx("{n} crianças já lidas com", { n: eventScans.length })}{" "}
+            <strong>{eventPoints}</strong> {eventPoints === 1 ? tx("ponto") : tx("pontos")}. {tx("O valor é um só por evento: a próxima leitura (ou o botão) muda todas para")} <strong>{points}</strong>.{" "}
             <button type="button" className="button button--secondary scan-points__repoint-btn" disabled={repointing} onClick={() => void applyRepoint()}>
-              {repointing ? "Atualizando…" : `Atualizar todas para ${points}`}
+              {repointing ? tx("Atualizando…") : tx("Atualizar todas para {n}", { n: points })}
             </button>
           </p>
         )}
@@ -313,7 +323,7 @@ export default function ScanPointsDialog({ token, onClose, initialEventId, initi
           {starting && !cameraError && (
             <div className="qr-scanner__status" role="status">
               <span className="qr-scanner__spinner" aria-hidden="true" />
-              Abrindo câmera…
+              {tx("Abrindo câmera…")}
             </div>
           )}
           {flash && (
@@ -330,18 +340,19 @@ export default function ScanPointsDialog({ token, onClose, initialEventId, initi
 
         {event && (
           <p className="scan-points__summary" aria-live="polite">
-            <strong>{eventScans.length}</strong> {eventScans.length === 1 ? "criança ganhou" : "crianças ganharam"} pontos neste evento
+            <strong>{eventScans.length}</strong>{" "}
+            {eventScans.length === 1 ? tx("criança ganhou pontos neste evento") : tx("crianças ganharam pontos neste evento")}
           </p>
         )}
 
         <div className="qr-scanner__actions">
           {hasTorch && (
             <button type="button" className="button button--secondary" aria-pressed={torch} onClick={toggleTorch}>
-              {torch ? "🔦 Desligar lanterna" : "🔦 Ligar lanterna"}
+              {torch ? tx("🔦 Desligar lanterna") : tx("🔦 Ligar lanterna")}
             </button>
           )}
           <button type="button" className="button button--primary" onClick={onClose}>
-            Encerrar leitura
+            {tx("Encerrar leitura")}
           </button>
         </div>
       </div>
@@ -349,11 +360,11 @@ export default function ScanPointsDialog({ token, onClose, initialEventId, initi
   );
 }
 
-function cameraErrorText(err: unknown): string {
+function cameraErrorText(err: unknown, tx: (pt: string, vars?: Record<string, string | number>) => string): string {
   const name = typeof err === "object" && err && "name" in err ? String((err as { name: unknown }).name) : "";
-  if (name === "NotAllowedError") return "Permita o acesso à câmera nas configurações do navegador e tente novamente.";
-  if (name === "NotFoundError") return "Nenhuma câmera foi encontrada neste aparelho.";
-  if (name === "NotReadableError") return "A câmera está sendo usada por outro aplicativo.";
-  if (!window.isSecureContext) return "A câmera só funciona em uma conexão segura (HTTPS).";
-  return "Não foi possível abrir a câmera. Confira a permissão e tente novamente.";
+  if (name === "NotAllowedError") return tx("Permita o acesso à câmera nas configurações do navegador e tente novamente.");
+  if (name === "NotFoundError") return tx("Nenhuma câmera foi encontrada neste aparelho.");
+  if (name === "NotReadableError") return tx("A câmera está sendo usada por outro aplicativo.");
+  if (!window.isSecureContext) return tx("A câmera só funciona em uma conexão segura (HTTPS).");
+  return tx("Não foi possível abrir a câmera. Confira a permissão e tente novamente.");
 }

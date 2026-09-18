@@ -339,6 +339,7 @@ const blankStaff: Staff = {
   sex: null,
   probableGender: null,
   phone: null,
+  email: null,
   active: true,
   team: null,
   transportation: null,

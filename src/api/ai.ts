@@ -3,7 +3,7 @@ import { bearer } from "../auth/store";
 
 const BASE = import.meta.env.VITE_API_URL || window.location.origin;
 
-export type AiVendor = "anthropic" | "openai" | "xai" | "meta" | "zhipu" | "google";
+export type AiVendor = "anthropic" | "openai" | "xai" | "meta" | "zhipu" | "google" | "alibaba";
 
 export interface AiModel {
   id: string;
@@ -67,7 +67,7 @@ export async function aiUsage(token: string): Promise<{ vendors: AiVendorUsage[]
 }
 
 /** What the editor is being used for (matches AI_CONTEXTS on the backend). */
-export type AiContext = "instruction" | "preparation" | "role_instructions" | "role_preparation" | "occurrence" | "generic";
+export type AiContext = "instruction" | "preparation" | "role_instructions" | "role_preparation" | "occurrence" | "event" | "category" | "generic";
 
 export interface AiEditRequest {
   model: string;
@@ -203,9 +203,13 @@ export interface AiSuggestion {
   emoji?: string;
 }
 
-/** Title / emoji suggestions for a document the assistant just wrote. Best-effort: may return {}. */
-export async function aiSuggest(token: string, req: { html: string; context: AiContext; needTitle: boolean; needEmoji: boolean }): Promise<AiSuggestion> {
-  return api("/api/ai/suggest", { method: "POST", headers: { ...bearer(token), "content-type": "application/json" }, body: JSON.stringify(req) });
+/** Title / emoji suggestions from a title or document. Best-effort: may return {}. */
+export async function aiSuggest(
+  token: string,
+  req: { html: string; context: AiContext; needTitle: boolean; needEmoji: boolean },
+  signal?: AbortSignal,
+): Promise<AiSuggestion> {
+  return api("/api/ai/suggest", { method: "POST", headers: { ...bearer(token), "content-type": "application/json" }, body: JSON.stringify(req), signal });
 }
 
 /** the camper-form fields the notes sorter can fill (category option ids for the lists) */

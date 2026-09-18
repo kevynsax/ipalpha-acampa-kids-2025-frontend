@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import Dialog from "./Dialog";
+import { Radio, RadioGroup } from "./Radio";
 import type { Bedroom } from "../api/bedrooms";
 import type { Camper } from "../api/campers";
 import { LABEL_META, printLabels, type LabelKind } from "../print/camperLabels";
+import { useI18n } from "../i18n";
 
 interface PrintLabelsDialogProps {
   open: boolean;
@@ -26,6 +28,7 @@ export const BATCH_SIZE = 50;
  * moves to the next batch after each print).
  */
 export default function PrintLabelsDialog({ open, onClose, campers, allCampers, bedrooms, labelOf }: PrintLabelsDialogProps) {
+  const { tx } = useI18n();
   const [kind, setKind] = useState<LabelKind>("badge");
   const [scope, setScope] = useState<"filtered" | "all">("filtered");
   const [batch, setBatch] = useState(0);
@@ -69,33 +72,35 @@ export default function PrintLabelsDialog({ open, onClose, campers, allCampers, 
       setDone((d) => new Set(d).add(batch));
       if (batch < batches - 1) setBatch(batch + 1);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Não foi possível imprimir.");
+      setError(e instanceof Error ? e.message : tx("Não foi possível imprimir."));
     } finally {
       setBusy(false);
     }
   }
 
-  const noun = (n: number) => (n === 1 ? LABEL_META[kind].title.toLowerCase() : `${LABEL_META[kind].title.toLowerCase()}s`);
+  const kindTitle = kind === "badge" ? tx("Crachá") : tx("Pulseira");
+  const noun = (n: number) => (n === 1 ? kindTitle.toLowerCase() : `${kindTitle.toLowerCase()}s`);
   const allDone = batched && done.size === batches;
 
   return (
-    <Dialog open={open} onClose={onClose} title="Imprimir" width={480}>
+    <Dialog open={open} onClose={onClose} title={tx("Imprimir")} width={480}>
       <div className="cat-form cat-form--embedded print-dialog">
         <h2 className="cat-form__title">
-          <span aria-hidden="true">🖨️</span> O que imprimir?
+          <span aria-hidden="true">🖨️</span> {tx("O que imprimir?")}
         </h2>
 
-        <div className="print-dialog__kinds" role="radiogroup" aria-label="Tipo de etiqueta">
+        <div className="print-dialog__kinds" role="radiogroup" aria-label={tx("Tipo de etiqueta")}>
           {KINDS.map((k) => {
             const m = LABEL_META[k];
             const active = kind === k;
+            const title = k === "badge" ? tx("Crachá") : tx("Pulseira");
             return (
               <button key={k} type="button" role="radio" aria-checked={active} className={`print-kind ${active ? "print-kind--active" : ""}`} onClick={() => setKind(k)} disabled={busy}>
                 <span className="print-kind__emoji" aria-hidden="true">
                   {m.emoji}
                 </span>
                 <span className="print-kind__text">
-                  <strong>{m.title}</strong>
+                  <strong>{title}</strong>
                 </span>
               </button>
             );
@@ -103,48 +108,38 @@ export default function PrintLabelsDialog({ open, onClose, campers, allCampers, 
         </div>
 
         {filtered && (
-          <div className="print-dialog__scope" role="radiogroup" aria-label="Quem imprimir">
-            <label className="print-scope">
-              <input type="radio" name="print-scope" checked={scope === "filtered"} onChange={() => setScope("filtered")} disabled={busy} />
-              <span>
-                Só os filtrados <em>({campers.length})</em>
-              </span>
-            </label>
-            <label className="print-scope">
-              <input type="radio" name="print-scope" checked={scope === "all"} onChange={() => setScope("all")} disabled={busy} />
-              <span>
-                Todos os acampantes <em>({allCampers.length})</em>
-              </span>
-            </label>
-          </div>
+          <RadioGroup label={tx("Quem imprimir")} className="print-dialog__scope">
+            <Radio checked={scope === "filtered"} onChange={() => setScope("filtered")} disabled={busy} label={<>{tx("Só os filtrados")} <em>({campers.length})</em></>} />
+            <Radio checked={scope === "all"} onChange={() => setScope("all")} disabled={busy} label={<>{tx("Todos os acampantes")} <em>({allCampers.length})</em></>} />
+          </RadioGroup>
         )}
 
         {batched && (
-          <div className="print-batch" role="group" aria-label="Lote">
+          <div className="print-batch" role="group" aria-label={tx("Lote")}>
             <div className="print-batch__stepper">
-              <button type="button" className="icon-btn print-batch__arrow" aria-label="Lote anterior" disabled={busy || batch === 0} onClick={() => setBatch(batch - 1)}>
+              <button type="button" className="icon-btn print-batch__arrow" aria-label={tx("Lote anterior")} disabled={busy || batch === 0} onClick={() => setBatch(batch - 1)}>
                 ◀
               </button>
               <div className="print-batch__label">
                 <strong>
-                  Lote {batch + 1} de {batches}
+                  {tx("Lote {n} de {total}", { n: batch + 1, total: batches })}
                 </strong>
                 <small>
                   {slice[0]?.name.split(" ")[0]} … {slice[slice.length - 1]?.name.split(" ")[0]} · {start + 1}–{start + slice.length}
                 </small>
               </div>
-              <button type="button" className="icon-btn print-batch__arrow" aria-label="Próximo lote" disabled={busy || batch === batches - 1} onClick={() => setBatch(batch + 1)}>
+              <button type="button" className="icon-btn print-batch__arrow" aria-label={tx("Próximo lote")} disabled={busy || batch === batches - 1} onClick={() => setBatch(batch + 1)}>
                 ▶
               </button>
             </div>
-            <ol className="print-batch__dots" aria-label="Lotes impressos">
+            <ol className="print-batch__dots" aria-label={tx("Lotes impressos")}>
               {Array.from({ length: batches }, (_, i) => (
                 <li key={i}>
                   <button
                     type="button"
                     className={`print-batch__dot ${i === batch ? "print-batch__dot--current" : ""} ${done.has(i) ? "print-batch__dot--done" : ""}`}
-                    title={`Lote ${i + 1}${done.has(i) ? " · impresso" : ""}`}
-                    aria-label={`Lote ${i + 1}${done.has(i) ? ", impresso" : ""}`}
+                    title={done.has(i) ? tx("Lote {n} · impresso", { n: i + 1 }) : tx("Lote {n}", { n: i + 1 })}
+                    aria-label={done.has(i) ? tx("Lote {n}, impresso", { n: i + 1 }) : tx("Lote {n}", { n: i + 1 })}
                     aria-current={i === batch ? "step" : undefined}
                     disabled={busy}
                     onClick={() => setBatch(i)}
@@ -159,18 +154,22 @@ export default function PrintLabelsDialog({ open, onClose, campers, allCampers, 
 
         <p className="print-dialog__hint">
           {batched
-            ? `A lista sai em lotes de ${BATCH_SIZE} — imprima um lote de cada vez; depois de imprimir, o próximo já fica selecionado. Confira o tamanho do papel (${LABEL_META[kind].size}).`
-            : `Cada criança sai numa página do tamanho da etiqueta — escolha a impressora de etiquetas e confira o tamanho do papel (${LABEL_META[kind].size}).`}
+            ? tx("A lista sai em lotes de {size} — imprima um lote de cada vez; depois de imprimir, o próximo já fica selecionado. Confira o tamanho do papel ({paper}).", { size: BATCH_SIZE, paper: LABEL_META[kind].size })
+            : tx("Cada criança sai numa página do tamanho da etiqueta — escolha a impressora de etiquetas e confira o tamanho do papel ({paper}).", { paper: LABEL_META[kind].size })}
         </p>
 
         {error && <p className="message message--error">{error}</p>}
 
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" onClick={onClose} disabled={busy}>
-            {allDone ? "Fechar" : "Cancelar"}
+            {allDone ? tx("Fechar") : tx("Cancelar")}
           </button>
           <button type="button" className="button button--primary" onClick={handlePrint} disabled={busy || slice.length === 0} autoFocus>
-            {busy ? "Preparando…" : batched ? `🖨️ Imprimir lote ${batch + 1} (${slice.length} ${noun(slice.length)})` : `🖨️ Imprimir ${slice.length} ${noun(slice.length)}`}
+            {busy
+              ? tx("Preparando…")
+              : batched
+                ? tx("🖨️ Imprimir lote {n} ({count} {noun})", { n: batch + 1, count: slice.length, noun: noun(slice.length) })
+                : tx("🖨️ Imprimir {count} {noun}", { count: slice.length, noun: noun(slice.length) })}
           </button>
         </div>
       </div>

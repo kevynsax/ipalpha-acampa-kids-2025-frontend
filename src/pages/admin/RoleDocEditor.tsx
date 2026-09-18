@@ -3,52 +3,38 @@ import { createPortal } from "react-dom";
 import { updateRole, type ScheduleRole } from "../../api/schedule";
 import RichTextEditor from "../../components/RichTextEditor";
 import { ICONS } from "../../icons";
+import { useI18n } from "../../i18n";
 
-/** which of the função's two texts is being written */
 export type RoleDocField = "instructions" | "preparation";
-
-export const ROLE_DOC_META: Record<RoleDocField, { label: ReactNode; placeholder: string; aiContext: "role_instructions" | "role_preparation" }> = {
-  instructions: {
-    label: "📝 Instruções para a equipe",
-    placeholder: "ex.: Fique dentro da área da piscina durante todo o turno…",
-    aiContext: "role_instructions",
-  },
-  preparation: {
-    label: <><img className="audience-icon" src={ICONS.preparation} alt="" aria-hidden="true" /> Preparação (antes do acampamento)</>,
-    placeholder: "ex.: Leve uma camiseta verde e um boné — quanto mais parecido com o exército, melhor! 🥣",
-    aiContext: "role_preparation",
-  },
-};
 
 interface RoleDocEditorProps {
   token: string;
   role: ScheduleRole;
   field: RoleDocField;
-  /** line under the title, e.g. "em 🏊 Piscina · sábado 14:00" */
   context?: string;
   onClose: () => void;
 }
 
-/**
- * Writes ONE text of a função (instruções or preparação) with the AI assistant
- * already open — what the ✏️ beside that text opens.
- *
- * Deliberately NOT a <Dialog>: the assistant's workspace is a plain fixed
- * overlay, and a modal <dialog> renders in the browser's TOP LAYER, which
- * would paint over it. This overlay therefore sits just below the workspace
- * (z-index) so the assistant can cover it when it opens.
- *
- * "Concluir" SAVES — the word promises it, and the assistant's own Concluir
- * is wired to the same save, so there is no way to finish and lose the text.
- */
 export default function RoleDocEditor({ token, role, field, context, onClose }: RoleDocEditorProps) {
-  const meta = ROLE_DOC_META[field];
+  const { tx } = useI18n();
+  const meta: Record<RoleDocField, { label: ReactNode; placeholder: string; aiContext: "role_instructions" | "role_preparation" }> = {
+    instructions: {
+      label: tx("📝 Instruções para a equipe"),
+      placeholder: tx("ex.: Fique dentro da área da piscina durante todo o turno…"),
+      aiContext: "role_instructions",
+    },
+    preparation: {
+      label: <><img className="audience-icon" src={ICONS.preparation} alt="" aria-hidden="true" /> {tx("Preparação (antes do acampamento)")}</>,
+      placeholder: tx("ex.: Leve uma camiseta verde e um boné — quanto mais parecido com o exército, melhor! 🥣"),
+      aiContext: "role_preparation",
+    },
+  };
+  const fieldMeta = meta[field];
   const [html, setHtml] = useState(role[field] ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dirty = html !== (role[field] ?? "");
 
-  // Esc gives up (asking first when something was written)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
@@ -66,13 +52,12 @@ export default function RoleDocEditor({ token, role, field, context, onClose }: 
 
   function cancel() {
     if (saving) return;
-    if (dirty && !window.confirm("Descartar o que você escreveu?")) return;
+    if (dirty && !window.confirm(tx("Descartar o que você escreveu?"))) return;
     onClose();
   }
 
   async function save() {
     if (saving) return;
-    // nothing changed: closing is the honest no-op
     if (!dirty) return onClose();
     setSaving(true);
     setError(null);
@@ -80,29 +65,31 @@ export default function RoleDocEditor({ token, role, field, context, onClose }: 
       await updateRole(token, role.id, { [field]: html });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível salvar.");
+      setError(err instanceof Error ? err.message : tx("Não foi possível salvar."));
       setSaving(false);
     }
   }
 
+  const kind = field === "preparation" ? tx("Preparação") : tx("Instruções");
+
   return createPortal(
-    <div className="doc-edit" role="dialog" aria-modal="true" aria-label={`${field === "preparation" ? "Preparação" : "Instruções"} — ${role.name}`}>
+    <div className="doc-edit" role="dialog" aria-modal="true" aria-label={tx("{kind} — {name}", { kind, name: role.name })}>
       <header className="doc-edit__head">
         <div className="doc-edit__titles">
           <span className="doc-edit__title">
             <span aria-hidden="true">{role.emoji}</span> {role.name}
           </span>
           <span className="doc-edit__sub">
-            {meta.label}
+            {fieldMeta.label}
             {context ? ` · ${context}` : ""}
           </span>
         </div>
         <div className="doc-edit__actions">
           <button type="button" className="button button--secondary" disabled={saving} onClick={cancel}>
-            Cancelar
+            {tx("Cancelar")}
           </button>
           <button type="button" className="button button--primary" disabled={saving} onClick={save}>
-            {saving ? "Salvando…" : "Concluir"}
+            {saving ? tx("Salvando…") : tx("Concluir")}
           </button>
         </div>
       </header>
@@ -117,10 +104,10 @@ export default function RoleDocEditor({ token, role, field, context, onClose }: 
           autoOpenAi
           onDone={save}
           doneBusy={saving}
-          aiContext={meta.aiContext}
+          aiContext={fieldMeta.aiContext}
           aiTitle={role.name}
           onAiApplied={setHtml}
-          placeholder={meta.placeholder}
+          placeholder={fieldMeta.placeholder}
         />
       </div>
     </div>,

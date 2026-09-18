@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckGlyph, UndoGlyph } from "../components/Glyph";
+import { CheckGlyph, SearchGlyph, UndoGlyph } from "../components/Glyph";
 import { checkinStaff, undoCheckinStaff, type Staff } from "../api/staff";
 import { useConfirm } from "../components/ConfirmDialog";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { roleMeta } from "../roles";
 import { useRoute } from "../router";
 import { useCollection, useCollectionOrEmpty } from "../store";
+import { collatorLocale, useI18n } from "../i18n";
 
 interface StaffCheckinPageProps {
   token: string;
@@ -20,6 +21,7 @@ const LEAVE_MS = 650;
 
 /** Departure day roll call for the team: name + one tap to mark as arrived. */
 export default function StaffCheckinPage({ token, checkinHomePath }: StaffCheckinPageProps) {
+  const { tx } = useI18n();
   const staff = useCollection("staff");
   const transports = useCollectionOrEmpty("transports");
   const busIds = useMemo(() => new Set(transports.filter((t) => t.kind === "bus").map((t) => t.id)), [transports]);
@@ -43,7 +45,7 @@ export default function StaffCheckinPage({ token, checkinHomePath }: StaffChecki
       .filter((s) => !q || normalize(s.name).includes(q))
       // who still has to arrive first, then the ones already here — alphabetical within each;
       // a row fading out keeps its place until the animation is over
-      .sort((a, b) => Number(!!a.checkin && !leaving.has(a.id)) - Number(!!b.checkin && !leaving.has(b.id)) || a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+      .sort((a, b) => Number(!!a.checkin && !leaving.has(a.id)) - Number(!!b.checkin && !leaving.has(b.id)) || a.name.localeCompare(b.name, collatorLocale(), { sensitivity: "base" }));
   }, [staff, search, leaving, busIds]);
 
   const counts = useMemo(() => {
@@ -79,7 +81,7 @@ export default function StaffCheckinPage({ token, checkinHomePath }: StaffChecki
       else await checkinStaff(token, s.id);
       return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
       return false;
     } finally {
       setPending((p) => {
@@ -132,15 +134,15 @@ export default function StaffCheckinPage({ token, checkinHomePath }: StaffChecki
       tick(s);
       return;
     }
-    if (!(await confirm({ emoji: <UndoGlyph />, title: `Desfazer o check-in de ${s.name.split(" ")[0]}?`, confirmLabel: "Desfazer", danger: true }))) return;
+    if (!(await confirm({ emoji: <UndoGlyph />, title: tx("Desfazer o check-in de {name}?", { name: s.name.split(" ")[0] }), confirmLabel: tx("Desfazer"), danger: true }))) return;
     void run(s, true);
   }
 
   if (!staff) {
     return (
       <div className="admin-page">
-        {checkinHomePath && <Breadcrumbs items={[{ label: "Check-in", onClick: () => navigate(checkinHomePath) }, { label: "Equipe" }]} />}
-        <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>
+        {checkinHomePath && <Breadcrumbs items={[{ label: tx("Check-in"), onClick: () => navigate(checkinHomePath) }, { label: tx("Equipe") }]} />}
+        <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>
       </div>
     );
   }
@@ -149,18 +151,18 @@ export default function StaffCheckinPage({ token, checkinHomePath }: StaffChecki
 
   return (
     <div className="admin-page">
-      {checkinHomePath && <Breadcrumbs items={[{ label: "Check-in", onClick: () => navigate(checkinHomePath) }, { label: "Equipe" }]} />}
+      {checkinHomePath && <Breadcrumbs items={[{ label: tx("Check-in"), onClick: () => navigate(checkinHomePath) }, { label: tx("Equipe") }]} />}
       <header className="admin-head">
         <h1 className="admin-title detail-title">
           <img className="audience-icon" src={roleMeta("staff").icon} alt="" aria-hidden="true" style={{ height: 36, width: "auto" }} />
-          Check-in da equipe
+          {tx("Check-in da equipe")}
         </h1>
-        <span className="checkin-progress" title="Pessoas da equipe que já chegaram">
+        <span className="checkin-progress" title={tx("Pessoas da equipe que já chegaram")}>
           ✅ {counts.arrived}/{counts.total}
         </span>
       </header>
 
-      <div className="vehicle__progress" role="progressbar" aria-valuemin={0} aria-valuemax={counts.total} aria-valuenow={counts.arrived} aria-label="Equipe que chegou">
+      <div className="vehicle__progress" role="progressbar" aria-valuemin={0} aria-valuemax={counts.total} aria-valuenow={counts.arrived} aria-label={tx("Equipe que chegou")}>
         <span className="vehicle__bar" aria-hidden="true">
           <span className="vehicle__bar-fill" style={{ width: `${pct}%` }} />
         </span>
@@ -169,10 +171,13 @@ export default function StaffCheckinPage({ token, checkinHomePath }: StaffChecki
 
       {error && <p className="message message--error">{error}</p>}
 
-      <input className="cat-input" type="search" placeholder="Buscar pelo nome…" value={search} onChange={(e) => setSearch(e.target.value)} />
+      <label className="staff-toolbar__search">
+        <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
+        <input className="cat-input" type="search" placeholder={tx("Buscar pelo nome…")} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tx("Buscar pelo nome")} />
+      </label>
 
-      {counts.total === 0 && <p className="opt-empty">Ninguém na equipe ainda.</p>}
-      {counts.total > 0 && people.length === 0 && <p className="opt-empty">Nenhum resultado. 🔍</p>}
+      {counts.total === 0 && <p className="opt-empty">{tx("Ninguém na equipe ainda.")}</p>}
+      {counts.total > 0 && people.length === 0 && <p className="opt-empty">{tx("Nenhum resultado. 🔍")}</p>}
 
       <ul className="bus-list">
         {people.map((s) => {
@@ -180,9 +185,9 @@ export default function StaffCheckinPage({ token, checkinHomePath }: StaffChecki
           const on = !!s.checkin || armed.has(s.id) || going;
           const busy = pending.has(s.id) && !going;
           const first = s.name.split(" ")[0];
-          const label = s.checkin ? `Desfazer o check-in de ${first}` : on ? `Desfazer: ${first}` : `${first} chegou`;
+          const label = s.checkin ? tx("Desfazer o check-in de {name}", { name: first }) : on ? tx("Desfazer: {name}", { name: first }) : tx("{name} chegou", { name: first });
           return (
-            <li key={s.id} className={`${going ? "bus-item--leaving" : ""} ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
+            <li key={s.id} className={`${going ? "bus-item--leaving" : ""} ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? tx("Cadastro em revisão pela IA") : undefined}>
               <button
                 type="button"
                 className={`bus-row bus-row--roll ${on ? "bus-row--on" : ""}`}

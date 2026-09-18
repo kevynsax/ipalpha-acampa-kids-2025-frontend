@@ -4,16 +4,24 @@ import Dialog from "../../components/Dialog";
 import { contrastText, createTeam, deleteTeam, reorderTeams, updateTeam, type Team, type TeamInput } from "../../api/teams";
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import PageFooter from "../../components/PageFooter";
+import Breadcrumbs from "../../components/Breadcrumbs";
+import { ICONS } from "../../icons";
+import { useI18n } from "../../i18n";
 
 interface TeamsPageProps {
   token: string;
+  onAssign?: () => void;
+  onScoreboard?: () => void;
+  /** during camp, Teams is reached from the Placar tab. */
+  onScoreboardBack?: () => void;
 }
 
 /**
  * Admin-only: the camp TEAMS (times) — name and colour. Kids and staff are
  * linked to a team on their forms; the scoreboard (Placar) ranks these teams.
  */
-export default function TeamsPage({ token }: TeamsPageProps) {
+export default function TeamsPage({ token, onAssign, onScoreboard, onScoreboardBack }: TeamsPageProps) {
+  const { tx } = useI18n();
   const teams = useCollection("teams");
   const staff = useCollectionOrEmpty("staff");
   const campers = useCollectionOrEmpty("campers");
@@ -42,7 +50,7 @@ export default function TeamsPage({ token }: TeamsPageProps) {
     try {
       await fn();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -59,8 +67,10 @@ export default function TeamsPage({ token }: TeamsPageProps) {
 
   async function handleDelete(t: Team) {
     const m = members.get(t.id);
-    const who = m ? `${m.kids} criança(s) e ${m.staff} pessoa(s) da equipe ficam sem time e o` : "O";
-    if (!(await confirm({ emoji: "🗑️", title: `Excluir ${t.name}?`, message: `${who} placar do time é apagado. Não dá para desfazer.`, confirmLabel: "Excluir", danger: true }))) return;
+    const message = m
+      ? tx("{kids} criança(s) e {staff} pessoa(s) da equipe ficam sem time e o placar do time é apagado. Não dá para desfazer.", { kids: m.kids, staff: m.staff })
+      : tx("O placar do time é apagado. Não dá para desfazer.");
+    if (!(await confirm({ emoji: "🗑️", title: tx("Excluir {name}?", { name: t.name }), message, confirmLabel: tx("Excluir"), danger: true }))) return;
     await withBusy(() => deleteTeam(token, t.id));
   }
 
@@ -77,27 +87,28 @@ export default function TeamsPage({ token }: TeamsPageProps) {
   if (!teams) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Carregando times… 🚩</p>
+        <p className="opt-empty">{tx("Carregando times… 🚩")}</p>
       </div>
     );
   }
 
   return (
     <div className="admin-page">
+      {onScoreboardBack && <Breadcrumbs items={[{ label: tx("Placar"), onClick: onScoreboardBack }, { label: tx("Times") }]} />}
       <header className="admin-head">
-        <h1 className="admin-title">🚩 Times</h1>
-        <button type="button" className="button button--primary admin-head__new" disabled={busy} onClick={() => setEditing("new")}>
-          + Novo time
-        </button>
+        <h1 className="admin-title"><img className="admin-title__icon" src={ICONS.team} alt="" aria-hidden="true" /> {tx("Times")}</h1>
+        <div className="admin-head__actions admin-head__actions--icons">
+          {onAssign && teams.length > 0 && <button type="button" className="button button--secondary admin-head__new" title={tx("Montar times")} onClick={onAssign}><img className="admin-head__action-icon" src={ICONS.teamAssign} alt="" aria-hidden="true" /><span className="admin-head__action-label">{tx("Montar times")}</span></button>}
+          {onScoreboard && <button type="button" className="button button--secondary admin-head__new" onClick={onScoreboard}>🏆 <span className="admin-head__action-label">{tx("Placar")}</span></button>}
+          <button type="button" className="button button--primary admin-head__new" disabled={busy} onClick={() => setEditing("new")}>
+            + <span className="admin-head__action-label">{tx("Novo time")}</span>
+          </button>
+        </div>
       </header>
-      <p className="admin-intro">
-        Os times do acampamento: <strong>nome e cor</strong>.
-      </p>
-
       {error && <p className="message message--error">{error}</p>}
 
       {teams.length === 0 ? (
-        <p className="opt-empty">Nenhum time ainda. Crie o primeiro!</p>
+        <p className="opt-empty">{tx("Nenhum time ainda. Crie o primeiro!")}</p>
       ) : (
         <ul className="team-list">
           {teams.map((t, i) => {
@@ -112,24 +123,24 @@ export default function TeamsPage({ token }: TeamsPageProps) {
                   <p className="team-card__meta">
                     {m ? (
                       <>
-                        {m.kids} criança{m.kids !== 1 ? "s" : ""} · {m.staff} da equipe
+                        {m.kids === 1 ? tx("{n} criança", { n: m.kids }) : tx("{n} crianças", { n: m.kids })} · {tx("{n} da equipe", { n: m.staff })}
                       </>
                     ) : (
-                      <em className="staff-card__missing">sem ninguém ainda</em>
+                      <em className="staff-card__missing">{tx("sem ninguém ainda")}</em>
                     )}
                   </p>
                 </div>
                 <span className="team-card__actions">
-                  <button type="button" className="icon-btn" title="Subir" aria-label={`Subir ${t.name}`} disabled={busy || i === 0} onClick={() => void move(t, -1)}>
+                  <button type="button" className="icon-btn" title={tx("Subir")} aria-label={tx("Subir {name}", { name: t.name })} disabled={busy || i === 0} onClick={() => void move(t, -1)}>
                     ↑
                   </button>
-                  <button type="button" className="icon-btn" title="Descer" aria-label={`Descer ${t.name}`} disabled={busy || i === teams.length - 1} onClick={() => void move(t, 1)}>
+                  <button type="button" className="icon-btn" title={tx("Descer")} aria-label={tx("Descer {name}", { name: t.name })} disabled={busy || i === teams.length - 1} onClick={() => void move(t, 1)}>
                     ↓
                   </button>
-                  <button type="button" className="icon-btn" title="Editar" aria-label={`Editar ${t.name}`} disabled={busy} onClick={() => setEditing(t)}>
+                  <button type="button" className="icon-btn" title={tx("Editar")} aria-label={tx("Editar {name}", { name: t.name })} disabled={busy} onClick={() => setEditing(t)}>
                     <span className="pencil" aria-hidden="true">✏️</span>
                   </button>
-                  <button type="button" className="icon-btn icon-btn--danger" title="Excluir" aria-label={`Excluir ${t.name}`} disabled={busy} onClick={() => void handleDelete(t)}>
+                  <button type="button" className="icon-btn icon-btn--danger" title={tx("Excluir")} aria-label={tx("Excluir {name}", { name: t.name })} disabled={busy} onClick={() => void handleDelete(t)}>
                     🗑️
                   </button>
                 </span>
@@ -139,7 +150,7 @@ export default function TeamsPage({ token }: TeamsPageProps) {
         </ul>
       )}
 
-      <PageFooter>🔒 Quem lança pontos no Placar é definido em Configurações → Jogos.</PageFooter>
+      <PageFooter>{tx("🔒 Quem lança pontos no Placar é definido em Configurações → Jogos.")}</PageFooter>
 
       {editing && <TeamDialog team={editing === "new" ? undefined : editing} busy={busy} onSave={handleSave} onClose={() => setEditing(null)} />}
     </div>
@@ -162,6 +173,7 @@ const PRESETS: { name: string; hex: string }[] = [
 ];
 
 function TeamDialog({ team, busy, onSave, onClose }: { team?: Team; busy: boolean; onSave: (input: TeamInput) => Promise<void>; onClose: () => void }) {
+  const { tx } = useI18n();
   const [name, setName] = useState(team?.name ?? "");
   const [color, setColor] = useState(team?.color ?? PRESETS[0].hex);
   const valid = name.trim().length > 0 && /^#[0-9a-f]{6}$/i.test(color);
@@ -173,25 +185,25 @@ function TeamDialog({ team, busy, onSave, onClose }: { team?: Team; busy: boolea
   }
 
   return (
-    <Dialog open onClose={onClose} title={team ? "Editar time" : "Novo time"} width={520}>
+    <Dialog open onClose={onClose} title={team ? tx("Editar time") : tx("Novo time")} width={520}>
       <form className="cat-form" onSubmit={submit}>
-        <h2 className="cat-form__title">{team ? "✏️ Editar time" : "🚩 Novo time"}</h2>
+        <h2 className="cat-form__title">{team ? tx("✏️ Editar time") : tx("🚩 Novo time")}</h2>
 
         <label className="cat-field">
-          <span className="cat-field__label">Nome</span>
-          <input className="cat-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Time Belém" maxLength={60} autoFocus disabled={busy} />
+          <span className="cat-field__label">{tx("Nome")}</span>
+          <input className="cat-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tx("Time Belém")} maxLength={60} autoFocus disabled={busy} />
         </label>
 
         <div className="cat-field">
-          <span className="cat-field__label">Cor</span>
+          <span className="cat-field__label">{tx("Cor")}</span>
           <div className="color-picker">
-            <label className="color-picker__custom" title="Escolher outra cor">
-              <input type="color" value={color} onChange={(e) => setColor(e.target.value)} disabled={busy} aria-label="Cor do time" />
+            <label className="color-picker__custom" title={tx("Escolher outra cor")}>
+              <input type="color" value={color} onChange={(e) => setColor(e.target.value)} disabled={busy} aria-label={tx("Cor do time")} />
               <span className="color-picker__preview" style={{ background: color, color: contrastText(color) }}>
                 {name.trim() || "Aa"}
               </span>
             </label>
-            <div className="color-picker__presets" role="radiogroup" aria-label="Cores sugeridas">
+            <div className="color-picker__presets" role="radiogroup" aria-label={tx("Cores sugeridas")}>
               {PRESETS.map((c) => (
                 <button
                   key={c.hex}
@@ -200,7 +212,7 @@ function TeamDialog({ team, busy, onSave, onClose }: { team?: Team; busy: boolea
                   aria-checked={c.hex === color.toLowerCase()}
                   className={`color-picker__swatch ${c.hex === color.toLowerCase() ? "color-picker__swatch--on" : ""}`}
                   style={{ background: c.hex }}
-                  title={c.name}
+                  title={tx(c.name)}
                   disabled={busy}
                   onClick={() => setColor(c.hex)}
                 />
@@ -211,10 +223,10 @@ function TeamDialog({ team, busy, onSave, onClose }: { team?: Team; busy: boolea
 
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" disabled={busy} onClick={onClose}>
-            Cancelar
+            {tx("Cancelar")}
           </button>
           <button type="submit" className="button button--primary" disabled={busy || !valid}>
-            {team ? "Salvar" : "Criar time"}
+            {team ? tx("Salvar") : tx("Criar time")}
           </button>
         </div>
       </form>

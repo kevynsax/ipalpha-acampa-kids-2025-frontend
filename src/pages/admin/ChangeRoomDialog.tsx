@@ -7,6 +7,7 @@ import { BedroomSelect } from "../../components/CategoryFields";
 import Dialog from "../../components/Dialog";
 import { ICONS } from "../../icons";
 import { useCollectionOrEmpty } from "../../store";
+import { collatorLocale, useI18n } from "../../i18n";
 
 interface ChangeRoomDialogProps {
   token: string;
@@ -23,6 +24,7 @@ interface ChangeRoomDialogProps {
  * Works on the current room too: to hand the kid to another caretaker.
  */
 export default function ChangeRoomDialog({ token, open, camper: k, onClose }: ChangeRoomDialogProps) {
+  const { tx } = useI18n();
   const bedrooms = useCollectionOrEmpty("bedrooms");
   const staff = useCollectionOrEmpty("staff");
   const [bedroom, setBedroom] = useState<string | null>(k.bedroom);
@@ -41,7 +43,7 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
   const room = bedroom ? bedrooms.find((b) => b.id === bedroom) : null;
   const caretakers = useMemo(
     // an admin sleeping in the room is not a líder: their roster record is only for the room / transport / vest
-    () => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "caretaker").sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) : []),
+    () => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "caretaker").sort((a, b) => a.name.localeCompare(b.name, collatorLocale())) : []),
     [staff, bedroom],
   );
   const helpers = useMemo(() => (bedroom ? staff.filter((s) => s.bedroom === bedroom && s.roomRole === "helper") : []), [staff, bedroom]);
@@ -54,8 +56,14 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
 
   const changed = bedroom !== k.bedroom || caretakerId !== k.caretakerId;
   const sex = (room?.group === "girls" ? "F" : room?.group === "boys" ? "M" : null) ?? k.sex ?? k.probableGender;
-  const article = sex === "F" ? "da" : sex === "M" ? "do" : "do(a)";
   const needsPick = caretakers.length > 1 && !caretakerId;
+  const first = k.name.split(" ")[0];
+  const whoCares =
+    sex === "F"
+      ? tx("Quem vai cuidar da {name}?", { name: first })
+      : sex === "M"
+        ? tx("Quem vai cuidar do {name}?", { name: first })
+        : tx("Quem vai cuidar do(a) {name}?", { name: first });
 
   async function submit() {
     setBusy(true);
@@ -64,19 +72,19 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
       await moveCamper(token, k.id, bedroom, caretakerId);
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title="Trocar de quarto" width={560} dismissible={!busy} className="sheet-dialog">
+    <Dialog open={open} onClose={onClose} title={tx("Trocar de quarto")} width={560} dismissible={!busy} className="sheet-dialog">
       <div className="cat-form cat-form--plain">
         {/* phones: this card is a bottom sheet (see .sheet-dialog) */}
         <span className="sheet__handle" aria-hidden="true" />
         <h2 className="cat-form__title change-room__title">
-          <img className="admin-title__icon" src={ICONS.swap} alt="" aria-hidden="true" /> Trocar de quarto
+          <img className="admin-title__icon" src={ICONS.swap} alt="" aria-hidden="true" /> {tx("Trocar de quarto")}
         </h2>
 
         <BedroomSelect bedrooms={bedrooms} value={bedroom} onChange={setBedroom} current={k.bedroom} groups={bedroomGroupsForSex(k.sex, k.probableGender)} disabled={busy} />
@@ -85,17 +93,24 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
           <fieldset className="cat-fieldset change-room__caretaker">
             {caretakers.length !== 1 && (
               <legend className="cat-field__label">
-                <RoomRoleIcon role="caretaker" sex={sex} /> Quem vai cuidar {article} {k.name.split(" ")[0]}?
+                <RoomRoleIcon role="caretaker" sex={sex} /> {whoCares}
               </legend>
             )}
             {caretakers.length === 0 && (
               <p className="message message--warn">
-                ⚠️ Nenhum líder neste quarto{helpers.length ? ` (só auxiliares: ${helpers.map((h) => h.name.split(" ")[0]).join(", ")})` : ""}. A criança ficará <strong>sem líder</strong>.
+                {helpers.length
+                  ? <>{tx("⚠️ Nenhum líder neste quarto (só auxiliares: {names}). A criança ficará", { names: helpers.map((h) => h.name.split(" ")[0]).join(", ") })} <strong>{tx("sem líder")}</strong>.</>
+                  : <>{tx("⚠️ Nenhum líder neste quarto. A criança ficará")} <strong>{tx("sem líder")}</strong>.</>}
               </p>
             )}
             {caretakers.length === 1 && (
               <p className="cat-hint">
-                Quem vai cuidar {article} {k.name.split(" ")[0]} agora vai ser {sex === "F" ? "a" : "o"} <strong>{caretakers[0].name}</strong>.
+                {sex === "F"
+                  ? tx("Quem vai cuidar da {name} agora vai ser a", { name: first })
+                  : sex === "M"
+                    ? tx("Quem vai cuidar do {name} agora vai ser o", { name: first })
+                    : tx("Quem vai cuidar do(a) {name} agora vai ser o", { name: first })}{" "}
+                <strong>{caretakers[0].name}</strong>.
               </p>
             )}
             {caretakers.length > 1 && (
@@ -115,16 +130,16 @@ export default function ChangeRoomDialog({ token, open, camper: k, onClose }: Ch
             )}
           </fieldset>
         )}
-        {!bedroom && <p className="cat-hint">Sem quarto a criança fica sem líder.</p>}
+        {!bedroom && <p className="cat-hint">{tx("Sem quarto a criança fica sem líder.")}</p>}
 
         {error && <p className="message message--error">{error}</p>}
 
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" onClick={onClose} disabled={busy}>
-            Cancelar
+            {tx("Cancelar")}
           </button>
           <button type="button" className="button button--primary" disabled={busy || !changed || needsPick} onClick={submit}>
-            {busy ? "Salvando…" : "Confirmar"}
+            {busy ? tx("Salvando…") : tx("Confirmar")}
           </button>
         </div>
       </div>

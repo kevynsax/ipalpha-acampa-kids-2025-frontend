@@ -5,6 +5,7 @@ import { AiGlyph } from "./Glyph";
 import { aiImage, listAiImageModels, type AiImageModel, type AiImageShape } from "../api/ai";
 import { dataUrlToFile } from "../aiImages";
 import { uploadImage, type UploadedFile } from "../api/files";
+import { useI18n } from "../i18n";
 
 interface AiImageDialogProps {
   open: boolean;
@@ -16,11 +17,7 @@ interface AiImageDialogProps {
   suggestion?: string;
 }
 
-const SHAPES: { id: AiImageShape; label: string }[] = [
-  { id: "wide", label: "Deitada" },
-  { id: "square", label: "Quadrada" },
-  { id: "tall", label: "Em pé" },
-];
+const SHAPE_IDS: AiImageShape[] = ["wide", "square", "tall"];
 
 const MODEL_KEY = "camping.ai.imageModel";
 const MAX_DESC = 1_000;
@@ -34,6 +31,7 @@ const MAX_DESC = 1_000;
  * user try again with a tweaked description before inserting.
  */
 export default function AiImageDialog({ open, onClose, token, onInsert, suggestion }: AiImageDialogProps) {
+  const { tx } = useI18n();
   const [models, setModels] = useState<AiImageModel[]>([]);
   const [model, setModel] = useState(() => localStorage.getItem(MODEL_KEY) ?? "");
   const [description, setDescription] = useState("");
@@ -46,6 +44,11 @@ export default function AiImageDialog({ open, onClose, token, onInsert, suggesti
   const [inserting, setInserting] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
+
+  const shapes = SHAPE_IDS.map((id) => ({
+    id,
+    label: id === "wide" ? tx("Deitada") : id === "square" ? tx("Quadrada") : tx("Em pé"),
+  }));
 
   useEffect(() => {
     if (!open) return;
@@ -80,7 +83,7 @@ export default function AiImageDialog({ open, onClose, token, onInsert, suggesti
       const img = await aiImage(token, { description: desc, shape, model: model || undefined, style }, ctrl.signal);
       setResult({ dataUrl: img.dataUrl, label: img.label, ms: img.ms });
     } catch (err) {
-      if ((err as Error)?.name !== "AbortError") setError(err instanceof Error ? err.message : "Não foi possível gerar a imagem.");
+      if ((err as Error)?.name !== "AbortError") setError(err instanceof Error ? err.message : tx("Não foi possível gerar a imagem."));
     } finally {
       setBusy(false);
       abortRef.current = null;
@@ -98,7 +101,7 @@ export default function AiImageDialog({ open, onClose, token, onInsert, suggesti
       onInsert(up, caption.trim());
       close();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível guardar a imagem.");
+      setError(err instanceof Error ? err.message : tx("Não foi possível guardar a imagem."));
     } finally {
       setInserting(false);
     }
@@ -116,13 +119,13 @@ export default function AiImageDialog({ open, onClose, token, onInsert, suggesti
   const current = models.find((m) => m.id === model);
 
   return (
-    <Dialog open={open} onClose={close} title="Desenhar uma imagem" width={640} dismissible={!busy && !inserting} fullscreenOnMobile>
+    <Dialog open={open} onClose={close} title={tx("Desenhar uma imagem")} width={640} dismissible={!busy && !inserting} fullscreenOnMobile>
       <div className="cat-form cat-form--plain ai-image">
         <h2 className="cat-form__title">
-          <AiGlyph /> Desenhar uma imagem
+          <AiGlyph /> {tx("Desenhar uma imagem")}
         </h2>
         <label className="cat-field">
-          <span className="cat-field__label">O que aparece no desenho</span>
+          <span className="cat-field__label">{tx("O que aparece no desenho")}</span>
           <textarea
             ref={areaRef}
             className="cat-input cat-input--area"
@@ -130,7 +133,11 @@ export default function AiImageDialog({ open, onClose, token, onInsert, suggesti
             maxLength={MAX_DESC}
             value={description}
             disabled={busy}
-            placeholder={suggestion ? `ex.: capa para “${suggestion}” — barracas entre pinheiros ao amanhecer` : "ex.: crianças em fila na porta de um ônibus escolar, vistas de lado"}
+            placeholder={
+              suggestion
+                ? tx('ex.: capa para “{suggestion}” — barracas entre pinheiros ao amanhecer', { suggestion })
+                : tx("ex.: crianças em fila na porta de um ônibus escolar, vistas de lado")
+            }
             onChange={(e) => setDescription(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -139,12 +146,12 @@ export default function AiImageDialog({ open, onClose, token, onInsert, suggesti
               }
             }}
           />
-          <p className="cat-hint">Descreva o que se vê. O desenho não leva letras — se precisar de texto, use a legenda.</p>
+          <p className="cat-hint">{tx("Descreva o que se vê. O desenho não leva letras — se precisar de texto, use a legenda.")}</p>
         </label>
 
         <div className="ai-image__row">
-          <div className="ai-image__shapes" role="group" aria-label="Formato da imagem">
-            {SHAPES.map((s) => (
+          <div className="ai-image__shapes" role="group" aria-label={tx("Formato da imagem")}>
+            {shapes.map((s) => (
               <button
                 key={s.id}
                 type="button"
@@ -160,7 +167,7 @@ export default function AiImageDialog({ open, onClose, token, onInsert, suggesti
           </div>
           {models.length > 1 && (
             <label className="cat-field ai-image__model">
-              <span className="cat-field__label">Desenhista</span>
+              <span className="cat-field__label">{tx("Desenhista")}</span>
               <span className="ai-image__select">
                 <AiVendorLogo vendor={current?.vendor} modelId={current?.id} />
                 <select className="cat-input" value={model} disabled={busy} onChange={(e) => setModel(e.target.value)}>
@@ -177,10 +184,10 @@ export default function AiImageDialog({ open, onClose, token, onInsert, suggesti
 
         <label className="ai-image__style">
           <input type="checkbox" checked={style} disabled={busy} onChange={(e) => setStyle(e.target.checked)} />
-          <span>Estilo do acampamento (vetor chapado, cores do app)</span>
+          <span>{tx("Estilo do acampamento (vetor chapado, cores do app)")}</span>
         </label>
 
-        {busy && <p className="ai-image__waiting ai-pulse">🎨 Desenhando… leva de 10 a 60 segundos.</p>}
+        {busy && <p className="ai-image__waiting ai-pulse">{tx("🎨 Desenhando… leva de 10 a 60 segundos.")}</p>}
         {result && !busy && (
           <figure className={`ai-image__preview ai-image__preview--${shape}`}>
             <img src={result.dataUrl} alt={caption || description} />
@@ -193,13 +200,13 @@ export default function AiImageDialog({ open, onClose, token, onInsert, suggesti
 
         {result && !busy && (
           <label className="cat-field">
-            <span className="cat-field__label">Legenda (opcional)</span>
+            <span className="cat-field__label">{tx("Legenda (opcional)")}</span>
             <input
               className="cat-input"
               value={caption}
               maxLength={160}
               disabled={inserting}
-              placeholder="ex.: Fila de embarque no sábado"
+              placeholder={tx("ex.: Fila de embarque no sábado")}
               onChange={(e) => setCaption(e.target.value)}
             />
           </label>
@@ -207,13 +214,13 @@ export default function AiImageDialog({ open, onClose, token, onInsert, suggesti
 
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" disabled={inserting} onClick={() => (busy ? abortRef.current?.abort() : close())}>
-            {busy ? "Parar" : "Cancelar"}
+            {busy ? tx("Parar") : tx("Cancelar")}
           </button>
           <button type="button" className="button button--secondary" disabled={busy || inserting || !description.trim()} onClick={() => void draw()}>
-            {result ? "↻ De novo" : "🎨 Desenhar"}
+            {result ? tx("↻ De novo") : tx("🎨 Desenhar")}
           </button>
           <button type="button" className="button button--primary" disabled={!result || busy || inserting} onClick={() => void insert()}>
-            {inserting ? "Guardando…" : "Inserir"}
+            {inserting ? tx("Guardando…") : tx("Inserir")}
           </button>
         </div>
       </div>

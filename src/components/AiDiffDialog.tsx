@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import Dialog from "./Dialog";
 import RichHtml from "./RichHtml";
-import { describeDiff, diffHtml, summarizeDiff } from "../htmlDiff";
+import { diffHtml, summarizeDiff, type DiffSummary } from "../htmlDiff";
+import { useI18n } from "../i18n";
 
 interface AiDiffDialogProps {
   open: boolean;
@@ -14,12 +15,22 @@ interface AiDiffDialogProps {
   onRevert: () => void;
 }
 
+function describeDiffTx(s: DiffSummary, tx: (pt: string, vars?: Record<string, string | number>) => string): string {
+  if (s.identical) return tx("nada mudou");
+  const parts: string[] = [];
+  if (s.added) parts.push(s.added === 1 ? tx("1 trecho novo") : tx("{n} trechos novos", { n: s.added }));
+  if (s.changed) parts.push(s.changed === 1 ? tx("1 reescrito") : tx("{n} reescritos", { n: s.changed }));
+  if (s.removed) parts.push(s.removed === 1 ? tx("1 removido") : tx("{n} removidos", { n: s.removed }));
+  return parts.join(", ");
+}
+
 /**
  * "Ver o que mudou": side-by-side review of what the assistant did, the way a
  * code review reads — removed blocks in red, new ones in green, rewritten ones
  * paired. Unchanged blocks are collapsed unless the user asks for them.
  */
 export default function AiDiffDialog({ open, onClose, before, after, onRevert }: AiDiffDialogProps) {
+  const { tx } = useI18n();
   const [showAll, setShowAll] = useState(false);
   const [preview, setPreview] = useState(false);
   const rows = useMemo(() => (open ? diffHtml(before, after) : []), [open, before, after]);
@@ -27,24 +38,24 @@ export default function AiDiffDialog({ open, onClose, before, after, onRevert }:
   const visible = showAll ? rows : rows.filter((r) => r.kind !== "same");
 
   return (
-    <Dialog open={open} onClose={onClose} title="O que a IA mudou" width={820} fullscreenOnMobile>
+    <Dialog open={open} onClose={onClose} title={tx("O que a IA mudou")} width={820} fullscreenOnMobile>
       <div className="cat-form cat-form--plain ai-diff">
         <div className="ai-diff__head">
-          <h2 className="cat-form__title">O que mudou</h2>
-          <span className="ai-diff__summary">{describeDiff(summary)}</span>
+          <h2 className="cat-form__title">{tx("O que mudou")}</h2>
+          <span className="ai-diff__summary">{describeDiffTx(summary, tx)}</span>
         </div>
 
         <div className="ai-diff__tabs" role="tablist">
           <button type="button" role="tab" aria-selected={!preview} className={`ai-diff__tab ${preview ? "" : "is-active"}`} onClick={() => setPreview(false)}>
-            Diferenças
+            {tx("Diferenças")}
           </button>
           <button type="button" role="tab" aria-selected={preview} className={`ai-diff__tab ${preview ? "is-active" : ""}`} onClick={() => setPreview(true)}>
-            Documento novo
+            {tx("Documento novo")}
           </button>
           {!preview && !summary.identical && (
             <label className="ai-diff__toggle">
               <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
-              <span>Mostrar o texto inteiro</span>
+              <span>{tx("Mostrar o texto inteiro")}</span>
             </label>
           )}
         </div>
@@ -54,7 +65,7 @@ export default function AiDiffDialog({ open, onClose, before, after, onRevert }:
             <RichHtml html={after} className="instructions instructions--scroll" />
           </div>
         ) : summary.identical ? (
-          <p className="cat-hint">O texto ficou igual — a IA não mudou nada.</p>
+          <p className="cat-hint">{tx("O texto ficou igual — a IA não mudou nada.")}</p>
         ) : (
           <ol className="ai-diff__list">
             {visible.map((r, i) => (
@@ -92,10 +103,10 @@ export default function AiDiffDialog({ open, onClose, before, after, onRevert }:
               onClose();
             }}
           >
-            ↶ Desfazer a mudança
+            {tx("↶ Desfazer a mudança")}
           </button>
           <button type="button" className="button button--primary" onClick={onClose}>
-            Manter
+            {tx("Manter")}
           </button>
         </div>
       </div>

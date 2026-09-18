@@ -7,6 +7,7 @@ import { aiEdit, aiTranscribe, listAiModels, stripCodeFences, type AiContext, ty
 import { absolutizeFileUrls, relativizeFileUrls, shrinkImage } from "../api/files";
 import { pendingImages, resolveGeneratedImages } from "../aiImages";
 import { sanitizeForEditor } from "../html";
+import { useI18n } from "../i18n";
 import AiVendorLogo from "./AiVendorLogo";
 import AiDiffDialog from "./AiDiffDialog";
 import { AiGlyph } from "./Glyph";
@@ -213,12 +214,6 @@ async function toDataUrl(file: File): Promise<string> {
   });
 }
 
-const QUICK = [
-  { label: "Melhorar", prompt: "Melhore a escrita: deixe o texto mais claro e simpático, mantendo o sentido." },
-  { label: "✂️ Resumir", prompt: "Resuma o texto mantendo as informações essenciais." },
-  { label: "📝 Corrigir", prompt: "Corrija ortografia e gramática sem mudar o estilo." },
-];
-
 function selectionHtml(editor: Editor): { html: string; from: number; to: number } | null {
   const { from, to, empty } = editor.state.selection;
   if (empty) return null;
@@ -236,6 +231,12 @@ function selectionHtml(editor: Editor): { html: string; from: number; to: number
  * puts the previous HTML back.
  */
 export default function AiAssistantPanel({ open, onClose, editor, token, context, title, onApplied }: AiAssistantPanelProps) {
+  const { tx, tag } = useI18n();
+  const quick = [
+    { label: tx("Melhorar"), prompt: tx("Melhore a escrita: deixe o texto mais claro e simpático, mantendo o sentido.") },
+    { label: tx("✂️ Resumir"), prompt: tx("Resuma o texto mantendo as informações essenciais.") },
+    { label: tx("📝 Corrigir"), prompt: tx("Corrija ortografia e gramática sem mudar o estilo.") },
+  ];
   const [models, setModels] = useState<AiModel[]>([]);
   const [enabled, setEnabled] = useState(true);
   const [model, setModel] = useState(() => localStorage.getItem(MODEL_KEY) ?? "");
@@ -392,7 +393,7 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      setVoiceError("Sem acesso ao microfone. Libere a permissão no navegador.");
+      setVoiceError(tx("Sem acesso ao microfone. Libere a permissão no navegador."));
       return;
     }
     const mimeType = recordingMimeType();
@@ -441,8 +442,12 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
       [
         typed,
         spoken,
-        !typed && !spoken && pics.length ? "Veja a imagem." : "",
-        ...attachments.map((p) => (p.html ? `Conteúdo colado (HTML, estrutura intencional):\n"""\n${p.html}\n"""` : `Texto colado:\n"""\n${p.text}\n"""`)),
+        !typed && !spoken && pics.length ? tx("Veja a imagem.") : "",
+        ...attachments.map((p) =>
+          p.html
+            ? tx('Conteúdo colado (HTML, estrutura intencional):\n"""\n{html}\n"""', { html: p.html })
+            : tx('Texto colado:\n"""\n{text}\n"""', { text: p.text }),
+        ),
       ]
         .filter(Boolean)
         .join("\n\n");
@@ -451,7 +456,7 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
     const target: ChatItem["target"] = sel ? { from: sel.from, to: sel.to } : "document";
     const before = relativizeFileUrls(editor.getHTML());
     const history: AiMessage[] = items.filter((i) => !i.error && !i.pending).map(({ role, content }) => ({ role, content }));
-    const suffix = sel ? "\n(sobre o trecho selecionado)" : "";
+    const suffix = sel ? tx("\n(sobre o trecho selecionado)") : "";
     const userId = nextId.current++;
     const userItem: ChatItem = {
       id: userId,
@@ -476,7 +481,7 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
       let content = build("");
       if (clip) {
         const spoken = await aiTranscribe(token, clip.blob, ctrl.signal);
-        if (!spoken) throw new Error("Não entendi nada no áudio. Tente de novo mais perto do microfone.");
+        if (!spoken) throw new Error(tx("Não entendi nada no áudio. Tente de novo mais perto do microfone."));
         content = build(spoken);
         patch(userId, { content: content + suffix, voice: { seconds: clip.seconds, transcribing: false } });
       }
@@ -507,8 +512,8 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
         patch(replyId, { content: full.reply, doc: undefined, writing: false, lookups: full.lookups, thought: undefined, pending: false, before: undefined });
       }
     } catch (err) {
-      if ((err as Error)?.name === "AbortError") patch(replyId, { pending: false, error: "Cancelado." });
-      else patch(replyId, { pending: false, error: err instanceof Error ? err.message : "O assistente não respondeu." });
+      if ((err as Error)?.name === "AbortError") patch(replyId, { pending: false, error: tx("Cancelado.") });
+      else patch(replyId, { pending: false, error: err instanceof Error ? err.message : tx("O assistente não respondeu.") });
       if (clip) setItems((l) => l.map((x) => (x.id === userId && x.voice?.transcribing ? { ...x, voice: { ...x.voice, transcribing: false } } : x)));
     } finally {
       setBusy(false);
@@ -537,7 +542,7 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
   const review = items.find((i) => i.id === reviewing);
 
   return (
-    <aside className="ai-panel" role="complementary" aria-label="Assistente de IA">
+    <aside className="ai-panel" role="complementary" aria-label={tx("Assistente de IA")}>
       {review?.before !== undefined && (
         <AiDiffDialog
           open
@@ -548,29 +553,29 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
         />
       )}
       <header className="ai-panel__head">
-        <span className="ai-panel__title"><AiGlyph /> Assistente</span>
+        <span className="ai-panel__title"><AiGlyph /> {tx("Assistente")}</span>
         <div className="ai-model" ref={modelRef}>
           <button
             type="button"
             className="ai-model__button"
             disabled={busy || loadingModels || !models.length}
-            aria-label="Modelo"
+            aria-label={tx("Modelo")}
             aria-haspopup="listbox"
             aria-expanded={modelMenu}
             onClick={() => setModelMenu((v) => !v)}
           >
             {loadingModels && !models.length ? (
-              "Verificando modelos…"
+              tx("Verificando modelos…")
             ) : (
               <>
                 <AiVendorLogo vendor={current?.vendor} modelId={current?.id} />
-                <span>{current?.label ?? "Modelo"}</span>
+                <span>{current?.label ?? tx("Modelo")}</span>
               </>
             )}
             <span className="ai-model__caret" aria-hidden>▾</span>
           </button>
           {modelMenu && (
-            <ul className="ai-model__menu" role="listbox" aria-label="Modelos">
+            <ul className="ai-model__menu" role="listbox" aria-label={tx("Modelos")}>
               {models.map((m) => (
                 <li key={m.id}>
                   <button
@@ -594,11 +599,11 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
       </header>
 
       <div className="ai-panel__list" ref={listRef}>
-        {!enabled && <p className="ai-panel__hint ai-panel__hint--warn">⚠️ Assistente de IA não configurado no servidor.</p>}
+        {!enabled && <p className="ai-panel__hint ai-panel__hint--warn">{tx("⚠️ Assistente de IA não configurado no servidor.")}</p>}
         {enabled && !items.length && (
           <div className="ai-panel__hint">
-            <p>Converse normalmente: pergunte sobre o documento ou sobre o acampamento e ele responde aqui; peça uma mudança (“resuma”, “acrescente…”) e ele altera o texto e conta o que fez — dá para reverter.</p>
-            <p>Selecione um trecho no editor para tratar só dele.</p>
+            <p>{tx("Converse normalmente: pergunte sobre o documento ou sobre o acampamento e ele responde aqui; peça uma mudança (“resuma”, “acrescente…”) e ele altera o texto e conta o que fez — dá para reverter.")}</p>
+            <p>{tx("Selecione um trecho no editor para tratar só dele.")}</p>
           </div>
         )}
         {items.map((it) => (
@@ -614,8 +619,8 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
                 )}
                 {it.voice && (
                   <p className="ai-msg__voice">
-                    🎤 Áudio · {Math.floor(it.voice.seconds / 60)}:{String(it.voice.seconds % 60).padStart(2, "0")}
-                    {it.voice.transcribing && <span className="ai-pulse"> · transcrevendo…</span>}
+                    {tx("🎤 Áudio · {time}", { time: `${Math.floor(it.voice.seconds / 60)}:${String(it.voice.seconds % 60).padStart(2, "0")}` })}
+                    {it.voice.transcribing && <span className="ai-pulse">{tx(" · transcrevendo…")}</span>}
                   </p>
                 )}
                 {!!it.content && <p className="ai-msg__text">{it.content}</p>}
@@ -627,7 +632,7 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
                     {it.thought.map((t, i) => (
                       <p key={i}>💭 {t}</p>
                     ))}
-                    {!!it.lookups?.length && <p>🔎 Consultou {it.lookups.join(", ")}</p>}
+                    {!!it.lookups?.length && <p>{tx("🔎 Consultou {items}", { items: it.lookups.join(", ") })}</p>}
                   </div>
                 )}
                 {it.pending && (
@@ -639,15 +644,15 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
                     </span>
                     <span className="ai-pulse">
                       {it.drawing
-                        ? `🎨 Desenhando ${Math.min(it.drawing.done + 1, it.drawing.total)} de ${it.drawing.total}…`
+                        ? tx("🎨 Desenhando {done} de {total}…", { done: Math.min(it.drawing.done + 1, it.drawing.total), total: it.drawing.total })
                         : it.writing
-                          ? "Escrevendo o documento…"
+                          ? tx("Escrevendo o documento…")
                           : it.content
-                            ? "Respondendo…"
+                            ? tx("Respondendo…")
                             : it.lookups?.length
-                              ? "Consultando…"
-                              : "Pensando…"}
-                      {it.writing && it.target && it.target !== "document" ? " (no trecho selecionado)" : ""}
+                              ? tx("Consultando…")
+                              : tx("Pensando…")}
+                      {it.writing && it.target && it.target !== "document" ? tx(" (no trecho selecionado)") : ""}
                     </span>
                     {(it.doc?.length ?? it.content.length) > 0 && <span className="ai-msg__count">{it.doc?.length ?? it.content.length}</span>}
                   </p>
@@ -655,30 +660,39 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
                 {it.error && <p className="ai-msg__status">⚠️ {it.error}</p>}
                 {!it.pending && !it.error && (
                   <>
-                    <p className="ai-msg__answer">{it.content || (it.doc ? "Pronto." : "Sem resposta.")}</p>
-                    {!!it.lookups?.length && <p className="ai-msg__lookups">🔎 Consultou {it.lookups.join(", ")}</p>}
+                    <p className="ai-msg__answer">{it.content || (it.doc ? tx("Pronto.") : tx("Sem resposta."))}</p>
+                    {!!it.lookups?.length && <p className="ai-msg__lookups">{tx("🔎 Consultou {items}", { items: it.lookups.join(", ") })}</p>}
                     {!!it.imageErrors?.length && (
-                      <p className="ai-msg__status">⚠️ Não consegui desenhar {it.imageErrors.length === 1 ? "uma imagem" : `${it.imageErrors.length} imagens`}.</p>
+                      <p className="ai-msg__status">
+                        {it.imageErrors.length === 1
+                          ? tx("⚠️ Não consegui desenhar uma imagem.")
+                          : tx("⚠️ Não consegui desenhar {n} imagens.", { n: it.imageErrors.length })}
+                      </p>
                     )}
                     {it.doc && (
                       <>
                         <p className="ai-msg__status">
-                          {it.applied ? "✅ Aplicado " : "↩️ Revertido "}
-                          {it.target === "document" ? "no documento" : "no trecho selecionado"}
+                          {it.applied
+                            ? it.target === "document"
+                              ? tx("✅ Aplicado no documento")
+                              : tx("✅ Aplicado no trecho selecionado")
+                            : it.target === "document"
+                              ? tx("↩️ Revertido no documento")
+                              : tx("↩️ Revertido no trecho selecionado")}
                         </p>
                         <div className="ai-msg__actions">
                           {it.before !== undefined && it.applied && (
                             <button type="button" className="ai-msg__btn ai-msg__btn--review" onClick={() => setReviewing(it.id)} disabled={busy}>
-                              👁 Ver o que mudou
+                              {tx("👁 Ver o que mudou")}
                             </button>
                           )}
                           {it.applied ? (
                             <button type="button" className="ai-msg__btn" onClick={() => revert(it)} disabled={busy}>
-                              ↶ Reverter
+                              {tx("↶ Reverter")}
                             </button>
                           ) : (
                             <button type="button" className="ai-msg__btn" onClick={() => reapply(it)} disabled={busy}>
-                              ↷ Aplicar de novo
+                              {tx("↷ Aplicar de novo")}
                             </button>
                           )}
                         </div>
@@ -693,7 +707,7 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
       </div>
 
       <div className="ai-panel__quick">
-        {QUICK.map((q) => (
+        {quick.map((q) => (
           <button key={q.label} type="button" className="ai-panel__chip" disabled={busy || !enabled || !model} onClick={() => void send(q.prompt)}>
             {q.label}
           </button>
@@ -707,9 +721,9 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
             {voice && (
               <div className="ai-paste__chip">
                 <span className="ai-paste__card ai-paste__audio">
-                  🎤 Áudio gravado · {Math.floor(voice.seconds / 60)}:{String(voice.seconds % 60).padStart(2, "0")}
+                  {tx("🎤 Áudio gravado · {time}", { time: `${Math.floor(voice.seconds / 60)}:${String(voice.seconds % 60).padStart(2, "0")}` })}
                 </span>
-                <button type="button" className="ai-paste__remove" aria-label="Descartar áudio" onClick={() => setVoice(null)}>
+                <button type="button" className="ai-paste__remove" aria-label={tx("Descartar áudio")} onClick={() => setVoice(null)}>
                   ×
                 </button>
               </div>
@@ -717,24 +731,27 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
             {images.map((im) => (
               <div key={im.id} className="ai-paste__chip">
                 <span className="ai-paste__img">
-                  <img src={im.url} alt="Imagem colada" />
+                  <img src={im.url} alt={tx("Imagem colada")} />
                 </span>
-                <button type="button" className="ai-paste__remove" aria-label="Remover imagem" onClick={() => setImages((l) => l.filter((x) => x.id !== im.id))}>
+                <button type="button" className="ai-paste__remove" aria-label={tx("Remover imagem")} onClick={() => setImages((l) => l.filter((x) => x.id !== im.id))}>
                   ×
                 </button>
               </div>
             ))}
             {pasted.map((p) => (
               <div key={p.id} className={`ai-paste__chip ${preview === p.id ? "is-open" : ""}`}>
-                <button type="button" className="ai-paste__card" onClick={() => setPreview((v) => (v === p.id ? null : p.id))} title="Ver texto colado">
+                <button type="button" className="ai-paste__card" onClick={() => setPreview((v) => (v === p.id ? null : p.id))} title={tx("Ver texto colado")}>
                   <span className="ai-paste__mini" aria-hidden>
                     {p.text.slice(0, 220)}
                   </span>
                   <span className="ai-paste__meta">
-                    📋 {p.html ? "Colado com formatação" : "Texto colado"} · {p.text.length.toLocaleString("pt-BR")} caracteres
+                    {tx("📋 {kind} · {n} caracteres", {
+                      kind: p.html ? tx("Colado com formatação") : tx("Texto colado"),
+                      n: p.text.length.toLocaleString(tag),
+                    })}
                   </span>
                 </button>
-                <button type="button" className="ai-paste__remove" aria-label="Remover texto colado" onClick={() => setPasted((l) => l.filter((x) => x.id !== p.id))}>
+                <button type="button" className="ai-paste__remove" aria-label={tx("Remover texto colado")} onClick={() => setPasted((l) => l.filter((x) => x.id !== p.id))}>
                   ×
                 </button>
               </div>
@@ -747,7 +764,7 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
           className="ai-panel__input"
           rows={3}
           value={draft}
-          placeholder={hasSelection ? "Pergunte ou peça uma mudança no trecho selecionado" : "Pergunte algo ou peça uma mudança — dá para colar texto ou imagens"}
+          placeholder={hasSelection ? tx("Pergunte ou peça uma mudança no trecho selecionado") : tx("Pergunte algo ou peça uma mudança — dá para colar texto ou imagens")}
           disabled={busy || !enabled}
           onChange={(e) => setDraft(e.target.value)}
           onPaste={(e) => {
@@ -797,17 +814,17 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
                 </span>
               </span>
             ) : hasSelection ? (
-              "🎯 trecho selecionado"
+              tx("🎯 trecho selecionado")
             ) : (
-              "📄 documento inteiro"
+              tx("📄 documento inteiro")
             )}
           </span>
           {canTranscribe && CAN_RECORD && !busy && (
             <button
               type="button"
               className={`ai-voice ${recording ? "ai-voice--on" : ""}`}
-              title={recording ? "Parar gravação" : "Gravar áudio"}
-              aria-label={recording ? "Parar gravação" : "Gravar áudio"}
+              title={recording ? tx("Parar gravação") : tx("Gravar áudio")}
+              aria-label={recording ? tx("Parar gravação") : tx("Gravar áudio")}
               aria-pressed={!!recording}
               disabled={!enabled}
               onClick={() => (recording ? void stopRecording() : void startRecording())}
@@ -817,10 +834,10 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
           )}
           {busy ? (
             <button type="button" className="button button--secondary ai-panel__send" onClick={() => abortRef.current?.abort()}>
-              Parar
+              {tx("Parar")}
             </button>
           ) : recording ? (
-            <button type="button" className="ai-voice ai-voice--send" title="Enviar áudio" aria-label="Enviar áudio" disabled={!enabled || !model} onClick={() => void sendNow()}>
+            <button type="button" className="ai-voice ai-voice--send" title={tx("Enviar áudio")} aria-label={tx("Enviar áudio")} disabled={!enabled || !model} onClick={() => void sendNow()}>
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden fill="currentColor">
                 <path d="M3.4 20.4 21.8 12 3.4 3.6l.1 6.6L15 12 3.5 13.8z" />
               </svg>
@@ -832,7 +849,7 @@ export default function AiAssistantPanel({ open, onClose, editor, token, context
               disabled={(!draft.trim() && !pasted.length && !images.length && !voice) || !enabled || !model}
               onClick={() => void sendNow()}
             >
-              Enviar
+              {tx("Enviar")}
             </button>
           )}
         </div>

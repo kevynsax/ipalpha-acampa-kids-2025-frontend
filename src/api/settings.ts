@@ -129,6 +129,8 @@ export interface Settings {
   smsRedirect: SmsRedirect;
   /** false when the server has no SMS provider configured (texts are only logged) */
   smsEnabled: boolean;
+  /** false when the server has no SendGrid API key / from-address (emails are only logged) */
+  mailEnabled: boolean;
   /** read-only: this session is the deployment owner (SUPER_ADMIN_PHONE) — the only one who sees / edits ⚙️ → Sementes */
   superAdmin: boolean;
   /**
@@ -199,6 +201,29 @@ export interface WelcomePreview {
 /** How many people would get the welcome SMS right now if the toggle were on (never welcomed, phone, window open). */
 export async function welcomePreview(token: string): Promise<WelcomePreview> {
   return api<WelcomePreview>("/api/settings/welcome-preview", { headers: bearer(token) });
+}
+
+export interface SampleEmail {
+  id: string;
+  audience: "parent" | "staff";
+  title: string;
+  subject: string;
+}
+
+export interface SampleEmails {
+  emails: SampleEmail[];
+  adminEmail: string | null;
+  mailEnabled: boolean;
+}
+
+/** Catalog of every notification email the camp can send, plus this admin's roster email. */
+export async function listSampleEmails(token: string): Promise<SampleEmails> {
+  return api<SampleEmails>("/api/settings/sample-emails", { headers: bearer(token) });
+}
+
+/** Sends one sample (`id`) — or every sample when omitted — to `email`. When `save` is true, that address is written on the admin's roster. */
+export async function sendSampleEmails(token: string, email: string, save = true, id?: string): Promise<SampleEmails & { sent: number; total: number; failed: string[]; email: string }> {
+  return command("/api/settings/sample-emails", { method: "POST", headers: { ...bearer(token), "content-type": "application/json" }, body: JSON.stringify({ email, save, id }) }, ["staff"]);
 }
 
 /** Clears every check-in (kids' church + both bus trips, team) and the audit log — for rehearsing the process. */

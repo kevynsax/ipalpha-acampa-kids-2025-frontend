@@ -1,4 +1,5 @@
 import { useCollection } from "../../store";
+import { useI18n } from "../../i18n";
 import AccessWindowCard from "./AccessWindowCard";
 import CheckinReminderCard from "./CheckinReminderCard";
 import ForeignLookupsCard from "./ForeignLookupsCard";
@@ -19,12 +20,13 @@ interface GeneralSettingsPageProps {
  * The scoreboard rehearsal, the check-in test tools and the SMS redirect live on Testes.
  */
 export default function GeneralSettingsPage({ token }: GeneralSettingsPageProps) {
+  const { tx } = useI18n();
   const settings = useCollection("settings");
 
   if (!settings) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Carregando configurações… ⚙️</p>
+        <p className="opt-empty">{tx("Carregando configurações… ⚙️")}</p>
       </div>
     );
   }
@@ -32,7 +34,7 @@ export default function GeneralSettingsPage({ token }: GeneralSettingsPageProps)
   return (
     <div className="admin-page">
       <header className="admin-head">
-        <h1 className="admin-title">⚙️ Geral</h1>
+        <h1 className="admin-title">⚙️ {tx("Geral")}</h1>
       </header>
 
       <AccessWindowCard token={token} which="staffAccessWindow" />

@@ -5,6 +5,7 @@ import { describeGeoError, distanceMeters, formatDistance, readPosition, type De
 import type { LoggedUser } from "../roles";
 import { speakTime } from "../dates";
 import { useCollection, useCollectionOrEmpty } from "../store";
+import { useI18n } from "../i18n";
 import Dialog from "./Dialog";
 
 interface SelfCheckinCardProps {
@@ -61,6 +62,7 @@ function remember(date: string) {
  * still check in later. Once checked in, the green "done" card shows inline.
  */
 export default function SelfCheckinCard({ token, user }: SelfCheckinCardProps) {
+  const { tx } = useI18n();
   const staff = useCollection("staff");
   const events = useCollectionOrEmpty("events");
   const settings = useCollection("settings");
@@ -145,7 +147,7 @@ export default function SelfCheckinCard({ token, user }: SelfCheckinCardProps) {
         // someone from the admin table beat us to it — the store update will flip the card
         setError(null);
       } else {
-        setError(err instanceof Error ? err.message : "Algo deu errado.");
+        setError(err instanceof Error ? err.message : tx("Algo deu errado."));
       }
     } finally {
       setPhase("idle");
@@ -156,25 +158,28 @@ export default function SelfCheckinCard({ token, user }: SelfCheckinCardProps) {
   if (checkedIn) {
     const when = speakTime(me.checkin!.at);
     const self = me.checkin!.byUserId === user.id;
+    const distanceNote = justDone !== null && justDone > 0 ? tx(" (a {distance} do ponto de encontro)", { distance: formatDistance(justDone) }) : "";
+    const arrival = self
+      ? tx("Você confirmou sua chegada às {when}", { when })
+      : tx("{name} confirmou sua chegada às {when}", { name: me.checkin!.byName.split(" ")[0], when });
     const card = (
       <section className={`selfcheck selfcheck--done${popup ? " selfcheck--popup" : ""}`} aria-live="polite">
         <span className="selfcheck__badge" aria-hidden="true">✅</span>
         <div className="selfcheck__body">
-          <h2 className="selfcheck__title">Check-in feito!</h2>
+          <h2 className="selfcheck__title">{tx("Check-in feito!")}</h2>
           <p className="selfcheck__text">
-            {self ? "Você confirmou sua chegada" : `${me.checkin!.byName.split(" ")[0]} confirmou sua chegada`} às <strong>{when}</strong>
-            {justDone !== null && justDone > 0 ? ` (a ${formatDistance(justDone)} do ponto de encontro)` : ""}. Boa viagem! 🚌
+            {arrival}{distanceNote}. {tx("Boa viagem! 🚌")}
           </p>
           {popup && (
             <button type="button" className="button button--primary selfcheck__cta" onClick={dismiss}>
-              Fechar 🎉
+              {tx("Fechar 🎉")}
             </button>
           )}
         </div>
       </section>
     );
     return popup ? (
-      <Dialog open onClose={dismiss} title="Check-in feito!" width={520}>
+      <Dialog open onClose={dismiss} title={tx("Check-in feito!")} width={520}>
         {card}
       </Dialog>
     ) : (
@@ -198,45 +203,44 @@ export default function SelfCheckinCard({ token, user }: SelfCheckinCardProps) {
   const spots = status?.locations ?? [];
   const windowOpen = !!settings?.checkinWindow.open;
   const target = spots.length === 0 ? null : windowOpen ? spots[0] : (nearest?.spot ?? spots[spots.length - 1]);
-  const spotName = target?.name ?? "igreja";
-  /** "na Igreja" / "no Acampamento" — a plain "em" avoids guessing the gender */
-  const at = (name: string) => `em ${name}`;
+  const spotName = target?.name ?? tx("igreja");
+  const placeLabel = spots.length > 1 && !windowOpen ? spots.map((l) => l.name).join(` ${tx("ou")} `) : spotName;
+  const accuracy = pos && pos.accuracyM > 0 ? tx(" (precisão do GPS: ±{m} m)", { m: pos.accuracyM }) : "";
 
   const card = (
     <section className={`selfcheck${popup ? " selfcheck--popup" : ""}`} aria-live="polite">
       {popup && (
-        <button type="button" className="selfcheck__close" aria-label="Fechar" disabled={busy} onClick={dismiss}>
+        <button type="button" className="selfcheck__close" aria-label={tx("Fechar")} disabled={busy} onClick={dismiss}>
           ✕
         </button>
       )}
       <span className="selfcheck__badge" aria-hidden="true">⛪</span>
       <div className="selfcheck__body">
-        <h2 className="selfcheck__title">O acampamento é Hoje!!!</h2>
+        <h2 className="selfcheck__title">{tx("O acampamento é Hoje!!!")}</h2>
         <p className="selfcheck__text">
-          Ao chegar {spots.length > 1 && !windowOpen ? `em ${spots.map((l) => l.name).join(" ou ")}` : at(spotName)}, confirme sua presença aqui
+          {tx("Ao chegar em {place}, confirme sua presença aqui", { place: placeLabel })}
         </p>
 
         {blocked && <p className="message message--error">{blocked.message}</p>}
         {error && <p className="message message--error">{error}</p>}
         {distance !== null && !error && (
           <p className="cat-hint">
-            📡 Você está a cerca de <strong>{formatDistance(distance)}</strong> de <strong>{nearest!.spot.name}</strong>
-            {pos && pos.accuracyM > 0 ? ` (precisão do GPS: ±${pos.accuracyM} m)` : ""}.
+            {tx("📡 Você está a cerca de {distance} de {place}{accuracy}.", { distance: formatDistance(distance), place: nearest!.spot.name, accuracy })}
           </p>
         )}
 
         <div className="selfcheck__actions">
           <button type="button" className="button button--primary selfcheck__cta" disabled={busy || !!blocked} onClick={handleCheckin}>
-            {phase === "locating" ? "📡 Lendo o GPS…" : phase === "sending" ? "Confirmando…" : `Cheguei ${at(spotName)}! ✋`}
+            {phase === "locating" ? tx("📡 Lendo o GPS…") : phase === "sending" ? tx("Confirmando…") : tx("Cheguei em {place}! ✋", { place: spotName })}
           </button>
         </div>
-        <p className="selfcheck__location-note">Precisamos da sua localização para saber que você já chegou.</p>
+        <p className="selfcheck__location-note">{tx("Precisamos da sua localização para saber que você já chegou.")}</p>
       </div>
     </section>
   );
 
   return popup ? (
-    <Dialog open onClose={dismiss} title="O acampamento é Hoje!!!" width={520}>
+    <Dialog open onClose={dismiss} title={tx("O acampamento é Hoje!!!")} width={520}>
       {card}
     </Dialog>
   ) : (

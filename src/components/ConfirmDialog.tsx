@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
+import { useI18n } from "../i18n";
 import Dialog from "./Dialog";
 import Toggle from "./Toggle";
 
@@ -82,6 +83,7 @@ export function useConfirmChoice(): ConfirmApi["askChoice"] {
 
 /** Mount once near the root; renders the dialog for every useConfirm() below it. */
 export function ConfirmProvider({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
   const [opts, setOpts] = useState<ConfirmOptions | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const resolver = useRef<((r: ConfirmResult) => void) | null>(null);
@@ -106,7 +108,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   return (
     <ConfirmContext.Provider value={{ ask, askChoice }}>
       {children}
-      <Dialog open={!!opts} onClose={() => settle("cancel")} title={typeof opts?.title === "string" ? opts.title : "Confirmar"} width={440}>
+      <Dialog open={!!opts} onClose={() => settle("cancel")} title={typeof opts?.title === "string" ? opts.title : t("common.confirm")} width={440}>
         {opts && (
           <form
             className="cat-form cat-form--embedded confirm"
@@ -115,7 +117,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
               settle("confirm");
             }}
           >
-            <button type="button" className="confirm__close" aria-label={opts.cancelLabel ?? "Cancelar"} onClick={() => settle("cancel")}>
+            <button type="button" className="confirm__close" aria-label={opts.cancelLabel ?? t("common.cancel")} onClick={() => settle("cancel")}>
               ✕
             </button>
             <h2 className="cat-form__title">
@@ -130,7 +132,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                   <div className="confirm__options-all">
                     <Toggle
                       checked={picked.length === opts.options.length}
-                      label="Todos"
+                      label={t("common.all")}
                       onChange={(v) => {
                         const next = v ? opts.options!.map((o) => o.key) : [];
                         setPicked(next);
@@ -162,7 +164,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                 <>
                   {/* three-way prompt: Salvar is the green (positive) action; discarding is a yellow warn button */}
                   <button type="submit" className="button button--primary">
-                    {opts.confirmLabel ?? "Confirmar"}
+                    {opts.confirmLabel ?? t("common.confirm")}
                   </button>
                   <button type="button" className="button button--warn" autoFocus onClick={() => settle("discard")}>
                     {opts.discardLabel}
@@ -170,7 +172,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                 </>
               ) : (
                 <button type="submit" className={`button ${opts.danger ? "button--danger" : "button--primary"}`} autoFocus>
-                  {opts.confirmLabel ?? "Confirmar"}
+                  {opts.confirmLabel ?? t("common.confirm")}
                 </button>
               )}
             </div>

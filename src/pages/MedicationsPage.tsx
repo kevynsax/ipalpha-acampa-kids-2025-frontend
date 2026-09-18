@@ -3,6 +3,7 @@ import MedicationChecklist from "../components/MedicationChecklist";
 import PageFooter from "../components/PageFooter";
 import { ICONS } from "../icons";
 import { speakDay, todayIso } from "../dates";
+import { useI18n } from "../i18n";
 import { useCollection } from "../store";
 
 interface MedicationsPageProps {
@@ -20,6 +21,7 @@ interface MedicationsPageProps {
  * checked from this tab, while Início always shows today.
  */
 export default function MedicationsPage({ token }: MedicationsPageProps) {
+  const { tx } = useI18n();
   const events = useCollection("events");
   const [day, setDay] = useState(todayIso);
 
@@ -35,15 +37,15 @@ export default function MedicationsPage({ token }: MedicationsPageProps) {
       <header className="admin-head">
         <h1 className="admin-title detail-title">
           <img className="audience-icon" src={ICONS.medications} alt="" aria-hidden="true" />
-          Medicações
+          {tx("Medicações")}
         </h1>
       </header>
       <p className="admin-intro">
-        A medicação de uso contínuo de cada criança, hora a hora. Toque para marcar que foi dada — todo mundo da equipe vê na hora, então ninguém repete a dose.
+        {tx("A medicação de uso contínuo de cada criança, hora a hora. Toque para marcar que foi dada — todo mundo da equipe vê na hora, então ninguém repete a dose.")}
       </p>
 
       {/* ── the day (this tab only: Início is always today) ── */}
-      <div className="cat-tabs" role="tablist" aria-label="Dia">
+      <div className="cat-tabs" role="tablist" aria-label={tx("Dia")}>
         {days.map((d) => (
           <button
             key={d}
@@ -53,14 +55,14 @@ export default function MedicationsPage({ token }: MedicationsPageProps) {
             className={`cat-tab ${d === day ? "cat-tab--active" : ""} ${d === todayIso() ? "cat-tab--now" : ""} ${d < todayIso() ? "cat-tab--past" : ""}`}
             onClick={() => setDay(d)}
           >
-            {d === todayIso() ? "Hoje" : speakDay(d, "short")}
+            {d === todayIso() ? tx("Hoje") : speakDay(d, "short")}
           </button>
         ))}
       </div>
 
       <MedicationChecklist token={token} day={day} />
 
-      <PageFooter>🔒 Só a equipe médica e a organização veem esta página.</PageFooter>
+      <PageFooter>{tx("🔒 Só a equipe médica e a organização veem esta página.")}</PageFooter>
     </div>
   );
 }

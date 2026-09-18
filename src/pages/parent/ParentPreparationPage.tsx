@@ -7,19 +7,22 @@ import { useSinkingChecklist } from "../../hooks/useSinkingChecklist";
 import type { LoggedUser } from "../../roles";
 import { useCollection } from "../../store";
 import { ICONS } from "../../icons";
+import { useI18n } from "../../i18n";
 
 interface ParentPreparationPageProps {
   user: LoggedUser;
   token: string;
 }
 
-/** "Faltam 12 dias" / "É amanhã!" / "É hoje!" / "Acampamento em andamento" */
-function countdownLabel(daysToGo: number | null): { mark: ReactNode; text: string } | null {
+function countdownLabel(
+  daysToGo: number | null,
+  tx: (pt: string, vars?: Record<string, string | number>) => string,
+): { mark: ReactNode; text: string } | null {
   if (daysToGo === null) return null;
-  if (daysToGo > 1) return { mark: "⏳", text: `Faltam ${daysToGo} dias` };
-  if (daysToGo === 1) return { mark: <img className="prep-countdown__icon" src={ICONS.preparation} alt="" />, text: "É amanhã!" };
-  if (daysToGo === 0) return { mark: "🚌", text: "É hoje!" };
-  return { mark: "🏕️", text: "Acampamento em andamento" };
+  if (daysToGo > 1) return { mark: "⏳", text: tx("Faltam {n} dias", { n: daysToGo }) };
+  if (daysToGo === 1) return { mark: <img className="prep-countdown__icon" src={ICONS.preparation} alt="" />, text: tx("É amanhã!") };
+  if (daysToGo === 0) return { mark: "🚌", text: tx("É hoje!") };
+  return { mark: "🏕️", text: tx("Acampamento em andamento") };
 }
 
 /**
@@ -32,6 +35,7 @@ function countdownLabel(daysToGo: number | null): { mark: ReactNode; text: strin
  * the responsible's own record (so they follow them to any phone).
  */
 export default function ParentPreparationPage({ user, token }: ParentPreparationPageProps) {
+  const { tx } = useI18n();
   const sections = useCollection("preparation");
   const timing = useCampTiming();
   const first = user.name.split(" ")[0];
@@ -47,12 +51,12 @@ export default function ParentPreparationPage({ user, token }: ParentPreparation
   if (sections === null) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>
+        <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>
       </div>
     );
   }
 
-  const countdown = countdownLabel(timing.daysToGo);
+  const countdown = countdownLabel(timing.daysToGo, tx);
 
   const total = sections.length;
   const doneCount = sections.filter((s) => s.done).length;
@@ -65,7 +69,7 @@ export default function ParentPreparationPage({ user, token }: ParentPreparation
     try {
       await setMyPrepSectionDone(token, id, !done);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBusyId(null);
     }
@@ -74,7 +78,7 @@ export default function ParentPreparationPage({ user, token }: ParentPreparation
   return (
     <div className="admin-page prep-page">
       <header className="admin-head">
-        <h1 className="admin-title"><img className="admin-title__icon" src={ICONS.preparation} alt="" aria-hidden="true" /> Preparação</h1>
+        <h1 className="admin-title"><img className="admin-title__icon" src={ICONS.preparation} alt="" aria-hidden="true" /> {tx("Preparação")}</h1>
       </header>
 
       {countdown && (
@@ -82,20 +86,20 @@ export default function ParentPreparationPage({ user, token }: ParentPreparation
           <span className="prep-countdown__emoji" aria-hidden="true">{countdown.mark}</span>
           <div className="prep-countdown__text">
             <strong>{countdown.text}</strong>
-            {timing.firstDate && <span>{timing.daysToGo !== null && timing.daysToGo < 0 ? "Começou" : "Começa"} {speakDay(timing.firstDate).toLowerCase()}</span>}
+            {timing.firstDate && <span>{timing.daysToGo !== null && timing.daysToGo < 0 ? tx("Começou") : tx("Começa")} {speakDay(timing.firstDate).toLowerCase()}</span>}
           </div>
           {total > 0 && (
-            <div className="prep-progress" aria-label={`${doneCount} de ${total} itens feitos`}>
+            <div className="prep-progress" aria-label={tx("{n} de {total} itens feitos", { n: doneCount, total })}>
               <strong>{doneCount}/{total}</strong>
-              <span>{allDone ? "tudo pronto! 🎉" : "feitos"}</span>
+              <span>{allDone ? tx("tudo pronto! 🎉") : tx("feitos")}</span>
             </div>
           )}
         </div>
       )}
 
       <p className="admin-intro">
-        Olá, {first}! Aqui está tudo o que sua família precisa saber e preparar antes do acampamento.
-        {total > 0 && " Conforme for resolvendo cada item, marque como feito."} 😊
+        {tx("Olá, {name}! Aqui está tudo o que sua família precisa saber e preparar antes do acampamento.", { name: first })}
+        {total > 0 && tx(" Conforme for resolvendo cada item, marque como feito.")} 😊
       </p>
 
       {error && <p className="message message--error">{error}</p>}
@@ -119,14 +123,14 @@ export default function ParentPreparationPage({ user, token }: ParentPreparation
                     className={`prep-check ${isDone ? "prep-check--on" : ""}`}
                     aria-pressed={isDone}
                     disabled={busyId === s.id}
-                    title={isDone ? "Desmarcar" : "Marcar como feito"}
-                    aria-label={isDone ? "Desmarcar" : "Marcar como feito"}
+                    title={isDone ? tx("Desmarcar") : tx("Marcar como feito")}
+                    aria-label={isDone ? tx("Desmarcar") : tx("Marcar como feito")}
                     onClick={() => toggle(s.id, isDone)}
                   >
                     <span className="prep-check__box" aria-hidden="true">{isDone ? "✓" : ""}</span>
                   </button>
                 </header>
-                {s.content ? <RichHtml html={s.content} /> : <p className="opt-empty">Em breve.</p>}
+                {s.content ? <RichHtml html={s.content} /> : <p className="opt-empty">{tx("Em breve.")}</p>}
               </article>
             );
           })}
@@ -136,7 +140,7 @@ export default function ParentPreparationPage({ user, token }: ParentPreparation
       {total === 0 && (
         <div className="admin-empty">
           <img className="admin-empty__icon" src={ICONS.preparation} alt="" aria-hidden="true" />
-          <p>Nada para preparar por enquanto. Assim que a organização publicar as orientações, elas aparecem aqui.</p>
+          <p>{tx("Nada para preparar por enquanto. Assim que a organização publicar as orientações, elas aparecem aqui.")}</p>
         </div>
       )}
     </div>

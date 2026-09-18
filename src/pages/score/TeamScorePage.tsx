@@ -5,6 +5,7 @@ import Breadcrumbs from "../../components/Breadcrumbs";
 import { useConfirm } from "../../components/ConfirmDialog";
 import { useCollectionOrEmpty } from "../../store";
 import { canDeleteLine, fmtPoints, KIND_META, lineKind, ScoreLogList, summarizeEvents, useEventMap, useTeamMap, type KindFilter, type LineKind } from "./scoreLog";
+import { useI18n } from "../../i18n";
 
 interface Props {
   token: string;
@@ -24,6 +25,7 @@ const KINDS: LineKind[] = ["scan", "add", "remove", "reset"];
  * full timeline of its lines. Organizers may also zero the team here.
  */
 export default function TeamScorePage({ token, teamId, userId, canEdit, canScan, onBack, onEvent }: Props) {
+  const { tx } = useI18n();
   const scores = useCollectionOrEmpty("scores");
   const teams = useCollectionOrEmpty("teams");
   const events = useCollectionOrEmpty("events");
@@ -60,14 +62,23 @@ export default function TeamScorePage({ token, teamId, userId, canEdit, canScan,
   const filtered = useMemo(() => (kind === "all" ? mine : mine.filter((e) => lineKind(e) === kind)), [mine, kind]);
 
   async function remove(e: ScoreEntry) {
-    const who = e.camperName ? `${e.camperName}` : team?.name ?? "o time";
-    if (!(await confirm({ title: "Apagar este lançamento?", message: `${fmtPoints(e.points)} para ${who} será desfeito. O placar muda na hora.`, confirmLabel: "Apagar", danger: true, emoji: "🗑️" }))) return;
+    const who = e.camperName ? `${e.camperName}` : team?.name ?? tx("o time");
+    if (
+      !(await confirm({
+        title: tx("Apagar este lançamento?"),
+        message: tx("{pts} para {who} será desfeito. O placar muda na hora.", { pts: fmtPoints(e.points), who }),
+        confirmLabel: tx("Apagar"),
+        danger: true,
+        emoji: "🗑️",
+      }))
+    )
+      return;
     setDeletingId(e.id);
     setError(null);
     try {
       await deleteScore(token, e.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setDeletingId(null);
     }
@@ -75,13 +86,22 @@ export default function TeamScorePage({ token, teamId, userId, canEdit, canScan,
 
   async function zero() {
     if (!team || busy) return;
-    if (!(await confirm({ title: `Zerar ${team.name}?`, message: `Uma linha de ${fmtPoints(-total)} é escrita no histórico — nada é apagado e dá para desfazer apagando essa linha.`, confirmLabel: "Zerar", danger: true, emoji: "🧹" }))) return;
+    if (
+      !(await confirm({
+        title: tx("Zerar {name}?", { name: team.name }),
+        message: tx("Uma linha de {pts} é escrita no histórico — nada é apagado e dá para desfazer apagando essa linha.", { pts: fmtPoints(-total) }),
+        confirmLabel: tx("Zerar"),
+        danger: true,
+        emoji: "🧹",
+      }))
+    )
+      return;
     setBusy(true);
     setError(null);
     try {
       await resetScore(token, team.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -90,15 +110,15 @@ export default function TeamScorePage({ token, teamId, userId, canEdit, canScan,
   if (!team) {
     return (
       <div className="admin-page">
-        <Breadcrumbs items={[{ label: "Placar", onClick: onBack }, { label: "Time" }]} />
-        <p className="opt-empty">Time não encontrado.</p>
+        <Breadcrumbs items={[{ label: tx("Placar"), onClick: onBack }, { label: tx("Time") }]} />
+        <p className="opt-empty">{tx("Time não encontrado.")}</p>
       </div>
     );
   }
 
   return (
     <div className="admin-page">
-      <Breadcrumbs items={[{ label: "Placar", onClick: onBack }, { label: team.name }]} />
+      <Breadcrumbs items={[{ label: tx("Placar"), onClick: onBack }, { label: team.name }]} />
       <header className="admin-head">
         <h1 className="admin-title">
           <span className="score-swatch" style={{ background: team.color }} aria-hidden="true" />
@@ -106,7 +126,7 @@ export default function TeamScorePage({ token, teamId, userId, canEdit, canScan,
         </h1>
         {canEdit && total !== 0 && (
           <button type="button" className="button button--secondary admin-head__new" disabled={busy} onClick={() => void zero()}>
-            🧹 Zerar
+            🧹 {tx("Zerar")}
           </button>
         )}
       </header>
@@ -114,7 +134,8 @@ export default function TeamScorePage({ token, teamId, userId, canEdit, canScan,
       <div className="score-hero" style={{ background: team.color, color: contrastText(team.color) }}>
         <span className="score-hero__pts">{total}</span>
         <span className="score-hero__meta">
-          {rank > 0 ? `${rank}º lugar` : ""} · {mine.length} lançamento{mine.length !== 1 ? "s" : ""} · {kidsInTeam} criança{kidsInTeam !== 1 ? "s" : ""}
+          {rank > 0 ? tx("{n}º lugar", { n: rank }) : ""} · {mine.length === 1 ? tx("{n} lançamento", { n: mine.length }) : tx("{n} lançamentos", { n: mine.length })} ·{" "}
+          {kidsInTeam === 1 ? tx("{n} criança", { n: kidsInTeam }) : tx("{n} crianças", { n: kidsInTeam })}
         </span>
       </div>
 
@@ -126,7 +147,7 @@ export default function TeamScorePage({ token, teamId, userId, canEdit, canScan,
             <span className="stat-card__emoji">{KIND_META[k].emoji}</span>
             <span className="stat-card__n">{fmtPoints(byKind[k].pts)}</span>
             <span className="stat-card__label">
-              {KIND_META[k].plural} · {byKind[k].n}
+              {tx(KIND_META[k].plural)} · {byKind[k].n}
             </span>
           </button>
         ))}
@@ -134,14 +155,26 @@ export default function TeamScorePage({ token, teamId, userId, canEdit, canScan,
 
       {eventRows.length > 0 && (
         <section className="score-section">
-          <h2 className="score-section__title">🎯 Por evento</h2>
+          <h2 className="score-section__title">🎯 {tx("Por evento")}</h2>
           <ul className="score-events">
             {eventRows.map((r) => (
               <li key={r.eventId}>
                 <button type="button" className="score-event" onClick={() => onEvent(r.eventId)}>
-                  <span className="score-event__name">{r.event ? `${r.event.emoji} ${r.event.title}` : "Evento removido"}</span>
+                  <span className="score-event__name">{r.event ? `${r.event.emoji} ${r.event.title}` : tx("Evento removido")}</span>
                   <small className="score-event__meta">
-                    {r.kids} de {kidsInTeam} criança{kidsInTeam !== 1 ? "s" : ""} · {r.perKid} pt{r.perKid !== 1 ? "s" : ""} cada
+                    {kidsInTeam === 1
+                      ? tx("{kids} de {total} criança · {pts} {word} cada", {
+                          kids: r.kids,
+                          total: kidsInTeam,
+                          pts: r.perKid,
+                          word: r.perKid === 1 ? tx("pt") : tx("pts"),
+                        })
+                      : tx("{kids} de {total} crianças · {pts} {word} cada", {
+                          kids: r.kids,
+                          total: kidsInTeam,
+                          pts: r.perKid,
+                          word: r.perKid === 1 ? tx("pt") : tx("pts"),
+                        })}
                   </small>
                   <span className="score-event__pts">{fmtPoints(r.total)}</span>
                 </button>
@@ -153,14 +186,15 @@ export default function TeamScorePage({ token, teamId, userId, canEdit, canScan,
 
       <section className="score-section">
         <h2 className="score-section__title">
-          📜 Linha do tempo{kind !== "all" ? ` · ${KIND_META[kind].plural}` : ""}
+          📜 {tx("Linha do tempo")}
+          {kind !== "all" ? ` · ${tx(KIND_META[kind].plural)}` : ""}
           {kind !== "all" && (
             <button type="button" className="link-btn score-section__clear" onClick={() => setKind("all")}>
-              ver tudo
+              {tx("ver tudo")}
             </button>
           )}
         </h2>
-        <ScoreLogList entries={filtered} teams={teamMap} events={eventMap} hideTeam onEvent={onEvent} canDelete={(e) => canDeleteLine(e, { canEdit, canScan, userId })} onDelete={remove} deletingId={deletingId} emptyText="Este time ainda não tem lançamentos." />
+        <ScoreLogList entries={filtered} teams={teamMap} events={eventMap} hideTeam onEvent={onEvent} canDelete={(e) => canDeleteLine(e, { canEdit, canScan, userId })} onDelete={remove} deletingId={deletingId} emptyText={tx("Este time ainda não tem lançamentos.")} />
       </section>
     </div>
   );

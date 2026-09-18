@@ -4,6 +4,7 @@ import { useCollection } from "../../store";
 import { useRoute } from "../../router";
 import { speakWhen } from "../../dates";
 import { ICONS } from "../../icons";
+import { useI18n } from "../../i18n";
 
 interface AccessWindowCardProps {
   token: string;
@@ -28,26 +29,30 @@ function fromLocalInput(v: string): string | null {
 
 const sameMinute = (a: string | null, b: string | null) => (a ? Math.floor(new Date(a).getTime() / 60_000) : null) === (b ? Math.floor(new Date(b).getTime() / 60_000) : null);
 
-const META: Record<AccessWindowCardProps["which"], { title: ReactNode; hint: string; who: string; toggle: "enrolments" | "parentWelcome"; toggleLabel: string }> = {
-  staffAccessWindow: {
-    title: "🕒 Janela de acesso da equipe",
-    hint: "Nesse período a equipe tem acesso ao app e recebe os SMS.",
-    who: "a equipe",
-    toggle: "enrolments" as const,
-    toggleLabel: "Boas-vindas e novas responsabilidades",
-  },
-  parentAccessWindow: {
-    title: (
-      <>
-        <img className="admin-title__icon" src={ICONS.parent} alt="" aria-hidden="true" /> Janela de acesso dos pais
-      </>
-    ),
-    hint: "Nesse período os pais conseguem entrar no app. Os contatos da equipe eles só veem a partir do horário do check-in até o fim do acampamento.",
-    who: "os pais",
-    toggle: "parentWelcome" as const,
-    toggleLabel: "Boas-vindas aos pais",
-  },
-};
+type Tx = (pt: string, vars?: Record<string, string | number>) => string;
+
+function buildMeta(tx: Tx): Record<AccessWindowCardProps["which"], { title: ReactNode; hint: string; who: "a equipe" | "os pais"; toggle: "enrolments" | "parentWelcome"; toggleLabel: string }> {
+  return {
+    staffAccessWindow: {
+      title: tx("🕒 Janela de acesso da equipe"),
+      hint: tx("Nesse período a equipe tem acesso ao app e recebe os SMS."),
+      who: "a equipe",
+      toggle: "enrolments" as const,
+      toggleLabel: tx("Boas-vindas e novas responsabilidades"),
+    },
+    parentAccessWindow: {
+      title: (
+        <>
+          <img className="admin-title__icon" src={ICONS.parent} alt="" aria-hidden="true" /> {tx("Janela de acesso dos pais")}
+        </>
+      ),
+      hint: tx("Nesse período os pais conseguem entrar no app. Os contatos da equipe eles só veem a partir do horário do check-in até o fim do acampamento."),
+      who: "os pais",
+      toggle: "parentWelcome" as const,
+      toggleLabel: tx("Boas-vindas aos pais"),
+    },
+  };
+}
 
 /**
  * Settings → Geral: one ACCESS window (team or parents). Outside it the
@@ -56,9 +61,10 @@ const META: Record<AccessWindowCardProps["which"], { title: ReactNode; hint: str
  * is on: the card says so, in yellow when it is off.
  */
 export default function AccessWindowCard({ token, which }: AccessWindowCardProps) {
+  const { tx } = useI18n();
   const settings = useCollection("settings");
   const { navigate } = useRoute();
-  const m = META[which];
+  const m = buildMeta(tx)[which];
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -92,10 +98,47 @@ export default function AccessWindowCard({ token, which }: AccessWindowCardProps
       await updateSettings(token, { [which]: { from: fromIso, until: untilIso } });
       setSaved(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
+  }
+
+  let status: ReactNode = null;
+  if (!orderOk) {
+    status = <p className="cat-hint cat-hint--error">{tx("O fim da janela precisa ser depois do início.")}</p>;
+  } else if (!fromIso && !untilIso) {
+    status = (
+      <p className="cat-hint">
+        {m.who === "os pais"
+          ? tx("🟢 Sem restrição — os pais acessam a qualquer hora.")
+          : tx("🟢 Sem restrição — a equipe acessa a qualquer hora.")}
+      </p>
+    );
+  } else if (openNow) {
+    status = (
+      <p className="cat-hint">
+        {untilIso
+          ? tx("🟢 Aberta agora — fecha {when}.", { when: speakWhen(untilIso) })
+          : tx("🟢 Aberta agora.")}
+      </p>
+    );
+  } else if (fromIso && new Date(fromIso).getTime() > now) {
+    status = (
+      <p className="cat-hint">
+        {untilIso
+          ? tx("🕒 Abre {from} até {until}.", { from: speakWhen(fromIso), until: speakWhen(untilIso) })
+          : tx("🕒 Abre {when}.", { when: speakWhen(fromIso) })}
+      </p>
+    );
+  } else {
+    status = (
+      <p className="cat-hint">
+        {untilIso
+          ? tx("⚫ Fechada desde {when}.", { when: speakWhen(untilIso) })
+          : tx("⚫ Fechada.")}
+      </p>
+    );
   }
 
   return (
@@ -110,44 +153,43 @@ export default function AccessWindowCard({ token, which }: AccessWindowCardProps
       <p className="cat-hint">{m.hint}</p>
       <div className="cat-form__row staff-form__row">
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Abre em</span>
+          <span className="cat-field__label">{tx("Abre em")}</span>
           <input className="cat-input" type="datetime-local" value={from} disabled={busy} onChange={(e) => setFrom(e.target.value)} />
         </label>
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Fecha em</span>
+          <span className="cat-field__label">{tx("Fecha em")}</span>
           <input className="cat-input" type="datetime-local" value={until} disabled={busy} onChange={(e) => setUntil(e.target.value)} />
         </label>
       </div>
-      {!orderOk ? (
-        <p className="cat-hint cat-hint--error">O fim da janela precisa ser depois do início.</p>
-      ) : (
-        <p className="cat-hint">
-          {!fromIso && !untilIso
-            ? `🟢 Sem restrição — ${m.who} acessa${m.who === "os pais" ? "m" : ""} a qualquer hora.`
-            : openNow
-              ? `🟢 Aberta agora${untilIso ? ` — fecha ${speakWhen(untilIso)}` : ""}`
-              : fromIso && new Date(fromIso).getTime() > now
-                ? `🕒 Abre ${speakWhen(fromIso)}${untilIso ? ` até ${speakWhen(untilIso)}` : ""}`
-                : `⚫ Fechada${untilIso ? ` desde ${speakWhen(untilIso)}` : ""}`}
-          .
-        </p>
-      )}
+      {status}
       {settings &&
         (smsOn ? (
           <p className="message message--ok">
-            📲 Quando a janela abrir, {m.who} <strong>recebe{m.who === "os pais" ? "m" : ""} o SMS de boas-vindas</strong> com o link do app (uma única vez por pessoa).
+            {m.who === "os pais" ? (
+              <>
+                {tx("📲 Quando a janela abrir, os pais")}{" "}
+                <strong>{tx("recebem o SMS de boas-vindas")}</strong>{" "}
+                {tx("com o link do app (uma única vez por pessoa).")}
+              </>
+            ) : (
+              <>
+                {tx("📲 Quando a janela abrir, a equipe")}{" "}
+                <strong>{tx("recebe o SMS de boas-vindas")}</strong>{" "}
+                {tx("com o link do app (uma única vez por pessoa).")}
+              </>
+            )}
           </p>
         ) : (
           <p className="message message--warn">
-            O SMS de boas-vindas está desligado.{" "}
-            <a href="#/notifications" onClick={(e) => { e.preventDefault(); navigate("/notifications"); }}>Ligar em Notificações</a>
+            {tx("O SMS de boas-vindas está desligado.")}{" "}
+            <a href="#/notifications" onClick={(e) => { e.preventDefault(); navigate("/notifications"); }}>{tx("Ligar em Notificações")}</a>
           </p>
         ))}
       {error && <p className="message message--error">{error}</p>}
-      {saved && <p className="message message--ok">✅ Janela de acesso salva.</p>}
+      {saved && <p className="message message--ok">{tx("✅ Janela de acesso salva.")}</p>}
       <div className="cat-form__actions">
         <button type="submit" className="button button--primary" disabled={!orderOk || !dirty || busy}>
-          {busy ? "Salvando…" : <>Salvar<span className="btn-extra"> horário 🕒</span></>}
+          {busy ? tx("Salvando…") : <>{tx("Salvar")}<span className="btn-extra"> {tx("horário 🕒")}</span></>}
         </button>
       </div>
     </form>

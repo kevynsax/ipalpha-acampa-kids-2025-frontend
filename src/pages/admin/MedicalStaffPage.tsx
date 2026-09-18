@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { updateSettings } from "../../api/settings";
 import { useCollection } from "../../store";
 import { roleMeta } from "../../roles";
+import { useI18n } from "../../i18n";
 import StaffListEditor from "./StaffListEditor";
 import PageFooter from "../../components/PageFooter";
 
@@ -16,6 +17,7 @@ interface MedicalStaffPageProps {
  * add, edit or check kids in.
  */
 export default function MedicalStaffPage({ token }: MedicalStaffPageProps) {
+  const { tx } = useI18n();
   const settings = useCollection("settings");
   const [ids, setIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -36,7 +38,7 @@ export default function MedicalStaffPage({ token }: MedicalStaffPageProps) {
       await updateSettings(token, { medicalStaff: { staffIds: nextIds } });
     } catch (err) {
       setIds(previous);
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -45,7 +47,7 @@ export default function MedicalStaffPage({ token }: MedicalStaffPageProps) {
   if (!settings && !error) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Carregando configurações… ⚙️</p>
+        <p className="opt-empty">{tx("Carregando configurações… ⚙️")}</p>
       </div>
     );
   }
@@ -55,21 +57,30 @@ export default function MedicalStaffPage({ token }: MedicalStaffPageProps) {
       <header className="admin-head">
         <h1 className="admin-title detail-title">
           <img className="audience-icon" src={roleMeta("health_staff").icon} alt="" aria-hidden="true" />
-          Equipe médica
+          {tx("Equipe médica")}
         </h1>
       </header>
       <p className="admin-intro">
-        Pessoas da equipe que cuidam da <strong>saúde das crianças</strong>. Veem a ficha completa de <strong>todos os acampantes</strong> (alergias, remédios, condições, contatos) e baixam a planilha de saúde. Nas ocorrências, só as que a equipe médica registrou.
+        {tx("Pessoas da equipe que cuidam da")} <strong>{tx("saúde das crianças")}</strong>
+        {tx(". Veem a ficha completa de")} <strong>{tx("todos os acampantes")}</strong>{" "}
+        {tx("(alergias, remédios, condições, contatos) e baixam a planilha de saúde. Nas ocorrências, só as que a equipe médica registrou.")}
       </p>
 
       {error && <p className="message message--error">{error}</p>}
 
       <section className="cat-form">
-        <StaffListEditor title="Quem é da equipe médica" value={ids} onChange={(nextIds) => void saveIds(nextIds)} disabled={busy} pickerTitle="Adicionar à equipe médica" empty="Ninguém escolhido ainda." />
+        <StaffListEditor
+          title={tx("Quem é da equipe médica")}
+          value={ids}
+          onChange={(nextIds) => void saveIds(nextIds)}
+          disabled={busy}
+          pickerTitle={tx("Adicionar à equipe médica")}
+          empty={tx("Ninguém escolhido ainda.")}
+        />
       </section>
 
       <PageFooter>
-        🔒 A equipe médica só consulta: não cadastra, edita nem exclui crianças ou quartos, não faz check-in e não baixa a lista em Excel.
+        {tx("🔒 A equipe médica só consulta: não cadastra, edita nem exclui crianças ou quartos, não faz check-in e não baixa a lista em Excel.")}
       </PageFooter>
     </div>
   );

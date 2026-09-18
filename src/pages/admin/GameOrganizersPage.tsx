@@ -4,6 +4,7 @@ import { useCollection } from "../../store";
 import StaffListEditor from "./StaffListEditor";
 import { QrGlyph } from "../../components/Glyph";
 import PageFooter from "../../components/PageFooter";
+import { useI18n } from "../../i18n";
 
 interface GameOrganizersPageProps {
   token: string;
@@ -22,6 +23,7 @@ interface GameOrganizersPageProps {
  * scans and have no organizer rights. No time window either.
  */
 export default function GameOrganizersPage({ token }: GameOrganizersPageProps) {
+  const { tx } = useI18n();
   const settings = useCollection("settings");
   const [ids, setIds] = useState<string[]>([]);
   const [helperIds, setHelperIds] = useState<string[]>([]);
@@ -46,7 +48,7 @@ export default function GameOrganizersPage({ token }: GameOrganizersPageProps) {
       await updateSettings(token, { [key]: { staffIds: nextIds } });
     } catch (err) {
       set(previous);
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -55,7 +57,7 @@ export default function GameOrganizersPage({ token }: GameOrganizersPageProps) {
   if (!settings && !error) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Carregando configurações… ⚙️</p>
+        <p className="opt-empty">{tx("Carregando configurações… ⚙️")}</p>
       </div>
     );
   }
@@ -63,44 +65,49 @@ export default function GameOrganizersPage({ token }: GameOrganizersPageProps) {
   return (
     <div className="admin-page">
       <header className="admin-head">
-        <h1 className="admin-title">🏆 Jogos</h1>
+        <h1 className="admin-title">🏆 {tx("Jogos")}</h1>
       </header>
       <p className="admin-intro">
-        Pessoas da equipe que <strong>organizam as gincanas</strong>: editam a <strong>programação</strong> e mantêm o <strong>Placar</strong> (dão, tiram e
-        zeram pontos de qualquer time).
+        {tx("Pessoas da equipe que")} <strong>{tx("organizam as gincanas")}</strong>
+        {tx(": editam a")} <strong>{tx("programação")}</strong>
+        {tx(" e mantêm o")} <strong>{tx("Placar")}</strong>
+        {tx(" (dão, tiram e zeram pontos de qualquer time).")}
       </p>
 
       {error && <p className="message message--error">{error}</p>}
 
       <section className="cat-form">
         <StaffListEditor
-          title="Organizadores dos jogos"
+          title={tx("Organizadores dos jogos")}
           value={ids}
           onChange={(nextIds) => void saveList("gameOrganizers", nextIds)}
           disabled={busy}
-          pickerTitle="Adicionar organizador dos jogos"
-          empty="Ninguém escolhido ainda. Só o admin lança pontos."
+          pickerTitle={tx("Adicionar organizador dos jogos")}
+          empty={tx("Ninguém escolhido ainda. Só o admin lança pontos.")}
         />
       </section>
 
       <p className="admin-intro">
-        <strong>Ajudantes do placar</strong>: só <strong>leem crachás</strong> — dão pontos em massa às crianças de um evento (ex.: quem veio fantasiado).
+        <strong>{tx("Ajudantes do placar")}</strong>
+        {tx(": só")} <strong>{tx("leem crachás")}</strong>
+        {tx(" — dão pontos em massa às crianças de um evento (ex.: quem veio fantasiado).")}
       </p>
 
       <section className="cat-form">
         <StaffListEditor
-          title="Quem ajuda a lançar pontos"
+          title={tx("Quem ajuda a lançar pontos")}
           value={helperIds}
           onChange={(nextIds) => void saveList("scoreHelpers", nextIds)}
           disabled={busy}
-          pickerTitle="Adicionar ajudante do placar"
-          empty="Ninguém escolhido ainda."
+          pickerTitle={tx("Adicionar ajudante do placar")}
+          empty={tx("Ninguém escolhido ainda.")}
         />
       </section>
 
       <PageFooter>
-        <QrGlyph /> O ajudante ganha a aba <strong>Placar</strong> só com o botão de leitura em massa e vê das crianças apenas <strong>nome e time</strong>. Apaga só as
-        próprias leituras. Ao entrar na lista a pessoa recebe um SMS avisando.
+        <QrGlyph /> {tx("O ajudante ganha a aba")} <strong>{tx("Placar")}</strong>
+        {tx(" só com o botão de leitura em massa e vê das crianças apenas")} <strong>{tx("nome e time")}</strong>
+        {tx(". Apaga só as próprias leituras. Ao entrar na lista a pessoa recebe um SMS avisando.")}
       </PageFooter>
     </div>
   );

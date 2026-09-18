@@ -1,7 +1,4 @@
-import iconParent from "./assets/icons/parent.png";
-import iconStaff from "./assets/icons/staff.png";
-import iconHealth from "./assets/icons/health.png";
-import iconAdmin from "./assets/icons/admin.png";
+import { ICONS } from "./icons";
 
 export const ROLES = ["parent", "staff", "health_staff", "admin"] as const;
 export type Role = (typeof ROLES)[number];
@@ -23,7 +20,7 @@ export const ROLE_LIST: RoleMeta[] = [
     label: "Pais & Responsáveis",
     personLabel: "Responsável",
     description: "Acompanhe seu filho na aventura!",
-    icon: iconParent,
+    icon: ICONS.parent,
     color: "orange",
   },
   {
@@ -31,7 +28,7 @@ export const ROLE_LIST: RoleMeta[] = [
     label: "Equipe",
     personLabel: "Membro do Staff",
     description: "Monitores e organização do acampamento",
-    icon: iconStaff,
+    icon: ICONS.staff,
     color: "green",
   },
   {
@@ -39,7 +36,7 @@ export const ROLE_LIST: RoleMeta[] = [
     label: "Equipe de Saúde",
     personLabel: "Membro da Equipe de Saúde",
     description: "Cuidando de todos os aventureiros",
-    icon: iconHealth,
+    icon: ICONS.health,
     color: "red",
   },
   {
@@ -47,7 +44,7 @@ export const ROLE_LIST: RoleMeta[] = [
     label: "Administração",
     personLabel: "Administrador",
     description: "Gestão completa do acampamento",
-    icon: iconAdmin,
+    icon: ICONS.admin,
     color: "purple",
   },
 ];
@@ -65,4 +62,6 @@ export interface LoggedUser {
   roles: Role[];
   /** the role picked at login — what this session acts as */
   activeRole: Role;
+  /** last device language saved at login — UI + SMS follow this */
+  locale?: "pt" | "en" | "es" | "fr";
 }

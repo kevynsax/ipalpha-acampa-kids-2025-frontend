@@ -1,11 +1,22 @@
-/**
- * Acampa Kids date speaker — warm spoken pt-BR, not machine `dateStyle`.
- *
- * Calendar days (`YYYY-MM-DD`) are always local civil dates (no TZ shift).
- * Instants (ISO with time) use the device clock.
- */
+import { LOCALE_TAG, resolveLocale, type Locale } from "./i18n/locales";
 
 export type DayStyle = "long" | "short" | "weekday" | "month" | "compact";
+
+function loc(): Locale {
+  if (typeof document === "undefined") return "pt";
+  return resolveLocale(document.documentElement.lang);
+}
+
+function tag(): string {
+  return LOCALE_TAG[loc()];
+}
+
+const REL: Record<Locale, { today: string; tomorrow: string; yesterday: string; at: string }> = {
+  pt: { today: "hoje", tomorrow: "amanhã", yesterday: "ontem", at: "às" },
+  en: { today: "today", tomorrow: "tomorrow", yesterday: "yesterday", at: "at" },
+  es: { today: "hoy", tomorrow: "mañana", yesterday: "ayer", at: "a las" },
+  fr: { today: "aujourd'hui", tomorrow: "demain", yesterday: "hier", at: "à" },
+};
 
 /** Local "YYYY-MM-DD" on the device clock. */
 export function todayIso(now = new Date()): string {
@@ -39,9 +50,10 @@ export function daysFromToday(isoDay: string, now = new Date()): number {
 }
 
 function relativeWord(diff: number): string | null {
-  if (diff === 0) return "hoje";
-  if (diff === 1) return "amanhã";
-  if (diff === -1) return "ontem";
+  const r = REL[loc()];
+  if (diff === 0) return r.today;
+  if (diff === 1) return r.tomorrow;
+  if (diff === -1) return r.yesterday;
   return null;
 }
 
@@ -61,23 +73,23 @@ export function speakDay(iso: string, style: DayStyle = "long"): string {
     return `${dd}/${mm}`;
   }
   if (style === "weekday") {
-    return stripDot(new Intl.DateTimeFormat("pt-BR", { weekday: "short" }).format(date));
+    return stripDot(new Intl.DateTimeFormat(tag(), { weekday: "short" }).format(date));
   }
   if (style === "short") {
-    const wd = stripDot(new Intl.DateTimeFormat("pt-BR", { weekday: "short" }).format(date));
+    const wd = stripDot(new Intl.DateTimeFormat(tag(), { weekday: "short" }).format(date));
     return `${wd} ${date.getDate()}`;
   }
   if (style === "month") {
-    return stripDot(new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "short" }).format(date));
+    return stripDot(new Intl.DateTimeFormat(tag(), { day: "numeric", month: "short" }).format(date));
   }
-  const s = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" }).format(date);
+  const s = new Intl.DateTimeFormat(tag(), { weekday: "long", day: "numeric", month: "long" }).format(date);
   return cap(s);
 }
 
 /** "sáb 12/09" — birthday banner, SMS-ish lists. */
 export function speakDaySlash(iso: string): string {
   const date = parseDay(iso);
-  const wd = stripDot(new Intl.DateTimeFormat("pt-BR", { weekday: "short" }).format(date));
+  const wd = stripDot(new Intl.DateTimeFormat(tag(), { weekday: "short" }).format(date));
   const dd = String(date.getDate()).padStart(2, "0");
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   return `${wd} ${dd}/${mm}`;
@@ -93,7 +105,7 @@ export function speakBirth(iso: string | null | undefined): string | null {
 
 /** Instant → "07:42". */
 export function speakTime(iso: string): string {
-  return new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+  return new Intl.DateTimeFormat(tag(), { hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 }
 
 /**
@@ -122,36 +134,47 @@ export function speakWhen(iso: string, opts: { long?: boolean; now?: Date } = {}
   const t = speakTime(iso);
   const key = dayKey(iso);
   const rel = relativeWord(daysFromToday(key, now));
-  if (rel) return `${rel} às ${t}`;
+  const at = REL[loc()].at;
+  if (rel) return `${rel} ${at} ${t}`;
   if (opts.long) {
-    const day = new Intl.DateTimeFormat("pt-BR", {
+    const day = new Intl.DateTimeFormat(tag(), {
       weekday: "long",
       day: "numeric",
       month: "long",
     }).format(new Date(iso));
-    return `${day} às ${t}`;
+    return `${day} ${at} ${t}`;
   }
   const d = new Date(iso);
-  const wd = stripDot(new Intl.DateTimeFormat("pt-BR", { weekday: "short" }).format(d));
+  const wd = stripDot(new Intl.DateTimeFormat(tag(), { weekday: "short" }).format(d));
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
-  return `${wd} ${dd}/${mm} às ${t}`;
+  return `${wd} ${dd}/${mm} ${at} ${t}`;
 }
 
 /** Admin / export absolute: "12/09/2026, 07:42". */
 export function speakDateTime(iso: string): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(iso));
+  return new Intl.DateTimeFormat(tag(), { dateStyle: "short", timeStyle: "short" }).format(new Date(iso));
 }
 
-/** Sync / freshness: "agora mesmo", "há 5 min", "há 3h", then a stamp. */
 export function speakAgo(iso: string | null, now = Date.now()): string {
-  if (!iso) return "nunca sincronizado";
+  const language = loc();
+  if (!iso) {
+    return language === "en" ? "never synced" : language === "fr" ? "jamais synchronisé" : "nunca sincronizado";
+  }
   const s = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
-  if (s < 10) return "agora mesmo";
-  if (s < 60) return `há ${s}s`;
+  if (s < 10) {
+    return language === "en" ? "just now" : language === "es" ? "ahora mismo" : language === "fr" ? "à l'instant" : "agora mesmo";
+  }
+  if (s < 60) {
+    return language === "en" ? `${s}s ago` : language === "fr" ? `il y a ${s}s` : language === "es" ? `hace ${s}s` : `há ${s}s`;
+  }
   const m = Math.round(s / 60);
-  if (m < 60) return `há ${m} min`;
+  if (m < 60) {
+    return language === "en" ? `${m} min ago` : language === "fr" ? `il y a ${m} min` : language === "es" ? `hace ${m} min` : `há ${m} min`;
+  }
   const h = Math.round(m / 60);
-  if (h < 48) return `há ${h}h`;
+  if (h < 48) {
+    return language === "en" ? `${h}h ago` : language === "fr" ? `il y a ${h}h` : language === "es" ? `hace ${h}h` : `há ${h}h`;
+  }
   return speakStamp(iso, new Date(now));
 }

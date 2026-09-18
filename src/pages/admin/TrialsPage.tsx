@@ -1,4 +1,5 @@
 import { useCollection } from "../../store";
+import { useI18n } from "../../i18n";
 import CheckinTestTools from "./CheckinTestTools";
 import KidsRoomsDraftCard from "./KidsRoomsDraftCard";
 import ScoreDraftCard from "./ScoreDraftCard";
@@ -17,12 +18,13 @@ interface TrialsPageProps {
  * Every switch here must be OFF when the camp starts.
  */
 export default function TrialsPage({ token, isAdmin }: TrialsPageProps) {
+  const { tx } = useI18n();
   const settings = useCollection("settings");
 
   if (!settings) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Carregando configurações… ⚙️</p>
+        <p className="opt-empty">{tx("Carregando configurações… ⚙️")}</p>
       </div>
     );
   }
@@ -32,10 +34,10 @@ export default function TrialsPage({ token, isAdmin }: TrialsPageProps) {
   return (
     <div className="admin-page">
       <header className="admin-head">
-        <h1 className="admin-title">🚧 Testes</h1>
+        <h1 className="admin-title">🚧 {tx("Testes")}</h1>
       </header>
-      <p className="admin-intro">Para ensaiar antes do acampamento. Tudo aqui deve estar desligado quando o acampamento começar.</p>
-      {anyOn && <p className="message message--warn">⚠️ Há um teste ligado. Confira antes do dia da saída.</p>}
+      <p className="admin-intro">{tx("Para ensaiar antes do acampamento. Tudo aqui deve estar desligado quando o acampamento começar.")}</p>
+      {anyOn && <p className="message message--warn">{tx("⚠️ Há um teste ligado. Confira antes do dia da saída.")}</p>}
 
       {isAdmin && <SmsRedirectCard token={token} />}
       <KidsRoomsDraftCard token={token} />

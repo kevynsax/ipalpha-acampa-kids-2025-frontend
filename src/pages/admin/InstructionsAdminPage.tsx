@@ -12,6 +12,7 @@ import { goBack, useRoute } from "../../router";
 import { useCollection } from "../../store";
 import { AiGlyph } from "../../components/Glyph";
 import { speakDateTime } from "../../dates";
+import { useI18n } from "../../i18n";
 
 interface InstructionsAdminPageProps {
   token: string;
@@ -32,6 +33,7 @@ const EMOJI_SUGGESTIONS = ["📖", "📋", "🚨", "🕐", "🍽️", "🏊", "�
  *   /instructions/:id/edit     edit it
  */
 export default function InstructionsAdminPage({ token }: InstructionsAdminPageProps) {
+  const { tx } = useI18n();
   const docs = useCollection("instructions");
   const { segments, navigate } = useRoute();
   const confirm = useConfirm();
@@ -48,7 +50,7 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
     try {
       return await fn();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
       throw err;
     } finally {
       setBusy(false);
@@ -64,7 +66,7 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
     navigate(`/instructions-admin/${d.id}`, { replace: true });
   }
   async function handleDelete(d: Instruction) {
-    if (!(await confirm({ emoji: "🗑️", title: `Excluir "${d.title}"?`, message: "O documento inteiro será apagado. Isso não pode ser desfeito.", confirmLabel: "Excluir", danger: true }))) return;
+    if (!(await confirm({ emoji: "🗑️", title: tx('Excluir "{title}"?', { title: d.title }), message: tx("O documento inteiro será apagado. Isso não pode ser desfeito."), confirmLabel: tx("Excluir"), danger: true }))) return;
     await withBusy(() => deleteInstruction(token, d.id)).catch(() => {});
     navigate("/instructions-admin", { replace: true });
   }
@@ -81,7 +83,7 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
   if (!docs) {
     return (
       <div className="admin-page">
-        {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>}
+        {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>}
       </div>
     );
   }
@@ -92,9 +94,9 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
   if (mode.kind === "read") {
     return (
       <div className="admin-page admin-page--edge">
-        <Breadcrumbs items={[{ label: "Instruções", onClick: () => navigate("/instructions-admin") }, { label: current?.title ?? "Documento" }]} />
+        <Breadcrumbs items={[{ label: tx("Instruções"), onClick: () => navigate("/instructions-admin") }, { label: current?.title ?? tx("Documento") }]} />
         {!current ? (
-          <p className="opt-empty">Documento não encontrado.</p>
+          <p className="opt-empty">{tx("Documento não encontrado.")}</p>
         ) : (
           <article className="detail-card instruction-doc">
             <header className="admin-head">
@@ -102,13 +104,13 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
                 <span aria-hidden="true">{current.emoji}</span> {current.title}
               </h1>
               {/* phones pin this at the card's top-right corner (see .instruction-doc__edit) */}
-              <button type="button" className="icon-btn icon-btn--lg instruction-doc__edit" title="Editar" aria-label="Editar" disabled={busy} onClick={() => navigate(`/instructions-admin/${current.id}/edit`)}>
+              <button type="button" className="icon-btn icon-btn--lg instruction-doc__edit" title={tx("Editar")} aria-label={tx("Editar")} disabled={busy} onClick={() => navigate(`/instructions-admin/${current.id}/edit`)}>
                 <span className="pencil" aria-hidden="true">✏️</span>
               </button>
             </header>
             {error && <p className="message message--error">{error}</p>}
-            {current.content ? <RichHtml html={current.content} /> : <p className="opt-empty">Documento vazio — toque em ✏️ para escrever.</p>}
-            <p className="footer-note">Última alteração: {speakDateTime(current.updatedAt)}</p>
+            {current.content ? <RichHtml html={current.content} /> : <p className="opt-empty">{tx("Documento vazio — toque em ✏️ para escrever.")}</p>}
+            <p className="footer-note">{tx("Última alteração")}: {speakDateTime(current.updatedAt)}</p>
           </article>
         )}
       </div>
@@ -122,19 +124,19 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
       <div className="admin-page admin-page--wide">
         <Breadcrumbs
           items={[
-            { label: "Instruções", onClick: () => navigate("/instructions-admin") },
+            { label: tx("Instruções"), onClick: () => navigate("/instructions-admin") },
             ...(mode.kind === "edit" && current ? [{ label: current.title, onClick: () => navigate(`/instructions-admin/${current.id}`) }] : []),
-            { label: mode.kind === "new" ? "Novo documento" : "Editar" },
+            { label: mode.kind === "new" ? tx("Novo documento") : tx("Editar") },
           ]}
         />
         <header className="admin-head">
-          <h1 className="admin-title">{mode.kind === "new" ? "📖 Novo documento" : "✏️ Editar documento"}</h1>
+          <h1 className="admin-title">{mode.kind === "new" ? <>📖 {tx("Novo documento")}</> : <>✏️ {tx("Editar documento")}</>}</h1>
           {mode.kind === "edit" && current && (
             <button
               type="button"
               className="icon-btn icon-btn--lg icon-btn--danger"
-              title={`Excluir "${current.title}"`}
-              aria-label={`Excluir "${current.title}"`}
+              title={tx('Excluir "{title}"', { title: current.title })}
+              aria-label={tx('Excluir "{title}"', { title: current.title })}
               disabled={busy}
               onClick={() => handleDelete(current)}
             >
@@ -143,7 +145,7 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
           )}
         </header>
         {error && <p className="message message--error">{error}</p>}
-        {mode.kind === "edit" && !current && <p className="opt-empty">Documento não encontrado.</p>}
+        {mode.kind === "edit" && !current && <p className="opt-empty">{tx("Documento não encontrado.")}</p>}
         {(mode.kind === "new" || current) && (
           <DocForm key={current?.id ?? "new"} token={token} doc={current} busy={busy} onSubmit={(i) => (current ? handleEdit(current, i) : handleCreate(i))} onCancel={() => goBack(back)} />
         )}
@@ -155,13 +157,13 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
   return (
     <div className="admin-page">
       <header className="admin-head">
-        <h1 className="admin-title">📖 Instruções</h1>
+        <h1 className="admin-title">📖 {tx("Instruções")}</h1>
         <button type="button" className="button button--primary admin-head__new" disabled={busy} onClick={() => navigate("/instructions-admin/new")}>
-          + Documento
+          {tx("+ Documento")}
         </button>
       </header>
       <p className="admin-intro">
-        Documentos gerais do acampamento, para toda a equipe ler: regras, plano de emergência, rotina do dia…
+        {tx("Documentos gerais do acampamento, para toda a equipe ler: regras, plano de emergência, rotina do dia…")}
       </p>
 
       {error && <p className="message message--error">{error}</p>}
@@ -169,9 +171,9 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
       {docs.length === 0 ? (
         <div className="admin-empty">
           <span className="admin-empty__emoji">📖</span>
-          <p>Nenhum documento ainda. Comece com “Regras do acampamento” ou “Plano de emergência”.</p>
+          <p>{tx("Nenhum documento ainda. Comece com “Regras do acampamento” ou “Plano de emergência”.")}</p>
           <button type="button" className="button button--primary" onClick={() => navigate("/instructions-admin/new")}>
-            + Criar documento
+            {tx("+ Criar documento")}
           </button>
         </div>
       ) : (
@@ -182,7 +184,7 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
                 className="staff-card__body"
                 role="button"
                 tabIndex={0}
-                title={`Abrir "${d.title}"`}
+                title={tx('Abrir "{title}"', { title: d.title })}
                 onClick={() => navigate(`/instructions-admin/${d.id}`)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
@@ -195,17 +197,17 @@ export default function InstructionsAdminPage({ token }: InstructionsAdminPagePr
                   <span aria-hidden="true">{d.emoji}</span> {d.title} <AudienceTag audience={d.audience} />
                 </h3>
                 <p className="staff-card__meta">
-                  {d.content ? `Atualizado ${speakDateTime(d.updatedAt)}` : <span className="staff-card__missing">sem conteúdo</span>}
+                  {d.content ? tx("Atualizado {when}", { when: speakDateTime(d.updatedAt) }) : <span className="staff-card__missing">{tx("sem conteúdo")}</span>}
                 </p>
               </div>
               <div className="opt-item__actions">
-                <button type="button" className="icon-btn" title="Subir" aria-label="Subir" disabled={busy || i === 0} onClick={() => move(d, -1)}>
+                <button type="button" className="icon-btn" title={tx("Subir")} aria-label={tx("Subir")} disabled={busy || i === 0} onClick={() => move(d, -1)}>
                   ↑
                 </button>
-                <button type="button" className="icon-btn" title="Descer" aria-label="Descer" disabled={busy || i === docs.length - 1} onClick={() => move(d, 1)}>
+                <button type="button" className="icon-btn" title={tx("Descer")} aria-label={tx("Descer")} disabled={busy || i === docs.length - 1} onClick={() => move(d, 1)}>
                   ↓
                 </button>
-                <button type="button" className="icon-btn" title="Editar" aria-label="Editar" disabled={busy} onClick={() => navigate(`/instructions-admin/${d.id}/edit`)}>
+                <button type="button" className="icon-btn" title={tx("Editar")} aria-label={tx("Editar")} disabled={busy} onClick={() => navigate(`/instructions-admin/${d.id}/edit`)}>
                   <span className="pencil" aria-hidden="true">✏️</span>
                 </button>
               </div>
@@ -226,12 +228,13 @@ interface DocFormProps {
 }
 
 function DocForm({ token, doc, busy, onSubmit, onCancel }: DocFormProps) {
+  const { tx } = useI18n();
   const [title, setTitle] = useState(doc?.title ?? "");
   const [emoji, setEmoji] = useState(doc?.emoji ?? "📖");
   const [audience, setAudience] = useState<DocAudience>(doc?.audience ?? "all");
   const [content, setContent] = useState(doc?.content ?? "");
   const valid = title.trim().length > 0;
-  const ai = useAiAutoFill({ token, context: "instruction", title, setTitle, emoji, setEmoji, defaultEmoji: "📖", existing: !!doc });
+  const ai = useAiAutoFill({ token, context: "instruction", title, setTitle, emoji, setEmoji, defaultEmoji: "📖", existing: !!doc, html: content });
 
   return (
     <form
@@ -243,29 +246,29 @@ function DocForm({ token, doc, busy, onSubmit, onCancel }: DocFormProps) {
     >
       <div className="cat-form__row">
         <div className="cat-field cat-field--emoji">
-          <span className="cat-field__label">Ícone</span>
-          <EmojiPicker value={emoji} onChange={ai.pickEmoji} suggestions={EMOJI_SUGGESTIONS} disabled={busy} />
+          <span className="cat-field__label">{tx("Ícone")}</span>
+          <EmojiPicker value={emoji} onChange={ai.pickEmoji} suggestions={EMOJI_SUGGESTIONS} disabled={busy} guessing={ai.suggestingEmoji} />
         </div>
         <label className="cat-field cat-field--grow">
-          <span className="cat-field__label">Título{ai.suggesting && <span className="cat-field__ai"> <AiGlyph /> sugerindo…</span>}</span>
+          <span className="cat-field__label">{tx("Título")}{ai.suggesting && <span className="cat-field__ai"> <AiGlyph /> {tx("sugerindo…")}</span>}</span>
           <span className="cat-input-wrap">
-            <input className="cat-input" placeholder="ex.: Regras do acampamento" value={title} maxLength={120} autoFocus={!doc} disabled={busy} onChange={(e) => setTitle(e.target.value)} />
+            <input className="cat-input" placeholder={tx("ex.: Regras do acampamento")} value={title} maxLength={120} autoFocus={!doc} disabled={busy} onChange={(e) => setTitle(e.target.value)} />
             <AiTitleButton html={content} busy={ai.suggesting} disabled={busy} onClick={() => void ai.regenerateTitle(content)} />
           </span>
         </label>
       </div>
       <AudiencePicker value={audience} onChange={setAudience} disabled={busy} />
       <div className="cat-field">
-        <span className="cat-field__label">📝 Documento</span>
-        <p className="cat-hint">Texto, títulos, listas, links e fotos (🖼️ ou cole / arraste uma imagem).</p>
-        <RichTextEditor token={token} value={content} onChange={setContent} disabled={busy} placeholder="Escreva o documento aqui…" tall aiContext="instruction" aiTitle={title} onAiApplied={ai.onAiApplied} />
+        <span className="cat-field__label">{tx("📝 Documento")}</span>
+        <p className="cat-hint">{tx("Texto, títulos, listas, links e fotos (🖼️ ou cole / arraste uma imagem).")}</p>
+        <RichTextEditor token={token} value={content} onChange={setContent} disabled={busy} placeholder={tx("Escreva o documento aqui…")} tall aiContext="instruction" aiTitle={title} onAiApplied={ai.onAiApplied} />
       </div>
       <div className="cat-form__actions">
         <button type="button" className="button button--secondary" onClick={onCancel} disabled={busy}>
-          Cancelar
+          {tx("Cancelar")}
         </button>
         <button type="submit" className="button button--primary" disabled={!valid || busy}>
-          {busy ? "Salvando…" : doc ? "Salvar" : "Criar documento 🎉"}
+          {busy ? tx("Salvando…") : doc ? tx("Salvar") : tx("Criar documento 🎉")}
         </button>
       </div>
     </form>

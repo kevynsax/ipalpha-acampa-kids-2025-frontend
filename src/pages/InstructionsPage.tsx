@@ -8,6 +8,7 @@ import { useCollection, useCollectionOrEmpty } from "../store";
 import { useMyPrepRoles } from "../store/derive";
 import { ICONS } from "../icons";
 import { staffSex } from "../api/staff";
+import { useI18n } from "../i18n";
 
 interface InstructionsPageProps {
   user: LoggedUser;
@@ -57,6 +58,7 @@ function eventIsNow(e: { date: string; startTime: string; endTime: string | null
  *   /instructions/role/:roleId    the instructions of one of my roles
  */
 export default function InstructionsPage({ user, pairedWith }: InstructionsPageProps) {
+  const { tx } = useI18n();
   const docs = useCollection("instructions");
   const events = useCollection("events");
   const staff = useCollectionOrEmpty("staff");
@@ -77,7 +79,7 @@ export default function InstructionsPage({ user, pairedWith }: InstructionsPageP
   if (!docs || myRoles === null) {
     return (
       <div className="admin-page">
-        <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>
+        <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>
       </div>
     );
   }
@@ -119,14 +121,14 @@ export default function InstructionsPage({ user, pairedWith }: InstructionsPageP
     const d = allDocs.find((x) => x.path === path);
     return (
       <div className="admin-page admin-page--wide">
-        <Breadcrumbs items={[{ label: "Instruções", onClick: () => navigate("/instructions") }, { label: d?.title ?? "Documento" }]} />
+        <Breadcrumbs items={[{ label: tx("Instruções"), onClick: () => navigate("/instructions") }, { label: d?.title ?? tx("Documento") }]} />
         {!d ? (
-          <p className="opt-empty">Documento não encontrado.</p>
+          <p className="opt-empty">{tx("Documento não encontrado.")}</p>
         ) : (
           <div className="instruction-reader">
             <aside className="instruction-sidebar">
-              <h2 className="instruction-sidebar__title">Instruções</h2>
-              <nav aria-label="Instruções">
+              <h2 className="instruction-sidebar__title">{tx("Instruções")}</h2>
+              <nav aria-label={tx("Instruções")}>
                 <ul className="instruction-sidebar__list">
                   {allDocs.map((item) => {
                     const selected = item.path === path;
@@ -154,16 +156,16 @@ export default function InstructionsPage({ user, pairedWith }: InstructionsPageP
               <h1 className="admin-title instruction-doc__title">
                 <span aria-hidden="true">{d.emoji}</span> {d.title}
                 {d.extra}
-                {d.role && <span className="prep-section__tag instruction-doc__role">sua função</span>}
+                {d.role && <span className="prep-section__tag instruction-doc__role">{tx("sua função")}</span>}
               </h1>
               {d.event && (
                 <div className={`instruction-event${d.event.now ? " instruction-event--now" : ""}`}>
-                  {d.event.now && <span className="instruction-event__now">agora</span>}
+                  {d.event.now && <span className="instruction-event__now">{tx("agora")}</span>}
                   <strong>{d.event.emoji} {d.event.title}</strong>
                   <span>{speakDay(d.event.date)} · {d.event.startTime}{d.event.endTime ? `–${d.event.endTime}` : ""}</span>
                 </div>
               )}
-              {d.html ? <RichHtml html={d.html} /> : <p className="opt-empty">Este documento ainda está vazio.</p>}
+              {d.html ? <RichHtml html={d.html} /> : <p className="opt-empty">{tx("Este documento ainda está vazio.")}</p>}
             </article>
           </div>
         )}
@@ -201,24 +203,24 @@ export default function InstructionsPage({ user, pairedWith }: InstructionsPageP
   );
 
   const empty = roleDocs.length === 0 && generalDocs.length === 0;
-  const roleSection = { key: "roles", title: <><img className="audience-icon" src={myFaceSrc} alt="" aria-hidden="true" /> Suas funções</>, items: [...upcoming, ...done] };
-  const generalSection = { key: "general", title: "🏕️ Geral", items: generalDocs };
+  const roleSection = { key: "roles", title: <><img className="audience-icon" src={myFaceSrc} alt="" aria-hidden="true" /> {tx("Suas funções")}</>, items: [...upcoming, ...done] };
+  const generalSection = { key: "general", title: `🏕️ ${tx("Geral")}`, items: generalDocs };
   const sections = (camping ? [roleSection, generalSection] : [generalSection, roleSection]).filter((s) => s.items.length > 0);
 
   return (
     <div className="admin-page">
       <header className="admin-head">
-        <h1 className="admin-title">📖 Instruções</h1>
+        <h1 className="admin-title">📖 {tx("Instruções")}</h1>
         {/* only while the bottom bar merges the pair (phones): the way to the other half */}
         {pairedWith && (
-          <button type="button" className="dash-pair-link" onClick={pairedWith} title="Ver a Preparação">
-            <img className="dash-pair-link__icon" src={ICONS.preparation} alt="" aria-hidden="true" /> Preparação
+          <button type="button" className="dash-pair-link" onClick={pairedWith} title={tx("Ver a Preparação")}>
+            <img className="dash-pair-link__icon" src={ICONS.preparation} alt="" aria-hidden="true" /> {tx("Preparação")}
           </button>
         )}
       </header>
 
       {empty ? (
-        <p className="opt-empty">A organização ainda não publicou instruções. 📖</p>
+        <p className="opt-empty">{tx("A organização ainda não publicou instruções. 📖")}</p>
       ) : (
         <>
           {sections.map((s) => (

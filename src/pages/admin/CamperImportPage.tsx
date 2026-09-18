@@ -15,6 +15,7 @@ import type { Category } from "../../api/categories";
 import { formatCpf, validCpf } from "../../cpf";
 import { maskBrazilPhone } from "../../phone";
 import { formatBrazilPhoneClient } from "../../phoneFormat";
+import { collatorLocale, useI18n } from "../../i18n";
 
 interface Props { token: string; /** where "Ver acampantes" / the breadcrumb lead — the setup wizard continues instead of leaving */ onDone?: () => void }
 type Delta = Record<string, { value?: string; skip?: boolean }>;
@@ -28,6 +29,7 @@ const IMPORTANT = new Set(["duplicate","leader", "date", "guardianName", "phone"
 const REVIEW_ORDER: ImportReviewItem["kind"][] = ["duplicate","leader", "date", "guardianName", "phone", "cpf", "email"];
 
 export default function CamperImportPage({ token, onDone }: Props) {
+  const { tx } = useI18n();
   const { navigate } = useRoute();
   /** finished: continue the wizard when embedded, else back to the campers list */
   const leave = () => (onDone ? onDone() : navigate("/campers"));
@@ -139,7 +141,7 @@ export default function CamperImportPage({ token, onDone }: Props) {
       else if (next.status === "needs_mapping") setStage("mapping");
       else if (next.reviews.some((r) => IMPORTANT.has(r.kind))) setStage("review");
       else setStage("summary");
-    } catch (e) { setError(e instanceof Error ? e.message : "Não foi possível analisar a planilha."); }
+    } catch (e) { setError(e instanceof Error ? e.message : tx("Não foi possível analisar a planilha.")); }
     finally { setBusy(false); setAnalyzing(false); setPhase(null); }
   }
 
@@ -155,7 +157,7 @@ export default function CamperImportPage({ token, onDone }: Props) {
       const created = await createImportLeader(token, record!.id, item.id, phone);
       setValue(item, created.staff.id);
       setRecord(created.import);
-    } catch (e) { setError(e instanceof Error ? e.message : "Não foi possível criar o líder."); }
+    } catch (e) { setError(e instanceof Error ? e.message : tx("Não foi possível criar o líder.")); }
     finally { setBusy(false); }
   }
 
@@ -163,10 +165,10 @@ export default function CamperImportPage({ token, onDone }: Props) {
     if (!record) return;
     setBusy(true); setError(null);
     try {
-      if (!file) throw new Error("Escolha novamente a planilha original.");
+      if (!file) throw new Error(tx("Escolha novamente a planilha original."));
       const result = await applyCamperImport(token, record.id, file, delta, [...declinedCategoryIds],duplicateChoice);
       setRecord(result.import); setStage("done");
-    } catch (e) { setError(e instanceof Error ? e.message : "Não foi possível importar."); }
+    } catch (e) { setError(e instanceof Error ? e.message : tx("Não foi possível importar.")); }
     finally { setBusy(false); }
   }
 
@@ -175,38 +177,38 @@ export default function CamperImportPage({ token, onDone }: Props) {
     const reasons = new Map<number, string>();
     for (const review of record.reviews) {
       const choice=delta[review.id]?.value||(review.kind==="duplicate"?duplicateChoice:"");
-      if(review.kind==="duplicate"&&choice==="keep")reasons.set(review.row,"Cadastro existente mantido");
-      else if(delta[review.id]?.skip)for (const row of review.affectedRows?.length ? review.affectedRows : [review.row]) reasons.set(row, `Ignorado: ${REVIEW_LABEL[review.kind]}`);
+      if(review.kind==="duplicate"&&choice==="keep")reasons.set(review.row,tx("Cadastro existente mantido"));
+      else if(delta[review.id]?.skip)for (const row of review.affectedRows?.length ? review.affectedRows : [review.row]) reasons.set(row, tx("Ignorado: {kind}", { kind: tx(REVIEW_LABEL[review.kind]) }));
     }
     const labels = previewLabelMap(record, categories);
     const skipped = previewRows(record, delta).filter((item) => reasons.has(Number(item.row)));
     const columns = previewColumns(skipped, labels);
     const rows = skipped.map((item) => ({
-      ...Object.fromEntries(columns.map((column) => [column.label, displayPreviewValue(column.key, item[column.key], labels)])),
-      Motivo: reasons.get(Number(item.row)),
+      ...Object.fromEntries(columns.map((column) => [tx(column.label), displayPreviewValue(column.key, item[column.key], labels, tx)])),
+      [tx("Motivo")]: reasons.get(Number(item.row)),
     }));
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Não importados");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), tx("Não importados"));
     XLSX.writeFile(wb, `nao-importados-${record.fileName.replace(/\.[^.]+$/, "")}.xlsx`);
   }
 
   if (stage === "done" && record) return (
     <div className="admin-page import-page">
-      <Breadcrumbs items={[{ label: "Acampantes", onClick: leave }, { label: "Importação concluída" }]} />
+      <Breadcrumbs items={[{ label: tx("Acampantes"), onClick: leave }, { label: tx("Importação concluída") }]} />
       <section className="import-success">
         <span className="import-success__check"><CheckGlyph size={54} /></span>
-        <h1 className="admin-title">Importação concluída</h1>
-        <p className="admin-intro">As crianças já estão no sistema. A revisão das observações por IA continua em segundo plano.</p>
-        <button type="button" className="button button--primary" onClick={leave}>Ver acampantes</button>
+        <h1 className="admin-title">{tx("Importação concluída")}</h1>
+        <p className="admin-intro">{tx("As crianças já estão no sistema. A revisão das observações por IA continua em segundo plano.")}</p>
+        <button type="button" className="button button--primary" onClick={leave}>{tx("Ver acampantes")}</button>
       </section>
     </div>
   );
 
   return (
     <div className="admin-page admin-page--wide import-page">
-      <Breadcrumbs items={[{ label: "Acampantes", onClick: leave }, { label: "Importar planilha" }]} />
+      <Breadcrumbs items={[{ label: tx("Acampantes"), onClick: leave }, { label: tx("Importar planilha") }]} />
       <header className="admin-head">
-        <h1 className="admin-title"><img className="admin-title__icon" src={ICONS.importCampers} alt="" /> Importar acampantes</h1>
+        <h1 className="admin-title"><img className="admin-title__icon" src={ICONS.importCampers} alt="" /> {tx("Importar acampantes")}</h1>
       </header>
       {stage !== "file" && <ImportProgress stage={stage} reviewDone={completed} reviewTotal={reviews.length} />}
       {analyzing && <ImportPhaseBar phases={CAMPER_PHASES} progress={phase} />}
@@ -215,11 +217,11 @@ export default function CamperImportPage({ token, onDone }: Props) {
       {stage === "file" && (
         <section className={`import-drop${dragging ? " import-drop--over" : ""}`} {...handlers}>
           <img src={ICONS.camper} alt="" className="import-drop__icon" />
-          <h2>Arraste o CSV ou Excel aqui</h2>
-          <p>Solte o arquivo nesta área ou escolha abaixo. A IA compara as colunas; depois o sistema cruza quartos, líderes, transporte, times e saúde em paralelo.</p>
+          <h2>{tx("Arraste o CSV ou Excel aqui")}</h2>
+          <p>{tx("Solte o arquivo nesta área ou escolha abaixo. A IA compara as colunas; depois o sistema cruza quartos, líderes, transporte, times e saúde em paralelo.")}</p>
           <input ref={fileInput} hidden type="file" accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
-          <button type="button" className="button button--primary" disabled={busy} onClick={() => fileInput.current?.click()}>{file ? file.name : "Escolher planilha"}</button>
-          <p className="cat-hint">Nada é importado nesta fase. Itens novos ficam em rascunho até você aplicar.</p>
+          <button type="button" className="button button--primary" disabled={busy} onClick={() => fileInput.current?.click()}>{file ? file.name : tx("Escolher planilha")}</button>
+          <p className="cat-hint">{tx("Nada é importado nesta fase. Itens novos ficam em rascunho até você aplicar.")}</p>
         </section>
       )}
 
@@ -229,63 +231,63 @@ export default function CamperImportPage({ token, onDone }: Props) {
 
       {stage === "panic" && record && (
         <section className="import-review">
-          <h2>As datas precisam ser corrigidas</h2>
+          <h2>{tx("As datas precisam ser corrigidas")}</h2>
           <p className="message message--error">{record.error}</p>
-          <p className="admin-intro">A análise dos outros campos terminou e o dicionário foi guardado. Corrija as datas na planilha para dd/MM/aaaa e envie o arquivo novamente.</p>
+          <p className="admin-intro">{tx("A análise dos outros campos terminou e o dicionário foi guardado. Corrija as datas na planilha para dd/MM/aaaa e envie o arquivo novamente.")}</p>
           <div className="cat-form__actions">
-            <button type="button" className="button button--primary" onClick={() => { setRecord(null); setFile(null); setStage("file"); window.setTimeout(() => fileInput.current?.click(), 0); }}>Escolher arquivo corrigido</button>
+            <button type="button" className="button button--primary" onClick={() => { setRecord(null); setFile(null); setStage("file"); window.setTimeout(() => fileInput.current?.click(), 0); }}>{tx("Escolher arquivo corrigido")}</button>
           </div>
         </section>
       )}
 
       {stage === "review" && record && (batchDuplicatePending||current) && (
         <section className="import-review">
-          {batchDuplicatePending?<><header className="import-review__head"><div><p className="import-review__eyebrow">Cadastros repetidos</p><h2>{duplicateTotal} crianças já cadastradas</h2></div></header><p className="admin-intro">Escolha a regra antes das outras revisões. A prévia, os contadores e os itens novos usarão esta decisão.</p><DuplicateBatchChoice value={duplicateChoice} onChange={(value)=>{setDuplicateChoice(value);if(!reviews.length)setStage("summary")}}/></>:current&&<><header className="import-review__head">
-            <div><p className="import-review__eyebrow">{REVIEW_LABEL[current.kind]}</p><h2>{current.kidName}</h2></div>
+          {batchDuplicatePending?<><header className="import-review__head"><div><p className="import-review__eyebrow">{tx("Cadastros repetidos")}</p><h2>{tx("{n} crianças já cadastradas", { n: duplicateTotal })}</h2></div></header><p className="admin-intro">{tx("Escolha a regra antes das outras revisões. A prévia, os contadores e os itens novos usarão esta decisão.")}</p><DuplicateBatchChoice value={duplicateChoice} onChange={(value)=>{setDuplicateChoice(value);if(!reviews.length)setStage("summary")}}/></>:current&&<><header className="import-review__head">
+            <div><p className="import-review__eyebrow">{tx(REVIEW_LABEL[current.kind])}</p><h2>{current.kidName}</h2></div>
             {current.kind!=="duplicate"&&<span className="checkin-progress">{reviewIndex + 1}/{reviews.length}</span>}
           </header>
-          {current.kind!=="duplicate"&&<p className="admin-intro">Algumas coisas eu não consegui resolver sozinho. Você pode corrigir ou ignorar; itens obrigatórios ignorados não serão importados.</p>}
+          {current.kind!=="duplicate"&&<p className="admin-intro">{tx("Algumas coisas eu não consegui resolver sozinho. Você pode corrigir ou ignorar; itens obrigatórios ignorados não serão importados.")}</p>}
           {current.kind==="duplicate"?<DuplicateReview item={current} value={delta[current.id]?.value??""} labels={duplicateLabels(categories,bedrooms,teams,transports,staff,record)} onChange={(v)=>setValue(current,v)}/>: <><ReviewContext item={current} />
-          {current.affectedRows && current.affectedRows.length > 1 && <p className="cat-hint">Esta correção vale para {current.affectedRows.length} crianças.</p>}
+          {current.affectedRows && current.affectedRows.length > 1 && <p className="cat-hint">{tx("Esta correção vale para {n} crianças.", { n: current.affectedRows.length })}</p>}
           <ReviewEditor item={current} value={delta[current.id]?.value ?? current.value} inputRef={activeInput} busy={busy} onChange={(v) => setValue(current, v)} onCreateLeader={() => void createLeader(current)} onEditLeader={(id) => window.open(`/staff/${id}/edit`, "_blank", "noopener,noreferrer")} /></>}
           <div className="cat-form__actions import-review__actions">
-            <button type="button" className="link-btn" onClick={previous}>Voltar</button>
+            <button type="button" className="link-btn" onClick={previous}>{tx("Voltar")}</button>
             {current.kind!=="duplicate"&&(IMPORTANT.has(current.kind)
-              ? <button type="button" className="button button--warn" onClick={() => skip(current)}>Pular <SkipGlyph /></button>
-              : <button type="button" className="button button--secondary" onClick={() => skip(current)}>Ignorar</button>)}
-            <button type="button" className="button button--primary" disabled={busy || (current.kind==="duplicate"?!delta[current.id]?.value:!reviewAccepts(current.kind, delta[current.id]?.value ?? ""))} onClick={next}>Continuar</button>
+              ? <button type="button" className="button button--warn" onClick={() => skip(current)}>{tx("Pular")} <SkipGlyph /></button>
+              : <button type="button" className="button button--secondary" onClick={() => skip(current)}>{tx("Ignorar")}</button>)}
+            <button type="button" className="button button--primary" disabled={busy || (current.kind==="duplicate"?!delta[current.id]?.value:!reviewAccepts(current.kind, delta[current.id]?.value ?? ""))} onClick={next}>{tx("Continuar")}</button>
           </div></>}
         </section>
       )}
 
       {stage === "summary" && record && (
         <section className="import-summary">
-          <h2>Pronto para importar</h2>
+          <h2>{tx("Pronto para importar")}</h2>
           <div className="import-stats">
-            <span className="import-stats__success"><b>{record.preview.length - skippedRows}</b> crianças</span>
-            {createdCounters(record.createdItems).map((counter) => <span className="import-stats__success" key={counter.kind}><b>{counter.count}</b> {counter.label}</span>)}
-            <span className="import-stats__warning"><b>{skippedRows}{skippedRows > 0 && <button type="button" className="icon-btn icon-btn--bare import-download-icon" title="Baixar não importados" aria-label="Baixar não importados" onClick={downloadSkipped}><DownloadGlyph /></button>}</b> ignoradas</span>
+            <span className="import-stats__success"><b>{record.preview.length - skippedRows}</b> {tx("crianças")}</span>
+            {createdCounters(record.createdItems).map((counter) => <span className="import-stats__success" key={counter.kind}><b>{counter.count}</b> {tx(counter.label)}</span>)}
+            <span className="import-stats__warning"><b>{skippedRows}{skippedRows > 0 && <button type="button" className="icon-btn icon-btn--bare import-download-icon" title={tx("Baixar não importados")} aria-label={tx("Baixar não importados")} onClick={downloadSkipped}><DownloadGlyph /></button>}</b> {tx("ignoradas")}</span>
           </div>
-          {record.columns.filter((c) => !c.target && c.samples.length).length > 0 && <p className="cat-hint">{record.columns.filter((c) => !c.target && c.samples.length).length} coluna(s) sem destino reconhecido — os valores vão para as observações. <button type="button" className="link-btn" onClick={() => setStage("mapping")}>Atribuir colunas</button></p>}
+          {record.columns.filter((c) => !c.target && c.samples.length).length > 0 && <p className="cat-hint">{tx("{n} coluna(s) sem destino reconhecido — os valores vão para as observações.", { n: record.columns.filter((c) => !c.target && c.samples.length).length })} <button type="button" className="link-btn" onClick={() => setStage("mapping")}>{tx("Atribuir colunas")}</button></p>}
           {record.createdItems.some((item) => item.kind !== "categoryOption" && item.kind !== "staff") && <div className="import-created">
-            <p className="admin-intro">Também serão publicados:</p>
+            <p className="admin-intro">{tx("Também serão publicados:")}</p>
             <ul className="import-created__list">{createdTopics(record.createdItems.filter((item) => item.kind !== "categoryOption" && item.kind !== "staff")).map((group) => <li key={group.topic}>
-              <strong className="import-created__topic"><img src={CREATED_KIND_ICON[group.kind]} alt="" /> {group.topic}</strong>
+              <strong className="import-created__topic"><img src={CREATED_KIND_ICON[group.kind]} alt="" /> {tx(group.topic)}</strong>
               <span className="import-created__values">{group.values.map((value) => <span key={value} className="import-chip">{value}</span>)}</span>
             </li>)}</ul>
           </div>}
           {record.createdItems.some((item) => item.kind === "categoryOption") && <CategoryOptionReview record={record} categories={categories} declined={declinedCategoryIds} onChange={setDeclinedCategoryIds} />}
-          {record.createdItems.some((item) => item.kind === "staff") && <p className="import-created-staff">{createdStaffMessage(record.createdItems)}</p>}
+          {record.createdItems.some((item) => item.kind === "staff") && <p className="import-created-staff">{createdStaffMessage(record.createdItems, tx)}</p>}
           <div className="import-preview-head">
-            <h3>Prévia</h3>
-            <button type="button" className={`import-preview-toggle${previewOpen ? " is-visible" : ""}`} aria-label={previewOpen ? "Ocultar prévia" : "Mostrar prévia"} aria-pressed={previewOpen} title={previewOpen ? "Ocultar prévia" : "Mostrar prévia"} onClick={() => setPreviewOpen((v) => !v)}><EyeGlyph /></button>
+            <h3>{tx("Prévia")}</h3>
+            <button type="button" className={`import-preview-toggle${previewOpen ? " is-visible" : ""}`} aria-label={previewOpen ? tx("Ocultar prévia") : tx("Mostrar prévia")} aria-pressed={previewOpen} title={previewOpen ? tx("Ocultar prévia") : tx("Mostrar prévia")} onClick={() => setPreviewOpen((v) => !v)}><EyeGlyph /></button>
           </div>
           {previewOpen && <PreviewTable record={record} delta={delta} skippedRowNumbers={skippedRowNumbers} categories={categories} declinedCategoryIds={declinedCategoryIds} duplicateChoice={duplicateChoice} />}
-          {optionalReviews.length > 0 && !optionalDismissed && <div className="import-optional-review"><p>Encontrei {optionalReviews.length} CPF(s) ou e-mail(s) inválido(s). Quer revisar ou deixar esses campos em branco?</p><div className="cat-form__actions"><button type="button" className="button button--secondary" onClick={() => { setDelta((currentDelta) => ({ ...currentDelta, ...Object.fromEntries(optionalReviews.map((item) => [item.id, { ...currentDelta[item.id], skip: true }])) })); setOptionalDismissed(true); }}>Ignorar</button><button type="button" className="button button--primary" onClick={() => { setShowOptional(true); setOptionalDismissed(true); setReviewIndex(reviews.filter((r) => IMPORTANT.has(r.kind)).length); setStage("review"); }}>Revisar {optionalReviews.length}</button></div></div>}
-          {optionalReviews.length > 0 && optionalDismissed && !showOptional && <p className="import-optional-warning">CPFs e e-mails inválidos serão deixados em branco.</p>}
+          {optionalReviews.length > 0 && !optionalDismissed && <div className="import-optional-review"><p>{tx("Encontrei {n} CPF(s) ou e-mail(s) inválido(s). Quer revisar ou deixar esses campos em branco?", { n: optionalReviews.length })}</p><div className="cat-form__actions"><button type="button" className="button button--secondary" onClick={() => { setDelta((currentDelta) => ({ ...currentDelta, ...Object.fromEntries(optionalReviews.map((item) => [item.id, { ...currentDelta[item.id], skip: true }])) })); setOptionalDismissed(true); }}>{tx("Ignorar")}</button><button type="button" className="button button--primary" onClick={() => { setShowOptional(true); setOptionalDismissed(true); setReviewIndex(reviews.filter((r) => IMPORTANT.has(r.kind)).length); setStage("review"); }}>{tx("Revisar {n}", { n: optionalReviews.length })}</button></div></div>}
+          {optionalReviews.length > 0 && optionalDismissed && !showOptional && <p className="import-optional-warning">{tx("CPFs e e-mails inválidos serão deixados em branco.")}</p>}
           <div className="cat-form__actions">
-            <button type="button" className="button button--secondary" onClick={() => reviews.length ? setStage("review") : setStage("file")}>Voltar</button>
-            <button type="button" className="button button--primary" disabled={busy || record.status === "panic" || record.status === "needs_mapping"||(duplicateTotal>7&&!duplicateChoice)} onClick={() => void apply()}>{busy ? "Importando…" : "Aplicar importação"}</button>
+            <button type="button" className="button button--secondary" onClick={() => reviews.length ? setStage("review") : setStage("file")}>{tx("Voltar")}</button>
+            <button type="button" className="button button--primary" disabled={busy || record.status === "panic" || record.status === "needs_mapping"||(duplicateTotal>7&&!duplicateChoice)} onClick={() => void apply()}>{busy ? tx("Importando…") : tx("Aplicar importação")}</button>
           </div>
         </section>
       )}
@@ -294,9 +296,10 @@ export default function CamperImportPage({ token, onDone }: Props) {
 }
 
 function ImportProgress({ stage, reviewDone, reviewTotal }: { stage: Stage; reviewDone: number; reviewTotal: number }) {
+  const { tx } = useI18n();
   const index = stage === "mapping" || stage === "panic" ? 1 : stage === "review" ? 2 : 3;
   const pct = stage === "review" && reviewTotal ? 33 + Math.round((reviewDone / reviewTotal) * 34) : index * 33;
-  return <div className="import-progress" aria-label={`Progresso ${Math.min(pct, 100)}%`}><span style={{ width: `${Math.min(pct, 100)}%` }} /><ol><li className={index >= 1 ? "on" : ""}>Colunas</li><li className={index >= 2 ? "on" : ""}>Revisão</li><li className={index >= 3 ? "on" : ""}>Prévia</li></ol></div>;
+  return <div className="import-progress" aria-label={tx("Progresso {n}%", { n: Math.min(pct, 100) })}><span style={{ width: `${Math.min(pct, 100)}%` }} /><ol><li className={index >= 1 ? "on" : ""}>{tx("Colunas")}</li><li className={index >= 2 ? "on" : ""}>{tx("Revisão")}</li><li className={index >= 3 ? "on" : ""}>{tx("Prévia")}</li></ol></div>;
 }
 
 const REQUIRED_FIELDS: { key: ImportField; label: string }[] = [
@@ -319,9 +322,9 @@ function createdCounters(items: { kind: string }[]): { kind: string; count: numb
   });
 }
 
-function createdStaffMessage(items: { kind: string; label: string }[]): string {
+function createdStaffMessage(items: { kind: string; label: string }[], tx: (pt: string, vars?: Record<string, string | number>) => string): string {
   const names = items.filter((item) => item.kind === "staff").map((item) => item.label);
-  return names.length === 1 ? `Líder já criado: ${names[0]}.` : `${names.length} líderes já criados: ${names.join(", ")}.`;
+  return names.length === 1 ? tx("Líder já criado: {name}.", { name: names[0] }) : tx("{n} líderes já criados: {names}.", { n: names.length, names: names.join(", ") });
 }
 
 /** same icon rule the kid / staff form uses for a category (CategoryFields.categoryIcon) */
@@ -331,8 +334,9 @@ function categoryIcon(cat: Category | undefined) {
 }
 
 function CategoryOptionReview({ record, categories, declined, onChange }: { record: CamperImport; categories: Category[]; declined: Set<string>; onChange: (ids: Set<string>) => void }) {
+  const { tx } = useI18n();
   const items = record.createdItems.filter((item) => item.kind === "categoryOption");
-  const categoryOf = (item: (typeof items)[number]) => item.label.includes(": ") ? item.label.slice(0, item.label.indexOf(": ")) : "Categoria";
+  const categoryOf = (item: (typeof items)[number]) => item.label.includes(": ") ? item.label.slice(0, item.label.indexOf(": ")) : tx("Categoria");
   const valueOf = (item: (typeof items)[number]) => item.label.includes(": ") ? item.label.slice(item.label.indexOf(": ") + 2) : item.label;
   const examplesOf = (id: string) => {
     const rawValues = new Set(record.dictionaries.filter((entry) => entry.value === id && entry.raw).map((entry) => entry.raw));
@@ -352,19 +356,19 @@ function CategoryOptionReview({ record, categories, declined, onChange }: { reco
     onChange(next);
   };
   return <section className="import-category-review">
-    <div><h3>Novas opções encontradas</h3><p>Marque apenas o que deve entrar nas listas do sistema. O que ficar desmarcado será mantido nas observações da pessoa.</p></div>
-    <div className="import-category-review__table-wrap"><table className="import-category-review__table"><thead><tr><th>Inserir</th><th>Lista</th><th>Nova opção</th><th>Exemplos da planilha</th></tr></thead><tbody>{items.map((item) => {
+    <div><h3>{tx("Novas opções encontradas")}</h3><p>{tx("Marque apenas o que deve entrar nas listas do sistema. O que ficar desmarcado será mantido nas observações da pessoa.")}</p></div>
+    <div className="import-category-review__table-wrap"><table className="import-category-review__table"><thead><tr><th>{tx("Inserir")}</th><th>{tx("Lista")}</th><th>{tx("Nova opção")}</th><th>{tx("Exemplos da planilha")}</th></tr></thead><tbody>{items.map((item) => {
       const topic = categoryOf(item);
       const cat = categories.find((category) => category.name.trim().toLowerCase() === topic.trim().toLowerCase());
       const checked = !declined.has(item.id);
       return <tr key={item.id} className={checked ? undefined : "is-declined"}>
-        <td><input type="checkbox" checked={checked} aria-label={`Inserir ${valueOf(item)}`} onChange={(event) => toggle(item.id, event.target.checked)} /></td>
+        <td><input type="checkbox" checked={checked} aria-label={tx("Inserir {name}", { name: valueOf(item) })} onChange={(event) => toggle(item.id, event.target.checked)} /></td>
         <td><span className="import-category-review__topic">{categoryIcon(cat)} {topic}</span></td>
         <td><strong>{valueOf(item)}</strong></td>
-        <td>{examplesOf(item.id).map((example) => <span className="import-category-review__example" key={`${example.row}-${example.raw}`}><strong>Linha {example.row}:</strong> {example.raw}</span>)}</td>
+        <td>{examplesOf(item.id).map((example) => <span className="import-category-review__example" key={`${example.row}-${example.raw}`}><strong>{tx("Linha {n}:", { n: example.row })}</strong> {example.raw}</span>)}</td>
       </tr>;
     })}</tbody></table></div>
-    {declined.size > 0 && <p className="import-category-review__warning">As informações desmarcadas serão movidas para o campo Observações de cada pessoa.</p>}
+    {declined.size > 0 && <p className="import-category-review__warning">{tx("As informações desmarcadas serão movidas para o campo Observações de cada pessoa.")}</p>}
   </section>;
 }
 
@@ -383,6 +387,7 @@ function createdTopics(items: { kind: string; label: string }[]): { topic: strin
 }
 
 function ColumnMapping({ record, fields, busy, onSubmit }: { record: CamperImport; fields: { key: ImportField; label: string }[]; busy: boolean; onSubmit: (mapping: Record<string, string | null>) => void }) {
+  const { tx } = useI18n();
   const [mapping, setMapping] = useState<Record<string, string | null>>(() => Object.fromEntries(record.columns.map((c) => [c.source, c.target])));
   const used = new Set(Object.values(mapping).filter(Boolean));
   const missing = REQUIRED_FIELDS.filter((f) => !used.has(f.key));
@@ -400,31 +405,31 @@ function ColumnMapping({ record, fields, busy, onSubmit }: { record: CamperImpor
     });
   }
   return <section className="import-mapping">
-    <h2>{missing.length ? "Escolha as colunas essenciais" : "Colunas sem destino"}</h2>
-    <p className="admin-intro">{missing.length ? <>Não encontrei <b>{missing.map((f) => f.label).join(" e ")}</b>. As demais colunas já foram comparadas e reconhecidas.</> : "Estas colunas não foram reconhecidas. Atribua um destino ou deixe os valores irem para as observações."}</p>
+    <h2>{missing.length ? tx("Escolha as colunas essenciais") : tx("Colunas sem destino")}</h2>
+    <p className="admin-intro">{missing.length ? <>{tx("Não encontrei")} <b>{missing.map((f) => tx(f.label)).join(tx(" e "))}</b>. {tx("As demais colunas já foram comparadas e reconhecidas.")}</> : tx("Estas colunas não foram reconhecidas. Atribua um destino ou deixe os valores irem para as observações.")}</p>
     {missing.map((f) => { const source = sourceOf(f.key); const column = record.columns.find((c) => c.source === source); return (
       <label key={f.key} className="import-column import-column--required">
-        <span className="import-column__source">{f.label}</span>
+        <span className="import-column__source">{tx(f.label)}</span>
         <select className="cat-input" value={source} onChange={(e) => pickIdentity(f.key, e.target.value)}>
-          <option value="">Escolha a coluna…</option>
+          <option value="">{tx("Escolha a coluna…")}</option>
           {candidates(f.key).map((c) => <option key={c.source} value={c.source}>{c.source}</option>)}
         </select>
-        <span className="import-column__samples">{column ? column.samples.join(" · ") || "Sem exemplos" : ""}</span>
+        <span className="import-column__samples">{column ? column.samples.join(" · ") || tx("Sem exemplos") : ""}</span>
       </label>); })}
     {unknown.length > 0 && <details className="import-mapping__extra" open={!missing.length}>
-      <summary className="link-btn">{unknown.length} colunas sem destino</summary>
+      <summary className="link-btn">{tx("{n} colunas sem destino", { n: unknown.length })}</summary>
       <div className="import-mapping__list">{unknown.map((c) => (
         <label key={c.source} className="import-column">
           <span className="import-column__source">{c.source}</span>
           <span className="import-column__samples">{c.samples.join(" · ")}</span>
           <select className="cat-input" value={mapping[c.source] ?? ""} onChange={(e) => assign(c.source, e.target.value || null)}>
-            <option value="">Ignorar</option>
+            <option value="">{tx("Ignorar")}</option>
             {fields.map((f) => <option key={f.key} value={f.key} disabled={used.has(f.key) && mapping[c.source] !== f.key}>{f.label}</option>)}
           </select>
         </label>))}</div>
     </details>}
     {record.error && missing.length === 0 && <p className="message message--error">{record.error}</p>}
-    <div className="cat-form__actions"><button type="button" className="button button--primary" disabled={busy || missing.length > 0} onClick={() => onSubmit(mapping)}>{busy ? "Analisando…" : "Continuar"}</button></div>
+    <div className="cat-form__actions"><button type="button" className="button button--primary" disabled={busy || missing.length > 0} onClick={() => onSubmit(mapping)}>{busy ? tx("Analisando…") : tx("Continuar")}</button></div>
   </section>;
 }
 
@@ -434,23 +439,25 @@ function duplicateFieldLabel(key:string){return PREVIEW_COLUMNS.find((column)=>c
 function duplicateLabels(categories:Category[],bedrooms:{id:string;name:string}[],teams:{id:string;name:string}[],transports:{id:string;label:string}[],staff:{id:string;name:string}[],record:CamperImport){const labels=previewLabelMap(record,categories);for(const room of bedrooms)labels.set(room.id,room.name);for(const team of teams)labels.set(team.id,team.name);for(const transport of transports)labels.set(transport.id,transport.label);for(const member of staff)labels.set(member.id,member.name);return labels}
 function duplicateText(key:string,value:unknown,labels:Map<string,string>){if(value==null||value==="")return "—";if(Array.isArray(value))return value.map((item)=>labels.get(String(item))??(ID_RE.test(String(item))?"—":String(item))).join(", ")||"—";const text=String(value);if(labels.has(text))return labels.get(text)!;if(ID_RE.test(text))return "—";return displayPreviewValue(key,value,labels)}
 const ID_RE=/^[a-f0-9]{24}$/i;
-function DuplicateCard({title,data,other,labels,source,selected,onClick}:{title:string;data:Record<string,unknown>|undefined;other:Record<string,unknown>|undefined;labels:Map<string,string>;source:"system"|"sheet";selected:boolean;onClick:()=>void}){return <button type="button" className={`import-duplicate-card import-duplicate-card--${source}${selected?" is-selected":""}`} aria-pressed={selected} onClick={onClick}><strong>{title}</strong><dl>{usefulEntries(data).map(({key,value})=>{const different=duplicateText(key,value,labels)!==duplicateText(key,other?.[key],labels);return <div key={key} className={different?"is-different":undefined}><dt>{duplicateFieldLabel(key)}</dt><dd>{duplicateText(key,value,labels)}</dd></div>})}</dl></button>}
-function DuplicateReview({item,value,labels,onChange}:{item:ImportReviewItem;value:string;labels:Map<string,string>;onChange:(value:string)=>void}){const merged=value==="merge";return <div className="import-duplicate"><p className="admin-intro">Já existe um cadastro com esta chave. Quarto, time, líder e transporte atuais serão mantidos.</p>{merged?<div className="import-duplicate-merged"><strong>Versão mesclada</strong>{usefulEntries(item.mergedData).map(({key,value:fieldValue})=>{const old=item.existingData?.[key],incoming=item.incomingData?.[key],source=duplicateText(key,old,labels)===duplicateText(key,fieldValue,labels)?"Sistema":duplicateText(key,incoming,labels)===duplicateText(key,fieldValue,labels)?"Planilha":"Ambos";return <div key={key}><span>{duplicateFieldLabel(key)}</span><b>{duplicateText(key,fieldValue,labels)}</b><small className={`import-source import-source--${source==="Sistema"?"system":source==="Planilha"?"sheet":"both"}`}>{source}</small></div>})}</div>:<div className="import-duplicate-grid"><DuplicateCard title="Cadastro atual" data={item.existingData} other={item.incomingData} labels={labels} source="system" selected={value==="keep"} onClick={()=>onChange("keep")}/><span className="import-duplicate-choice">ou</span><DuplicateCard title="Planilha" data={item.incomingData} other={item.existingData} labels={labels} source="sheet" selected={value==="update"} onClick={()=>onChange("update")}/></div>}{item.mergeAvailable&&<button type="button" className={`button ${merged?"button--primary":"button--secondary"}`} onClick={()=>onChange(merged?"":"merge")}>{merged?"Mesclando as versões":"Mesclar informações"}</button>}</div>}
-function DuplicateBatchChoice({value,onChange}:{value:"update"|"keep"|"merge"|"";onChange:(value:"update"|"keep"|"merge")=>void}){return <section className="import-duplicate-batch"><h3>Cadastros repetidos</h3><p>Qual regra deve valer para todos?</p><div className="import-duplicate-batch__options">{([['update','Atualizar com a planilha'],['keep','Manter os cadastros atuais'],['merge','Mesclar as informações']] as const).map(([key,label])=><button type="button" key={key} className={value===key?"is-selected":undefined} aria-pressed={value===key} onClick={()=>onChange(key)}>{label}</button>)}</div></section>}
+function DuplicateCard({title,data,other,labels,source,selected,onClick}:{title:string;data:Record<string,unknown>|undefined;other:Record<string,unknown>|undefined;labels:Map<string,string>;source:"system"|"sheet";selected:boolean;onClick:()=>void}){const { tx } = useI18n();return <button type="button" className={`import-duplicate-card import-duplicate-card--${source}${selected?" is-selected":""}`} aria-pressed={selected} onClick={onClick}><strong>{title}</strong><dl>{usefulEntries(data).map(({key,value})=>{const different=duplicateText(key,value,labels)!==duplicateText(key,other?.[key],labels);return <div key={key} className={different?"is-different":undefined}><dt>{tx(duplicateFieldLabel(key))}</dt><dd>{duplicateText(key,value,labels)}</dd></div>})}</dl></button>}
+function DuplicateReview({item,value,labels,onChange}:{item:ImportReviewItem;value:string;labels:Map<string,string>;onChange:(value:string)=>void}){const { tx } = useI18n();const merged=value==="merge";return <div className="import-duplicate"><p className="admin-intro">{tx("Já existe um cadastro com esta chave. Quarto, time, líder e transporte atuais serão mantidos.")}</p>{merged?<div className="import-duplicate-merged"><strong>{tx("Versão mesclada")}</strong>{usefulEntries(item.mergedData).map(({key,value:fieldValue})=>{const old=item.existingData?.[key],incoming=item.incomingData?.[key],source=duplicateText(key,old,labels)===duplicateText(key,fieldValue,labels)?tx("Sistema"):duplicateText(key,incoming,labels)===duplicateText(key,fieldValue,labels)?tx("Planilha"):tx("Ambos");const sourceClass=duplicateText(key,old,labels)===duplicateText(key,fieldValue,labels)?"system":duplicateText(key,incoming,labels)===duplicateText(key,fieldValue,labels)?"sheet":"both";return <div key={key}><span>{tx(duplicateFieldLabel(key))}</span><b>{duplicateText(key,fieldValue,labels)}</b><small className={`import-source import-source--${sourceClass}`}>{source}</small></div>})}</div>:<div className="import-duplicate-grid"><DuplicateCard title={tx("Cadastro atual")} data={item.existingData} other={item.incomingData} labels={labels} source="system" selected={value==="keep"} onClick={()=>onChange("keep")}/><span className="import-duplicate-choice">{tx("ou")}</span><DuplicateCard title={tx("Planilha")} data={item.incomingData} other={item.existingData} labels={labels} source="sheet" selected={value==="update"} onClick={()=>onChange("update")}/></div>}{item.mergeAvailable&&<button type="button" className={`button ${merged?"button--primary":"button--secondary"}`} onClick={()=>onChange(merged?"":"merge")}>{merged?tx("Mesclando as versões"):tx("Mesclar informações")}</button>}</div>}
+function DuplicateBatchChoice({value,onChange}:{value:"update"|"keep"|"merge"|"";onChange:(value:"update"|"keep"|"merge")=>void}){const { tx } = useI18n();return <section className="import-duplicate-batch"><h3>{tx("Cadastros repetidos")}</h3><p>{tx("Qual regra deve valer para todos?")}</p><div className="import-duplicate-batch__options">{([['update','Atualizar com a planilha'],['keep','Manter os cadastros atuais'],['merge','Mesclar as informações']] as const).map(([key,label])=><button type="button" key={key} className={value===key?"is-selected":undefined} aria-pressed={value===key} onClick={()=>onChange(key)}>{tx(label)}</button>)}</div></section>}
 
 function ReviewContext({ item }: { item: ImportReviewItem }) {
-  const parts = [`Linha ${item.row}`, item.birthDate ? `Nascimento: ${item.birthDate}` : null, item.age != null ? `${item.age} anos` : null, item.guardianName ? `Responsável: ${item.guardianName}` : null, item.emergencyContact ? `Emergência: ${item.emergencyContact}` : null].filter((p): p is string => !!p);
-  return <div className="import-review__context">{parts.map((p) => <span key={p}>{p}</span>)}{item.original && <p><b>Na planilha:</b> {item.original}</p>}</div>;
+  const { tx } = useI18n();
+  const parts = [tx("Linha {n}", { n: item.row }), item.birthDate ? tx("Nascimento: {date}", { date: item.birthDate }) : null, item.age != null ? tx("{age} anos", { age: item.age }) : null, item.guardianName ? tx("Responsável: {name}", { name: item.guardianName }) : null, item.emergencyContact ? tx("Emergência: {contact}", { contact: item.emergencyContact }) : null].filter((p): p is string => !!p);
+  return <div className="import-review__context">{parts.map((p) => <span key={p}>{p}</span>)}{item.original && <p><b>{tx("Na planilha:")}</b> {item.original}</p>}</div>;
 }
 
 function ReviewEditor({ item, value, inputRef, busy, onChange, onCreateLeader, onEditLeader }: { item: ImportReviewItem; value: string; inputRef: React.RefObject<HTMLInputElement | HTMLSelectElement | null>; busy: boolean; onChange: (v: string) => void; onCreateLeader: () => void; onEditLeader: (id: string) => void }) {
-  if (item.kind === "leader" && item.resolved && value) return <div className="import-leader import-leader--created"><span className="import-success__check import-success__check--small"><CheckGlyph size={26} /></span><strong>Líder criado</strong><button type="button" className="icon-btn icon-btn--bare" aria-label="Editar líder" title="Editar líder" onClick={() => onEditLeader(value)}><img className="pencil-icon" src={ICONS.pencil} alt="" /></button></div>;
-  if (item.kind === "leader" && item.options?.length) return <label className="cat-field"><span className="cat-field__label">Escolha o líder</span><select ref={inputRef as React.RefObject<HTMLSelectElement>} className="cat-input" value={value} onChange={(e) => onChange(e.target.value)}><option value="">Selecione…</option>{item.options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></label>;
-  if (item.kind === "leader") return <div className="import-leader"><label className="cat-field cat-field--grow"><span className="cat-field__label">Novo líder</span><input className="cat-input" value={item.original} readOnly /></label><label className="cat-field cat-field--grow"><span className="cat-field__label">Celular</span><PhoneInput value={maskBrazilPhone(value)} onChange={onChange} inputRef={inputRef as React.RefObject<HTMLInputElement | null>} /></label><button type="button" className="button button--primary" disabled={busy || value.replace(/\D/g, "").length !== 11} onClick={onCreateLeader}>Criar</button></div>;
-  if (item.kind === "cpf") return <label className="cat-field"><span className="cat-field__label">CPF</span><CpfInput value={formatCpf(value)} onChange={onChange} inputRef={inputRef as React.RefObject<HTMLInputElement | null>} /></label>;
-  if (item.kind === "phone") return <label className="cat-field"><span className="cat-field__label">Telefone do responsável</span><PhoneInput value={maskBrazilPhone(value)} onChange={onChange} inputRef={inputRef as React.RefObject<HTMLInputElement | null>} /></label>;
+  const { tx } = useI18n();
+  if (item.kind === "leader" && item.resolved && value) return <div className="import-leader import-leader--created"><span className="import-success__check import-success__check--small"><CheckGlyph size={26} /></span><strong>{tx("Líder criado")}</strong><button type="button" className="icon-btn icon-btn--bare" aria-label={tx("Editar líder")} title={tx("Editar líder")} onClick={() => onEditLeader(value)}><img className="pencil-icon" src={ICONS.pencil} alt="" /></button></div>;
+  if (item.kind === "leader" && item.options?.length) return <label className="cat-field"><span className="cat-field__label">{tx("Escolha o líder")}</span><select ref={inputRef as React.RefObject<HTMLSelectElement>} className="cat-input" value={value} onChange={(e) => onChange(e.target.value)}><option value="">{tx("Selecione…")}</option>{item.options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select></label>;
+  if (item.kind === "leader") return <div className="import-leader"><label className="cat-field cat-field--grow"><span className="cat-field__label">{tx("Novo líder")}</span><input className="cat-input" value={item.original} readOnly /></label><label className="cat-field cat-field--grow"><span className="cat-field__label">{tx("Celular")}</span><PhoneInput value={maskBrazilPhone(value)} onChange={onChange} inputRef={inputRef as React.RefObject<HTMLInputElement | null>} /></label><button type="button" className="button button--primary" disabled={busy || value.replace(/\D/g, "").length !== 11} onClick={onCreateLeader}>{tx("Criar")}</button></div>;
+  if (item.kind === "cpf") return <label className="cat-field"><span className="cat-field__label">{tx("CPF")}</span><CpfInput value={formatCpf(value)} onChange={onChange} inputRef={inputRef as React.RefObject<HTMLInputElement | null>} /></label>;
+  if (item.kind === "phone") return <label className="cat-field"><span className="cat-field__label">{tx("Telefone do responsável")}</span><PhoneInput value={maskBrazilPhone(value)} onChange={onChange} inputRef={inputRef as React.RefObject<HTMLInputElement | null>} /></label>;
   const type = item.kind === "date" ? "text" : item.kind === "email" ? "email" : "text";
-  return <label className="cat-field"><span className="cat-field__label">Correção</span><input ref={inputRef as React.RefObject<HTMLInputElement>} className="cat-input" type={type} placeholder={item.kind === "date" ? "dd/MM/aaaa" : item.kind === "guardianName" ? "Nome do responsável" : "Digite o valor correto"} value={value} onChange={(e) => onChange(e.target.value)} /></label>;
+  return <label className="cat-field"><span className="cat-field__label">{tx("Correção")}</span><input ref={inputRef as React.RefObject<HTMLInputElement>} className="cat-input" type={type} placeholder={item.kind === "date" ? tx("dd/MM/aaaa") : item.kind === "guardianName" ? tx("Nome do responsável") : tx("Digite o valor correto")} value={value} onChange={(e) => onChange(e.target.value)} /></label>;
 }
 
 const PREVIEW_COLUMNS: { key: string; label: string }[] = [
@@ -468,6 +475,7 @@ const PREVIEW_COLUMNS: { key: string; label: string }[] = [
 ];
 
 function PreviewTable({ record, delta, skippedRowNumbers, categories, declinedCategoryIds,duplicateChoice }: { record: CamperImport; delta: Delta; skippedRowNumbers: Set<number>; categories: Category[]; declinedCategoryIds: Set<string>;duplicateChoice:"update"|"keep"|"merge"|"" }) {
+  const { tx } = useI18n();
   const labels = previewLabelMap(record, categories);
   const [expandedColumns, setExpandedColumns] = useState<Set<string>>(() => new Set());
   const toggleColumn = (key: string) => setExpandedColumns((current) => {
@@ -483,13 +491,13 @@ function PreviewTable({ record, delta, skippedRowNumbers, categories, declinedCa
     if (outA !== outB) return outA - outB;
     const roomA = displayPreviewValue("bedroom", a.bedroom, labels);
     const roomB = displayPreviewValue("bedroom", b.bedroom, labels);
-    if (roomA !== roomB) return roomA === "—" ? 1 : roomB === "—" ? -1 : roomA.localeCompare(roomB, "pt-BR");
-    return String(a.name ?? "").localeCompare(String(b.name ?? ""), "pt-BR");
+    if (roomA !== roomB) return roomA === "—" ? 1 : roomB === "—" ? -1 : roomA.localeCompare(roomB, collatorLocale());
+    return String(a.name ?? "").localeCompare(String(b.name ?? ""), collatorLocale());
   });
   const shown = rows.slice(0, 200);
   const columns = previewColumns(rows.filter((row) => !skippedRowNumbers.has(Number(row.row))), labels);
   const longColumns = new Set(columns.filter((column) => rows.some((row) => isLongPreviewValue(displayPreviewValue(column.key, row[column.key], labels)))).map((column) => column.key));
-  return <div className="import-table-wrap"><table className="import-table"><thead><tr>{columns.map((column) => <th key={column.key} className={expandedColumns.has(column.key) ? "import-table__column--expanded" : undefined}>{longColumns.has(column.key) ? <button type="button" className={`import-table__column-toggle${expandedColumns.has(column.key) ? " is-expanded" : ""}`} aria-pressed={expandedColumns.has(column.key)} title={expandedColumns.has(column.key) ? "Recolher coluna" : "Mostrar o conteúdo completo desta coluna"} onClick={() => toggleColumn(column.key)}>{column.label} <span><EllipsisGlyph size={13} /></span></button> : column.label}</th>)}</tr></thead><tbody>{shown.map((r, i) => <tr key={`${r.row}-${i}`} className={skippedRowNumbers.has(Number(r.row)) ? "import-table__row--out" : undefined}>{columns.map((column) => { const text = displayPreviewValue(column.key, r[column.key], labels); const long = isLongPreviewValue(text); const expanded = expandedColumns.has(column.key); return <td key={column.key} className={expanded ? "import-table__column--expanded" : undefined}>{long && !expanded ? <button type="button" className="import-table__truncated" title="Mostrar o conteúdo completo desta coluna" onClick={() => toggleColumn(column.key)}>{truncatePreviewValue(text)}</button> : text}</td>; })}</tr>)}</tbody></table>{rows.length > shown.length && <p className="cat-hint">Mostrando as primeiras {shown.length} linhas.</p>}</div>;
+  return <div className="import-table-wrap"><table className="import-table"><thead><tr>{columns.map((column) => <th key={column.key} className={expandedColumns.has(column.key) ? "import-table__column--expanded" : undefined}>{longColumns.has(column.key) ? <button type="button" className={`import-table__column-toggle${expandedColumns.has(column.key) ? " is-expanded" : ""}`} aria-pressed={expandedColumns.has(column.key)} title={expandedColumns.has(column.key) ? tx("Recolher coluna") : tx("Mostrar o conteúdo completo desta coluna")} onClick={() => toggleColumn(column.key)}>{tx(column.label)} <span><EllipsisGlyph size={13} /></span></button> : tx(column.label)}</th>)}</tr></thead><tbody>{shown.map((r, i) => <tr key={`${r.row}-${i}`} className={skippedRowNumbers.has(Number(r.row)) ? "import-table__row--out" : undefined}>{columns.map((column) => { const cell = displayPreviewValue(column.key, r[column.key], labels, tx); const long = isLongPreviewValue(cell); const expanded = expandedColumns.has(column.key); return <td key={column.key} className={expanded ? "import-table__column--expanded" : undefined}>{long && !expanded ? <button type="button" className="import-table__truncated" title={tx("Mostrar o conteúdo completo desta coluna")} onClick={() => toggleColumn(column.key)}>{truncatePreviewValue(cell)}</button> : cell}</td>; })}</tr>)}</tbody></table>{rows.length > shown.length && <p className="cat-hint">{tx("Mostrando as primeiras {n} linhas.", { n: shown.length })}</p>}</div>;
 }
 
 const PREVIEW_TEXT_LIMIT = 56;
@@ -544,19 +552,20 @@ function previewLabelMap(record: CamperImport, categories: Category[] = []): Map
   return labels;
 }
 
-function displayPreviewValue(key: string, value: unknown, labels: Map<string, string>): string {
+function displayPreviewValue(key: string, value: unknown, labels: Map<string, string>, tx: (pt: string, vars?: Record<string, string | number>) => string = (s) => s): string {
   if (value == null || value === "") return "—";
   if (Array.isArray(value)) return value.map((v) => labels.get(String(v)) ?? String(v)).join(", ") || "—";
-  if (typeof value === "boolean") return value ? "Sim" : "Não";
+  if (typeof value === "boolean") return value ? tx("Sim") : tx("Não");
   const label = labels.get(String(value));
   if (label) return label;
   if (key === "birthDate" && /^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
     const [year, month, day] = String(value).split("-");
     return `${day}/${month}/${year}`;
   }
-  if (key === "probableGender") return value === "F" ? "Feminino" : value === "M" ? "Masculino" : "—";
+  if (key === "probableGender") return value === "F" ? tx("Feminino") : value === "M" ? tx("Masculino") : "—";
+  if (key === "duplicateSource") return tx(String(value));
   if (key === "guardianPhone") return formatBrazilPhoneClient(String(value));
-  if (key === "weightKg") return `${String(value).replace(".", ",")} kg`;
+  if (key === "weightKg") return tx("{weight} kg", { weight: String(value).replace(".", ",") });
   if (/^[a-f0-9]{24}$/i.test(String(value))) return "—";
   return String(value);
 }

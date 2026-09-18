@@ -6,6 +6,7 @@ import GroupIcon from "../components/GroupIcon";
 import StaffIcon from "../components/StaffIcon";
 import { ICONS } from "../icons";
 import { useCollection } from "../store";
+import { collatorLocale, useI18n } from "../i18n";
 
 type Who = "campers" | "staff";
 
@@ -44,6 +45,7 @@ interface GiveawayPageProps {
  * inside Acampantes (/campers/giveaway) and Equipe (/staff/giveaway).
  */
 export default function GiveawayPage({ who, crumbs }: GiveawayPageProps) {
+  const { tx } = useI18n();
   const campers = useCollection("campers");
   const staff = useCollection("staff");
   const bedrooms = useCollection("bedrooms");
@@ -57,7 +59,7 @@ export default function GiveawayPage({ who, crumbs }: GiveawayPageProps) {
   }, [bedrooms]);
 
   const rows = useMemo<Row[]>(() => {
-    const collator = new Intl.Collator("pt-BR", { sensitivity: "base" });
+    const collator = new Intl.Collator(collatorLocale(), { sensitivity: "base" });
     const staffById = new Map((staff ?? []).map((s) => [s.id, s]));
     if (who === "campers") {
       return (campers ?? [])
@@ -87,30 +89,32 @@ export default function GiveawayPage({ who, crumbs }: GiveawayPageProps) {
       <Breadcrumbs items={crumbs} />
       <header className="admin-head">
         <h1 className="admin-title">
-          <img className="admin-title__icon" src={ICONS.giveaway} alt="" aria-hidden="true" /> Sorteio · {who === "campers" ? "Acampantes" : "Equipe"}
+          <img className="admin-title__icon" src={ICONS.giveaway} alt="" aria-hidden="true" /> {tx("Sorteio")} · {who === "campers" ? tx("Acampantes") : tx("Equipe")}
         </h1>
         <div className="admin-head__actions">
-          <button type="button" className="button button--primary admin-head__new" disabled={rows.length === 0} title="Sortear um número" onClick={draw}>
-            <img className="admin-head__action-icon" src={ICONS.draw} alt="" aria-hidden="true" /> Sortear
+          <button type="button" className="button button--primary admin-head__new" disabled={rows.length === 0} title={tx("Sortear um número")} onClick={draw}>
+            <img className="admin-head__action-icon" src={ICONS.draw} alt="" aria-hidden="true" /> {tx("Sortear")}
           </button>
         </div>
       </header>
       {winner !== null && <GiveawayDrawDialog key={round} open entries={rows} winner={winner} onRedraw={draw} onClose={() => setWinner(null)} />}
       <p className="admin-intro">
-        Sorteie um número de 1 a {rows.length || "…"} e veja quem ganhou. Só entram na lista quem fez check-in{who === "staff" ? " (e está ativo na equipe)" : ""}.
+        {who === "staff"
+          ? tx("Sorteie um número de 1 a {n} e veja quem ganhou. Só entram na lista quem fez check-in (e está ativo na equipe).", { n: rows.length || "…" })
+          : tx("Sorteie um número de 1 a {n} e veja quem ganhou. Só entram na lista quem fez check-in.", { n: rows.length || "…" })}
       </p>
 
-      {!synced && <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>}
-      {synced && rows.length === 0 && <p className="opt-empty">Ninguém fez check-in ainda.</p>}
+      {!synced && <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>}
+      {synced && rows.length === 0 && <p className="opt-empty">{tx("Ninguém fez check-in ainda.")}</p>}
 
       {rows.length > 0 && (
-        <ol className="opt-items" aria-label={who === "campers" ? "Acampantes com check-in" : "Equipe com check-in"}>
+        <ol className="opt-items" aria-label={who === "campers" ? tx("Acampantes com check-in") : tx("Equipe com check-in")}>
           {rows.map((r, i) => (
             <li key={r.id} className="opt-item">
               <span className="opt-item__num">{i + 1}</span>
               <span className="opt-item__label">{r.name}</span>
               {r.leader && (
-                <span className="opt-item__badge opt-item__badge--icon" title="Líder da criança">
+                <span className="opt-item__badge opt-item__badge--icon" title={tx("Líder da criança")}>
                   <StaffIcon size={16} /> {r.leader}
                 </span>
               )}

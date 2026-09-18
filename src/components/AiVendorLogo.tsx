@@ -6,7 +6,7 @@ import meta from "../assets/ai/meta.svg";
 import zhipu from "../assets/ai/zhipu.svg";
 import google from "../assets/ai/google.svg";
 
-const LOGOS: Record<AiVendor, { src: string; name: string }> = {
+const LOGOS: Partial<Record<AiVendor, { src: string; name: string }>> = {
   anthropic: { src: anthropic, name: "Anthropic" },
   openai: { src: openai, name: "OpenAI" },
   xai: { src: xai, name: "xAI" },
@@ -27,6 +27,7 @@ export function guessVendor(modelId?: string): AiVendor | undefined {
   if (id.startsWith("muse") || id.startsWith("llama")) return "meta";
   if (id.startsWith("glm")) return "zhipu";
   if (id.startsWith("gemini") || id.startsWith("gemma")) return "google";
+  if (id.startsWith("qwen") || id.startsWith("qwen3")) return "alibaba";
   return undefined;
 }
 

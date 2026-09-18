@@ -3,6 +3,7 @@ import { ApiError } from "../api/client";
 import { requestOtp, verifyOtp } from "../auth/store";
 import OtpInput from "../components/OtpInput";
 import StaffAccessDialog, { isStaffAccessError } from "../components/StaffAccessDialog";
+import { useI18n, useT } from "../i18n";
 import type { LoggedUser } from "../roles";
 
 interface OtpStepProps {
@@ -52,6 +53,8 @@ export default function OtpStep({
   onVerified,
   onBack,
 }: OtpStepProps) {
+  const t = useT();
+  const { tx } = useI18n();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +95,7 @@ export default function OtpStep({
             setCode("");
           }
         } else {
-          setError("Algo deu errado. Tente novamente.");
+          setError(t("login.genericError"));
         }
         // allow retrying after a failure
         setTimeout(() => {
@@ -102,7 +105,7 @@ export default function OtpStep({
         setLoading(false);
       }
     },
-    [phoneE164, onVerified],
+    [phoneE164, onVerified, t],
   );
 
   async function handleResend() {
@@ -115,7 +118,7 @@ export default function OtpStep({
       setAttemptsLeft(null);
     } catch (err) {
       if (isStaffAccessError(err)) setAccessError(err);
-      else setError(err instanceof Error ? err.message : "Não foi possível reenviar.");
+      else setError(err instanceof Error ? err.message : tx("Não foi possível reenviar."));
     } finally {
       setResending(false);
     }
@@ -124,13 +127,12 @@ export default function OtpStep({
   if (frozenMinutes != null) {
     return (
       <>
-        <h1 className="camping-panel__title">Conta bloqueada</h1>
+        <h1 className="camping-panel__title">{tx("Conta bloqueada")}</h1>
         <p className="panel-text">
-          Foram 3 tentativas erradas, então a conta ficou bloqueada por segurança. Espere{" "}
-          <strong>{frozenMinutes} minuto(s)</strong> e tente de novo.
+          {tx("Foram 3 tentativas erradas, então a conta ficou bloqueada por segurança. Espere {n} minuto(s) e tente de novo.", { n: frozenMinutes })}
         </p>
         <button type="button" className="button button--secondary" onClick={onBack}>
-          Voltar ao início
+          {tx("Voltar ao início")}
         </button>
       </>
     );
@@ -140,28 +142,28 @@ export default function OtpStep({
     <>
       <div className="panel-head">
         <button type="button" className="back-button" onClick={onBack}>
-          ← Trocar telefone
+          {tx("← Trocar telefone")}
         </button>
       </div>
 
-      <h1 className="camping-panel__title">Digite o código</h1>
+      <h1 className="camping-panel__title">{t("login.otpTitle")}</h1>
       <p className="panel-text">
         {delivery === "redirect" ? (
           <>
-            🧪 Modo de teste: o código de <strong>{phoneMasked}</strong> foi enviado para o <strong>celular de teste</strong> da organização.
+            {t("login.otpSentRedirect", { phone: phoneMasked })}
           </>
         ) : (
           <>
-            Enviamos um SMS para <strong>{phoneMasked}</strong>
+            {t("login.otpSentSms", { phone: phoneMasked })}
           </>
         )}
         {delivery === "mock" && (
-          <span className="mock-note"> (modo dev: o código aparece no console do servidor)</span>
+          <span className="mock-note">{tx(" (modo dev: o código aparece no console do servidor)")}</span>
         )}
       </p>
 
       <div className={`countdown ${expired ? "countdown--expired" : ""}`}>
-        {expired ? "O código expirou" : `Vale por ${minutes}:${seconds}`}
+        {expired ? tx("O código expirou") : tx("Vale por {time}", { time: `${minutes}:${seconds}` })}
       </div>
 
       <OtpInput
@@ -177,7 +179,7 @@ export default function OtpStep({
         <p className="message message--error">
           {error}
           {attemptsLeft != null && (
-            <span className="attempts"> · {attemptsLeft} tentativa(s) restante(s)</span>
+            <span className="attempts"> · {t("login.attemptsLeft", { n: attemptsLeft })}</span>
           )}
         </p>
       )}
@@ -188,7 +190,7 @@ export default function OtpStep({
         disabled={loading || code.length !== 6 || expired}
         onClick={() => submit(code)}
       >
-        {loading ? "Verificando…" : "Entrar"}
+        {loading ? t("login.verifying") : t("login.verify")}
       </button>
 
       <button
@@ -196,9 +198,9 @@ export default function OtpStep({
         className="resend-button"
         disabled={resending || !expired}
         onClick={handleResend}
-        title={expired ? "Pedir um novo código" : "O código ainda é válido"}
+        title={expired ? t("login.resend") : t("login.codeExpired")}
       >
-        {resending ? "Reenviando…" : expired ? "Reenviar código" : "Você pode pedir um novo código quando este expirar"}
+        {resending ? t("login.resending") : expired ? t("login.resend") : t("login.codeExpired")}
       </button>
 
       <StaffAccessDialog

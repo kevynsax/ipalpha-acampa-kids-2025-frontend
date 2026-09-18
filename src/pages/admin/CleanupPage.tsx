@@ -7,6 +7,7 @@ import { useRoute } from "../../router";
 import { setWizardDismissed } from "../../wizard/state";
 import { ICONS } from "../../icons";
 import { roleMeta } from "../../roles";
+import { useI18n } from "../../i18n";
 
 interface CleanupPageProps {
   token: string;
@@ -103,6 +104,7 @@ function idsOf(settings: Settings | null | undefined, group: StaffKeepGroup): st
  * cada botão pergunta antes, com a quantidade que vai sumir.
  */
 export default function CleanupPage({ token }: CleanupPageProps) {
+  const { tx } = useI18n();
   const confirm = useConfirm();
   const { navigate } = useRoute();
   const [busy, setBusy] = useState<CleanupGroup | "all" | null>(null);
@@ -148,15 +150,15 @@ export default function CleanupPage({ token }: CleanupPageProps) {
     if (busy) return;
     const ok = await confirm({
       emoji: "🧹",
-      title: "Limpar o cache de importação?",
+      title: tx("Limpar o cache de importação?"),
       message: (
         <>
-          Apaga as {importCache ?? 0} correspondências que a importação de equipe e de acampantes guardou (coluna da planilha → valor do app).
+          {tx("Apaga as {n} correspondências que a importação de equipe e de acampantes guardou (coluna da planilha → valor do app).", { n: importCache ?? 0 })}
           <br />
-          A próxima importação vai remontar o mapeamento do zero. Não apaga nenhum cadastro.
+          {tx("A próxima importação vai remontar o mapeamento do zero. Não apaga nenhum cadastro.")}
         </>
       ),
-      confirmLabel: "Limpar cache",
+      confirmLabel: tx("Limpar cache"),
       danger: true,
     });
     if (!ok) return;
@@ -166,9 +168,9 @@ export default function CleanupPage({ token }: CleanupPageProps) {
     try {
       const { removed } = await wipeImportCache(token);
       setReload((r) => r + 1);
-      setDone(`${removed} correspondência(s) do cache apagada(s).`);
+      setDone(tx("{n} correspondência(s) do cache apagada(s).", { n: removed }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(null);
     }
@@ -197,12 +199,12 @@ export default function CleanupPage({ token }: CleanupPageProps) {
   function keepSwitches() {
     return KEEP.map((g) => ({ ...g, count: idsOf(settings, g.key).length }))
       .filter((g) => g.count > 0)
-      .map((g) => ({ key: g.key, label: `${g.label} (${g.count})`, icon: g.icon, emoji: g.emoji }));
+      .map((g) => ({ key: g.key, label: tx("{label} ({n})", { label: tx(g.label), n: g.count }), icon: g.icon, emoji: g.emoji }));
   }
 
   function amount(block: Block): string {
     const n = counts[block.key];
-    return `${n} ${block.unit[n === 1 ? 0 : 1]}`;
+    return tx("{n} {unit}", { n, unit: tx(block.unit[n === 1 ? 0 : 1]) });
   }
 
   async function clean(group: CleanupGroup | "all", title: string, message: ReactNode, confirmLabel: string) {
@@ -210,7 +212,11 @@ export default function CleanupPage({ token }: CleanupPageProps) {
     const memory = group === "welcomes" || group === "notices";
     const wipesStaff = group === "staff" || group === "all";
     const asksRoles = group === "schedule" && roles > 0;
-    const switches = wipesStaff ? keepSwitches() : asksRoles ? [{ key: "roles", label: `Apagar também as funções (${roles}) com suas instruções e preparação` }] : [];
+    const switches = wipesStaff
+      ? keepSwitches()
+      : asksRoles
+        ? [{ key: "roles", label: tx("Apagar também as funções ({n}) com suas instruções e preparação", { n: roles }) }]
+        : [];
     keepRef.current = [];
     rolesRef.current = false;
     const ok = await confirm({
@@ -220,7 +226,7 @@ export default function CleanupPage({ token }: CleanupPageProps) {
       confirmLabel,
       danger: true,
       options: switches,
-      optionsTitle: switches.length ? (wipesStaff ? "Não apagar:" : "Apagar junto:") : undefined,
+      optionsTitle: switches.length ? (wipesStaff ? tx("Não apagar:") : tx("Apagar junto:")) : undefined,
       onOptions: (keys) => {
         if (wipesStaff) keepRef.current = keys as StaffKeepGroup[];
         else rolesRef.current = keys.includes("roles");
@@ -234,11 +240,17 @@ export default function CleanupPage({ token }: CleanupPageProps) {
       const removed = await runCleanup(token, group, keepRef.current, rolesRef.current);
       const n = Object.values(removed).reduce((a, b) => a + b, 0);
       setReload((r) => r + 1);
-      setDone(group === "all" ? `Acampamento limpo: ${n} registro(s) apagado(s).` : memory ? `${n} aviso(s) liberado(s).` : `${n} registro(s) apagado(s).`);
+      setDone(
+        group === "all"
+          ? tx("Acampamento limpo: {n} registro(s) apagado(s).", { n })
+          : memory
+            ? tx("{n} aviso(s) liberado(s).", { n })
+            : tx("{n} registro(s) apagado(s).", { n }),
+      );
       // the camp is zero again → the setup wizard may open by itself on the next login
       if (group === "all") setWizardDismissed(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(null);
     }
@@ -248,11 +260,11 @@ export default function CleanupPage({ token }: CleanupPageProps) {
     <div className="admin-page">
       <header className="admin-head">
         <h1 className="admin-title">
-          <img className="admin-title__icon" src={ICONS.cleanup} alt="" aria-hidden="true" /> Limpeza
+          <img className="admin-title__icon" src={ICONS.cleanup} alt="" aria-hidden="true" /> {tx("Limpeza")}
         </h1>
       </header>
-      <p className="admin-intro">Apaga o acampamento que acabou para preparar o do ano que vem. Nada aqui tem volta.</p>
-      <p className="message message--warn">⚠️ Só use depois que tudo estiver exportado ou impresso.</p>
+      <p className="admin-intro">{tx("Apaga o acampamento que acabou para preparar o do ano que vem. Nada aqui tem volta.")}</p>
+      <p className="message message--warn">{tx("⚠️ Só use depois que tudo estiver exportado ou impresso.")}</p>
       {error && <p className="message message--error">{error}</p>}
       {done && <p className="message message--ok">✅ {done}</p>}
 
@@ -260,13 +272,14 @@ export default function CleanupPage({ token }: CleanupPageProps) {
         {BLOCKS.map((b) => {
           // Programação also offers the funções, so it is still worth pressing with zero events
           const empty = counts[b.key] === 0 && !(b.key === "schedule" && roles > 0);
-          const low = b.noun ?? b.label.toLowerCase();
-          const verb = b.memory ? "Liberar" : "Apagar";
+          const low = tx(b.noun ?? b.label.toLowerCase());
           const message = (
             <>
-              {b.hint}
+              {tx(b.hint)}
               <br />
-              {b.memory ? `Hoje ${amount(b)} — depois de limpar o aviso pode sair de novo.` : `Isso apaga ${amount(b)} e não pode ser desfeito.`}
+              {b.memory
+                ? tx("Hoje {amount} — depois de limpar o aviso pode sair de novo.", { amount: amount(b) })
+                : tx("Isso apaga {amount} e não pode ser desfeito.", { amount: amount(b) })}
             </>
           );
           return (
@@ -283,25 +296,34 @@ export default function CleanupPage({ token }: CleanupPageProps) {
                 ) : (
                   <span aria-hidden="true">{b.emoji}</span>
                 )}{" "}
-                {b.label}
+                {tx(b.label)}
               </h2>
               <p className="cleanup-card__count">{amount(b)}</p>
-              <p className="cat-hint">{b.hint}</p>
+              <p className="cat-hint">{tx(b.hint)}</p>
               <button
                 type="button"
                 className="button button--danger"
                 disabled={empty || busy !== null}
-                onClick={() => void clean(b.key, `${verb} ${low}?`, message, `${verb} ${low}`)}
+                onClick={() =>
+                  void clean(
+                    b.key,
+                    b.memory ? tx("Liberar {thing}?", { thing: low }) : tx("Apagar {thing}?", { thing: low }),
+                    message,
+                    b.memory ? tx("Liberar {thing}", { thing: low }) : tx("Apagar {thing}", { thing: low }),
+                  )
+                }
               >
                 {busy === b.key
                   ? b.memory
-                    ? "Liberando…"
-                    : "Apagando…"
+                    ? tx("Liberando…")
+                    : tx("Apagando…")
                   : empty
                     ? b.memory
-                      ? "Nada guardado"
-                      : "Já está limpo"
-                    : `${b.memory ? "♻️" : "🧹"} ${verb} ${low}`}
+                      ? tx("Nada guardado")
+                      : tx("Já está limpo")
+                    : b.memory
+                      ? tx("♻️ Liberar {thing}", { thing: low })
+                      : tx("🧹 Apagar {thing}", { thing: low })}
               </button>
             </section>
           );
@@ -309,10 +331,12 @@ export default function CleanupPage({ token }: CleanupPageProps) {
       </div>
 
       <section className="cleanup-all">
-        <h2 className="cleanup-all__title">🧹 Limpar tudo</h2>
+        <h2 className="cleanup-all__title">🧹 {tx("Limpar tudo")}</h2>
         <p className="cleanup-all__text">
-          Apaga os {total} registro(s) dos blocos acima de uma vez — menos as Instruções e a Preparação, que têm botão próprio —, libera a memória dos avisos e zera as datas do check-in, as
-          janelas de acesso, o lembrete e os ensaios. Ficam para o ano que vem: os logins, as categorias e as funções. Na confirmação dá para escolher quem da equipe fica.
+          {tx(
+            "Apaga os {total} registro(s) dos blocos acima de uma vez — menos as Instruções e a Preparação, que têm botão próprio —, libera a memória dos avisos e zera as datas do check-in, as janelas de acesso, o lembrete e os ensaios. Ficam para o ano que vem: os logins, as categorias e as funções. Na confirmação dá para escolher quem da equipe fica.",
+            { total },
+          )}
         </p>
         <button
           type="button"
@@ -321,26 +345,29 @@ export default function CleanupPage({ token }: CleanupPageProps) {
           onClick={() =>
             void clean(
               "all",
-              "Limpar TODO o acampamento?",
+              tx("Limpar TODO o acampamento?"),
               <>
-                Isso apaga {total} registro(s) — acampantes, equipe, quartos, ônibus, times, programação, ocorrências, placar e fotos —, libera as boas-vindas e os avisos únicos e zera as datas
-                do acampamento.
+                {tx(
+                  "Isso apaga {total} registro(s) — acampantes, equipe, quartos, ônibus, times, programação, ocorrências, placar e fotos —, libera as boas-vindas e os avisos únicos e zera as datas do acampamento.",
+                  { total },
+                )}
                 <br />
-                Não pode ser desfeito.
+                {tx("Não pode ser desfeito.")}
               </>,
-              "Limpar tudo",
+              tx("Limpar tudo"),
             )
           }
         >
-          {busy === "all" ? "Limpando tudo…" : "🧹 Limpar tudo"}
+          {busy === "all" ? tx("Limpando tudo…") : tx("🧹 Limpar tudo")}
         </button>
       </section>
       {isSuper && (
         <section className="cleanup-all">
-          <h2 className="cleanup-all__title">🧹 Cache de importação</h2>
+          <h2 className="cleanup-all__title">🧹 {tx("Cache de importação")}</h2>
           <p className="cleanup-all__text">
-            As correspondências que a importação de equipe e de acampantes guarda (coluna da planilha → valor do app) para reaproveitar de um ano para o outro.
-            Só o dono da implantação vê isto. Limpar não apaga nenhum cadastro — só faz a próxima importação remontar o mapeamento do zero.
+            {tx(
+              "As correspondências que a importação de equipe e de acampantes guarda (coluna da planilha → valor do app) para reaproveitar de um ano para o outro. Só o dono da implantação vê isto. Limpar não apaga nenhum cadastro — só faz a próxima importação remontar o mapeamento do zero.",
+            )}
           </p>
           <button
             type="button"
@@ -349,20 +376,24 @@ export default function CleanupPage({ token }: CleanupPageProps) {
             onClick={() => void cleanImportCache()}
           >
             {busy === ("import-cache" as CleanupGroup)
-              ? "Limpando…"
+              ? tx("Limpando…")
               : importCache === 0
-                ? "Cache vazio"
-                : `🧹 Limpar cache${importCache != null ? ` (${importCache})` : ""}`}
+                ? tx("Cache vazio")
+                : importCache != null
+                  ? tx("🧹 Limpar cache ({n})", { n: importCache })
+                  : tx("🧹 Limpar cache")}
           </button>
         </section>
       )}
       <section className="cleanup-all cleanup-next">
         <h2 className="cleanup-all__title">
-          <img className="audience-icon" src={ICONS.wizard} alt="" aria-hidden="true" /> Próximo acampamento
+          <img className="audience-icon" src={ICONS.wizard} alt="" aria-hidden="true" /> {tx("Próximo acampamento")}
         </h2>
         <p className="cleanup-all__text">
-          Depois de limpar, o <strong>assistente de configuração</strong> monta o próximo: importa equipe e crianças, escolhe o local conhecido,
-          preenche a programação e ajusta as configurações — passo a passo, com etapas que podem ser puladas.
+          {tx("Depois de limpar, o")} <strong>{tx("assistente de configuração")}</strong>{" "}
+          {tx(
+            "monta o próximo: importa equipe e crianças, escolhe o local conhecido, preenche a programação e ajusta as configurações — passo a passo, com etapas que podem ser puladas.",
+          )}
         </p>
         <button
           type="button"
@@ -372,7 +403,7 @@ export default function CleanupPage({ token }: CleanupPageProps) {
             navigate("/wizard");
           }}
         >
-          🏕️ Abrir o assistente
+          {tx("🏕️ Abrir o assistente")}
         </button>
       </section>
     </div>

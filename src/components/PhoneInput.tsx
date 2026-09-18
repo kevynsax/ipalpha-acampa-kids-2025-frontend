@@ -1,4 +1,5 @@
 import { useRef, type RefObject } from "react";
+import { useI18n } from "../i18n";
 import { digitsOnly, maskBrazilPhone } from "../phone";
 
 interface PhoneInputProps {
@@ -12,6 +13,7 @@ interface PhoneInputProps {
 
 /** Brazilian mobile input: user types DDD + number (+55 is added on submit). */
 export default function PhoneInput({ value, onChange, disabled, autoFocus, inputRef }: PhoneInputProps) {
+  const { tx } = useI18n();
   const ref = useRef<HTMLInputElement>(null);
 
   return (
@@ -33,7 +35,7 @@ export default function PhoneInput({ value, onChange, disabled, autoFocus, input
         autoFocus={autoFocus}
         onChange={(e) => onChange(maskBrazilPhone(e.target.value))}
         onFocus={(e) => e.currentTarget.select()}
-        aria-label="Celular com DDD"
+        aria-label={tx("Celular com DDD")}
       />
     </div>
   );

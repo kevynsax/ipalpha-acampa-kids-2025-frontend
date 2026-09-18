@@ -4,6 +4,7 @@ import CamperQr from "../../components/CamperQr";
 import Dialog from "../../components/Dialog";
 import KidIcon from "../../components/KidIcon";
 import { kidIconSex } from "../../icons";
+import { useI18n } from "../../i18n";
 
 interface CheckinQrDialogProps {
   kids: Camper[];
@@ -20,6 +21,7 @@ interface CheckinQrDialogProps {
  * checked in are left out; once everyone is in it stops showing.
  */
 export default function CheckinQrDialog({ kids, active }: CheckinQrDialogProps) {
+  const { tx } = useI18n();
   const pending = kids.filter((k) => !k.checkin);
   const [dismissed, setDismissed] = useState(false);
   const [selectedKidId, setSelectedKidId] = useState<string | null>(null);
@@ -51,12 +53,12 @@ export default function CheckinQrDialog({ kids, active }: CheckinQrDialogProps) 
   if (!selectedKid) return null;
 
   return (
-    <Dialog open={open} onClose={() => setDismissed(true)} title="Check-in: mostre o QR code" width={480}>
+    <Dialog open={open} onClose={() => setDismissed(true)} title={tx("Check-in: mostre o QR code")} width={480}>
       <div className="cat-form qr-dialog">
-        <h2 className="cat-form__title">✅ Hora do check-in!</h2>
-        <p className="cat-hint">Mostre {pending.length === 1 ? "este QR code" : "um QR code de cada vez"} para a equipe na entrada. 🏕️</p>
+        <h2 className="cat-form__title">{tx("✅ Hora do check-in!")}</h2>
+        <p className="cat-hint">{pending.length === 1 ? tx("Mostre este QR code para a equipe na entrada. 🏕️") : tx("Mostre um QR code de cada vez para a equipe na entrada. 🏕️")}</p>
         {pending.length > 1 && (
-          <nav className="parent-kid-tabs qr-dialog__tabs" role="tablist" aria-label="Escolha o QR code da criança">
+          <nav className="parent-kid-tabs qr-dialog__tabs" role="tablist" aria-label={tx("Escolha o QR code da criança")}>
             {pending.map((kid) => {
               const selected = kid.id === selectedKid.id;
               return (
@@ -101,7 +103,7 @@ export default function CheckinQrDialog({ kids, active }: CheckinQrDialogProps) 
         </div>
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" onClick={() => setDismissed(true)}>
-            Fechar
+            {tx("Fechar")}
           </button>
         </div>
       </div>

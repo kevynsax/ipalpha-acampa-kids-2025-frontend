@@ -259,11 +259,5 @@ export function birthdayDuringCamp(birthDate: string | null, from: string | null
   return null;
 }
 
-/** age in whole years at `at` (defaults to today) */
-export function ageOf(birthDate: string | null, at = new Date()): number | null {
-  if (!birthDate) return null;
-  const [y, m, d] = birthDate.split("-").map(Number);
-  let age = at.getFullYear() - y;
-  if (at.getMonth() + 1 < m || (at.getMonth() + 1 === m && at.getDate() < d)) age--;
-  return age >= 0 && age < 120 ? age : null;
-}
+/** age in whole years at `at` (defaults to today) — lives in ../age.ts so the room worker can use it without this module's browser deps */
+export { ageOf } from "../age";

@@ -3,6 +3,7 @@ import { ApiError } from "../api/client";
 import { requestOtp } from "../auth/store";
 import PhoneInput from "../components/PhoneInput";
 import StaffAccessDialog, { isStaffAccessError } from "../components/StaffAccessDialog";
+import { useT } from "../i18n";
 import { isCompleteMobile, toE164 } from "../phone";
 
 interface PhoneStepProps {
@@ -13,6 +14,7 @@ interface PhoneStepProps {
 
 /** Step 1 — Brazilian cell phone entry (rendered inside the green panel). */
 export default function PhoneStep({ phone, onPhoneChange, onSent }: PhoneStepProps) {
+  const t = useT();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accessError, setAccessError] = useState<ApiError | null>(null);
@@ -21,7 +23,7 @@ export default function PhoneStep({ phone, onPhoneChange, onSent }: PhoneStepPro
     e.preventDefault();
     const phoneE164 = toE164(phone);
     if (!phoneE164) {
-      setError("Digite um celular válido com DDD (ex.: (11) 98123-4567).");
+      setError(t("login.phoneInvalid"));
       return;
     }
 
@@ -36,7 +38,7 @@ export default function PhoneStep({ phone, onPhoneChange, onSent }: PhoneStepPro
       } else if (err instanceof ApiError && err.code === "ACCOUNT_FROZEN") {
         setError(err.message);
       } else {
-        setError(err instanceof Error ? err.message : "Algo deu errado. Tente novamente.");
+        setError(err instanceof Error ? err.message : t("login.genericError"));
       }
     } finally {
       setLoading(false);
@@ -45,7 +47,7 @@ export default function PhoneStep({ phone, onPhoneChange, onSent }: PhoneStepPro
 
   return (
     <>
-      <h1 className="camping-panel__title">Qual é o seu celular?</h1>
+      <h1 className="camping-panel__title">{t("login.phoneTitle")}</h1>
 
       <form className="form" onSubmit={handleSubmit}>
         <PhoneInput value={phone} onChange={onPhoneChange} disabled={loading} autoFocus />
@@ -55,7 +57,7 @@ export default function PhoneStep({ phone, onPhoneChange, onSent }: PhoneStepPro
           className="button button--primary"
           disabled={loading || !isCompleteMobile(phone)}
         >
-          {loading ? "Enviando…" : "Continuar"}
+          {loading ? t("login.sending") : t("login.continue")}
         </button>
 
         {error && <p className="message message--error">{error}</p>}

@@ -16,6 +16,7 @@ import AddRoleDialog from "./AddRoleDialog";
 import AssignRoleDialog from "./AssignRoleDialog";
 import RoleDocEditor, { type RoleDocField } from "./RoleDocEditor";
 import RoleForm from "./RoleForm";
+import { useI18n } from "../../i18n";
 
 interface EventDetailProps {
   token: string;
@@ -27,26 +28,15 @@ interface EventDetailProps {
   onOpenStaff: (staffId: string) => void;
 }
 
-/**
- * One event: when, notes and every role with the people doing it. The escala
- * is edited right here — "Adicionar +" on a role picks someone, "×" on a person
- * removes them. Automatic roles are not escaladas: they fall on the whole team
- * or on one position (Líderes / Auxiliares) of the event — their card lists who
- * that is right now.
- */
 export default function EventDetail({ token, event: e, roles, staff, crumbs, onEdit, onOpenStaff }: EventDetailProps) {
-  /** role we're adding someone to */
+  const { tx } = useI18n();
   const [addTo, setAddTo] = useState<ScheduleRole | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** função being edited right here, in a dialog (the ✏️ in its corner) */
   const [editRole, setEditRole] = useState<ScheduleRole | null>(null);
-  /** the "+" of the seção: pick an existing função or create one */
   const [addingRole, setAddingRole] = useState(false);
-  /** writing one of a função's texts, with the AI assistant open */
   const [editDoc, setEditDoc] = useState<{ role: ScheduleRole; field: RoleDocField } | null>(null);
   const [savingRole, setSavingRole] = useState(false);
-  /** per-person detail being typed (Base 1, Time Belém…) */
   const [editDetail, setEditDetail] = useState<{ role: ScheduleRole; staffId: string; value: string; color: string } | null>(null);
   const [savingDetail, setSavingDetail] = useState(false);
   const [savingParents, setSavingParents] = useState(false);
@@ -60,7 +50,7 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
     try {
       await updateEvent(token, e.id, { visibleToParents: next });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setSavingParents(false);
     }
@@ -75,7 +65,7 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
       await assignStaff(token, e.id, editDetail.staffId, editDetail.role.id, editDetail.value.trim(), editDetail.color);
       setEditDetail(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setSavingDetail(false);
     }
@@ -98,20 +88,17 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
 
   const eventRoles = e.roles.map((id) => roleById.get(id)).filter((r): r is ScheduleRole => !!r);
 
-  /** "em 🏊 Piscina · sábado 14:00" — shown under the title in the full-screen view */
-  const eventContext = `em ${e.emoji} ${e.title} · ${speakDay(e.date, "weekday")} ${e.startTime}`;
+  const eventContext = tx("em {emoji} {title} · {when}", { emoji: e.emoji, title: e.title, when: `${speakDay(e.date, "weekday")} ${e.startTime}` });
 
-  /** everyone a função reaches here — escalados by hand first, then those it falls on by posição */
   const whoDoes = (r: ScheduleRole) => peopleInRole(e, r, staff, roleById);
 
-  /** tirar alguém da função é um clique só — é fácil de desfazer ("Adicionar +"), não pede confirmação */
   async function handleRemove(staffId: string) {
     setBusy(staffId);
     setError(null);
     try {
       await unassignStaff(token, e.id, staffId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBusy(null);
     }
@@ -121,11 +108,13 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
     const people = whoDoes(role).length;
     const ok = await confirm({
       emoji: "✕",
-      title: `Tirar ${role.emoji} ${role.name} deste evento?`,
+      title: tx("Tirar {emoji} {name} deste evento?", { emoji: role.emoji, name: role.name }),
       message: people
-        ? <>As {people} pessoa{people === 1 ? "" : "s"} que {people === 1 ? "faz" : "fazem"} esta função aqui saem dela neste evento. A função continua no catálogo.</>
-        : <>A função sai deste evento. Ela continua no catálogo.</>,
-      confirmLabel: "Tirar",
+        ? people === 1
+          ? tx("A 1 pessoa que faz esta função aqui sai dela neste evento. A função continua no catálogo.")
+          : tx("As {n} pessoas que fazem esta função aqui saem dela neste evento. A função continua no catálogo.", { n: people })
+        : tx("A função sai deste evento. Ela continua no catálogo."),
+      confirmLabel: tx("Tirar"),
       danger: true,
     });
     if (!ok) return;
@@ -134,7 +123,7 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
     try {
       await updateEvent(token, e.id, { roles: e.roles.filter((id) => id !== role.id) });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setBusy(null);
     }
@@ -147,25 +136,25 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
         <h1 className="admin-title detail-title">
           <span aria-hidden="true">{e.emoji}</span> {e.title}
         </h1>
-        <button type="button" className="icon-btn icon-btn--lg" title="Editar evento" aria-label="Editar evento" onClick={onEdit}>
+        <button type="button" className="icon-btn icon-btn--lg" title={tx("Editar evento")} aria-label={tx("Editar evento")} onClick={onEdit}>
           <span className="pencil" aria-hidden="true">✏️</span>
         </button>
       </header>
 
       <section className="detail-card">
         <dl className="detail-grid">
-          <dt>Quando</dt>
+          <dt>{tx("Quando")}</dt>
           <dd>
             {speakDay(e.date)} · {e.startTime}
             {e.endTime && `–${e.endTime}`}
           </dd>
-          <dt>Pais</dt>
+          <dt>{tx("Pais")}</dt>
           <dd>
-            <Toggle checked={parentsSee} onChange={(v) => void handleParentsVisible(v)} disabled={savingParents} label={<><ParentIcon size={16} /> {parentsSee ? "veem" : "não veem"}</>} />
+            <Toggle checked={parentsSee} onChange={(v) => void handleParentsVisible(v)} disabled={savingParents} label={<><ParentIcon size={16} /> {parentsSee ? tx("veem") : tx("não veem")}</>} />
           </dd>
           {e.notes && (
             <>
-              <dt>Observações</dt>
+              <dt>{tx("Observações")}</dt>
               <dd>{e.notes}</dd>
             </>
           )}
@@ -175,14 +164,13 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
       <section className="detail-section">
         <div className="detail-h2-row">
           <h2 className="detail-h2">
-            🎯 Funções <span className="cat-tab__count">{eventRoles.length}</span>
+            🎯 {tx("Funções")} <span className="cat-tab__count">{eventRoles.length}</span>
           </h2>
-          {/* top-right of the section: vincula uma função (existente ou nova) a este evento */}
           <button
             type="button"
             className="icon-btn event-role__add"
-            title="Adicionar função neste evento"
-            aria-label="Adicionar função neste evento"
+            title={tx("Adicionar função neste evento")}
+            aria-label={tx("Adicionar função neste evento")}
             onClick={() => setAddingRole(true)}
           >
             +
@@ -193,24 +181,22 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
 
         {eventRoles.length === 0 && (
           <p className="opt-empty">
-            Este evento não tem funções.{" "}
+            {tx("Este evento não tem funções.")}{" "}
             <button type="button" className="link-btn" onClick={() => setAddingRole(true)}>
-              adicionar
+              {tx("adicionar")}
             </button>
           </p>
         )}
 
         {eventRoles.map((r) => {
           const people = whoDoes(r);
-          /* escalados à mão: são os únicos citados nome por nome */
           const picked = people.filter((p) => p.via === "person");
-          /* pela posição: vira um chip só, com a contagem — a lista de nomes seria o quarto inteiro */
           const byPosition = people.length - picked.length;
           const positions = positionsMeta(r.forRoomRoles);
           return (
             <div key={r.id} className={`detail-card event-role ${positions ? "event-role--default" : ""}`}>
               <div className="event-role__head">
-                {positions && <span className="cat-field__label event-role__standard">Por posição</span>}
+                {positions && <span className="cat-field__label event-role__standard">{tx("Por posição")}</span>}
                 <h3 className="event-role__name">
                   <span aria-hidden="true">{r.emoji}</span> {r.name}
                 </h3>
@@ -219,8 +205,8 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
                   <button
                     type="button"
                     className="icon-btn icon-btn--bare"
-                    title={`Editar a função ${r.name}`}
-                    aria-label={`Editar a função ${r.name}`}
+                    title={tx("Editar a função {name}", { name: r.name })}
+                    aria-label={tx("Editar a função {name}", { name: r.name })}
                     onClick={() => setEditRole(r)}
                   >
                     <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
@@ -228,8 +214,8 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
                   <button
                     type="button"
                     className="icon-btn icon-btn--bare"
-                    title={`Tirar ${r.name} deste evento`}
-                    aria-label={`Tirar ${r.name} deste evento`}
+                    title={tx("Tirar {name} deste evento", { name: r.name })}
+                    aria-label={tx("Tirar {name} deste evento", { name: r.name })}
                     disabled={!!busy}
                     onClick={() => void handleUnplug(r)}
                   >
@@ -238,39 +224,36 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
                 </div>
               </div>
 
-              {r.detailFromTeam && <p className="cat-hint">🚩 O detalhe é o time de cada um — mude o time na ficha da pessoa.</p>}
+              {r.detailFromTeam && <p className="cat-hint">{tx("🚩 O detalhe é o time de cada um — mude o time na ficha da pessoa.")}</p>}
 
               <div className="staff-card__tags">
-                {/* quem pega pela posição entra como UM chip com a contagem, não nome por nome */}
                 {positions && (
                   <span
                     className="staff-tag staff-tag--everyone"
-                    title={`${byPosition} ${byPosition === 1 ? "pessoa" : "pessoas"}: ${positions.hint}, sem escalar uma por uma`}
+                    title={byPosition === 1 ? tx("{n} pessoa: {hint}, sem escalar uma por uma", { n: byPosition, hint: positions.hint }) : tx("{n} pessoas: {hint}, sem escalar uma por uma", { n: byPosition, hint: positions.hint })}
                   >
                     <img className="audience-icon" src={positions.icon} alt="" aria-hidden="true" /> {positions.label}
                     <span className="staff-tag__n">{byPosition}</span>
                   </span>
                 )}
                 {picked.map(({ staff: s, assignment }) => {
-                  // a team-backed role reads its chip from the person's team, live
                   const { detail, detailColor } = roleDetailOf(r, assignment, teamOf(s.team));
                   return (
                     <span
                       key={s.id}
                       className={`staff-tag staff-tag--soft staff-tag--person ${busy === s.id ? "staff-tag--busy" : ""}`}
-                      title={`${s.name} foi escalado(a) à mão`}
+                      title={tx("{name} foi escalado(a) à mão", { name: s.name })}
                     >
-                      <button type="button" className="staff-tag__open" title={`Ver ${s.name}`} onClick={() => onOpenStaff(s.id)}>
+                      <button type="button" className="staff-tag__open" title={tx("Ver {name}", { name: s.name })} onClick={() => onOpenStaff(s.id)}>
                         {s.name}
                       </button>
-                      {/* the team detail is read-only here: it is changed on the person, in Equipe */}
                       {r.hasDetail && r.detailFromTeam && (
                         <span
                           className={`staff-tag__detail ${detail ? "staff-tag__detail--tinted" : "staff-tag__detail--empty"}`}
                           style={detailColor ? { background: detailColor, color: contrastText(detailColor) } : undefined}
-                          title={detail ? `Time de ${s.name}` : `${s.name} não tem time`}
+                          title={detail ? tx("Time de {name}", { name: s.name }) : tx("{name} não tem time", { name: s.name })}
                         >
-                          {detail || <span aria-hidden="true">sem time</span>}
+                          {detail || <span aria-hidden="true">{tx("sem time")}</span>}
                         </span>
                       )}
                       {r.hasDetail && !r.detailFromTeam && (
@@ -278,8 +261,8 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
                           type="button"
                           className={`staff-tag__detail ${detail ? "" : "staff-tag__detail--empty"} ${detailColor ? "staff-tag__detail--tinted" : ""}`}
                           style={detailColor ? { background: detailColor, color: contrastText(detailColor) } : undefined}
-                          title={detail ? `Mudar o detalhe de ${s.name}` : `Preencher o detalhe de ${s.name}`}
-                          aria-label={detail ? `Mudar o detalhe de ${s.name}: ${detail}` : `Preencher o detalhe de ${s.name}`}
+                          title={detail ? tx("Mudar o detalhe de {name}", { name: s.name }) : tx("Preencher o detalhe de {name}", { name: s.name })}
+                          aria-label={detail ? tx("Mudar o detalhe de {name}: {detail}", { name: s.name, detail }) : tx("Preencher o detalhe de {name}", { name: s.name })}
                           disabled={!!busy}
                           onClick={() => setEditDetail({ role: r, staffId: s.id, value: assignment?.detail ?? "", color: assignment?.detailColor ?? "" })}
                         >
@@ -289,8 +272,8 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
                       <button
                         type="button"
                         className="staff-tag__x"
-                        title={`Tirar ${s.name} de ${r.name}`}
-                        aria-label={`Tirar ${s.name} de ${r.name}`}
+                        title={tx("Tirar {person} de {role}", { person: s.name, role: r.name })}
+                        aria-label={tx("Tirar {person} de {role}", { person: s.name, role: r.name })}
                         disabled={!!busy}
                         onClick={() => handleRemove(s.id)}
                       >
@@ -299,10 +282,9 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
                     </span>
                   );
                 })}
-                {/* fecha a linha — mas "toda a equipe" já é todo mundo: não há quem acrescentar */}
                 {!isForWholeTeam(r) && (
-                  <button type="button" className="add-person-btn" title={`Escalar alguém como ${r.name}`} disabled={!!busy} onClick={() => setAddTo(r)}>
-                    {people.length === 0 ? "Adicionar pessoa" : "Adicionar"} <span aria-hidden="true">+</span>
+                  <button type="button" className="add-person-btn" title={tx("Escalar alguém como {name}", { name: r.name })} disabled={!!busy} onClick={() => setAddTo(r)}>
+                    {people.length === 0 ? tx("Adicionar pessoa") : tx("Adicionar")} <span aria-hidden="true">+</span>
                   </button>
                 )}
               </div>
@@ -317,7 +299,7 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
         open={addingRole}
         roles={roles}
         excludeIds={e.roles}
-        where={`em ${e.emoji} ${e.title}`}
+        where={tx("em {emoji} {title}", { emoji: e.emoji, title: e.title })}
         onAdd={async (roleId) => {
           await updateEvent(token, e.id, { roles: [...e.roles, roleId] });
         }}
@@ -373,13 +355,13 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
         {editDetail && (
           <form className="cat-form cat-form--embedded" onSubmit={handleSaveDetail}>
             <h2 className="cat-form__title change-room__title">
-              🏷️ Detalhe — {staffById.get(editDetail.staffId)?.name.split(" ")[0] ?? ""}
+              {tx("🏷️ Detalhe — {name}", { name: staffById.get(editDetail.staffId)?.name.split(" ")[0] ?? "" })}
             </h2>
             <label className="cat-field">
-              <span className="cat-field__label">Detalhe</span>
+              <span className="cat-field__label">{tx("Detalhe")}</span>
               <input
                 className="cat-input"
-                placeholder={editDetail.role.detailPlaceholder || "ex.: Base 3"}
+                placeholder={editDetail.role.detailPlaceholder || tx("ex.: Base 3")}
                 value={editDetail.value}
                 maxLength={60}
                 autoFocus
@@ -388,13 +370,13 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
               />
             </label>
             <div className="cat-field">
-              <span className="cat-field__label">Cor</span>
+              <span className="cat-field__label">{tx("Cor")}</span>
               <div className="swatch-group">
                 <button
                   type="button"
                   className={`swatch swatch--none ${editDetail.color ? "" : "swatch--on"}`}
-                  title="Sem cor"
-                  aria-label="Sem cor"
+                  title={tx("Sem cor")}
+                  aria-label={tx("Sem cor")}
                   aria-pressed={!editDetail.color}
                   disabled={savingDetail}
                   onClick={() => setEditDetail({ ...editDetail, color: "" })}
@@ -407,30 +389,30 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
                     type="button"
                     className={`swatch ${editDetail.color.toLowerCase() === c.hex ? "swatch--on" : ""}`}
                     style={{ background: c.hex }}
-                    title={c.name}
-                    aria-label={c.name}
+                    title={tx(c.name)}
+                    aria-label={tx(c.name)}
                     aria-pressed={editDetail.color.toLowerCase() === c.hex}
                     disabled={savingDetail}
                     onClick={() => setEditDetail({ ...editDetail, color: c.hex })}
                   />
                 ))}
-                <label className="swatch swatch--custom" title="Cor personalizada">
+                <label className="swatch swatch--custom" title={tx("Cor personalizada")}>
                   <input
                     type="color"
                     value={editDetail.color || "#0f9a8a"}
                     disabled={savingDetail}
                     onChange={(ev) => setEditDetail({ ...editDetail, color: ev.target.value })}
-                    aria-label="Cor personalizada"
+                    aria-label={tx("Cor personalizada")}
                   />
                 </label>
               </div>
             </div>
             <div className="cat-form__actions">
               <button type="button" className="button button--secondary" disabled={savingDetail} onClick={() => setEditDetail(null)}>
-                Cancelar
+                {tx("Cancelar")}
               </button>
               <button type="submit" className="button button--primary" disabled={savingDetail}>
-                {savingDetail ? "Salvando…" : "Salvar"}
+                {savingDetail ? tx("Salvando…") : tx("Salvar")}
               </button>
             </div>
           </form>
@@ -440,29 +422,25 @@ export default function EventDetail({ token, event: e, roles, staff, crumbs, onE
   );
 }
 
-/**
- * What the team has to do in this função: what to bring/prepare beforehand and
- * the instructions for the day. Both are clamped to a scrollable box with a ⤢
- * to read the whole thing full screen.
- */
 function RoleDocs({ role: r, context, onEditDoc }: { role: ScheduleRole; context: string; onEditDoc: (field: RoleDocField) => void }) {
+  const { tx } = useI18n();
   const title = `${r.emoji} ${r.name}`;
   return (
     <div className="event-role__docs">
       <RichTextBox
-        label={<><img className="audience-icon" src={ICONS.preparation} alt="" aria-hidden="true" /> Preparação (antes do acampamento)</>}
+        label={<><img className="audience-icon" src={ICONS.preparation} alt="" aria-hidden="true" /> {tx("Preparação (antes do acampamento)")}</>}
         html={r.preparation}
         title={title}
         context={context}
-        emptyHint="Nada a preparar para esta função."
+        emptyHint={tx("Nada a preparar para esta função.")}
         onEdit={() => onEditDoc("preparation")}
       />
       <RichTextBox
-        label="📝 Instruções para a equipe"
+        label={tx("📝 Instruções para a equipe")}
         html={r.instructions}
         title={title}
         context={context}
-        emptyHint="Sem instruções ainda."
+        emptyHint={tx("Sem instruções ainda.")}
         onEdit={() => onEditDoc("instructions")}
       />
     </div>

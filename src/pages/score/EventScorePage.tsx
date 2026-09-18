@@ -6,6 +6,7 @@ import Breadcrumbs from "../../components/Breadcrumbs";
 import { useConfirm } from "../../components/ConfirmDialog";
 import { useCollectionOrEmpty } from "../../store";
 import { canDeleteLine, fmtPoints, ScoreLogList, useEventMap, useTeamMap } from "./scoreLog";
+import { collatorLocale, useI18n } from "../../i18n";
 
 interface Props {
   token: string;
@@ -23,6 +24,7 @@ interface Props {
  * missing), and every scan line with who read it and when.
  */
 export default function EventScorePage({ token, eventId, userId, canEdit, canScan, onBack, onTeam }: Props) {
+  const { tx } = useI18n();
   const scores = useCollectionOrEmpty("scores");
   const teams = useCollectionOrEmpty("teams");
   const events = useCollectionOrEmpty("events");
@@ -54,7 +56,7 @@ export default function EventScorePage({ token, eventId, userId, canEdit, canSca
       .map((t) => {
         const kids = campers.filter((c) => c.team === t.id);
         const read = kids.filter((c) => scannedIds.has(c.id));
-        const missing = kids.filter((c) => !scannedIds.has(c.id)).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+        const missing = kids.filter((c) => !scannedIds.has(c.id)).sort((a, b) => a.name.localeCompare(b.name, collatorLocale()));
         const pts = scans.filter((s) => s.teamId === t.id).reduce((sum, s) => sum + s.points, 0);
         return { team: t, kids: kids.length, read: read.length, missing, pts };
       });
@@ -63,23 +65,35 @@ export default function EventScorePage({ token, eventId, userId, canEdit, canSca
   const filtered = useMemo(() => (teamFilter ? lines.filter((e) => e.teamId === teamFilter) : lines), [lines, teamFilter]);
 
   async function remove(e: ScoreEntry) {
-    if (!(await confirm({ title: "Apagar esta leitura?", message: `${e.camperName || "A criança"} volta para a lista de quem ainda não recebeu; ${fmtPoints(e.points)} sai do time.`, confirmLabel: "Apagar", danger: true, emoji: "🗑️" }))) return;
+    if (
+      !(await confirm({
+        title: tx("Apagar esta leitura?"),
+        message: tx("{name} volta para a lista de quem ainda não recebeu; {pts} sai do time.", {
+          name: e.camperName || tx("A criança"),
+          pts: fmtPoints(e.points),
+        }),
+        confirmLabel: tx("Apagar"),
+        danger: true,
+        emoji: "🗑️",
+      }))
+    )
+      return;
     setDeletingId(e.id);
     setError(null);
     try {
       await deleteScore(token, e.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Algo deu errado.");
+      setError(err instanceof Error ? err.message : tx("Algo deu errado."));
     } finally {
       setDeletingId(null);
     }
   }
 
-  const title = event ? `${event.emoji} ${event.title}` : "Evento removido";
+  const title = event ? `${event.emoji} ${event.title}` : tx("Evento removido");
 
   return (
     <div className="admin-page">
-      <Breadcrumbs items={[{ label: "Placar", onClick: onBack }, { label: title }]} />
+      <Breadcrumbs items={[{ label: tx("Placar"), onClick: onBack }, { label: title }]} />
       <header className="admin-head">
         <h1 className="admin-title">{title}</h1>
       </header>
@@ -94,23 +108,23 @@ export default function EventScorePage({ token, eventId, userId, canEdit, canSca
         <div className="stat-card stat-card--static">
           <span className="stat-card__emoji">🎯</span>
           <span className="stat-card__n">{scans.length}</span>
-          <span className="stat-card__label">crachás lidos de {campers.length}</span>
+          <span className="stat-card__label">{tx("crachás lidos de {n}", { n: campers.length })}</span>
         </div>
         <div className="stat-card stat-card--static">
           <span className="stat-card__emoji">⭐</span>
           <span className="stat-card__n">{perKid}</span>
-          <span className="stat-card__label">ponto{perKid !== 1 ? "s" : ""} por criança</span>
+          <span className="stat-card__label">{perKid === 1 ? tx("ponto por criança") : tx("pontos por criança")}</span>
         </div>
         <div className="stat-card stat-card--static">
           <span className="stat-card__emoji">🏆</span>
           <span className="stat-card__n">{fmtPoints(total)}</span>
-          <span className="stat-card__label">no placar</span>
+          <span className="stat-card__label">{tx("no placar")}</span>
         </div>
       </div>
 
       {readers.length > 0 && (
         <p className="admin-intro">
-          Lido por{" "}
+          {tx("Lido por")}{" "}
           {readers.map(([name, n], i) => (
             <span key={name}>
               {i > 0 && ", "}
@@ -124,7 +138,7 @@ export default function EventScorePage({ token, eventId, userId, canEdit, canSca
       {error && <p className="message message--error">{error}</p>}
 
       <section className="score-section">
-        <h2 className="score-section__title">🚩 Por time</h2>
+        <h2 className="score-section__title">🚩 {tx("Por time")}</h2>
         <ul className="score-events">
           {perTeam.map(({ team, kids, read, missing, pts }) => (
             <li key={team.id}>
@@ -133,11 +147,11 @@ export default function EventScorePage({ token, eventId, userId, canEdit, canSca
                   {team.name}
                 </button>
                 <small className="score-event__meta">
-                  {read} de {kids} criança{kids !== 1 ? "s" : ""}
+                  {kids === 1 ? tx("{read} de {kids} criança", { read, kids }) : tx("{read} de {kids} crianças", { read, kids })}
                   {missing.length > 0 && (
                     <>
                       {" "}
-                      · faltam: <MissingNames names={missing.map((c) => c.name)} />
+                      · {tx("faltam:")} <MissingNames names={missing.map((c) => c.name)} />
                     </>
                   )}
                 </small>
@@ -146,7 +160,7 @@ export default function EventScorePage({ token, eventId, userId, canEdit, canSca
                     {fmtPoints(pts)}
                   </span>
                   <button type="button" className="link-btn score-event__filter" aria-pressed={teamFilter === team.id} onClick={() => setTeamFilter(teamFilter === team.id ? "" : team.id)}>
-                    {teamFilter === team.id ? "todas" : "só este"}
+                    {teamFilter === team.id ? tx("todas") : tx("só este")}
                   </button>
                 </span>
               </div>
@@ -157,14 +171,15 @@ export default function EventScorePage({ token, eventId, userId, canEdit, canSca
 
       <section className="score-section">
         <h2 className="score-section__title">
-          📜 Leituras{teamFilter ? ` · ${teamMap.get(teamFilter)?.name ?? ""}` : ""}
+          📜 {tx("Leituras")}
+          {teamFilter ? ` · ${teamMap.get(teamFilter)?.name ?? ""}` : ""}
           {teamFilter && (
             <button type="button" className="link-btn score-section__clear" onClick={() => setTeamFilter("")}>
-              ver todas
+              {tx("ver todas")}
             </button>
           )}
         </h2>
-        <ScoreLogList entries={filtered} teams={teamMap} events={eventMap} hideEvent onTeam={onTeam} canDelete={(e) => canDeleteLine(e, { canEdit, canScan, userId })} onDelete={remove} deletingId={deletingId} emptyText="Ninguém foi lido neste evento ainda." />
+        <ScoreLogList entries={filtered} teams={teamMap} events={eventMap} hideEvent onTeam={onTeam} canDelete={(e) => canDeleteLine(e, { canEdit, canScan, userId })} onDelete={remove} deletingId={deletingId} emptyText={tx("Ninguém foi lido neste evento ainda.")} />
       </section>
     </div>
   );
@@ -172,6 +187,7 @@ export default function EventScorePage({ token, eventId, userId, canEdit, canSca
 
 /** "Ana, Bia, Caio e mais 4" — expandable */
 function MissingNames({ names }: { names: string[] }) {
+  const { tx } = useI18n();
   const [open, setOpen] = useState(false);
   const first = (n: string) => n.split(" ")[0];
   if (open || names.length <= 3) return <>{names.map(first).join(", ")}</>;
@@ -179,7 +195,7 @@ function MissingNames({ names }: { names: string[] }) {
     <>
       {names.slice(0, 3).map(first).join(", ")}{" "}
       <button type="button" className="link-btn" onClick={() => setOpen(true)}>
-        e mais {names.length - 3}
+        {tx("e mais {n}", { n: names.length - 3 })}
       </button>
     </>
   );

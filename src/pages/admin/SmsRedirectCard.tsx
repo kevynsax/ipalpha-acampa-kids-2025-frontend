@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { updateSettings } from "../../api/settings";
 import PhoneInput from "../../components/PhoneInput";
 import Toggle from "../../components/Toggle";
+import { useI18n } from "../../i18n";
 import { maskBrazilPhone, toE164 } from "../../phone";
 import { useCollection } from "../../store";
 
@@ -19,6 +20,7 @@ const toMasked = (e164: string | null) => (e164 ? maskBrazilPhone(e164.replace(/
  * texting real people. Admins keep receiving their own login codes.
  */
 export default function SmsRedirectCard({ token }: SmsRedirectCardProps) {
+  const { tx } = useI18n();
   const settings = useCollection("settings");
   const [staffPhone, setStaffPhone] = useState("");
   const [parentPhone, setParentPhone] = useState("");
@@ -49,7 +51,7 @@ export default function SmsRedirectCard({ token }: SmsRedirectCardProps) {
       await updateSettings(token, patch);
       if (kind === "save") setSaved(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(null);
     }
@@ -58,13 +60,13 @@ export default function SmsRedirectCard({ token }: SmsRedirectCardProps) {
   return (
     <section className="cat-form">
       <div className="cat-form__head">
-        <h2 className="cat-form__title">📵 Redirecionar SMS</h2>
-        <Toggle checked={on} disabled={!settings || busy !== null} label={on ? "Ligado" : "Desligado"} onChange={(v) => void run("toggle", { smsRedirect: { enabled: v } })} />
+        <h2 className="cat-form__title">📵 {tx("Redirecionar SMS")}</h2>
+        <Toggle checked={on} disabled={!settings || busy !== null} label={on ? tx("Ligado") : tx("Desligado")} onChange={(v) => void run("toggle", { smsRedirect: { enabled: v } })} />
       </div>
       <p className="cat-hint">
-        Ligado, <strong>nenhum SMS chega às pessoas de verdade</strong>: o código de login e os avisos da <strong>equipe</strong> vão para o
-        primeiro celular, os dos <strong>pais</strong> para o segundo. Sem celular em um dos campos, os SMS daquele grupo não saem. Os admins
-        continuam recebendo o próprio código.
+        {tx("Ligado,")} <strong>{tx("nenhum SMS chega às pessoas de verdade")}</strong>
+        {tx(": o código de login e os avisos da")} <strong>{tx("equipe")}</strong> {tx("vão para o primeiro celular, os dos")}{" "}
+        <strong>{tx("pais")}</strong> {tx("para o segundo. Sem celular em um dos campos, os SMS daquele grupo não saem. Os admins continuam recebendo o próprio código.")}
       </p>
       <form
         className="cat-form__row staff-form__row sms-form"
@@ -74,31 +76,31 @@ export default function SmsRedirectCard({ token }: SmsRedirectCardProps) {
         }}
       >
         <div className="cat-field cat-field--grow">
-          <span className="cat-field__label">Celular de teste da equipe</span>
+          <span className="cat-field__label">{tx("Celular de teste da equipe")}</span>
           <PhoneInput value={staffPhone} onChange={setStaffPhone} disabled={busy !== null} />
-          {!staffOk && <p className="cat-hint cat-hint--error">Informe um celular válido com DDD.</p>}
+          {!staffOk && <p className="cat-hint cat-hint--error">{tx("Informe um celular válido com DDD.")}</p>}
         </div>
         <div className="cat-field cat-field--grow">
-          <span className="cat-field__label">Celular de teste dos pais</span>
+          <span className="cat-field__label">{tx("Celular de teste dos pais")}</span>
           <PhoneInput value={parentPhone} onChange={setParentPhone} disabled={busy !== null} />
-          {!parentOk && <p className="cat-hint cat-hint--error">Informe um celular válido com DDD.</p>}
+          {!parentOk && <p className="cat-hint cat-hint--error">{tx("Informe um celular válido com DDD.")}</p>}
         </div>
         <div className="cat-field">
           <span className="cat-field__label">&nbsp;</span>
           <button type="submit" className="button button--primary" disabled={busy !== null || !dirty || !staffOk || !parentOk}>
-            {busy === "save" ? "Salvando…" : "Salvar"}
+            {busy === "save" ? tx("Salvando…") : tx("Salvar")}
           </button>
         </div>
       </form>
       {error && <p className="message message--error">{error}</p>}
-      {saved && <p className="message message--ok">✅ Celulares salvos.</p>}
+      {saved && <p className="message message--ok">{tx("✅ Celulares salvos.")}</p>}
       {on && (
         <p className="cat-hint cat-hint--error">
-          ⚠️ Redirecionamento ligado: equipe e pais <strong>não recebem SMS</strong> (nem o código de login). Desligue antes do acampamento!
+          {tx("⚠️ Redirecionamento ligado: equipe e pais")} <strong>{tx("não recebem SMS")}</strong> {tx("(nem o código de login).")} {tx("Desligue antes do acampamento!")}
         </p>
       )}
-      {on && !current.staffPhone && <p className="cat-hint cat-hint--error">Sem celular da equipe: a equipe não consegue fazer login enquanto isso estiver ligado.</p>}
-      {on && !current.parentPhone && <p className="cat-hint cat-hint--error">Sem celular dos pais: os pais não conseguem fazer login enquanto isso estiver ligado.</p>}
+      {on && !current.staffPhone && <p className="cat-hint cat-hint--error">{tx("Sem celular da equipe: a equipe não consegue fazer login enquanto isso estiver ligado.")}</p>}
+      {on && !current.parentPhone && <p className="cat-hint cat-hint--error">{tx("Sem celular dos pais: os pais não conseguem fazer login enquanto isso estiver ligado.")}</p>}
     </section>
   );
 }

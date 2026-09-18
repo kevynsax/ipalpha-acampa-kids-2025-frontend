@@ -3,6 +3,7 @@ import { updateSettings } from "../../api/settings";
 import Toggle from "../../components/Toggle";
 import { ICONS } from "../../icons";
 import { useCollection } from "../../store";
+import { useI18n } from "../../i18n";
 
 interface KidsRoomsDraftCardProps {
   token: string;
@@ -14,6 +15,7 @@ interface KidsRoomsDraftCardProps {
  * moving rooms, or the person's own room changing).
  */
 export default function KidsRoomsDraftCard({ token }: KidsRoomsDraftCardProps) {
+  const { tx } = useI18n();
   const settings = useCollection("settings");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +28,7 @@ export default function KidsRoomsDraftCard({ token }: KidsRoomsDraftCardProps) {
     try {
       await updateSettings(token, { kidsRoomsDraft: value });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
     } finally {
       setBusy(false);
     }
@@ -35,18 +37,18 @@ export default function KidsRoomsDraftCard({ token }: KidsRoomsDraftCardProps) {
   return (
     <section className="cat-form">
       <div className="cat-form__head">
-        <h2 className="cat-form__title"><img className="audience-icon" src={ICONS.bed} alt="" aria-hidden="true" /> Quartos em rascunho</h2>
-        <Toggle checked={draft} disabled={!settings || busy} label={draft ? "Ainda não definidos" : "Definidos"} onChange={(v) => void toggle(v)} />
+        <h2 className="cat-form__title"><img className="audience-icon" src={ICONS.bed} alt="" aria-hidden="true" /> {tx("Quartos em rascunho")}</h2>
+        <Toggle checked={draft} disabled={!settings || busy} label={draft ? tx("Ainda não definidos") : tx("Definidos")} onChange={(v) => void toggle(v)} />
       </div>
       <p className="cat-hint">
-        Ligue enquanto a organização ainda está montando os quartos.
+        {tx("Ligue enquanto a organização ainda está montando os quartos.")}
         <br />
-        Nesse período <strong>ninguém da equipe vê o próprio quarto nem as crianças que estão no seu quarto</strong>.
+        {tx("Nesse período")} <strong>{tx("ninguém da equipe vê o próprio quarto nem as crianças que estão no seu quarto")}</strong>.
         <br />
-        Desligue quando todos os quartos já tiverem definidos.
+        {tx("Desligue quando todos os quartos já tiverem definidos.")}
       </p>
       {error && <p className="message message--error">{error}</p>}
-      {draft && <p className="cat-hint cat-hint--error">⚠️ A equipe não está vendo os quartos. Desligue quando os quartos estiverem definidos.</p>}
+      {draft && <p className="cat-hint cat-hint--error">{tx("⚠️ A equipe não está vendo os quartos. Desligue quando os quartos estiverem definidos.")}</p>}
     </section>
   );
 }

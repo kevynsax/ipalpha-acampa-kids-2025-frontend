@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import Dialog from "./Dialog";
 import GroupIcon from "./GroupIcon";
 import { ICONS } from "../icons";
+import { useI18n } from "../i18n";
 import type { BedroomGroup } from "../api/bedrooms";
 
 export interface DrawEntry {
@@ -33,6 +34,7 @@ const REEL_STEPS = 120;
  * winner with confetti raining over the whole screen. Re-roll from inside.
  */
 export default function GiveawayDrawDialog({ open, onClose, entries, onRedraw, winner }: GiveawayDrawDialogProps) {
+  const { tx } = useI18n();
   const [rolling, setRolling] = useState(true);
   /** the reel starts at the top (0) and scrolls to the last cell */
   const [spun, setSpun] = useState(false);
@@ -77,7 +79,7 @@ export default function GiveawayDrawDialog({ open, onClose, entries, onRedraw, w
   const person = entries[winner];
 
   return (
-    <Dialog open={open} onClose={onClose} title="Resultado do sorteio" width={520}>
+    <Dialog open={open} onClose={onClose} title={tx("Resultado do sorteio")} width={520}>
       {!rolling && (
         <div className="draw-confetti" aria-hidden="true">
           {confetti.map((c, i) => (
@@ -99,8 +101,8 @@ export default function GiveawayDrawDialog({ open, onClose, entries, onRedraw, w
       )}
       <div className={`draw ${rolling ? "draw--rolling" : "draw--done"}`}>
         <img className="draw__icon" src={rolling ? ICONS.giveaway : ICONS.draw} alt="" aria-hidden="true" />
-        <p className="draw__label">{rolling ? "Sorteando…" : "🎉 E o número sorteado é…"}</p>
-        <div className="draw__number" aria-live="polite" aria-label={rolling ? "Sorteando" : String(winner + 1)}>
+        <p className="draw__label">{rolling ? tx("Sorteando…") : tx("🎉 E o número sorteado é…")}</p>
+        <div className="draw__number" aria-live="polite" aria-label={rolling ? tx("Sorteando") : String(winner + 1)}>
           <div
             className={`draw__reel ${spun ? "draw__reel--spun" : ""}`}
             style={{ transform: `translateY(${spun ? -(reel.length - 1) * 1.2 : 0}em)`, transitionDuration: `${ROLL_MS}ms` }}
@@ -122,10 +124,10 @@ export default function GiveawayDrawDialog({ open, onClose, entries, onRedraw, w
         </div>
         <div className="draw__actions">
           <button type="button" className="button button--secondary" disabled={rolling} onClick={onRedraw}>
-            <img className="admin-head__action-icon" src={ICONS.draw} alt="" aria-hidden="true" /> Sortear de novo
+            <img className="admin-head__action-icon" src={ICONS.draw} alt="" aria-hidden="true" /> {tx("Sortear de novo")}
           </button>
           <button type="button" className="button button--primary" onClick={onClose}>
-            Fechar
+            {tx("Fechar")}
           </button>
         </div>
       </div>

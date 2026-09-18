@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { CheckGlyph, UndoGlyph } from "../components/Glyph";
+import { CheckGlyph, SearchGlyph, UndoGlyph } from "../components/Glyph";
 import { setStaffVest, staffSex, type Staff, type VestAction } from "../api/staff";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { ICONS, vestSrc } from "../icons";
@@ -8,6 +8,7 @@ import { useRoute } from "../router";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import { staffGreeting, whatsappLink } from "../whatsapp";
 import { speakStamp } from "../dates";
+import { collatorLocale, useI18n } from "../i18n";
 
 interface VestPageProps {
   token: string;
@@ -56,7 +57,8 @@ function defaultTab(w: { from: string | null; until: string | null } | undefined
 
 /** status mark: bare shoulders → wearing the vest → ticked box */
 function StepIcon({ step, sex, className = "" }: { step: Step; sex?: "F" | "M" | null; className?: string }) {
-  const label = STEP_META[step].label;
+  const { tx } = useI18n();
+  const label = tx(STEP_META[step].label);
   if (step === "back") {
     return (
       <span className={`bus-row__check bus-row__check--on ${className}`} title={label} aria-label={label} role="img">
@@ -80,6 +82,7 @@ function StepIcon({ step, sex, className = "" }: { step: Step; sex?: "F" | "M" |
  * For the admin and the vest helpers (Settings → Coletes); the helper sees only name + phone.
  */
 export default function VestPage({ token, myName, checkinHomePath }: VestPageProps) {
+  const { tx } = useI18n();
   const staff = useCollection("staff");
   const bedrooms = useCollectionOrEmpty("bedrooms");
   const settings = useCollection("settings");
@@ -102,9 +105,9 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
   const filter: Tab = tab ?? "all";
 
   const TABS: { key: Tab; label: string; icon: ReactNode }[] = [
-    { key: "all", label: "Todos", icon: <img className="cat-tab__img" src={ICONS.staffPair} alt="" /> },
-    { key: "deliver", label: "Entregar", icon: "📦" },
-    { key: "return", label: "Com o tio", icon: <img className="cat-tab__img" src={ICONS.vest} alt="" /> },
+    { key: "all", label: tx("Todos"), icon: <img className="cat-tab__img" src={ICONS.staffPair} alt="" /> },
+    { key: "deliver", label: tx("Entregar"), icon: "📦" },
+    { key: "return", label: tx("Com o tio"), icon: <img className="cat-tab__img" src={ICONS.vest} alt="" /> },
   ];
 
   const windowOver = useMemo(() => {
@@ -146,7 +149,7 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
 
   const { main, others } = useMemo(() => {
     const q = normalize(search);
-    const byName = (a: Staff, b: Staff) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+    const byName = (a: Staff, b: Staff) => a.name.localeCompare(b.name, collatorLocale(), { sensitivity: "base" });
     const matches = (s: Staff) => !q || normalize(s.name).includes(q);
     if (filter === "all") return { main: active.filter(matches).sort(byName), others: [] as Staff[] };
     const step = TAB_STEP[filter];
@@ -166,7 +169,7 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
       await setStaffVest(token, s.id, action);
       return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Algo deu errado.");
+      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
       return false;
     } finally {
       setPending((p) => {
@@ -220,13 +223,13 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
     leave(s, "undo-deliver");
   }
 
-  const crumbs = checkinHomePath ? <Breadcrumbs items={[{ label: "Check-in", onClick: () => navigate(checkinHomePath) }, { label: "Coletes" }]} /> : null;
+  const crumbs = checkinHomePath ? <Breadcrumbs items={[{ label: tx("Check-in"), onClick: () => navigate(checkinHomePath) }, { label: tx("Coletes") }]} /> : null;
 
   if (!staff) {
     return (
       <div className="admin-page">
         {crumbs}
-        <p className="opt-empty">Sincronizando com o servidor… 🏕️</p>
+        <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>
       </div>
     );
   }
@@ -235,14 +238,14 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
   const pct = total ? Math.round((counts.back / total) * 100) : 0;
 
   function phoneOf(s: Staff) {
-    if (!s.phone) return <em className="staff-card__missing">sem celular</em>;
+    if (!s.phone) return <em className="staff-card__missing">{tx("sem celular")}</em>;
     return (
       <a
         className="link-btn vest-row__phone"
         href={whatsappLink(s.phone, staffGreeting({ toName: s.name, fromName: myName }))}
         target="_blank"
         rel="noopener noreferrer"
-        title={`Falar com ${s.name.split(" ")[0]} no WhatsApp`}
+        title={tx("Falar com {name} no WhatsApp", { name: s.name.split(" ")[0] })}
       >
         {formatBrazilPhoneClient(s.phone)}
       </a>
@@ -268,28 +271,28 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
           </span>
           <span className="bus-row__meta">
             {phoneOf(s)}
-            {step === "out" && s.vest.delivered && <> · entregue {speakStamp(s.vest.delivered.at)}</>}
-            {step === "back" && s.vest.returned && <> · devolvido {speakStamp(s.vest.returned.at)}</>}
+            {step === "out" && s.vest.delivered && <>{tx(" · entregue {when}", { when: speakStamp(s.vest.delivered.at) })}</>}
+            {step === "back" && s.vest.returned && <>{tx(" · devolvido {when}", { when: speakStamp(s.vest.returned.at) })}</>}
           </span>
         </span>
         <span className="vest-row__actions">
           {step === "pending" && (
             <button type="button" className="button button--secondary vest-row__btn" disabled={busy} onClick={() => void run(s, "deliver")}>
-              Entreguei
+              {tx("Entreguei")}
             </button>
           )}
           {step === "out" && (
             <>
               <button type="button" className="button button--primary vest-row__btn" disabled={busy} onClick={() => void run(s, "return")}>
-                Já me devolveu
+                {tx("Já me devolveu")}
               </button>
-              <button type="button" className="icon-btn" title="Desfazer entrega" aria-label={`Desfazer entrega de ${s.name}`} disabled={busy} onClick={() => void run(s, "undo-deliver")}>
+              <button type="button" className="icon-btn" title={tx("Desfazer entrega")} aria-label={tx("Desfazer entrega de {name}", { name: s.name })} disabled={busy} onClick={() => void run(s, "undo-deliver")}>
                 <UndoGlyph />
               </button>
             </>
           )}
           {step === "back" && (
-            <button type="button" className="icon-btn" title="Desfazer devolução" aria-label={`Desfazer devolução de ${s.name}`} disabled={busy} onClick={() => void run(s, "undo-return")}>
+            <button type="button" className="icon-btn" title={tx("Desfazer devolução")} aria-label={tx("Desfazer devolução de {name}", { name: s.name })} disabled={busy} onClick={() => void run(s, "undo-return")}>
               <UndoGlyph />
             </button>
           )}
@@ -305,7 +308,7 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
     const on = armed.has(s.id) || leaving.has(s.id);
     const going = leaving.has(s.id);
     const action: VestAction = tabKey === "deliver" ? "deliver" : "return";
-    const label = on ? `Desfazer: ${first}` : tabKey === "deliver" ? `${first} recebeu o colete` : `${first} devolveu o colete`;
+    const label = on ? tx("Desfazer: {name}", { name: first }) : tabKey === "deliver" ? tx("{name} recebeu o colete", { name: first }) : tx("{name} devolveu o colete", { name: first });
     return (
       <li key={s.id} className={rowClass(s, step, `vest-row--tab ${on ? "vest-row--ticked" : ""} ${going ? "vest-row--leaving" : ""}`)}>
         <button
@@ -330,7 +333,7 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
           <StepIcon step={tabKey === "deliver" ? "out" : "back"} sex={staffSex(s, bedrooms)} className="vest-row__swap-then" />
         </span>
         {tabKey === "return" && (
-          <button type="button" className="icon-btn vest-row__undo" title="Desfazer entrega" aria-label={`Desfazer entrega de ${s.name}`} disabled={going} onClick={() => undo(s)}>
+          <button type="button" className="icon-btn vest-row__undo" title={tx("Desfazer entrega")} aria-label={tx("Desfazer entrega de {name}", { name: s.name })} disabled={going} onClick={() => undo(s)}>
             <UndoGlyph />
           </button>
         )}
@@ -342,14 +345,14 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
     <div className="admin-page">
       {crumbs}
       <header className="admin-head">
-        <h1 className="admin-title">🦺 Coletes da equipe</h1>
-        <span className="checkin-progress" title="Coletes já devolvidos">
+        <h1 className="admin-title">{tx("🦺 Coletes da equipe")}</h1>
+        <span className="checkin-progress" title={tx("Coletes já devolvidos")}>
           ✅ {counts.back}/{total}
         </span>
       </header>
-      <p className="admin-intro">Entregue o colete no início e recolha no fim.</p>
+      <p className="admin-intro">{tx("Entregue o colete no início e recolha no fim.")}</p>
 
-      <div className="vehicle__progress" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={counts.back} aria-label="Coletes devolvidos">
+      <div className="vehicle__progress" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={counts.back} aria-label={tx("Coletes devolvidos")}>
         <span className="vehicle__bar" aria-hidden="true">
           <span className="vehicle__bar-fill" style={{ width: `${pct}%` }} />
         </span>
@@ -358,7 +361,7 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
 
       {error && <p className="message message--error">{error}</p>}
 
-      <div className="cat-tabs" role="tablist" aria-label="Filtrar por situação">
+      <div className="cat-tabs" role="tablist" aria-label={tx("Filtrar por situação")}>
         {TABS.map((t) => {
           const on = filter === t.key;
           return (
@@ -373,12 +376,15 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
         })}
       </div>
 
-      <input className="cat-input" type="search" placeholder="Buscar pelo nome…" value={search} onChange={(e) => setSearch(e.target.value)} />
+      <label className="staff-toolbar__search">
+        <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
+        <input className="cat-input" type="search" placeholder={tx("Buscar pelo nome…")} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tx("Buscar pelo nome")} />
+      </label>
 
-      {total === 0 && <p className="opt-empty">Ninguém na equipe ainda.</p>}
+      {total === 0 && <p className="opt-empty">{tx("Ninguém na equipe ainda.")}</p>}
       {total > 0 && main.length === 0 && others.length === 0 && (
         <p className="opt-empty">
-          {search ? "Nenhum resultado. 🔍" : filter === "deliver" ? "Todo mundo já está de colete. 🦺" : filter === "return" ? "Nenhum colete com a equipe. ✅" : "Nenhum resultado. 🔍"}
+          {search ? tx("Nenhum resultado. 🔍") : filter === "deliver" ? tx("Todo mundo já está de colete. 🦺") : filter === "return" ? tx("Nenhum colete com a equipe. ✅") : tx("Nenhum resultado. 🔍")}
         </p>
       )}
 
@@ -386,7 +392,7 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
         {main.map((s) => (filter === "all" ? fullRow(s) : tickRow(s, filter)))}
         {others.length > 0 && (
           <li className="vest-divider" role="separator">
-            Outros
+            {tx("Outros")}
           </li>
         )}
         {others.map(fullRow)}
