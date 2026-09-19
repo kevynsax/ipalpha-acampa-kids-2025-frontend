@@ -213,15 +213,12 @@ export default function DistributeRoomsDialog({ open, bedrooms, campers, staff, 
           {step === "result" && <button type="button" className="link-btn cat-form__back" onClick={() => setStep("who")}>{tx("Tentar de novo")}</button>}
           {step === "who" && <button type="button" className="button button--secondary" onClick={onClose}>{tx("Cancelar")}</button>}
           {step !== "running" && step !== "result" && (() => {
+            // the age inputs are free: an age younger/older than any camper is a valid (possibly empty) slice,
+            // it must never disable the button
             const agesOk =
               kidsMode !== "ages" ||
               !!slice?.allAges ||
-              (slice != null &&
-                Number.isFinite(slice.minAge) &&
-                Number.isFinite(slice.maxAge) &&
-                slice.minAge >= ageMin &&
-                slice.maxAge <= ageMax &&
-                slice.minAge <= slice.maxAge);
+              (slice != null && Number.isFinite(slice.minAge) && Number.isFinite(slice.maxAge) && slice.minAge <= slice.maxAge);
             const blocked = step === "mode" && kidsMode === "ages" && (!slice?.roomIds.length || !agesOk);
             return (
               <button type="button" className="button button--primary" disabled={blocked} onClick={next}>

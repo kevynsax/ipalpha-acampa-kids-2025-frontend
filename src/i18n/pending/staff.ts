@@ -46,6 +46,21 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "{name} es admin: no puede ser eliminado del equipo.",
     fr: "{name} est admin : ne peut pas être retiré de l'équipe.",
   },
+  "{name} é admin: o login continua se sair da equipe.": {
+    en: "{name} is an admin: the login stays if they leave the staff.",
+    es: "{name} es admin: el acceso se mantiene si sale del equipo.",
+    fr: "{name} est admin : la connexion reste s'il quitte l'équipe.",
+  },
+  "O login de admin continua. Só o cadastro na equipe é apagado.": {
+    en: "The admin login stays. Only the staff record is deleted.",
+    es: "El acceso de admin se mantiene. Solo se borra el registro del equipo.",
+    fr: "La connexion admin reste. Seul le dossier d'équipe est supprimé.",
+  },
+  "Login de admin é o celular da conta, não o deste cadastro.": {
+    en: "The admin login is the account phone, not this staff record's.",
+    es: "El acceso de admin es el celular de la cuenta, no el de este registro.",
+    fr: "La connexion admin est le téléphone du compte, pas celui de ce dossier.",
+  },
   "Ala e time": {
     en: "Wing and team",
     es: "Ala y equipo",
@@ -771,6 +786,61 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "Persona diferente: insertar",
     fr: "Personne différente : ajouter",
   },
+  "Celular repetido": {
+    en: "Repeated phone",
+    es: "Celular repetido",
+    fr: "Téléphone répété",
+  },
+  "Este celular aparece em mais de uma linha. Escolha quem fica com o número. As outras pessoas entram na equipe sem celular — sem login no app.": {
+    en: "This number appears on more than one row. Choose who keeps it. The others join the staff without a phone — no app login.",
+    es: "Este celular aparece en más de una fila. Elige quién se queda con el número. Las demás personas entran al equipo sin celular — sin acceso a la app.",
+    fr: "Ce numéro apparaît sur plus d'une ligne. Choisissez qui le garde. Les autres rejoignent l'équipe sans téléphone — sans connexion à l'appli.",
+  },
+  "Este celular aparece em mais de uma linha. Troque o número, limpe o campo ou ignore uma das pessoas.": {
+    en: "This number appears on more than one row. Change it, clear the field, or ignore one of the people.",
+    es: "Este celular aparece en más de una fila. Cambia el número, limpia el campo o ignora a una de las personas.",
+    fr: "Ce numéro apparaît sur plus d'une ligne. Changez-le, videz le champ ou ignorez l'une des personnes.",
+  },
+  "Deixar em branco": {
+    en: "Leave blank",
+    es: "Dejar en blanco",
+    fr: "Laisser vide",
+  },
+  "Quem ficar sem celular é cadastrado mesmo assim, mas não consegue entrar no sistema até alguém preencher o número.": {
+    en: "Anyone left without a phone is still added, but cannot sign in until someone fills in the number.",
+    es: "Quien quede sin celular se registra igual, pero no puede entrar al sistema hasta que alguien complete el número.",
+    fr: "Qui reste sans téléphone est tout de même inscrit, mais ne pourra pas se connecter tant que quelqu'un n'aura pas renseigné le numéro.",
+  },
+  "Esta pessoa não será inserida.": {
+    en: "This person will not be inserted.",
+    es: "Esta persona no será insertada.",
+    fr: "Cette personne ne sera pas ajoutée.",
+  },
+  "Linha {row} · {name}": {
+    en: "Row {row} · {name}",
+    es: "Fila {row} · {name}",
+    fr: "Ligne {row} · {name}",
+  },
+  "Fica com o celular": {
+    en: "Keeps the phone",
+    es: "Se queda con el celular",
+    fr: "Garde le téléphone",
+  },
+  "Sem celular": {
+    en: "No phone",
+    es: "Sin celular",
+    fr: "Sans téléphone",
+  },
+  "Novo celular": {
+    en: "New phone",
+    es: "Nuevo celular",
+    fr: "Nouveau téléphone",
+  },
+  "Ignorado": {
+    en: "Ignored",
+    es: "Ignorado",
+    fr: "Ignoré",
+  },
   "Situação": {
     en: "Status",
     es: "Situación",
@@ -1035,5 +1105,45 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     en: "Not imported",
     es: "No importados",
     fr: "Non importés",
+  },
+  "Organizador": {
+    en: "Organizer",
+    es: "Organizador",
+    fr: "Organisateur",
+  },
+  "Ajudante do check-in": {
+    en: "Check-in helper",
+    es: "Ayudante del check-in",
+    fr: "Aide au check-in",
+  },
+  "Ajudante de coletes": {
+    en: "Vest helper",
+    es: "Ayudante de chalecos",
+    fr: "Aide aux gilets",
+  },
+  "Ajudante do placar": {
+    en: "Score helper",
+    es: "Ayudante del marcador",
+    fr: "Aide au tableau",
+  },
+  "Organizador dos jogos": {
+    en: "Games organizer",
+    es: "Organizador de los juegos",
+    fr: "Organisateur des jeux",
+  },
+  "Jogos": {
+    en: "Games",
+    es: "Juegos",
+    fr: "Jeux",
+  },
+  "Documento": {
+    en: "Document",
+    es: "Documento",
+    fr: "Document",
+  },
+  "CPF, RG, identidade, passaporte…": {
+    en: "CPF, ID card, passport…",
+    es: "CPF, RG, identidad, pasaporte…",
+    fr: "CPF, pièce d'identité, passeport…",
   },
 };

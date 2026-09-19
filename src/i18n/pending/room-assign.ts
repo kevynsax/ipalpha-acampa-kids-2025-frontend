@@ -151,6 +151,11 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "Algo salió mal.",
     fr: "Une erreur s'est produite.",
   },
+  "Anos": {
+    en: "Years",
+    es: "Años",
+    fr: "Ans",
+  },
   "anos →": {
     en: "years →",
     es: "años →",
@@ -191,6 +196,11 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "Arrastra a una habitación a la derecha. Suelta un niño sobre otro para pegarlos; fuera del grupo para separarlos.",
     fr: "Faites glisser vers une chambre à droite. Déposez un enfant sur un autre pour les coller ; hors du groupe pour les séparer.",
   },
+  "As crianças desses quartos ficam com o único membro da equipe que dorme lá.": {
+    en: "The children of these rooms stay with the only staff member sleeping there.",
+    es: "Los niños de estas habitaciones quedan con el único miembro del equipo que duerme allí.",
+    fr: "Les enfants de ces chambres restent avec le seul membre de l'équipe qui y dort.",
+  },
   "Automático": {
     en: "Automatic",
     es: "Automático",
@@ -210,6 +220,16 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     en: "Each preference group goes whole into a wing room. A group that does not fit is split at the weakest links — pairs who asked for each other stay together.",
     es: "Cada grupo de preferencia va entero a una habitación del ala. Un grupo que no cabe se divide por los vínculos más débiles — las parejas que se pidieron mutuamente se quedan juntas.",
     fr: "Chaque groupe de préférence va entier dans une chambre de l'aile. Un groupe qui ne rentre pas est divisé aux liens les plus faibles — les paires qui se sont demandées mutuellement restent ensemble.",
+  },
+  "Com equipe": {
+    en: "With staff",
+    es: "Con equipo",
+    fr: "Avec équipe",
+  },
+  "Com líder": {
+    en: "With leader",
+    es: "Con líder",
+    fr: "Avec leader",
   },
   "Confirmar alterações": {
     en: "Confirm changes",
@@ -246,10 +266,25 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "Distribuir a todos en las habitaciones automáticamente",
     fr: "Répartir tout le monde dans les chambres automatiquement",
   },
-  "em destaque · toque numa delas para passar para {other}.": {
-    en: "highlighted · tap one of them to hand them to {other}.",
-    es: "destacados · toca uno de ellos para pasarlo a {other}.",
-    fr: "mis en avant · touchez-en un pour le passer à {other}.",
+  "em destaque · toque numa criança do quarto para passá-la ao próximo líder.": {
+    en: "highlighted · tap a child in the room to hand them to the next leader.",
+    es: "destacados · toca a un niño de la habitación para pasarlo al próximo líder.",
+    fr: "mis en avant · touchez un enfant de la chambre pour le passer au leader suivant.",
+  },
+  "Equipe sozinha no quarto": {
+    en: "Staff alone in the room",
+    es: "Equipo solo en la habitación",
+    fr: "Équipe seule dans la chambre",
+  },
+  "Esses quartos continuam sem líder.": {
+    en: "These rooms stay without a leader.",
+    es: "Estas habitaciones siguen sin líder.",
+    fr: "Ces chambres restent sans leader.",
+  },
+  "Filtrar quartos": {
+    en: "Filter rooms",
+    es: "Filtrar habitaciones",
+    fr: "Filtrer les chambres",
   },
   "Filtros": {
     en: "Filters",
@@ -291,6 +326,11 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "líder",
     fr: "leader",
   },
+  "Manter como auxiliar": {
+    en: "Keep as helper",
+    es: "Mantener como auxiliar",
+    fr: "Garder comme auxiliaire",
+  },
   "Manter quem já tem quarto": {
     en: "Keep who already has a room",
     es: "Mantener a quien ya tiene habitación",
@@ -326,6 +366,11 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "Nada se guardó: la distribución entra en el borrador y ajustas antes de Guardar. Los grupos separados quedan marcados en el tablero.",
     fr: "Rien n'a été enregistré : la répartition entre dans le brouillon et vous ajustez avant Enregistrer. Les groupes séparés restent marqués sur le tableau.",
   },
+  "Nenhum quarto com este filtro.": {
+    en: "No room matches this filter.",
+    es: "Ninguna habitación con este filtro.",
+    fr: "Aucune chambre avec ce filtre.",
+  },
   "Nenhuma alteração para aplicar.": {
     en: "No changes to apply.",
     es: "Ningún cambio para aplicar.",
@@ -341,11 +386,6 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "Ocultar ejemplos",
     fr: "Masquer les exemples",
   },
-  "outro líder": {
-    en: "another leader",
-    es: "otro líder",
-    fr: "un autre leader",
-  },
   "Para assim que achar uma distribuição sem grupos separados, ou em {seconds} s.": {
     en: "Stops as soon as it finds a distribution with no split groups, or in {seconds} s.",
     es: "Para en cuanto encuentra una distribución sin grupos separados, o en {seconds} s.",
@@ -360,6 +400,11 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     en: "Searching for the best distribution",
     es: "Buscando la mejor distribución",
     fr: "Recherche de la meilleure répartition",
+  },
+  "Promover a líder": {
+    en: "Promote to leader",
+    es: "Promover a líder",
+    fr: "Promouvoir leader",
   },
   "Quem distribuir": {
     en: "Who to distribute",
@@ -405,6 +450,11 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     en: "left: {list}",
     es: "salieron: {list}",
     fr: "sortis : {list}",
+  },
+  "Sem equipe": {
+    en: "Without staff",
+    es: "Sin equipo",
+    fr: "Sans équipe",
   },
   "Sem quarto": {
     en: "No room",

@@ -56,6 +56,7 @@ const BASE: LiteralMap = {
   "Instruções": { en: "Instructions", es: "Instrucciones", fr: "Instructions" },
   "Início": { en: "Home", es: "Inicio", fr: "Accueil" },
   "Limpar": { en: "Clear", es: "Limpiar", fr: "Effacer" },
+  "Limpar busca": { en: "Clear search", es: "Limpiar búsqueda", fr: "Effacer la recherche" },
   "Medicações": { en: "Medications", es: "Medicaciones", fr: "Médicaments" },
   "Nenhum": { en: "None", es: "Ninguno", fr: "Aucun" },
   "Nenhum resultado. 🔍": { en: "No results. 🔍", es: "Ningún resultado. 🔍", fr: "Aucun résultat. 🔍" },

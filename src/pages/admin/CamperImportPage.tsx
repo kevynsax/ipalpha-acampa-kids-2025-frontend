@@ -6,7 +6,7 @@ import Breadcrumbs from "../../components/Breadcrumbs";
 import { CheckGlyph, DownloadGlyph, EllipsisGlyph, EyeGlyph, SkipGlyph } from "../../components/Glyph";
 import { ICONS } from "../../icons";
 import { useRoute } from "../../router";
-import { useFileDrop } from "../../hooks/useFileDrop";
+import { peekPendingImportFile, useFileDrop } from "../../hooks/useFileDrop";
 import CpfInput from "../../components/CpfInput";
 import PhoneInput from "../../components/PhoneInput";
 import NoPillIcon from "../../components/NoPillIcon";
@@ -27,6 +27,10 @@ const REVIEW_LABEL: Record<ImportReviewItem["kind"], string> = {
 };
 const IMPORTANT = new Set(["duplicate","leader", "date", "guardianName", "phone"]);
 const REVIEW_ORDER: ImportReviewItem["kind"][] = ["duplicate","leader", "date", "guardianName", "phone", "cpf", "email"];
+const ID_RE=/^(?:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|[a-f0-9]{24})$/i;
+const ID_HEADER_RE=/^(?:id|uuid|guid|_id|[a-z0-9]+_id|[a-z0-9]+ id)$/i;
+const isIgnoredColumn=(source:string)=>ID_HEADER_RE.test(source.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim());
+const unassignedColumns=(columns:{source:string;target:string|null;samples:string[]}[])=>columns.filter((c)=>!c.target&&c.samples.length&&!isIgnoredColumn(c.source));
 
 export default function CamperImportPage({ token, onDone }: Props) {
   const { tx } = useI18n();
@@ -58,6 +62,7 @@ export default function CamperImportPage({ token, onDone }: Props) {
   const bedrooms=useCollectionOrEmpty("bedrooms"),teams=useCollectionOrEmpty("teams"),transports=useCollectionOrEmpty("transports"),staff=useCollectionOrEmpty("staff");
 
   const { dragging, handlers } = useFileDrop(pickFile);
+  const startedPending = useRef(false);
 
   /** rows dropped by skipping an essential item — they will not be imported, so their remaining questions are moot */
   const deadRows = useMemo(() => {
@@ -123,6 +128,13 @@ export default function CamperImportPage({ token, onDone }: Props) {
     setFile(f);
     if (f) void analyze(undefined, f);
   }
+
+  useEffect(() => {
+    const pending = peekPendingImportFile();
+    if (!pending || startedPending.current) return;
+    startedPending.current = true;
+    pickFile(pending);
+  }, []);
 
   async function analyze(mapping?: Record<string, string | null>, forFile?: File) {
     const target = forFile ?? file;
@@ -268,7 +280,7 @@ export default function CamperImportPage({ token, onDone }: Props) {
             {createdCounters(record.createdItems).map((counter) => <span className="import-stats__success" key={counter.kind}><b>{counter.count}</b> {tx(counter.label)}</span>)}
             <span className="import-stats__warning"><b>{skippedRows}{skippedRows > 0 && <button type="button" className="icon-btn icon-btn--bare import-download-icon" title={tx("Baixar não importados")} aria-label={tx("Baixar não importados")} onClick={downloadSkipped}><DownloadGlyph /></button>}</b> {tx("ignoradas")}</span>
           </div>
-          {record.columns.filter((c) => !c.target && c.samples.length).length > 0 && <p className="cat-hint">{tx("{n} coluna(s) sem destino reconhecido — os valores vão para as observações.", { n: record.columns.filter((c) => !c.target && c.samples.length).length })} <button type="button" className="link-btn" onClick={() => setStage("mapping")}>{tx("Atribuir colunas")}</button></p>}
+          {unassignedColumns(record.columns).length > 0 && <p className="cat-hint">{tx("{n} coluna(s) sem destino reconhecido — os valores vão para as observações.", { n: unassignedColumns(record.columns).length })} <button type="button" className="link-btn" onClick={() => setStage("mapping")}>{tx("Atribuir colunas")}</button></p>}
           {record.createdItems.some((item) => item.kind !== "categoryOption" && item.kind !== "staff") && <div className="import-created">
             <p className="admin-intro">{tx("Também serão publicados:")}</p>
             <ul className="import-created__list">{createdTopics(record.createdItems.filter((item) => item.kind !== "categoryOption" && item.kind !== "staff")).map((group) => <li key={group.topic}>
@@ -391,11 +403,11 @@ function ColumnMapping({ record, fields, busy, onSubmit }: { record: CamperImpor
   const [mapping, setMapping] = useState<Record<string, string | null>>(() => Object.fromEntries(record.columns.map((c) => [c.source, c.target])));
   const used = new Set(Object.values(mapping).filter(Boolean));
   const missing = REQUIRED_FIELDS.filter((f) => !used.has(f.key));
-  const unknown = record.columns.filter((c) => !mapping[c.source] && c.samples.length);
+  const unknown = record.columns.filter((c) => !mapping[c.source] && c.samples.length && !isIgnoredColumn(c.source));
   const sourceOf = (key: string) => Object.entries(mapping).find(([, t]) => t === key)?.[0] ?? "";
   const assign = (source: string, target: string | null) => setMapping((m) => ({ ...m, [source]: target }));
   /** identity fields may take any column that is not another identity field's source */
-  const candidates = (fieldKey: string) => record.columns.filter((c) => c.samples.length && (!mapping[c.source] || !REQUIRED_FIELDS.some((r) => r.key === mapping[c.source] && r.key !== fieldKey)));
+  const candidates = (fieldKey: string) => record.columns.filter((c) => c.samples.length && !isIgnoredColumn(c.source) && (!mapping[c.source] || !REQUIRED_FIELDS.some((r) => r.key === mapping[c.source] && r.key !== fieldKey)));
   function pickIdentity(fieldKey: string, source: string) {
     setMapping((m) => {
       const next = { ...m };
@@ -437,10 +449,9 @@ const DUPLICATE_FIELDS=["name","birthDate","guardianName","guardianPhone","guard
 function usefulEntries(data:Record<string,unknown>|undefined){return DUPLICATE_FIELDS.flatMap((key)=>{const value=data?.[key];if(value==null||value===""||(Array.isArray(value)&&!value.length))return [];return [{key,value}]})}
 function duplicateFieldLabel(key:string){return PREVIEW_COLUMNS.find((column)=>column.key===key)?.label??key}
 function duplicateLabels(categories:Category[],bedrooms:{id:string;name:string}[],teams:{id:string;name:string}[],transports:{id:string;label:string}[],staff:{id:string;name:string}[],record:CamperImport){const labels=previewLabelMap(record,categories);for(const room of bedrooms)labels.set(room.id,room.name);for(const team of teams)labels.set(team.id,team.name);for(const transport of transports)labels.set(transport.id,transport.label);for(const member of staff)labels.set(member.id,member.name);return labels}
-function duplicateText(key:string,value:unknown,labels:Map<string,string>){if(value==null||value==="")return "—";if(Array.isArray(value))return value.map((item)=>labels.get(String(item))??(ID_RE.test(String(item))?"—":String(item))).join(", ")||"—";const text=String(value);if(labels.has(text))return labels.get(text)!;if(ID_RE.test(text))return "—";return displayPreviewValue(key,value,labels)}
-const ID_RE=/^[a-f0-9]{24}$/i;
-function DuplicateCard({title,data,other,labels,source,selected,onClick}:{title:string;data:Record<string,unknown>|undefined;other:Record<string,unknown>|undefined;labels:Map<string,string>;source:"system"|"sheet";selected:boolean;onClick:()=>void}){const { tx } = useI18n();return <button type="button" className={`import-duplicate-card import-duplicate-card--${source}${selected?" is-selected":""}`} aria-pressed={selected} onClick={onClick}><strong>{title}</strong><dl>{usefulEntries(data).map(({key,value})=>{const different=duplicateText(key,value,labels)!==duplicateText(key,other?.[key],labels);return <div key={key} className={different?"is-different":undefined}><dt>{tx(duplicateFieldLabel(key))}</dt><dd>{duplicateText(key,value,labels)}</dd></div>})}</dl></button>}
-function DuplicateReview({item,value,labels,onChange}:{item:ImportReviewItem;value:string;labels:Map<string,string>;onChange:(value:string)=>void}){const { tx } = useI18n();const merged=value==="merge";return <div className="import-duplicate"><p className="admin-intro">{tx("Já existe um cadastro com esta chave. Quarto, time, líder e transporte atuais serão mantidos.")}</p>{merged?<div className="import-duplicate-merged"><strong>{tx("Versão mesclada")}</strong>{usefulEntries(item.mergedData).map(({key,value:fieldValue})=>{const old=item.existingData?.[key],incoming=item.incomingData?.[key],source=duplicateText(key,old,labels)===duplicateText(key,fieldValue,labels)?tx("Sistema"):duplicateText(key,incoming,labels)===duplicateText(key,fieldValue,labels)?tx("Planilha"):tx("Ambos");const sourceClass=duplicateText(key,old,labels)===duplicateText(key,fieldValue,labels)?"system":duplicateText(key,incoming,labels)===duplicateText(key,fieldValue,labels)?"sheet":"both";return <div key={key}><span>{tx(duplicateFieldLabel(key))}</span><b>{duplicateText(key,fieldValue,labels)}</b><small className={`import-source import-source--${sourceClass}`}>{source}</small></div>})}</div>:<div className="import-duplicate-grid"><DuplicateCard title={tx("Cadastro atual")} data={item.existingData} other={item.incomingData} labels={labels} source="system" selected={value==="keep"} onClick={()=>onChange("keep")}/><span className="import-duplicate-choice">{tx("ou")}</span><DuplicateCard title={tx("Planilha")} data={item.incomingData} other={item.existingData} labels={labels} source="sheet" selected={value==="update"} onClick={()=>onChange("update")}/></div>}{item.mergeAvailable&&<button type="button" className={`button ${merged?"button--primary":"button--secondary"}`} onClick={()=>onChange(merged?"":"merge")}>{merged?tx("Mesclando as versões"):tx("Mesclar informações")}</button>}</div>}
+function duplicateText(key:string,value:unknown,labels:Map<string,string>){if(value==null||value==="")return "—";if(Array.isArray(value))return value.map((item)=>{const text=String(item),label=labels.get(text);if(label&&!ID_RE.test(label))return label;return ID_RE.test(text)?"—":text;}).join(", ")||"—";const text=String(value);const label=labels.get(text);if(label&&!ID_RE.test(label))return label;if(ID_RE.test(text))return "—";return displayPreviewValue(key,value,labels)}
+function DuplicateCard({title,data,other,labels,source,selected,onClick}:{title:string;data:Record<string,unknown>|undefined;other:Record<string,unknown>|undefined;labels:Map<string,string>;source:"system"|"sheet";selected:boolean;onClick:()=>void}){const { tx } = useI18n();return <button type="button" className={`import-duplicate-card import-duplicate-card--${source}${selected?" is-selected":""}`} aria-pressed={selected} onClick={onClick}><strong>{title}</strong><table className="import-duplicate-card__table"><tbody>{usefulEntries(data).map(({key,value})=>{const different=duplicateText(key,value,labels)!==duplicateText(key,other?.[key],labels);return <tr key={key} className={different?"is-different":undefined}><th>{tx(duplicateFieldLabel(key))}</th><td>{duplicateText(key,value,labels)}</td></tr>})}</tbody></table></button>}
+function DuplicateReview({item,value,labels,onChange}:{item:ImportReviewItem;value:string;labels:Map<string,string>;onChange:(value:string)=>void}){const { tx } = useI18n();const merged=value==="merge";return <div className="import-duplicate"><p className="admin-intro">{tx("Já existe um cadastro com esta chave. Quarto, time, líder e transporte atuais serão mantidos.")}</p>{merged?<div className="import-duplicate-merged"><strong>{tx("Versão mesclada")}</strong><table className="import-duplicate-card__table"><tbody>{usefulEntries(item.mergedData).map(({key,value:fieldValue})=>{const old=item.existingData?.[key],incoming=item.incomingData?.[key],source=duplicateText(key,old,labels)===duplicateText(key,fieldValue,labels)?tx("Sistema"):duplicateText(key,incoming,labels)===duplicateText(key,fieldValue,labels)?tx("Planilha"):tx("Ambos");const sourceClass=duplicateText(key,old,labels)===duplicateText(key,fieldValue,labels)?"system":duplicateText(key,incoming,labels)===duplicateText(key,fieldValue,labels)?"sheet":"both";return <tr key={key}><th>{tx(duplicateFieldLabel(key))}</th><td>{duplicateText(key,fieldValue,labels)}</td><td><small className={`import-source import-source--${sourceClass}`}>{source}</small></td></tr>})}</tbody></table></div>:<div className="import-duplicate-grid"><DuplicateCard title={tx("Cadastro atual")} data={item.existingData} other={item.incomingData} labels={labels} source="system" selected={value==="keep"} onClick={()=>onChange("keep")}/><span className="import-duplicate-choice">{tx("ou")}</span><DuplicateCard title={tx("Planilha")} data={item.incomingData} other={item.existingData} labels={labels} source="sheet" selected={value==="update"} onClick={()=>onChange("update")}/></div>}{item.mergeAvailable&&<button type="button" className={`button ${merged?"button--primary":"button--secondary"}`} onClick={()=>onChange(merged?"":"merge")}>{merged?tx("Mesclando as versões"):tx("Mesclar informações")}</button>}</div>}
 function DuplicateBatchChoice({value,onChange}:{value:"update"|"keep"|"merge"|"";onChange:(value:"update"|"keep"|"merge")=>void}){const { tx } = useI18n();return <section className="import-duplicate-batch"><h3>{tx("Cadastros repetidos")}</h3><p>{tx("Qual regra deve valer para todos?")}</p><div className="import-duplicate-batch__options">{([['update','Atualizar com a planilha'],['keep','Manter os cadastros atuais'],['merge','Mesclar as informações']] as const).map(([key,label])=><button type="button" key={key} className={value===key?"is-selected":undefined} aria-pressed={value===key} onClick={()=>onChange(key)}>{tx(label)}</button>)}</div></section>}
 
 function ReviewContext({ item }: { item: ImportReviewItem }) {
@@ -557,7 +568,7 @@ function displayPreviewValue(key: string, value: unknown, labels: Map<string, st
   if (Array.isArray(value)) return value.map((v) => labels.get(String(v)) ?? String(v)).join(", ") || "—";
   if (typeof value === "boolean") return value ? tx("Sim") : tx("Não");
   const label = labels.get(String(value));
-  if (label) return label;
+  if (label && !ID_RE.test(label)) return label;
   if (key === "birthDate" && /^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
     const [year, month, day] = String(value).split("-");
     return `${day}/${month}/${year}`;
@@ -566,7 +577,7 @@ function displayPreviewValue(key: string, value: unknown, labels: Map<string, st
   if (key === "duplicateSource") return tx(String(value));
   if (key === "guardianPhone") return formatBrazilPhoneClient(String(value));
   if (key === "weightKg") return tx("{weight} kg", { weight: String(value).replace(".", ",") });
-  if (/^[a-f0-9]{24}$/i.test(String(value))) return "—";
+  if (ID_RE.test(String(value))) return "—";
   return String(value);
 }
 

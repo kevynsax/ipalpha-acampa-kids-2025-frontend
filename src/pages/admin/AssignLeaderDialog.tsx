@@ -7,7 +7,7 @@ import { moveCamper, updateCamper, type Camper, type CamperSex } from "../../api
 import { ROOM_ROLE_META, staffSex, updateStaff, type Staff } from "../../api/staff";
 import { useConfirm } from "../../components/ConfirmDialog";
 import Dialog from "../../components/Dialog";
-import { SearchGlyph } from "../../components/Glyph";
+import SearchField from "../../components/SearchField";
 import { useCollectionOrEmpty } from "../../store";
 import { collatorLocale, useI18n } from "../../i18n";
 
@@ -177,20 +177,15 @@ export default function AssignLeaderDialog({ token, open, camper: k, onClose }: 
           <h2 className="cat-form__title">
             <RoomRoleIcon role="caretaker" sex={kidSex} /> {whoCares}
           </h2>
-          <label className="staff-toolbar__search">
-            <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
-            <input
-              ref={inputRef}
-              className="cat-input"
-              type="search"
-              placeholder={tx("Digite o nome…")}
-              value={q}
-              disabled={busy}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={onKey}
-              aria-label={tx("Buscar pessoa")}
-            />
-          </label>
+          <SearchField
+            inputRef={inputRef}
+            placeholder={tx("Digite o nome…")}
+            value={q}
+            disabled={busy}
+            onChange={setQ}
+            onKeyDown={onKey}
+            aria-label={tx("Buscar pessoa")}
+          />
           {kidSex && (
             <p className="cat-hint">
               {tx("Equipe do sexo {sex}", { sex: SEX_LABEL[kidSex] })}

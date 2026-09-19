@@ -195,7 +195,7 @@ function SectionForm({ token, section, busy, onSubmit, onCancel }: SectionFormPr
   const [audiences, setAudiences] = useState<PrepAudience[]>(section?.audiences ?? ["caretaker", "helper"]);
   const [content, setContent] = useState(section?.content ?? "");
   const valid = title.trim().length > 0 && audiences.length > 0;
-  const ai = useAiAutoFill({ token, context: "preparation", title, setTitle, emoji, setEmoji, defaultEmoji: "📌", existing: !!section, html: content });
+  const ai = useAiAutoFill({ token, context: "preparation", title, setTitle, emoji, setEmoji, defaultEmoji: "📌", emojiSuggestions: EMOJI_SUGGESTIONS, existing: !!section, html: content });
 
   return (
     <form

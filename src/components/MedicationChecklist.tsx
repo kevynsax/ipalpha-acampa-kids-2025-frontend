@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { CheckGlyph, SearchGlyph, UndoGlyph } from "./Glyph";
+import { CheckGlyph, UndoGlyph } from "./Glyph";
+import SearchField from "./SearchField";
 import { giveMedication, SOS_SLOT, undoMedication, type MedicationDose } from "../api/medications";
 import { bedroomLabel, type Bedroom } from "../api/bedrooms";
 import BedIcon from "./BedIcon";
@@ -26,6 +27,10 @@ interface MedicationChecklistProps {
   variant?: "page" | "card";
   /** card variant only: the heading shown with the progress chip in the corner */
   title?: ReactNode;
+  /** epoch ms used as "now" for the current-slot highlight (default: the real clock) */
+  now?: number;
+  /** page variant only: seeds the search box (default: empty, everyone) */
+  initialSearch?: string;
 }
 
 /** how long a row that moved to the end of its round stays highlighted */
@@ -46,12 +51,12 @@ const ARRIVE_MS = 600;
  * the full list it instead sinks to the end of its round, so the pending kids
  * are always the ones at the top.
  */
-export default function MedicationChecklist({ token, day, variant = "page", title }: MedicationChecklistProps) {
+export default function MedicationChecklist({ token, day, variant = "page", title, now, initialSearch = "" }: MedicationChecklistProps) {
   const { tx } = useI18n();
   const bedrooms = useCollectionOrEmpty("bedrooms");
   /** the kid opened in the popup — the list (and the search) stay exactly as they were */
   const [peek, setPeek] = useState<{ id: string; name: string } | null>(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   /** hide what is already done, so only what is still missing stays on screen */
@@ -145,9 +150,9 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
       );
 
     const isToday = day === todayIso();
-    const now = nowTime();
+    const clock = nowTime(now !== undefined ? new Date(now) : undefined);
     /** the moment happening now: the last one already reached today */
-    const currentSlot = isToday ? (slots.filter((s) => minutesOf(s.slot) <= minutesOf(now)).slice(-1)[0]?.slot ?? null) : null;
+    const currentSlot = isToday ? (slots.filter((s) => minutesOf(s.slot) <= minutesOf(clock)).slice(-1)[0]?.slot ?? null) : null;
     const keyOf = (e: MedEntry) => `${e.kid.id}|${e.medKey}|${e.slot}`;
 
     /**
@@ -303,10 +308,7 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
       <>
         {!card && (
           <div className="meds-toolbar">
-            <label className="staff-toolbar__search">
-              <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
-              <input className="cat-input" type="search" value={search} placeholder={tx("Procurar criança…")} aria-label={tx("Procurar criança")} onChange={(e) => setSearch(e.target.value)} />
-            </label>
+            <SearchField value={search} onChange={setSearch} placeholder={tx("Procurar criança…")} aria-label={tx("Procurar criança")} />
             <button type="button" className={`cat-tab ${onlyMissing ? "cat-tab--active" : ""}`} aria-pressed={onlyMissing} onClick={() => setOnlyMissing((v) => !v)}>
               ⏳ {tx("Só o que falta")}
             </button>

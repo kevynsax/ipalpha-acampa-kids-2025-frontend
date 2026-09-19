@@ -21,6 +21,7 @@ const VENDOR_NAMES: Record<string, string> = {
   zhipu: "Zhipu AI",
   google: "Google",
   alibaba: "Alibaba",
+  typesafe: "TypeSafe AI",
 };
 
 /** slice colour per lab, from the app palette */
@@ -33,6 +34,7 @@ const VENDOR_COLORS: Record<string, string> = {
   zhipu: "var(--sage)",
   google: "var(--sky)",
   alibaba: "var(--orange, #e08a1e)",
+  typesafe: "var(--teal, #0f9a8a)",
 };
 
 /** the kinds of AI request the backend records (AiUsageEntry.kind) */
@@ -41,6 +43,8 @@ const KIND_LABELS: Record<string, string> = {
   suggest: "Sugestões",
   image: "Ilustrações",
   camper_notes: "Triagem de ficha",
+  structure_health: "Saúde estruturada",
+  normalize_observations: "Limpeza das observações",
   dedup_field: "Limpeza",
   guess_sex: "Sexo pelo nome",
   assistant_chat: "Assistente escrito",
@@ -51,6 +55,8 @@ const KIND_COLORS: Record<string, string> = {
   suggest: "var(--panel)",
   image: "var(--red)",
   camper_notes: "var(--pine)",
+  structure_health: "var(--teal, #0f9a8a)",
+  normalize_observations: "var(--orange, #e08a1e)",
   dedup_field: "var(--sage)",
   guess_sex: "var(--sky)",
   assistant_chat: "var(--forest)",

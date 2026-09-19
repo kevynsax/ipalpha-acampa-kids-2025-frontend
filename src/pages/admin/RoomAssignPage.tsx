@@ -4,6 +4,7 @@ import Breadcrumbs from "../../components/Breadcrumbs";
 import { PreferenceTipPortal, usePreferenceTip } from "../../components/PreferenceTip";
 import DesktopBoardNotice from "../../components/DesktopBoardNotice";
 import DistributeRoomsDialog from "./DistributeRoomsDialog";
+import OptionCards from "../../components/OptionCards";
 import Toast from "../../components/Toast";
 import type { DistributionPlan } from "../../roomDistribution";
 import Dialog from "../../components/Dialog";
@@ -11,11 +12,12 @@ import RoomRoleIcon from "../../components/RoomRoleIcon";
 import { AssignmentCamperChip, AssignmentStaffChip } from "../../components/AssignmentChips";
 import PreferenceGroupCard from "../../components/PreferenceGroupCard";
 import PreferenceStrategyControl, { usePreferenceStrategy } from "../../components/PreferenceStrategyControl";
-import { SaveGlyph, SearchGlyph, UndoGlyph } from "../../components/Glyph";
+import { SaveGlyph, UndoGlyph } from "../../components/Glyph";
+import SearchField from "../../components/SearchField";
 import { ageOf, type Camper, type CamperSex } from "../../api/campers";
 import { staffSex, type Staff } from "../../api/staff";
 import { applyRooms, BEDROOM_GROUPS, GROUP_META, previewRooms, type Bedroom, type BedroomGroup, type RoomsAppliedMessage } from "../../api/bedrooms";
-import { applyCamperDraft, applyStaffDraft, clearRoomsDraft, draftHasChanges, emptyRoomsDraft, loadRoomsDraft, roomsDelta, saveRoomsDraft, type RoomsDraft } from "../../roomDraft";
+import { applyCamperDraft, applyStaffDraft, clearRoomsDraft, draftHasChanges, emptyRoomsDraft, loadRoomsDraft, roomsDelta, saveRoomsDraft, type RoomsDelta, type RoomsDraft } from "../../roomDraft";
 import { blobLimitHint, buildPreferenceUnits, matchAllPreferences, normName, type PrefMatch } from "../../roomGroups";
 import { medianAgeFloor, shortPersonName } from "../../names";
 import { useCollection, useCollectionOrEmpty } from "../../store";
@@ -29,6 +31,8 @@ interface RoomAssignPageProps {
 
 /** which wing the board is focused on ("staff" = the team's own rooms) */
 type WingFilter = "all" | CamperSex | "staff";
+/** the room-board filters: leader / staff presence */
+type RoomBoardFilter = "all" | "leader" | "staff" | "noStaff" | "noLeader";
 
 /** What a carried drag holds: one kid, a stuck-together group, or a staff member. */
 interface DragUnit {
@@ -77,6 +81,8 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
   const settings = useCollection("settings");
 
   const [wing, setWing] = useState<WingFilter>("all");
+  /** filter the rooms on the board by leader / staff presence */
+  const [roomFilter, setRoomFilter] = useState<RoomBoardFilter>("all");
   /** filter the "sem quarto" pool by name (kids and staff) */
   const [search, setSearch] = useState("");
   /** cluster ids the admin dissolved ("desgrudar") — split into single kids */
@@ -120,6 +126,8 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
   const [showMessages, setShowMessages] = useState(false);
   /** the per-apply avisos toggle: on = send SMS (default), off = apply silently */
   const [notifyOn, setNotifyOn] = useState(true);
+  /** Concluir's "lone team member" question: promote them to líder (default) or keep as auxiliar */
+  const [promoteLone, setPromoteLone] = useState(true);
   /** Concluir is sending the delta to the server */
   const [submitting, setSubmitting] = useState(false);
   /** the local draft — every change stays on this device until Concluir */
@@ -169,6 +177,18 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
   // kids placed in a room but with nobody responsible for them + kids still unplaced
   const noCaretaker = kids.filter((k) => k.bedroom && !k.caretakerId);
   const noRoom = kids.filter((k) => !k.bedroom);
+
+  /** kids' rooms whose ONLY team member is still an auxiliar — Concluir offers to promote them to líder */
+  const loneStaffRooms = useMemo(() => {
+    if (!bedrooms) return [] as { room: Bedroom; member: Staff }[];
+    const out: { room: Bedroom; member: Staff }[] = [];
+    for (const room of bedrooms) {
+      if (room.group === "staff") continue;
+      const members = staff.filter((s) => s.bedroom === room.id);
+      if (members.length === 1 && members[0].roomRole !== "caretaker" && campers.some((k) => k.bedroom === room.id)) out.push({ room, member: members[0] });
+    }
+    return out;
+  }, [bedrooms, campers, staff]);
 
   // anything discard would throw away: draft moves + session-only grouping gestures
   const hasChanges = draftHasChanges(draft) || ungrouped.size > 0 || detached.size > 0 || glued.size > 0;
@@ -248,56 +268,59 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
     });
   }
 
-  // ── who looks after whom: tap a kid to light up their líder and the rest of that líder's kids ──
+  // ── who looks after whom: tap a kid (or their líder) to MARK that líder; while marked, every kid tap reassigns ──
 
-  /** the kid the admin last tapped (their líder's whole crew lights up) */
-  const selectedKid = selected ? campers.find((k) => k.id === selected) ?? null : null;
-  /** líder of the selected kid — the one whose colour is "active" on the board */
-  const selectedCaretakerId = selectedKid?.caretakerId ?? selectedLead;
+  /** the marked líder: tapped directly (chip) or through one of their kids — stays put while kids are toggled */
+  const selectedCaretakerId = selectedLead ?? (selected ? campers.find((k) => k.id === selected)?.caretakerId ?? null : null);
 
   /**
-   * Tap on a kid:
-   *  • nothing selected (or a kid of another room / another líder) → select them,
-   *    lighting up their líder and that líder's other kids;
-   *  • a kid that already belongs to the selected líder → hand them to the room's
-   *    OTHER líder (swap), so two taps move a kid between the two crews.
+   * Tap on a kid (rooms with two or more líderes):
+   *  • no líder marked yet → mark theirs: the líder chip lights up and every
+   *    kid of the room becomes a toggle target;
+   *  • a líder is marked (via a kid or the líder chip) → hand the tapped kid to
+   *    the NEXT líder of the room after their current one (a kid without one
+   *    goes to the marked líder). The mark stays, so the admin keeps moving
+   *    kid after kid without re-selecting.
    * Rooms with a single líder do none of this. Draft only — nothing is sent.
    */
   function tapKid(k: Camper) {
     const roomCaretakers = k.bedroom ? caretakersOf(k.bedroom) : [];
     if (roomCaretakers.length < 2) return; // one líder in the room: nothing to choose
 
-    const sameCrew = !!selectedCaretakerId && k.caretakerId === selectedCaretakerId && (selectedKid?.bedroom === k.bedroom || selectedRoom === k.bedroom);
-    if (!sameCrew) {
+    const markedRoom = selectedCaretakerId ? staff.find((s) => s.id === selectedCaretakerId)?.bedroom ?? null : null;
+    if (selectedCaretakerId && markedRoom === k.bedroom) {
+      const from = roomCaretakers.findIndex((s) => s.id === k.caretakerId);
+      const target = from >= 0 ? roomCaretakers[(from + 1) % roomCaretakers.length] : roomCaretakers.find((s) => s.id === selectedCaretakerId) ?? roomCaretakers[0];
+      if (!target || target.id === k.caretakerId) return; // nowhere to go
       setTip(null);
-      setSelectedRoom(null);
-      setSelectedLead(null);
-      setSelected(k.id);
+      setError(null);
+      mutateDraft((d) => {
+        d.campers[k.id] = { bedroom: k.bedroom, caretakerId: target.id };
+      });
       return;
     }
 
-    // swap: give the kid to the next líder of the same room
-    const i = roomCaretakers.findIndex((s) => s.id === k.caretakerId);
-    const nextCaretaker = roomCaretakers[(i + 1) % roomCaretakers.length];
-    setError(null);
-    mutateDraft((d) => {
-      d.campers[k.id] = { bedroom: k.bedroom, caretakerId: nextCaretaker.id };
-    });
+    // first tap: mark their líder (explicit, so the mark survives the toggles)
+    setTip(null);
+    setSelectedRoom(null);
+    setSelectedLead(k.caretakerId);
+    setSelected(k.id);
   }
 
   /**
-   * Tap on a líder chip. In a room with two or more líderes this lights up every
-   * kid of the room (theirs in the strong colour, the others in their own), so
-   * the admin sees the whole split at once. Alone in the room there is nothing
-   * to compare, so nothing happens.
+   * Tap on a líder chip. In a room with two or more líderes this MARKS the
+   * líder (their kids light up in the strong colour) and every kid tap in the
+   * room reassigns. Tapping the marked líder again clears the mark. Alone in
+   * the room there is nothing to choose, so nothing happens.
    */
   function tapCaretaker(s: Staff, roomCaretakers: number) {
     if (!wasTap()) return;
     if (roomCaretakers < 2) return;
     setTip(null);
+    const wasMarked = selectedLead === s.id && selectedRoom === s.bedroom;
     setSelected(null);
-    setSelectedRoom((cur) => (cur === s.bedroom ? null : s.bedroom));
-    setSelectedLead((cur) => (cur === s.id && selectedRoom === s.bedroom ? null : s.id));
+    setSelectedRoom(wasMarked ? null : s.bedroom);
+    setSelectedLead(wasMarked ? null : s.id);
   }
 
   /** the líderes of a room, in a stable order (their colour index) */
@@ -538,17 +561,22 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
    * preview from the server so the recipient list / example texts are exact.
    */
   function concluir() {
-    const delta = roomsDelta(draft, storedCampers, storedStaff);
+    const delta = deltaWithPromotion();
     if (!delta.staff.length && !delta.campers.length) {
       clearRoomsDraft();
       onBack();
       return;
     }
     setError(null);
-    setPreview(null);
     setShowMessages(false);
     setNotifyOn(true);
     setConfirmOpen(true);
+    loadPreview(delta);
+  }
+
+  /** (re)loads who would be texted for this exact delta — the promote choice changes the delta, so it re-runs */
+  function loadPreview(delta: RoomsDelta) {
+    setPreview(null);
     previewRooms(token, delta)
       .then((p) => {
         setPreview(p);
@@ -557,9 +585,39 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
       .catch(() => setPreview({ messages: [], smsEnabled: false }));
   }
 
+  /** the dialog's lone-member choice: Promover a líder / Manter como auxiliar */
+  function togglePromoteLone(on: boolean) {
+    setPromoteLone(on);
+    setShowMessages(false);
+    loadPreview(deltaWithPromotion(on));
+  }
+
+  /** the delta Concluir sends: the draft + (when chosen) every lone team member promoted to líder */
+  function deltaWithPromotion(promote = promoteLone): RoomsDelta {
+    const delta = roomsDelta(draft, storedCampers, storedStaff);
+    if (!promote) return delta;
+    const leaderByRoom = new Map(loneStaffRooms.map(({ room, member }) => [room.id, member.id]));
+    for (const { room, member } of loneStaffRooms) {
+      const entry = { id: member.id, bedroom: room.id, roomRole: "caretaker" as const };
+      const i = delta.staff.findIndex((s) => s.id === member.id);
+      if (i < 0) delta.staff.push(entry);
+      else delta.staff[i] = entry;
+    }
+    // first líder of the room: every kid there without a líder becomes theirs (same as the drag corner)
+    for (const k of campers) {
+      const leaderId = k.bedroom ? leaderByRoom.get(k.bedroom) : undefined;
+      if (!leaderId || k.caretakerId) continue;
+      const entry = { id: k.id, bedroom: k.bedroom, caretakerId: leaderId };
+      const i = delta.campers.findIndex((c) => c.id === k.id);
+      if (i < 0) delta.campers.push(entry);
+      else delta.campers[i] = entry;
+    }
+    return delta;
+  }
+
   /** apply the whole delta in one shot (rooms, roles, líderes) and leave */
   async function applyNow() {
-    const delta = roomsDelta(draft, storedCampers, storedStaff);
+    const delta = deltaWithPromotion();
     if (!delta.staff.length && !delta.campers.length) {
       clearRoomsDraft();
       onBack();
@@ -593,15 +651,31 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
     : wing === "staff" ? wingRooms("staff")
     : bedrooms;
   // the name search also looks inside the rooms: if anyone there matches, show only
-  // those rooms; with no match at all the board stays whole (search only filters the pool)
+  // those rooms; with no match at all the board stays whole (search only filters the pool).
+  // Inside a shown room only the matching KIDS are filtered — staff stay visible at all times.
   const roomHasMatch = (b: Bedroom) =>
     campers.some((k) => k.bedroom === b.id && kidMatches(k)) ||
     staff.some((s) => s.bedroom === b.id && normName(s.name).includes(nq));
-  const roomMatches = nq ? roomsForWing.filter(roomHasMatch) : [];
-  const roomsOnShow: Bedroom[] = roomMatches.length ? roomMatches : roomsForWing;
+  // the room filters: leader / staff presence, on the draft as it stands
+  const roomHasLeader = (b: Bedroom) => staff.some((s) => s.bedroom === b.id && s.roomRole === "caretaker");
+  const roomStaffCount = (b: Bedroom) => staff.reduce((n, s) => n + (s.bedroom === b.id ? 1 : 0), 0);
+  const roomPasses = (b: Bedroom, f: RoomBoardFilter) =>
+    f === "all" ? true
+    : f === "leader" ? roomHasLeader(b)
+    : f === "noLeader" ? !roomHasLeader(b)
+    : f === "staff" ? roomStaffCount(b) > 0
+    : roomStaffCount(b) === 0;
+  const roomsFiltered = roomsForWing.filter((b) => roomPasses(b, roomFilter));
+  const roomMatches = nq ? roomsFiltered.filter(roomHasMatch) : [];
+  const roomsOnShow: Bedroom[] = roomMatches.length ? roomMatches : roomsFiltered;
 
   const genderPoolCount = (g: CamperSex) => poolKids.filter((k) => (k.sex ?? k.probableGender) === g).length;
   const hoverValid = hover && dragUnit ? canDrop(dragUnit, hover) : false;
+  // with the promotion on, the lone líderes take over those rooms' kids — the pending warning only counts what stays
+  const promoteRooms = promoteLone ? new Set(loneStaffRooms.map(({ room }) => room.id)) : new Set<string>();
+  const pendingNoCaretaker = noCaretaker.filter((k) => !k.bedroom || !promoteRooms.has(k.bedroom));
+  // the promote card wears the face of the majority: mostly women → the woman líder icon, else the man's
+  const promoteWomen = loneStaffRooms.filter(({ member }) => staffSex(member, bedrooms) === "F").length > loneStaffRooms.length / 2;
 
   return (
     <div className="admin-page">
@@ -651,17 +725,17 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
         ))}
       </div>
 
-      {selectedKid && selectedCaretakerId && (
+      {selectedCaretakerId && (
         <p className="message message--ok assign-linking">
           {(() => {
             const lead = staff.find((s) => s.id === selectedCaretakerId);
             return lead ? (
               <>
-                <RoomRoleIcon role="caretaker" size={20} sex={staffSex(lead, bedrooms)} /> {tx("Crianças de")} <strong>{firstName(lead.name)}</strong> {tx("em destaque · toque numa delas para passar para {other}.", { other: otherCaretakerName(caretakersOf(selectedKid.bedroom ?? ""), selectedCaretakerId) ?? tx("outro líder") })}
+                <RoomRoleIcon role="caretaker" size={20} sex={staffSex(lead, bedrooms)} /> {tx("Crianças de")} <strong>{firstName(lead.name)}</strong> {tx("em destaque · toque numa criança do quarto para passá-la ao próximo líder.")}
               </>
             ) : null;
           })()}
-          <button type="button" className="button button--secondary assign-linking__done" onClick={() => setSelected(null)}>
+          <button type="button" className="button button--secondary assign-linking__done" onClick={() => { setSelected(null); setSelectedRoom(null); setSelectedLead(null); }}>
             {tx("Pronto")}
           </button>
         </p>
@@ -683,16 +757,13 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
                 ? tx("Arraste a equipe para os quartos da ala Equipe à direita.")
                 : tx("Arraste para um quarto à direita. Solte uma criança em cima de outra para grudá-las; para fora do grupo para separar.")}
             </p>
-            <label className="assign-pool__search">
-              <SearchGlyph className="assign-pool__search-icon" size="1.1em" />
-              <input
-                type="search"
-                placeholder={tx("Buscar por nome ou preferência…")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                aria-label={tx("Buscar por nome ou preferência")}
-              />
-            </label>
+            <SearchField
+              compact
+              placeholder={tx("Buscar por nome ou preferência…")}
+              value={search}
+              onChange={setSearch}
+              aria-label={tx("Buscar por nome ou preferência")}
+            />
           </header>
 
           {(wing === "staff" || poolKids.length === 0) && poolStaff.length === 0 && <p className="opt-empty">{tx("Todo mundo tem quarto. 🎉")}</p>}
@@ -736,6 +807,30 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
 
         {/* ── right: the rooms, with everyone draggable between them ── */}
         <div className="assign-rooms">
+          <div className="assign-toolbar assign-toolbar--rooms" role="group" aria-label={tx("Filtrar quartos")}>
+            {(
+              [
+                { key: "all" as const, label: tx("Todos"), icon: null, count: roomsForWing.filter((b) => roomPasses(b, "all")).length },
+                { key: "leader" as const, label: tx("Com líder"), icon: ICONS.leaderFace, count: roomsForWing.filter((b) => roomPasses(b, "leader")).length },
+                { key: "staff" as const, label: tx("Com equipe"), icon: ICONS.staffPair, count: roomsForWing.filter((b) => roomPasses(b, "staff")).length },
+                { key: "noStaff" as const, label: tx("Sem equipe"), icon: null, count: roomsForWing.filter((b) => roomPasses(b, "noStaff")).length },
+                { key: "noLeader" as const, label: tx("Sem líder"), icon: null, count: roomsForWing.filter((b) => roomPasses(b, "noLeader")).length },
+              ] satisfies { key: RoomBoardFilter; label: string; icon: string | null; count: number }[]
+            ).map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                className={`chip-toggle chip-toggle--small ${roomFilter === f.key ? "chip-toggle--on" : ""}`}
+                aria-pressed={roomFilter === f.key}
+                onClick={() => setRoomFilter(f.key)}
+              >
+                {f.icon && <img className="chip-toggle__icon" src={f.icon} alt="" aria-hidden="true" />}
+                {f.label}
+                <span className="cat-tab__count">{f.count}</span>
+              </button>
+            ))}
+          </div>
+          {roomsOnShow.length === 0 && <p className="opt-empty">{tx("Nenhum quarto com este filtro.")}</p>}
           {BEDROOM_GROUPS.filter((g) => roomsOnShow.some((b) => b.group === g)).map((g) => {
             const m = GROUP_META[g];
             const rooms = roomsOnShow.filter((b) => b.group === g);
@@ -764,6 +859,9 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
                     /** a kid's colour: white while the room has a single líder, their líder's colour once there are two */
                     const kidColor = (caretakerId: string | null) => (caretakers.length < 2 ? null : leadColor(caretakerId));
                     const helpers = staffIn.filter((s) => !caretakers.includes(s));
+                    // search active: only the kids are filtered, staff stay visible at all times
+                    const shownKids = nq ? inRoom.filter(kidMatches) : inRoom;
+                    const shownHelpers = helpers;
                     // the room body is the landing zone for kids and for auxiliares alike
                     // (a kid hovering the líderes' corner still lands in the body)
                     const bodyHover = !!dragUnit && (hover === `room:${b.id}` || (dragUnit.kind === "kids" && hover === `lead:${b.id}`));
@@ -829,14 +927,14 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
                               )}
                             </span>
                         </header>
-                        {inRoom.length === 0 && helpers.length === 0 ? (
+                        {shownKids.length === 0 && shownHelpers.length === 0 ? (
                           <p className={`assign-room__empty${bodyClass}`} data-assign-drop={`room:${b.id}`}>
                             {b.group === "staff" ? tx("Arraste a equipe para cá") : tx("Arraste crianças para cá")}
                           </p>
                         ) : (
                           <div className={`assign-room__chips${bodyClass}`} data-assign-drop={`room:${b.id}`}>
                             {/* auxiliares are just another face in the room — listed with the kids */}
-                            {helpers.map((s) => (
+                            {shownHelpers.map((s) => (
                                 <AssignmentStaffChip
                                   key={s.id}
                                   staff={s}
@@ -845,7 +943,7 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
                                   onPointerDown={(e) => beginDrag(e, { kind: "staff", ids: [s.id], from: b.id })}
                                 />
                               ))}
-                            {inRoom.map((k) => {
+                            {shownKids.map((k) => {
                               // kids of the same preference group travel together, here too
                               const mates = roomUnitIds(units, k, inRoom);
                               const group = mates.length > 1;
@@ -915,7 +1013,7 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
 
       <DistributeRoomsDialog open={distributeOpen} bedrooms={bedrooms} campers={campers} staff={staff} units={units} prefs={prefs} excludeStaffIds={excludeStaffIds} onApply={applyDistribution} onClose={() => setDistributeOpen(false)} />
 
-      <Toast message={undoDistribution?.summary ?? null} action={undoDistribution ? { label: <><UndoGlyph /> {tx("Desfazer")}</>, onClick: revertDistribution } : undefined} onClose={() => setUndoDistribution(null)} />
+      <Toast message={undoDistribution?.summary ?? null} timeoutMs={0} action={undoDistribution ? { label: <><UndoGlyph /> {tx("Desfazer")}</>, onClick: revertDistribution } : undefined} onClose={() => setUndoDistribution(null)} />
 
       <Dialog open={confirmOpen} onClose={() => (submitting ? undefined : setConfirmOpen(false))} title={tx("Confirmar alterações")} width={560}>
         <div className="cat-form cat-form--plain">
@@ -923,15 +1021,34 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
             <img className="admin-title__icon" src={ICONS.roomAssign} alt="" aria-hidden="true" /> {tx("Resumo das alterações")}
           </h2>
 
-          {(noCaretaker.length > 0 || noRoom.length > 0) && (
+          {(pendingNoCaretaker.length > 0 || noRoom.length > 0) && (
             <p className="message message--warn assign-summary-pending">
               {tx("⚠️ Pendências: {details}. Você pode aplicar assim mesmo.", {
                 details: [
-                  noCaretaker.length > 0 ? tx("{n} sem líder", { n: noCaretaker.length }) : null,
+                  pendingNoCaretaker.length > 0 ? tx("{n} sem líder", { n: pendingNoCaretaker.length }) : null,
                   noRoom.length > 0 ? tx("{n} sem quarto", { n: noRoom.length }) : null,
                 ].filter(Boolean).join(tx(" · ")),
               })}
             </p>
+          )}
+
+          {loneStaffRooms.length > 0 && (
+            <div className="assign-promote">
+              <OptionCards<"promote" | "keep">
+                label={tx("Equipe sozinha no quarto")}
+                value={promoteLone ? "promote" : "keep"}
+                onChange={(k) => togglePromoteLone(k === "promote")}
+                options={[
+                  { key: "promote", icon: promoteWomen ? ICONS.leaderFaceWoman : ICONS.leaderFace, title: tx("Promover a líder"), subtitle: tx("As crianças desses quartos ficam com o único membro da equipe que dorme lá.") },
+                  { key: "keep", icon: promoteWomen ? ICONS.helperFaceWoman : ICONS.helperFace, title: tx("Manter como auxiliar"), subtitle: tx("Esses quartos continuam sem líder.") },
+                ]}
+              />
+              <ul className="assign-summary-list assign-promote__rooms">
+                {loneStaffRooms.map(({ room, member }) => (
+                  <li key={room.id}><strong>{room.name}</strong> · {firstName(member.name)}</li>
+                ))}
+              </ul>
+            </div>
           )}
 
           {summary.lines.length > 0 ? (
@@ -998,13 +1115,6 @@ export default function RoomAssignPage({ token, onBack }: RoomAssignPageProps) {
 /** líder colour class of the room board: light while idle, strong when the crew is selected */
 function colorClass(color: CaretakerColor | null, active: boolean): string {
   return color ? `assign-chip--${color}${active ? "-on" : ""}` : "";
-}
-
-/** the name shown on the swap hint: the next líder of the same room */
-function otherCaretakerName(roomCaretakers: Staff[], currentId: string): string | null {
-  if (roomCaretakers.length < 2) return null;
-  const i = roomCaretakers.findIndex((s) => s.id === currentId);
-  return firstName(roomCaretakers[(i + 1) % roomCaretakers.length].name);
 }
 
 /** the kid + every roommate of their preference group (dissolved groups give just the kid) */

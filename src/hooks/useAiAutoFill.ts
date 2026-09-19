@@ -19,6 +19,8 @@ interface Options {
   setEmoji: (v: string) => void;
   /** the emoji the form started with; only replaced while the user hasn't picked one */
   defaultEmoji: string;
+  /** choices shown by the picker; Jev chooses only from this closed set */
+  emojiSuggestions: string[];
   /** editing an existing item: its emoji was chosen before, keep it */
   existing: boolean;
   /** body HTML / text — used to guess the icon when the title is still blank */
@@ -59,7 +61,7 @@ function plainText(html: string): string {
  *   - both blank, user typing the body → guess on each new paragraph, up to 3
  * Wrap the form's setEmoji with `pickEmoji` so a manual choice stops guesses.
  */
-export function useAiAutoFill({ token, context, title, setTitle, emoji, setEmoji, defaultEmoji, existing, html = "" }: Options) {
+export function useAiAutoFill({ token, context, title, setTitle, emoji, setEmoji, defaultEmoji, emojiSuggestions, existing, html = "" }: Options) {
   const [suggesting, setSuggesting] = useState(false);
   const [suggestingEmoji, setSuggestingEmoji] = useState(false);
   const touched = useRef(false);
@@ -97,7 +99,7 @@ export function useAiAutoFill({ token, context, title, setTitle, emoji, setEmoji
       abort.current = ctrl;
       setSuggestingEmoji(true);
       try {
-        const s = await aiSuggest(token, { html: text, context, needTitle: false, needEmoji: true }, ctrl.signal);
+        const s = await aiSuggest(token, { html: text, context, needTitle: false, needEmoji: true, emojiChoices: emojiSuggestions }, ctrl.signal);
         if (ctrl.signal.aborted) return;
         lastSource.current = text;
         if (s.emoji && canGuessEmoji()) setEmoji(s.emoji);
@@ -111,7 +113,7 @@ export function useAiAutoFill({ token, context, title, setTitle, emoji, setEmoji
         }
       }
     },
-    [token, context, canGuessEmoji, setEmoji],
+    [token, context, emojiSuggestions, canGuessEmoji, setEmoji],
   );
 
   useEffect(() => () => abort.current?.abort(), []);
@@ -166,7 +168,7 @@ export function useAiAutoFill({ token, context, title, setTitle, emoji, setEmoji
       setSuggesting(true);
       if (needEmoji) setSuggestingEmoji(true);
       try {
-        const s = await aiSuggest(token, { html: appliedHtml, context, needTitle, needEmoji }, ctrl.signal);
+        const s = await aiSuggest(token, { html: appliedHtml, context, needTitle, needEmoji, emojiChoices: needEmoji ? emojiSuggestions : undefined }, ctrl.signal);
         if (ctrl.signal.aborted) return;
         if (s.title && !latest.current.title.trim()) setTitle(s.title);
         if (s.emoji && canGuessEmoji()) setEmoji(s.emoji);
@@ -180,7 +182,7 @@ export function useAiAutoFill({ token, context, title, setTitle, emoji, setEmoji
         }
       }
     },
-    [token, context, canGuessEmoji, setTitle, setEmoji],
+    [token, context, emojiSuggestions, canGuessEmoji, setTitle, setEmoji],
   );
 
   /** AI button next to the title: (re)generate the title from the current content, even if one is set */

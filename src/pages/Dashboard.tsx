@@ -8,6 +8,8 @@ import Logo from "../components/Logo";
 import { logout } from "../auth/store";
 import { roleMeta, type LoggedUser, type Role } from "../roles";
 import { ICONS } from "../icons";
+import { updateStaff } from "../api/staff";
+import Dialog from "../components/Dialog";
 import SyncStatus from "../components/SyncStatus";
 import EmergencyScanFab from "../components/EmergencyScanFab";
 import InstallBanner from "../components/InstallBanner";
@@ -698,7 +700,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
             {view === "staffcheckin" && <StaffCheckinPage token={token} />}
             {view === "profile" && (isParent
               ? <ParentProfile user={user} onLogout={handleLogout} loggingOut={loggingOut} onSwitchRole={onSwitchRole} />
-              : <ProfileView user={user} onLogout={handleLogout} loggingOut={loggingOut} onSwitchRole={onSwitchRole} onOpenWizard={isAdmin ? () => { setWizardDismissed(false); goTo("wizard"); } : undefined} />)}
+              : <ProfileView token={token} user={user} isAdmin={isAdmin} onLogout={handleLogout} loggingOut={loggingOut} onSwitchRole={onSwitchRole} onOpenWizard={isAdmin ? () => { setWizardDismissed(false); goTo("wizard"); } : undefined} />)}
           </HideScanFabContext.Provider>
         </TabOverrideContext.Provider>
       </main>
@@ -723,12 +725,35 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   );
 }
 
-function ProfileView({ user, onLogout, loggingOut, onSwitchRole, onOpenWizard }: { user: LoggedUser; onLogout: () => void; loggingOut: boolean; onSwitchRole: (role: Role) => Promise<void>; /** admin only: reopen the setup wizard */ onOpenWizard?: () => void }) {
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function ProfileView({ token, user, isAdmin, onLogout, loggingOut, onSwitchRole, onOpenWizard }: { token: string; user: LoggedUser; isAdmin: boolean; onLogout: () => void; loggingOut: boolean; onSwitchRole: (role: Role) => Promise<void>; /** admin only: reopen the setup wizard */ onOpenWizard?: () => void }) {
   const { tx } = useI18n();
   const meta = roleMeta(user.activeRole);
   const otherRoles = user.roles.filter((r) => r !== user.activeRole);
+  const roster = useCollectionOrEmpty("staff");
+  const me = roster.find((s) => s.phone === user.phone);
   const [switchingTo, setSwitchingTo] = useState<Role | null>(null);
   const [switchError, setSwitchError] = useState<string | null>(null);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailDraft, setEmailDraft] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const emailValid = !emailDraft.trim() || EMAIL_RE.test(emailDraft.trim());
+
+  async function saveEmail() {
+    if (!me || !emailValid || emailBusy) return;
+    setEmailBusy(true);
+    setEmailError(null);
+    try {
+      await updateStaff(token, me.id, { email: emailDraft.trim() ? emailDraft.trim().toLowerCase() : null });
+      setEditingEmail(false);
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : tx("Algo deu errado."));
+    } finally {
+      setEmailBusy(false);
+    }
+  }
 
   /** one tap on another profile enters it — there is nothing to confirm */
   async function enterAs(role: Role) {
@@ -762,6 +787,23 @@ function ProfileView({ user, onLogout, loggingOut, onSwitchRole, onOpenWizard }:
           <span className="user-card__value">{user.phone}</span>
         </div>
         <div className="user-card__row">
+          <span className="user-card__label">{tx("E-mail")}</span>
+          <span className="user-card__value" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            {me?.email || "—"}
+            {isAdmin && me && (
+              <button
+                type="button"
+                className="icon-btn icon-btn--bare"
+                title={tx("Trocar e-mail")}
+                aria-label={tx("Trocar e-mail")}
+                onClick={() => { setEmailDraft(me.email ?? ""); setEmailError(null); setEditingEmail(true); }}
+              >
+                <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
+              </button>
+            )}
+          </span>
+        </div>
+        <div className="user-card__row">
           <span className="user-card__label">{tx("Perfil")}</span>
           {/* the one they are already in: a plain label, nothing to tap */}
           <span className="role-chip role-chip--small role-chip--bare">
@@ -793,6 +835,25 @@ function ProfileView({ user, onLogout, loggingOut, onSwitchRole, onOpenWizard }:
       </div>
 
       {switchError && <p className="message message--error">{switchError}</p>}
+
+      <Dialog open={editingEmail} onClose={() => !emailBusy && setEditingEmail(false)} title={tx("Trocar e-mail")} width={480} dismissible={!emailBusy} className="sheet-dialog" autofocus>
+        <div className="cat-form cat-form--plain">
+          <span className="sheet__handle" aria-hidden="true" />
+          <h2 className="cat-form__title change-room__title">
+            <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" /> {tx("Trocar e-mail")}
+          </h2>
+          <label className="cat-field cat-field--grow">
+            <span className="cat-field__label">{tx("E-mail")}</span>
+            <input className="cat-input" type="email" inputMode="email" autoComplete="email" placeholder={tx("ex.: nome@email.com")} value={emailDraft} disabled={emailBusy} onChange={(e) => setEmailDraft(e.target.value)} />
+            {!emailValid && <p className="cat-hint cat-hint--error">{tx("Informe um e-mail válido.")}</p>}
+          </label>
+          {emailError && <p className="message message--error">{emailError}</p>}
+          <div className="cat-form__actions">
+            <button type="button" className="button button--secondary" disabled={emailBusy} onClick={() => setEditingEmail(false)}>{tx("Cancelar")}</button>
+            <button type="button" className="button button--primary" disabled={emailBusy || !emailValid || !me || (emailDraft.trim().toLowerCase() || null) === (me.email || null)} onClick={() => void saveEmail()}>{emailBusy ? tx("Salvando…") : tx("Confirmar")}</button>
+          </div>
+        </div>
+      </Dialog>
 
       <div className="profile-actions">
         {onOpenWizard && (

@@ -3,7 +3,7 @@ import { deleteScore, repointEventScans, scanScore } from "../api/scores";
 import { speakDay } from "../dates";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import Breadcrumbs from "../components/Breadcrumbs";
-import { SearchGlyph } from "../components/Glyph";
+import SearchField from "../components/SearchField";
 import ScanFab from "../components/ScanFab";
 import ScanPointsDialog, { currentEvent, defaultEvent } from "../components/ScanPointsDialog";
 import { collatorLocale, useI18n } from "../i18n";
@@ -206,10 +206,7 @@ export default function BulkPointsPage({ token, onClose, parentLabel }: BulkPoin
 
         {event && (
           <>
-            <label className="staff-toolbar__search">
-              <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
-              <input className="cat-input" type="search" placeholder={tx("Buscar pelo nome…")} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tx("Buscar criança")} />
-            </label>
+            <SearchField placeholder={tx("Buscar pelo nome…")} value={search} onChange={setSearch} aria-label={tx("Buscar criança")} />
             <p className="scan-points__summary" aria-live="polite">
               <strong>{eventScans.length}</strong> {tx("com pontos")} · <strong>{pendingCount}</strong> {tx("sem pontos")}
               {notArrived > 0 && (

@@ -4,7 +4,7 @@ import type { Camper } from "../api/campers";
 import type { Bedroom } from "../api/bedrooms";
 import { staffSex, type Staff } from "../api/staff";
 import Dialog from "../components/Dialog";
-import { SearchGlyph } from "../components/Glyph";
+import SearchField from "../components/SearchField";
 import RichHtml from "../components/RichHtml";
 import RichTextEditor from "../components/RichTextEditor";
 import { useCollection } from "../store";
@@ -220,10 +220,7 @@ function PersonPicker({ open, kind, campers, staff, selectedIds, onPick, onClose
     <Dialog open={open} onClose={() => { setQuery(""); onClose(); }} title={pickerTitle} width={520} autofocus>
       <div className="picker">
         <h2 className="cat-form__title">{pickerTitle}</h2>
-        <label className="staff-toolbar__search">
-          <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
-          <input className="cat-input" type="search" value={query} autoFocus placeholder={tx("Digite o nome…")} aria-label={tx("Buscar pessoa")} onChange={(event) => setQuery(event.target.value)} />
-        </label>
+        <SearchField value={query} onChange={setQuery} autoFocus placeholder={tx("Digite o nome…")} aria-label={tx("Buscar pessoa")} />
         {filtered.length === 0 ? <p className="opt-empty">{tx("Ninguém encontrado.")}</p> : (
           <ul className="picker__list">
             {filtered.map((person) => (

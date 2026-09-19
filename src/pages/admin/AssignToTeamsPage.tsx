@@ -14,7 +14,7 @@ import { blobLimitHint, buildPreferenceUnits, matchAllPreferences, normName, pre
 import { useCollection, useCollectionOrEmpty } from "../../store";
 import { ICONS } from "../../icons";
 import { GROUP_META, type Bedroom } from "../../api/bedrooms";
-import { SearchGlyph } from "../../components/Glyph";
+import SearchField from "../../components/SearchField";
 import { useI18n } from "../../i18n";
 
 interface Props { token: string; onBack: () => void; onScoreboard?: () => void }
@@ -168,7 +168,7 @@ function TeamZone({ id, title, color, count, over, onOver, onDrop, groups, staff
     {staff.map((member) => <AssignmentStaffChip key={member.id} staff={member} bedrooms={context.bedrooms} busy={busyIds.has(member.id)} draggable onDragStart={(event) => { event.stopPropagation(); onDrag({ kind: "staff", ids: [member.id], from }); }} onDragEnd={() => onDrag(null)} />)}
     {groups.length + staff.length === 0 && <p className={pool ? "opt-empty" : "team-assign-empty"}>{pool ? tx("Todo mundo está em um time.") : tx("Solte pessoas aqui")}</p>}
   </>;
-  if (pool) return <section className={`team-assign-pool${over ? " is-over" : ""}`} onDragOver={(event) => { event.preventDefault(); onOver(id); }} onDragLeave={() => onOver(null)} onDrop={onDrop}><header><h2><img src={ICONS.team} alt="" aria-hidden="true" /> {title} <span className="cat-tab__count">{count}</span></h2><label className="assign-pool__search"><SearchGlyph className="assign-pool__search-icon" size="1.1em" /><input type="search" placeholder={tx("Buscar por nome…")} value={search} onChange={(event) => onSearch?.(event.target.value)} aria-label={tx("Buscar por nome")} /></label></header><div className="team-assign-people">{body}</div>{footer}</section>;
+  if (pool) return <section className={`team-assign-pool${over ? " is-over" : ""}`} onDragOver={(event) => { event.preventDefault(); onOver(id); }} onDragLeave={() => onOver(null)} onDrop={onDrop}><header><h2><img src={ICONS.team} alt="" aria-hidden="true" /> {title} <span className="cat-tab__count">{count}</span></h2><SearchField compact placeholder={tx("Buscar por nome…")} value={search ?? ""} onChange={(value) => onSearch?.(value)} aria-label={tx("Buscar por nome")} /></header><div className="team-assign-people">{body}</div>{footer}</section>;
   return <section className={`team-assign-team${over ? " is-over" : ""}`} style={{ borderTopColor: color ?? undefined }} onDragOver={(event) => { event.preventDefault(); onOver(id); }} onDragLeave={() => onOver(null)} onDrop={onDrop}><header><span className="team-assign-flag" style={{ background: color ?? undefined }} aria-hidden="true" /><h2>{title}</h2><span className="cat-tab__count">{count}</span></header><div className="team-assign-people">{body}</div></section>;
 }
 

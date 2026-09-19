@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { fetchCleanupMarks, fetchImportCacheCount, runCleanup, wipeImportCache, type CleanupGroup, type StaffKeepGroup } from "../../api/cleanup";
+import { fetchCleanupMarks, fetchImportCacheCount, runCleanup, wipeImportCache, wipeStaffImportCache, type CleanupGroup, type StaffKeepGroup } from "../../api/cleanup";
 import { useConfirm } from "../../components/ConfirmDialog";
 import { useCollection } from "../../store";
 import type { Settings } from "../../api/settings";
@@ -107,11 +107,11 @@ export default function CleanupPage({ token }: CleanupPageProps) {
   const { tx } = useI18n();
   const confirm = useConfirm();
   const { navigate } = useRoute();
-  const [busy, setBusy] = useState<CleanupGroup | "all" | null>(null);
+  const [busy, setBusy] = useState<CleanupGroup | "all" | "import-cache" | "staff-import-cache" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [marks, setMarks] = useState({ welcomes: 0, notices: 0 });
-  const [importCache, setImportCache] = useState<number | null>(null);
+  const [importCache, setImportCache] = useState<{ count: number; staff: number; campers: number } | null>(null);
   const keepRef = useRef<StaffKeepGroup[]>([]);
   /** Programação only: the admin asked for the funções (and their texts) to go too */
   const rolesRef = useRef(false);
@@ -138,7 +138,7 @@ export default function CleanupPage({ token }: CleanupPageProps) {
     let alive = true;
     void fetchImportCacheCount(token)
       .then((r) => {
-        if (alive) setImportCache(r.count);
+        if (alive) setImportCache(r);
       })
       .catch(() => {});
     return () => {
@@ -146,14 +146,17 @@ export default function CleanupPage({ token }: CleanupPageProps) {
     };
   }, [token, isSuper, reload]);
 
-  async function cleanImportCache() {
+  async function cleanCache(kind: "staff" | "all") {
     if (busy) return;
+    const n = kind === "staff" ? importCache?.staff ?? 0 : importCache?.count ?? 0;
     const ok = await confirm({
       emoji: "🧹",
-      title: tx("Limpar o cache de importação?"),
+      title: kind === "staff" ? tx("Limpar o cache da importação de equipe?") : tx("Limpar o cache de importação?"),
       message: (
         <>
-          {tx("Apaga as {n} correspondências que a importação de equipe e de acampantes guardou (coluna da planilha → valor do app).", { n: importCache ?? 0 })}
+          {kind === "staff"
+            ? tx("Apaga as {n} correspondências que a importação de equipe guardou (coluna da planilha → valor do app).", { n })
+            : tx("Apaga as {n} correspondências que a importação de equipe e de acampantes guardou (coluna da planilha → valor do app).", { n })}
           <br />
           {tx("A próxima importação vai remontar o mapeamento do zero. Não apaga nenhum cadastro.")}
         </>
@@ -162,11 +165,11 @@ export default function CleanupPage({ token }: CleanupPageProps) {
       danger: true,
     });
     if (!ok) return;
-    setBusy("import-cache" as CleanupGroup);
+    setBusy(kind === "staff" ? "staff-import-cache" : "import-cache");
     setError(null);
     setDone(null);
     try {
-      const { removed } = await wipeImportCache(token);
+      const { removed } = kind === "staff" ? await wipeStaffImportCache(token) : await wipeImportCache(token);
       setReload((r) => r + 1);
       setDone(tx("{n} correspondência(s) do cache apagada(s).", { n: removed }));
     } catch (e) {
@@ -369,20 +372,36 @@ export default function CleanupPage({ token }: CleanupPageProps) {
               "As correspondências que a importação de equipe e de acampantes guarda (coluna da planilha → valor do app) para reaproveitar de um ano para o outro. Só o dono da implantação vê isto. Limpar não apaga nenhum cadastro — só faz a próxima importação remontar o mapeamento do zero.",
             )}
           </p>
-          <button
-            type="button"
-            className="button button--danger cleanup-all__button"
-            disabled={busy !== null || importCache === 0}
-            onClick={() => void cleanImportCache()}
-          >
-            {busy === ("import-cache" as CleanupGroup)
-              ? tx("Limpando…")
-              : importCache === 0
-                ? tx("Cache vazio")
-                : importCache != null
-                  ? tx("🧹 Limpar cache ({n})", { n: importCache })
-                  : tx("🧹 Limpar cache")}
-          </button>
+          <div className="cleanup-all__actions">
+            <button
+              type="button"
+              className="button button--danger cleanup-all__button"
+              disabled={busy !== null || importCache?.staff === 0}
+              onClick={() => void cleanCache("staff")}
+            >
+              {busy === "staff-import-cache"
+                ? tx("Limpando…")
+                : importCache?.staff === 0
+                  ? tx("Cache da equipe vazio")
+                  : importCache != null
+                    ? tx("🧹 Limpar cache da equipe ({n})", { n: importCache.staff })
+                    : tx("🧹 Limpar cache da equipe")}
+            </button>
+            <button
+              type="button"
+              className="button button--secondary cleanup-all__button"
+              disabled={busy !== null || importCache?.count === 0}
+              onClick={() => void cleanCache("all")}
+            >
+              {busy === "import-cache"
+                ? tx("Limpando…")
+                : importCache?.count === 0
+                  ? tx("Cache vazio")
+                  : importCache != null
+                    ? tx("🧹 Limpar cache ({n})", { n: importCache.count })
+                    : tx("🧹 Limpar cache")}
+            </button>
+          </div>
         </section>
       )}
       <section className="cleanup-all cleanup-next">

@@ -233,6 +233,31 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "¿Limpiar el caché de importación?",
     fr: "Vider le cache d'importation ?",
   },
+  "Limpar o cache da importação de equipe?": {
+    en: "Clear the staff import cache?",
+    es: "¿Limpiar el caché de importación del equipo?",
+    fr: "Vider le cache d'import de l'équipe ?",
+  },
+  "Apaga as {n} correspondências que a importação de equipe guardou (coluna da planilha → valor do app).": {
+    en: "Deletes the {n} matches that staff import saved (spreadsheet column → app value).",
+    es: "Borra las {n} correspondencias que la importación de equipo guardó (columna de la hoja → valor de la app).",
+    fr: "Supprime les {n} correspondances que l'import d'équipe a enregistrées (colonne du tableur → valeur de l'appli).",
+  },
+  "Cache da equipe vazio": {
+    en: "Staff cache empty",
+    es: "Caché del equipo vacío",
+    fr: "Cache de l'équipe vide",
+  },
+  "🧹 Limpar cache da equipe": {
+    en: "🧹 Clear staff cache",
+    es: "🧹 Limpiar caché del equipo",
+    fr: "🧹 Vider le cache de l'équipe",
+  },
+  "🧹 Limpar cache da equipe ({n})": {
+    en: "🧹 Clear staff cache ({n})",
+    es: "🧹 Limpiar caché del equipo ({n})",
+    fr: "🧹 Vider le cache de l'équipe ({n})",
+  },
   "Apaga as {n} correspondências que a importação de equipe e de acampantes guardou (coluna da planilha → valor do app).": {
     en: "Deletes the {n} matches that staff and camper import saved (spreadsheet column → app value).",
     es: "Borra las {n} correspondencias que la importación de equipo y de campistas guardó (columna de la hoja → valor de la app).",

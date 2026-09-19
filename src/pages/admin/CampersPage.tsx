@@ -25,7 +25,9 @@ import CamperForm from "./CamperForm";
 import DetailStack from "./DetailStack";
 import GiveawayPage from "../GiveawayPage";
 import CamperImportPage from "./CamperImportPage";
-import { DownloadGlyph, SearchGlyph } from "../../components/Glyph";
+import { DownloadGlyph } from "../../components/Glyph";
+import SearchField from "../../components/SearchField";
+import { setPendingImportFile, useFileDrop } from "../../hooks/useFileDrop";
 import { collatorLocale, useI18n } from "../../i18n";
 
 interface CampersPageProps {
@@ -175,6 +177,11 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
   }, [campers]);
   const teamById = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
   const teamChipLabel = teamFilter.size === 0 ? tx("Todos os times") : [...teamFilter].map((id) => teamById.get(id)?.name).filter(Boolean).join(", ");
+  const canDropImport = !readOnly && mode.kind === "view";
+  const { dragging: emptyDropOver, handlers: emptyDropHandlers } = useFileDrop((file) => {
+    setPendingImportFile(file);
+    navigate("/campers/import");
+  });
 
   const counts = useMemo(() => {
     const c = { all: campers?.length ?? 0, girls: 0, boys: 0 };
@@ -345,10 +352,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
       {mode.kind === "view" && (
         <>
           <div className="staff-toolbar">
-            <label className="staff-toolbar__search">
-              <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
-              <input className="cat-input" type="search" placeholder={tx("Buscar por nome, líder, time, quarto…")} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tx("Buscar")} />
-            </label>
+            <SearchField placeholder={tx("Buscar por nome, líder, time, quarto…")} value={search} onChange={setSearch} aria-label={tx("Buscar")} />
           </div>
           {/* wing + team chips, in the same row as the health chips; the medical team gets health only */}
           {!readOnly && (
@@ -408,7 +412,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
           <TeamFilterDialog open={teamDialogOpen} teams={teams} value={teamFilter} counts={teamCounts} onChange={setTeamFilter} onClose={() => setTeamDialogOpen(false)} />
 
           {campers.length === 0 && (
-            <div className="admin-empty">
+            <div className={`admin-empty${canDropImport ? " admin-empty--drop" : ""}${canDropImport && emptyDropOver ? " admin-empty--over" : ""}`} {...(canDropImport ? emptyDropHandlers : {})}>
               <img className="admin-empty__icon" src={ICONS.camper} alt="" aria-hidden="true" />
               <p>{readOnly ? tx("Nenhum acampante ainda.") : tx("Nenhum acampante ainda. Cadastre a primeira criança!")}</p>
               {!readOnly && (

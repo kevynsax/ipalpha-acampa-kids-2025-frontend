@@ -3,7 +3,7 @@ import { bearer } from "../auth/store";
 
 const BASE = import.meta.env.VITE_API_URL || window.location.origin;
 
-export type AiVendor = "anthropic" | "openai" | "xai" | "meta" | "zhipu" | "google" | "alibaba";
+export type AiVendor = "anthropic" | "openai" | "xai" | "meta" | "zhipu" | "google" | "alibaba" | "typesafe";
 
 export interface AiModel {
   id: string;
@@ -206,7 +206,7 @@ export interface AiSuggestion {
 /** Title / emoji suggestions from a title or document. Best-effort: may return {}. */
 export async function aiSuggest(
   token: string,
-  req: { html: string; context: AiContext; needTitle: boolean; needEmoji: boolean },
+  req: { html: string; context: AiContext; needTitle: boolean; needEmoji: boolean; emojiChoices?: string[] },
   signal?: AbortSignal,
 ): Promise<AiSuggestion> {
   return api("/api/ai/suggest", { method: "POST", headers: { ...bearer(token), "content-type": "application/json" }, body: JSON.stringify(req), signal });

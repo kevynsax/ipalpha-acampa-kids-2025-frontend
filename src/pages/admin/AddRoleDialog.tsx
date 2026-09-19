@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createRole, type ScheduleRole, type ScheduleRoleInput } from "../../api/schedule";
 import AutoRoleBadge from "../../components/AutoRoleBadge";
 import Dialog from "../../components/Dialog";
-import { SearchGlyph } from "../../components/Glyph";
+import SearchField from "../../components/SearchField";
 import RoleForm from "./RoleForm";
 import { ICONS } from "../../icons";
 import { collatorLocale, useI18n } from "../../i18n";
@@ -121,19 +121,14 @@ export default function AddRoleDialog({ token, open, roles, excludeIds, where, o
             <span className="picker-sheet__handle" aria-hidden="true" />
             <h2 className="cat-form__title">{tx("🎯 Escolher função existente")}</h2>
             <p className="cat-hint">{where}</p>
-            <label className="staff-toolbar__search">
-              <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
-              <input
-                ref={inputRef}
-                className="cat-input"
-                type="search"
-                placeholder={tx("Buscar função…")}
-                value={q}
-                disabled={busy}
-                onChange={(e) => setQ(e.target.value)}
-                aria-label={tx("Buscar função")}
-              />
-            </label>
+            <SearchField
+              inputRef={inputRef}
+              placeholder={tx("Buscar função…")}
+              value={q}
+              disabled={busy}
+              onChange={setQ}
+              aria-label={tx("Buscar função")}
+            />
             {error && <p className="message message--error">{error}</p>}
           </header>
 

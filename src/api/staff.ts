@@ -20,7 +20,11 @@ export interface Staff {
   phone: string | null;
   /** optional — notification emails; null/empty = skip email */
   email: string | null;
-  /** an ADMIN's own roster record: can't be deleted, deactivated or have the phone changed */
+  /** unstructured identity document (CPF, RG, identidade, CDIN, passport…) */
+  document: string;
+  /** ISO date (YYYY-MM-DD); null when unknown */
+  birthDate: string | null;
+  /** this roster row belongs to an admin login — badge only; the person can still leave Equipe */
   admin?: boolean;
   active: boolean;
   team: string | null;
@@ -88,6 +92,8 @@ export interface StaffInput {
   probableGender: import("./campers").CamperSex | null;
   phone: string | null;
   email: string | null;
+  document: string;
+  birthDate: string | null;
   active: boolean;
   team: string | null;
   bedroom: string | null;

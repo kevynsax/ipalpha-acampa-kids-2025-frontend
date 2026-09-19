@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { SearchGlyph, UndoGlyph } from "../components/Glyph";
+import { UndoGlyph } from "../components/Glyph";
+import SearchField from "../components/SearchField";
 import QrScannerDialog from "../components/QrScannerDialog";
 import TeamTag from "../components/TeamTag";
 import TransportTag from "../components/TransportTag";
@@ -152,17 +153,12 @@ export default function CheckinPage({ token, adminMerged = false }: CheckinPageP
       {error && <p className="message message--error">{error}</p>}
 
       <div className="staff-toolbar">
-        <label className="staff-toolbar__search">
-          <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
-          <input
-            className="cat-input"
-            type="search"
-            placeholder={tx("Buscar pelo nome da criança…")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label={tx("Buscar pelo nome da criança")}
-          />
-        </label>
+        <SearchField
+          placeholder={tx("Buscar pelo nome da criança…")}
+          value={search}
+          onChange={setSearch}
+          aria-label={tx("Buscar pelo nome da criança")}
+        />
         <div className="staff-toolbar__filters checkin-filters" role="tablist" aria-label={tx("Filtro")}>
           {(
             [

@@ -134,6 +134,15 @@ export function EllipsisGlyph({ size = "1.1em", className }: GlyphProps) {
   );
 }
 
+/** Material arrow_back — "Voltar" on multi-step reviews */
+export function BackGlyph({ size = "1.1em", className }: GlyphProps) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true">
+      <path d="M400-240 160-480l240-240 56 58-142 142h526v80H314l142 142-56 58Z" />
+    </svg>
+  );
+}
+
 /** a double chevron pointing right — "Pular": skip forward past this record (goes on the yellow skip button) */
 export function SkipGlyph({ size = "1.1em", className }: GlyphProps) {
   return (

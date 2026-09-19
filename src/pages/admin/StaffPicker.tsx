@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Staff } from "../../api/staff";
 import Dialog from "../../components/Dialog";
-import { SearchGlyph } from "../../components/Glyph";
+import SearchField from "../../components/SearchField";
 import { useI18n } from "../../i18n";
 
 /** What a person is already doing at this time (shown as a label). */
@@ -77,19 +77,14 @@ export default function StaffPicker({ open, title, staff, occupied, onPick, onCl
         <header className="picker-sheet__head">
           <span className="picker-sheet__handle" aria-hidden="true" />
           <h2 className="cat-form__title">{title}</h2>
-          <label className="staff-toolbar__search">
-            <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
-            <input
-              ref={inputRef}
-              className="cat-input"
-              type="search"
-              placeholder={tx("Digite o nome…")}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={onKey}
-              aria-label="Buscar pessoa"
-            />
-          </label>
+          <SearchField
+            inputRef={inputRef}
+            placeholder={tx("Digite o nome…")}
+            value={q}
+            onChange={setQ}
+            onKeyDown={onKey}
+            aria-label={tx("Buscar pessoa")}
+          />
           <p className="cat-hint">
             {freeCount} livre{freeCount !== 1 ? "s" : ""}
             {results.length - freeCount > 0 && ` · ${results.length - freeCount} ocupado${results.length - freeCount !== 1 ? "s" : ""}`}

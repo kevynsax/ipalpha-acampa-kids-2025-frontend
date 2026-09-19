@@ -8,7 +8,7 @@ interface ToastProps {
   /** an optional action beside the message ("Desfazer") */
   action?: { label: ReactNode; onClick: () => void };
   onClose: () => void;
-  /** ms before it goes away on its own; 0 = stays until closed. Default 90 s: long enough to read the result and change your mind. */
+  /** ms before it goes away on its own; 0 = stays until closed. Default 45 s: long enough to read the result and change your mind. */
   timeoutMs?: number;
 }
 
@@ -16,7 +16,7 @@ interface ToastProps {
  * A quiet floating message at the bottom of the screen, with an optional
  * action — the place to offer "Desfazer" right after something big happened.
  */
-export default function Toast({ message, action, onClose, timeoutMs = 90_000 }: ToastProps) {
+export default function Toast({ message, action, onClose, timeoutMs = 45_000 }: ToastProps) {
   // the timer runs from the moment the MESSAGE appears — a parent re-render (new onClose identity) must not restart it
   const close = useRef(onClose);
   close.current = onClose;

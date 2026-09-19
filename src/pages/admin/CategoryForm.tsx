@@ -57,6 +57,7 @@ export default function CategoryForm({ token, category, busy, onSubmit, onCancel
     emoji,
     setEmoji,
     defaultEmoji: "🏷️",
+    emojiSuggestions: EMOJI_SUGGESTIONS,
     existing: editing,
     html: [description, optionsText].filter(Boolean).join("\n"),
   });

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckGlyph, SearchGlyph, UndoGlyph } from "../components/Glyph";
+import { CheckGlyph, UndoGlyph } from "../components/Glyph";
+import SearchField from "../components/SearchField";
 import { checkinStaff, undoCheckinStaff, type Staff } from "../api/staff";
 import { useConfirm } from "../components/ConfirmDialog";
 import Breadcrumbs from "../components/Breadcrumbs";
@@ -171,10 +172,7 @@ export default function StaffCheckinPage({ token, checkinHomePath }: StaffChecki
 
       {error && <p className="message message--error">{error}</p>}
 
-      <label className="staff-toolbar__search">
-        <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
-        <input className="cat-input" type="search" placeholder={tx("Buscar pelo nome…")} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tx("Buscar pelo nome")} />
-      </label>
+      <SearchField placeholder={tx("Buscar pelo nome…")} value={search} onChange={setSearch} aria-label={tx("Buscar pelo nome")} />
 
       {counts.total === 0 && <p className="opt-empty">{tx("Ninguém na equipe ainda.")}</p>}
       {counts.total > 0 && people.length === 0 && <p className="opt-empty">{tx("Nenhum resultado. 🔍")}</p>}

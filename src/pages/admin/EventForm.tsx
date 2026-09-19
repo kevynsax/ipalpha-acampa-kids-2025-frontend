@@ -40,7 +40,7 @@ export default function EventForm({ token, event, defaultDate, busy, onSubmit, o
   const timeOk = /^\d{2}:\d{2}$/.test(startTime) && (!endTime || endTime > startTime);
   const dateOk = /^\d{4}-\d{2}-\d{2}$/.test(date);
   const valid = title.trim().length > 0 && timeOk && dateOk;
-  const ai = useAiAutoFill({ token, context: "event", title, setTitle, emoji, setEmoji, defaultEmoji: "📅", existing: editing, html: notes });
+  const ai = useAiAutoFill({ token, context: "event", title, setTitle, emoji, setEmoji, defaultEmoji: "📅", emojiSuggestions: EMOJI_SUGGESTIONS, existing: editing, html: notes });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -14,12 +14,36 @@ registerSW({ immediate: true });
 const scene = import.meta.env.DEV ? new URLSearchParams(location.search).get("scene") : null;
 const ScenePreview = scene ? lazy(() => import("./dev/ScenePreview")) : null;
 
+/** dev-only: `?components=<key>` (or `all`) previews the Phase 3 domain components with the shared fixture */
+const components = import.meta.env.DEV ? new URLSearchParams(location.search).get("components") : null;
+const ComponentsPreview = components ? lazy(() => import("./dev/ComponentsPreview")) : null;
+
+/** dev-only: `?shell=<key>` renders the real Dashboard offline against one of dev/shellScenarios.json's fixtures */
+const shell = import.meta.env.DEV ? new URLSearchParams(location.search).get("shell") : null;
+const ShellPreview = shell ? lazy(() => import("./dev/ShellPreview")) : null;
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     {ScenePreview ? (
       <Suspense fallback={null}>
         <ScenePreview sex={scene === "girl" ? "girl" : "boy"} />
       </Suspense>
+    ) : ComponentsPreview ? (
+      <I18nProvider>
+        <ConfirmProvider>
+          <Suspense fallback={null}>
+            <ComponentsPreview section={components!} />
+          </Suspense>
+        </ConfirmProvider>
+      </I18nProvider>
+    ) : ShellPreview ? (
+      <I18nProvider>
+        <ConfirmProvider>
+          <Suspense fallback={null}>
+            <ShellPreview />
+          </Suspense>
+        </ConfirmProvider>
+      </I18nProvider>
     ) : (
       <I18nProvider>
         <ConfirmProvider>

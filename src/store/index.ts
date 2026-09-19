@@ -115,6 +115,13 @@ export function setConnection(connection: ConnectionState): void {
   emit();
 }
 
+/** Dev-only: seeds the store with fixture collections, as if the server had just pushed them (see dev/ComponentsPreview.tsx). */
+export function seedForDev(data: Partial<Collections>): void {
+  if (!import.meta.env.DEV) return;
+  applyServerData(data, new Date().toISOString());
+  setConnection("online");
+}
+
 /** Optimistic local edit of one collection (after a successful REST write). */
 export function patchCollection<K extends ListCollectionName>(name: K, fn: (list: Collections[K]) => Collections[K]): void {
   const current = (state.data[name] ?? []) as Collections[K];

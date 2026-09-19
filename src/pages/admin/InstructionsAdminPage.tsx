@@ -234,7 +234,7 @@ function DocForm({ token, doc, busy, onSubmit, onCancel }: DocFormProps) {
   const [audience, setAudience] = useState<DocAudience>(doc?.audience ?? "all");
   const [content, setContent] = useState(doc?.content ?? "");
   const valid = title.trim().length > 0;
-  const ai = useAiAutoFill({ token, context: "instruction", title, setTitle, emoji, setEmoji, defaultEmoji: "📖", existing: !!doc, html: content });
+  const ai = useAiAutoFill({ token, context: "instruction", title, setTitle, emoji, setEmoji, defaultEmoji: "📖", emojiSuggestions: EMOJI_SUGGESTIONS, existing: !!doc, html: content });
 
   return (
     <form

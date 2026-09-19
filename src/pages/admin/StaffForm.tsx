@@ -49,14 +49,13 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
   const editing = !!member;
   const byKey = (key: string) => categories.find((c) => c.key === key);
 
-  /** an admin's roster record: room / transport / vest only — never a líder, never in a time */
-  const isAdmin = !!member?.admin;
-
   const [name, setName] = useState(member?.name ?? "");
   const [phone, setPhone] = useState(member?.phone ? maskBrazilPhone(member.phone.replace(/^\+55/, "")) : "");
   const [email, setEmail] = useState(member?.email ?? "");
+  const [documentId, setDocumentId] = useState(member?.document ?? "");
+  const [birthDate, setBirthDate] = useState(member?.birthDate ?? "");
   const [active, setActive] = useState(member?.active ?? true);
-  const [roomRole, setRoomRole] = useState<RoomRole>(isAdmin ? "helper" : (member?.roomRole ?? "helper"));
+  const [roomRole, setRoomRole] = useState<RoomRole>(member?.roomRole ?? "helper");
   const bedrooms = useCollectionOrEmpty("bedrooms");
   const roster = useCollectionOrEmpty("staff");
   const [team, setTeam] = useState<string | null>(member?.team ?? null);
@@ -91,7 +90,7 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
   // any change from the values the form opened with → ask save/discard before leaving
   const askChoice = useConfirmChoice();
   const snapshot = JSON.stringify([
-    name, phone, email, active, roomRole, team, bedroom, transportation,
+    name, phone, email, documentId, birthDate, active, roomRole, team, bedroom, transportation,
     allergies, drugAllergies, foodRestrictions, healthIssues, medications, healthNotes,
     hasAllergies, hasDrugAllergies, hasHealthIssues, hasMedicines, hasFoodRestrictions,
   ]);
@@ -200,6 +199,8 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
         probableGender,
         phone: phoneE164 ?? null,
         email: email.trim() ? email.trim().toLowerCase() : null,
+        document: documentId.trim(),
+        birthDate: birthDate || null,
         active,
         roomRole,
         // when editing, team, room and transport are changed from the detail page (pencil dialogs), not here
@@ -270,10 +271,10 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
               setPhoneTouched(true);
               setPhone(v);
             }}
-            disabled={busy || !!member?.admin}
+            disabled={busy}
           />
           {phoneError && <p className={`cat-hint${phoneTouched || phone.trim() ? " cat-hint--error" : ""}`}>{phoneError}</p>}
-          {member?.admin && <p className="cat-hint">🔑 {tx("Celular de admin — é o login, não muda por aqui.")}</p>}
+          {member?.admin && <p className="cat-hint">🔑 {tx("Login de admin é o celular da conta, não o deste cadastro.")}</p>}
         </div>
       </div>
       <div className="cat-form__row staff-form__row">
@@ -282,16 +283,21 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
           <input className="cat-input" type="email" inputMode="email" autoComplete="email" placeholder={tx("ex.: nome@email.com")} value={email} maxLength={160} disabled={busy} onChange={(e) => setEmail(e.target.value)} />
           {emailError && <p className="cat-hint cat-hint--error">{emailError}</p>}
         </label>
+        {text(tx("Documento"), documentId, setDocumentId, tx("CPF, RG, identidade, passaporte…"))}
+        <label className="cat-field">
+          <span className="cat-field__label">{tx("Nascimento")}</span>
+          <input className="cat-input" type="date" value={birthDate} disabled={busy} onChange={(e) => setBirthDate(e.target.value)} />
+        </label>
         <div className="cat-field">
           <span className="cat-field__label">{tx("Status")}</span>
-          <Toggle checked={active} onChange={setActive} disabled={busy || !!member?.admin} label={active ? tx("Ativo") : tx("Inativo")} />
+          <Toggle checked={active} onChange={setActive} disabled={busy} label={active ? tx("Ativo") : tx("Inativo")} />
         </div>
       </div>
 
       <fieldset className="cat-fieldset">
         <legend className="cat-field__label">{tx("Função no quarto")}</legend>
         <div className="big-options big-options--row">
-          {(Object.keys(ROOM_ROLE_META) as RoomRole[]).filter((r) => !isAdmin || r !== "caretaker").map((r) => {
+          {(Object.keys(ROOM_ROLE_META) as RoomRole[]).map((r) => {
             const on = roomRole === r;
             return (
               <button key={r} type="button" className={`big-option ${on ? "big-option--on" : ""}`} aria-pressed={on} disabled={busy} onClick={() => setRoomRole(r)}>
@@ -303,7 +309,7 @@ export default function StaffForm({ token, member, categories, busy, onSubmit, o
           })}
         </div>
         {editing && member?.roomRole === "caretaker" && roomRole === "helper" && <p className="cat-hint cat-hint--error">{tx("Ao virar auxiliar, as crianças sob sua responsabilidade ficam sem líder.")}</p>}
-        {isAdmin && <p className="cat-hint">🔑 {tx("Admin do app: tem quarto e transporte, mas não cuida de crianças nem entra em um time.")}</p>}
+
       </fieldset>
 
       {!editing && (

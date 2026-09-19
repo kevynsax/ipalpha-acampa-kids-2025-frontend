@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { CheckGlyph, SearchGlyph, UndoGlyph } from "../components/Glyph";
+import { CheckGlyph, UndoGlyph } from "../components/Glyph";
+import SearchField from "../components/SearchField";
 import { setStaffVest, staffSex, type Staff, type VestAction } from "../api/staff";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { ICONS, vestSrc } from "../icons";
@@ -376,10 +377,7 @@ export default function VestPage({ token, myName, checkinHomePath }: VestPagePro
         })}
       </div>
 
-      <label className="staff-toolbar__search">
-        <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
-        <input className="cat-input" type="search" placeholder={tx("Buscar pelo nome…")} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tx("Buscar pelo nome")} />
-      </label>
+      <SearchField placeholder={tx("Buscar pelo nome…")} value={search} onChange={setSearch} aria-label={tx("Buscar pelo nome")} />
 
       {total === 0 && <p className="opt-empty">{tx("Ninguém na equipe ainda.")}</p>}
       {total > 0 && main.length === 0 && others.length === 0 && (

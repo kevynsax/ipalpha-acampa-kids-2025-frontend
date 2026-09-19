@@ -8,6 +8,17 @@ function isSpreadsheet(file: File): boolean {
   return SPREADSHEET_EXTENSIONS.some((ext) => name.endsWith(ext));
 }
 
+/** In-memory handoff from the empty list drop zone to the import page (File can't live in the hash). Kept until the import page leaves so StrictMode remounts still see it. */
+let pendingImportFile: File | null = null;
+
+export function setPendingImportFile(file: File): void {
+  pendingImportFile = file;
+}
+
+export function peekPendingImportFile(): File | null {
+  return pendingImportFile;
+}
+
 interface FileDrop {
   /** true while a file is hovering over the zone — for the "solte aqui" styling */
   dragging: boolean;

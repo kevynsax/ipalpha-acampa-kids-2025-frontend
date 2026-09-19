@@ -8,7 +8,8 @@ import { useMediaQuery } from "../hooks/useMediaQuery";
 import { dayKey, speakDay } from "../dates";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import Dialog from "../components/Dialog";
-import { DownloadGlyph, SearchGlyph, UploadGlyph } from "../components/Glyph";
+import { DownloadGlyph, UploadGlyph } from "../components/Glyph";
+import SearchField from "../components/SearchField";
 import PageFooter from "../components/PageFooter";
 import Toggle from "../components/Toggle";
 import { useConfirm } from "../components/ConfirmDialog";
@@ -1477,17 +1478,12 @@ function EventPickerDialog({ open, events, selectedId, onClose, onPick }: EventP
         <header className="picker-sheet__head">
           <span className="picker-sheet__handle" aria-hidden="true" />
           <h2 className="cat-form__title">{tx("Onde entram as fotos?")}</h2>
-          <label className="ev-pick__search">
-            <SearchGlyph className="ev-pick__search-icon" size="1.15em" />
-            <input
-              className="cat-input"
-              type="search"
-              placeholder={tx("Buscar evento, dia ou horário…")}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              aria-label={tx("Buscar evento")}
-            />
-          </label>
+          <SearchField
+            placeholder={tx("Buscar evento, dia ou horário…")}
+            value={q}
+            onChange={setQ}
+            aria-label={tx("Buscar evento")}
+          />
         </header>
 
         <div className="picker-sheet__body">

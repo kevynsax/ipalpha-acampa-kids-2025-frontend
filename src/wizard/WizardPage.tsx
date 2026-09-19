@@ -134,22 +134,35 @@ export default function WizardPage({ token, user, onExit }: WizardPageProps) {
         </button>
       </header>
 
-      <nav className="wizard__steps" aria-label={tx("Etapas")}>
-        {STEPS.map((s, i) => (
-          <button
-            key={s.id}
-            type="button"
-            className={`wizard__step ${s.id === step ? "wizard__step--current" : ""} ${i < index ? "wizard__step--seen" : ""}`}
-            aria-current={s.id === step ? "step" : undefined}
-            onClick={() => go(s.id)}
-          >
-            <span className="wizard__step-mark" aria-hidden="true">
-              {s.icon ? <img src={s.icon} alt="" /> : s.emoji}
-            </span>
-            <span className="wizard__step-label">{tx(s.label)}</span>
-          </button>
-        ))}
-      </nav>
+      <div className="wizard__nav">
+        <nav className="wizard__steps" aria-label={tx("Etapas")}>
+          {STEPS.map((s, i) => (
+            <button
+              key={s.id}
+              type="button"
+              className={`wizard__step ${s.id === step ? "wizard__step--current" : ""} ${i < index ? "wizard__step--seen" : ""}`}
+              aria-current={s.id === step ? "step" : undefined}
+              title={tx(s.label)}
+              onClick={() => go(s.id)}
+            >
+              <span className="wizard__step-mark" aria-hidden="true">
+                {s.icon ? <img src={s.icon} alt="" /> : s.emoji}
+              </span>
+              <span className="wizard__step-label">{tx(s.label)}</span>
+            </button>
+          ))}
+        </nav>
+        <div
+          className="wizard__progress"
+          role="progressbar"
+          aria-valuemin={1}
+          aria-valuemax={STEPS.length}
+          aria-valuenow={index + 1}
+          aria-label={tx("Etapa {n} de {total}", { n: index + 1, total: STEPS.length })}
+        >
+          <span style={{ width: `${((index + 1) / STEPS.length) * 100}%` }} />
+        </div>
+      </div>
 
       <div className="wizard__body">
         {step === "intro" && <IntroStep token={token} onNext={next} onSkip={close} />}

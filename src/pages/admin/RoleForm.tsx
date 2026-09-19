@@ -47,6 +47,7 @@ export default function RoleForm({ token, role, busy, onSubmit, onCancel, embedd
     emoji,
     setEmoji,
     defaultEmoji: "🎯",
+    emojiSuggestions: EMOJI_SUGGESTIONS,
     existing: editing,
     html: [instructions, preparation].filter(Boolean).join("\n"),
   });

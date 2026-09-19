@@ -25,7 +25,8 @@ import { ICONS } from "../../icons";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import StaffForm from "./StaffForm";
 import GiveawayPage from "../GiveawayPage";
-import { DownloadGlyph, SearchGlyph } from "../../components/Glyph";
+import { DownloadGlyph } from "../../components/Glyph";
+import SearchField from "../../components/SearchField";
 import BedroomTag from "../../components/BedroomTag";
 import GroupIcon from "../../components/GroupIcon";
 import TeamFilterDialog from "../../components/TeamFilterDialog";
@@ -36,6 +37,7 @@ import WhatsAppButton from "../../components/WhatsAppButton";
 import { loadAuth } from "../../auth/store";
 import { staffGreeting, whatsappLink } from "../../whatsapp";
 import StaffImportPage from "./StaffImportPage";
+import { setPendingImportFile, useFileDrop } from "../../hooks/useFileDrop";
 import { collatorLocale, useI18n } from "../../i18n";
 
 interface StaffPageProps {
@@ -139,7 +141,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
   }
 
   async function handleDelete(member: Staff) {
-    if (!(await confirm({ emoji: "🗑️", title: tx("Excluir {name} da equipe?", { name: member.name }), message: tx("Isso não pode ser desfeito."), confirmLabel: tx("Excluir"), danger: true }))) return;
+    if (!(await confirm({ emoji: "🗑️", title: tx("Excluir {name} da equipe?", { name: member.name }), message: member.admin ? tx("O login de admin continua. Só o cadastro na equipe é apagado.") : tx("Isso não pode ser desfeito."), confirmLabel: tx("Excluir"), danger: true }))) return;
     try {
       await withBusy(() => deleteStaff(token, member.id));
       navigate("/staff", { replace: true });
@@ -194,6 +196,11 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
     return m;
   }, [staff]);
   const teamChipLabel = teamFilter.size === 0 ? tx("Todos os times") : [...teamFilter].map((id) => teamById.get(id)?.name).filter(Boolean).join(", ");
+  const canDropImport = !readOnly && mode.kind === "view";
+  const { dragging: emptyDropOver, handlers: emptyDropHandlers } = useFileDrop((file) => {
+    setPendingImportFile(file);
+    navigate("/staff/import");
+  });
 
   // ── render ─────────────────────────────────────────────────────────────
 
@@ -288,7 +295,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
             </button>
           </div>
         )}
-        {mode.kind === "edit" && editing && !editing.admin && (
+        {mode.kind === "edit" && editing && (
           <button
             type="button"
             className="icon-btn icon-btn--lg icon-btn--danger"
@@ -326,17 +333,14 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
             onSubmit={handleEdit}
             leaveGuardRef={leaveGuardRef}
           />
-          {editing.admin && <p className="cat-hint">🔑 {tx("{name} é admin: não pode ser excluído da equipe.", { name: editing.name })}</p>}
+          {editing.admin && <p className="cat-hint">🔑 {tx("{name} é admin: o login continua se sair da equipe.", { name: editing.name })}</p>}
         </>
       )}
 
       {mode.kind === "view" && (
         <>
           <div className="staff-toolbar">
-            <label className="staff-toolbar__search">
-              <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
-              <input className="cat-input" type="search" placeholder={tx("Buscar por nome, celular, time, quarto…")} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tx("Buscar")} />
-            </label>
+            <SearchField placeholder={tx("Buscar por nome, celular, time, quarto…")} value={search} onChange={setSearch} aria-label={tx("Buscar")} />
           </div>
           <div className="health-filter" role="group" aria-label={tx("Ala e time")}>
             {(
@@ -363,7 +367,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
           <TeamFilterDialog open={teamDialogOpen} teams={teams} value={teamFilter} counts={teamCounts} onChange={setTeamFilter} onClose={() => setTeamDialogOpen(false)} />
 
           {staff.length === 0 && (
-            <div className="admin-empty">
+            <div className={`admin-empty${canDropImport ? " admin-empty--drop" : ""}${canDropImport && emptyDropOver ? " admin-empty--over" : ""}`} {...(canDropImport ? emptyDropHandlers : {})}>
               <img className="admin-empty__icon" src={roleMeta("staff").icon} alt="" aria-hidden="true" />
               <p>{tx("Ninguém na equipe ainda.")}{!readOnly && ` ${tx("Cadastre o primeiro voluntário!")}`}</p>
               {!readOnly && (

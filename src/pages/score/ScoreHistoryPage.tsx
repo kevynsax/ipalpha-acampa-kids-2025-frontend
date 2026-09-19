@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { deleteScore, type ScoreEntry } from "../../api/scores";
 import Breadcrumbs from "../../components/Breadcrumbs";
-import { SearchGlyph } from "../../components/Glyph";
+import SearchField from "../../components/SearchField";
 import { useConfirm } from "../../components/ConfirmDialog";
 import { useCollectionOrEmpty } from "../../store";
 import { canDeleteLine, eventLabel, fmtPoints, KIND_META, lineKind, normalize, ScoreLogList, useEventMap, useTeamMap, type KindFilter, type LineKind } from "./scoreLog";
@@ -144,10 +144,7 @@ export default function ScoreHistoryPage({ token, userId, canEdit, canScan, onBa
             </option>
           ))}
         </select>
-        <label className="staff-toolbar__search">
-          <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
-          <input className="cat-input" type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={tx("Buscar criança, observação, pessoa…")} aria-label={tx("Buscar")} />
-        </label>
+        <SearchField value={search} onChange={setSearch} placeholder={tx("Buscar criança, observação, pessoa…")} aria-label={tx("Buscar")} />
       </div>
 
       <p className="scan-points__summary" aria-live="polite">

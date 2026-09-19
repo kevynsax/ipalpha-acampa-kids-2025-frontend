@@ -7,7 +7,7 @@ import { ICONS, kidSexOf } from "../../icons";
 import BedroomTag from "../../components/BedroomTag";
 import { useCampTiming } from "../../campPhase";
 import { unassignStaff } from "../../api/schedule";
-import { speakDay, speakStamp } from "../../dates";
+import { speakBirth, speakDay, speakStamp } from "../../dates";
 import AssignRoleDialog from "./AssignRoleDialog";
 import {
   ROOM_ROLE_META,
@@ -246,13 +246,17 @@ export default function StaffDetail({
             <>
               <dt>{tx("E-mail")}</dt>
               <dd>{s.email ? <a href={`mailto:${s.email}`}>{s.email}</a> : "—"}</dd>
+              <dt>{tx("Documento")}</dt>
+              <dd>{s.document || "—"}</dd>
+              <dt>{tx("Nascimento")}</dt>
+              <dd>{speakBirth(s.birthDate) ?? "—"}</dd>
             </>
           )}
           <dt>{tx("Time")}</dt>
           <dd>
             {/* an admin is on the roster for the room / transport / vest only: no time, no kids */}
-            <TeamTag teamId={s.team} fallback={s.admin ? tx("— admin não entra em time") : "—"} />
-            {onEdit && !s.admin && (
+            <TeamTag teamId={s.team} fallback="—" />
+            {onEdit && (
               <button type="button" className="icon-btn icon-btn--bare" title={tx("Trocar de time")} aria-label={tx("Trocar de time")} onClick={() => setFieldOpen("team")}>
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
               </button>
@@ -276,7 +280,7 @@ export default function StaffDetail({
                 <img className="pencil-icon" src={ICONS.pencil} alt="" aria-hidden="true" />
               </button>
             )}
-            {bedroom && bedroom.group !== "staff" && !s.admin && (
+            {bedroom && bedroom.group !== "staff" && (
               <span
                 className="staff-tag"
                 title={tx(ROOM_ROLE_META[s.roomRole].hint)}

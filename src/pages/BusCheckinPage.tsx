@@ -15,7 +15,8 @@ import { useRoute } from "../router";
 import { otherTrip } from "../hooks/useDefaultBusTrip";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import { useLabelOf } from "../store/derive";
-import { SearchGlyph, UndoGlyph } from "../components/Glyph";
+import { UndoGlyph } from "../components/Glyph";
+import SearchField from "../components/SearchField";
 import { ICONS } from "../icons";
 import { collatorLocale, useI18n } from "../i18n";
 
@@ -277,10 +278,7 @@ export default function BusCheckinPage({ token, onlyVehicleId, readOnly = false,
         </div>
       )}
 
-      <label className="staff-toolbar__search">
-        <SearchGlyph className="staff-toolbar__search-icon" size="1.2em" />
-        <input className="cat-input" type="search" placeholder={tx("Buscar pelo nome…")} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tx("Buscar pelo nome")} />
-      </label>
+      <SearchField placeholder={tx("Buscar pelo nome…")} value={search} onChange={setSearch} aria-label={tx("Buscar pelo nome")} />
 
       {roster.length === 0 && <p className="opt-empty">{vehicles.length === 0 ? tx("Nenhum transporte cadastrado.") : onlyVehicleId ? tx("Nenhuma criança neste veículo.") : tx("Nenhuma criança com transporte cadastrado.")}</p>}
       {roster.length > 0 && kids.length === 0 && <p className="opt-empty">{tx("Nenhum resultado. 🔍")}</p>}

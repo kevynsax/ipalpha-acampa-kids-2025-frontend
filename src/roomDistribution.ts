@@ -102,6 +102,15 @@ export const MAX_AGE_GAP = 2;
 /** how many kids past its beds a room may take before mixing ages becomes the lesser evil */
 export const MAX_OVERFLOW = 2;
 
+/**
+ * Nothing left to improve: every kid placed, every group whole, no room
+ * over its beds or mixing ages, and — when there were líderes to place —
+ * every kids' room has one. A plan like this ends the search at once.
+ */
+export function isPerfect(s: PlanScore, leadersAvailable: boolean): boolean {
+  return s.unplaced === 0 && s.brokenGroups === 0 && s.movedKids === 0 && s.ageMixed === 0 && s.overflow === 0 && (!leadersAvailable || s.leaderless === 0);
+}
+
 /** a < b when a is the better plan */
 export function betterScore(a: PlanScore, b: PlanScore): boolean {
   if (a.unplaced !== b.unplaced) return a.unplaced < b.unplaced;
@@ -425,10 +434,14 @@ export function attempt(input: DistributeInput, strategy: Strategy, seed: number
 }
 
 /**
- * Runs attempts until `deadlineMs` (or an early perfect plan), keeping the best.
+ * Runs attempts until `deadlineMs`, keeping the best — and stops the moment a
+ * plan has nothing left to improve (`isPerfect`): more tries can't beat it.
  * `onProgress` fires every few attempts so a UI can show it is still working.
  */
 export function solve(input: DistributeInput, deadlineMs: number, onProgress?: (best: DistributionPlan, attempts: number) => void): DistributionPlan {
+  // "every room has a líder" is only a requirement when there are líderes to give out;
+  // with none on the roster (or staff not being placed) it can never be met and must not keep us searching
+  const leadersAvailable = input.who !== "kids" && input.staff.some((s) => s.active && s.roomRole === "caretaker" && !s.admin && !input.excludeStaffIds.has(s.id));
   let best: DistributionPlan | null = null;
   let attempts = 0;
   let seed = 1;
@@ -438,7 +451,9 @@ export function solve(input: DistributeInput, deadlineMs: number, onProgress?: (
       const plan = attempt(input, strategy, seed++);
       attempts++;
       if (!best || betterScore(plan.score, best.score)) best = plan;
-      if (best.score.brokenGroups === 0 && best.score.unplaced === 0 && best.score.leaderless === 0) return best;
+      if (isPerfect(best.score, leadersAvailable)) return best;
+      // staff-only: the rooms are decided by the roster, not by luck — a handful of seeds is all the variety there is
+      if (input.who === "staff" && attempts >= STRATEGIES.length * 4) return best;
       if (attempts % 8 === 0) onProgress?.(best, attempts);
       if (Date.now() - start >= deadlineMs) break;
     }

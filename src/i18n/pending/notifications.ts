@@ -472,9 +472,9 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "⚠️ El envío de SMS no está configurado en el servidor (COMTELE_API_KEY). Los mensajes solo se están registrando en la consola.",
     fr: "⚠️ L'envoi de SMS n'est pas configuré sur le serveur (COMTELE_API_KEY). Les messages sont seulement enregistrés dans la console.",
   },
-  "✉️ O envio de e-mail não está configurado no servidor (SENDGRID_API_KEY / MAIL_FROM). Os e-mails equivalentes estão sendo apenas registrados no console.": {
-    en: "✉️ Email sending is not configured on the server (SENDGRID_API_KEY / MAIL_FROM). Matching emails are only being logged to the console.",
-    es: "✉️ El envío de correo no está configurado en el servidor (SENDGRID_API_KEY / MAIL_FROM). Los correos equivalentes solo se están registrando en la consola.",
-    fr: "✉️ L'envoi d'e-mail n'est pas configuré sur le serveur (SENDGRID_API_KEY / MAIL_FROM). Les e-mails équivalents sont seulement enregistrés dans la console.",
+  "✉️ O envio de e-mail não está configurado no servidor (SENDGRID_API_KEY / MAIL_FROM / PUBLIC_ORIGIN). Os e-mails equivalentes são recusados até isso estar preenchido.": {
+    en: "✉️ Email sending is not configured on the server (SENDGRID_API_KEY / MAIL_FROM / PUBLIC_ORIGIN). Matching emails are refused until those are set.",
+    es: "✉️ El envío de correo no está configurado en el servidor (SENDGRID_API_KEY / MAIL_FROM / PUBLIC_ORIGIN). Los correos equivalentes se rechazan hasta que estén definidos.",
+    fr: "✉️ L'envoi d'e-mail n'est pas configuré sur le serveur (SENDGRID_API_KEY / MAIL_FROM / PUBLIC_ORIGIN). Les e-mails équivalents sont refusés tant que ce n'est pas renseigné.",
   },
 };

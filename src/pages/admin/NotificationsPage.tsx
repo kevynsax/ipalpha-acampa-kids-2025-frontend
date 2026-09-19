@@ -268,7 +268,7 @@ export default function NotificationsPage({ token }: NotificationsPageProps) {
       )}
       {settings && !settings.mailEnabled && (
         <p className="message message--warn">
-          {tx("✉️ O envio de e-mail não está configurado no servidor (SENDGRID_API_KEY / MAIL_FROM). Os e-mails equivalentes estão sendo apenas registrados no console.")}
+          {tx("✉️ O envio de e-mail não está configurado no servidor (SENDGRID_API_KEY / MAIL_FROM / PUBLIC_ORIGIN). Os e-mails equivalentes são recusados até isso estar preenchido.")}
         </p>
       )}
       {settings && settings.staffAccessWindow && !settings.staffAccessWindow.open && (

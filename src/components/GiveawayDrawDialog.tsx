@@ -24,7 +24,7 @@ interface GiveawayDrawDialogProps {
   winner: number;
 }
 
-const COLORS = ["#e7a44e", "#c96b55", "#2e6652", "#8fc1e3", "#f4d35e", "#e98973", "#a9c2a0"];
+const COLORS = ["#e7a44e", "#d84a3a", "#2e6652", "#8fc1e3", "#f4d35e", "#e98973", "#a9c2a0"];
 const ROLL_MS = 1100;
 /** how many numbers scroll past before landing (≈ 3 loops of a 40-entry list) */
 const REEL_STEPS = 120;

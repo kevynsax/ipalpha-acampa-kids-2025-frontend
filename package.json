@@ -1,15 +1,13 @@
 {
   "name": "camping-frontend",
-  "version": "0.23.0",
+  "version": "0.24.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:lan": "DEV_LAN=1 vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "icon-audit": "node ../docs/icon-audit.mjs",
-    "icon-audit:watch": "node ../docs/icon-audit.mjs --watch"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@tiptap/extension-details": "^3.31.3",
