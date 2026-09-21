@@ -426,20 +426,15 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "También se publicarán:",
     fr: "Seront aussi publiés :",
   },
-  "Encontrei {n} CPF(s) ou e-mail(s) inválido(s). Quer revisar ou deixar esses campos em branco?": {
-    en: "I found {n} invalid tax ID(s) or email(s). Review them or leave those fields blank?",
-    es: "Encontré {n} CPF(s) o e-mail(s) inválido(s). ¿Revisar o dejar esos campos en blanco?",
-    fr: "J'ai trouvé {n} NIF ou e-mail(s) invalide(s). Les revoir ou laisser ces champs vides ?",
+  "1 CPF ou e-mail inválido ficará em branco:": {
+    en: "1 invalid tax ID or email will be left blank:",
+    es: "1 CPF o e-mail inválido quedará en blanco:",
+    fr: "1 NIF ou e-mail invalide sera laissé vide :",
   },
-  "Revisar {n}": {
-    en: "Review {n}",
-    es: "Revisar {n}",
-    fr: "Revoir {n}",
-  },
-  "CPFs e e-mails inválidos serão deixados em branco.": {
-    en: "Invalid tax IDs and emails will be left blank.",
-    es: "Los CPF y e-mails inválidos se dejarán en blanco.",
-    fr: "Les NIF et e-mails invalides seront laissés vides.",
+  "{n} CPFs ou e-mails inválidos ficarão em branco:": {
+    en: "{n} invalid tax IDs or emails will be left blank:",
+    es: "{n} CPF o e-mails inválidos quedarán en blanco:",
+    fr: "{n} NIF ou e-mails invalides seront laissés vides :",
   },
   "Progresso {n}%": {
     en: "Progress {n}%",

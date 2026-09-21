@@ -65,6 +65,7 @@ import ParentSchedulePage from "./parent/ParentSchedulePage";
 import ParentProfile from "./parent/ParentProfile";
 import { PAGE_FOOTER_ID } from "../components/PageFooter";
 import CampAssistant from "../components/CampAssistant";
+import { FabPortalProvider } from "../components/FabPortal";
 
 interface DashboardProps {
   user: LoggedUser;
@@ -228,6 +229,11 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   /** the album shows up for the team once it is published; whoever manages it (organizer / photographer) always has the tab */
   const galleryOpen = !!settings?.galleryPublished || helper.organizer || helper.photographer;
   const tabs = tabsFor(user.activeRole, phase, helper, roomsDraft, scoreOpen, galleryOpen, during);
+  /**
+   * "ADM layout": eight or more visible tabs use the left navigation shell.
+   * Despite the name, this is based ONLY on tab count and is never tied to the admin role.
+   */
+  const useDesktopSidebar = tabs.length >= 8;
   /**
    * PHONES ONLY (the class it drives does nothing above 700px). Six tabs of
    * which two are Preparação + Instruções: the bottom bar merges them into a
@@ -434,7 +440,8 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   }
 
   return (
-    <div className={`dash ${useMobileBottomNav ? "dash--bottom-nav" : "dash--drawer-nav"}${settingsAllowed && !wizardLocked ? " dash--has-settings" : ""}${hasFab ? " dash--has-fab" : ""}`}>
+    <div className={`dash ${useMobileBottomNav ? "dash--bottom-nav" : "dash--drawer-nav"}${useDesktopSidebar && !wizardOpen && !wizardLocked ? " dash--side-nav" : ""}${useDesktopSidebar && mobileMenuOpen ? " dash--side-nav-open" : ""}${settingsAllowed && !wizardLocked ? " dash--has-settings" : ""}${hasFab ? " dash--has-fab" : ""}`}>
+      <FabPortalProvider>
       <div className="dash-chrome">
       <header className="dash-top">
         {tabs.length > 0 && !useMobileBottomNav && !wizardOpen && !wizardLocked && (
@@ -593,6 +600,81 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
       <div className="dash-scroll">
       <InstallBanner parent={isParent} />
 
+      <div className={`dash-workspace${useDesktopSidebar && !wizardOpen && !wizardLocked ? " dash-workspace--side-nav" : ""}`}>
+      {useDesktopSidebar && !wizardOpen && !wizardLocked && (
+        <nav className={`dash-side-nav ${mobileMenuOpen ? "dash-side-nav--open" : ""}`} aria-label={tx("Seções")}>
+          <div className="dash-side-nav__brand">
+            <Logo size={42} />
+            <span>Acampa Kids</span>
+          </div>
+
+          <div className="dash-side-nav__menu">
+            <h2 className="dash-side-nav__title">{tx("Seções")}</h2>
+            <ul className="dash-side-nav__list">
+              {tabs.map((t) => {
+                const active = t.key === shownTab;
+                const atRoot = active && segments.length === 1 && segments[0] === t.key;
+                return (
+                  <li key={t.key}>
+                    <button
+                      type="button"
+                      aria-current={active ? "page" : undefined}
+                      className={`dash-side-nav__item ${active ? "dash-side-nav__item--active" : ""}`}
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        if (!atRoot) goToTab(t);
+                      }}
+                    >
+                      {t.icon ? (
+                        <img className="dash-side-nav__icon" src={t.icon} alt="" aria-hidden="true" />
+                      ) : (
+                        <span className="dash-side-nav__emoji" aria-hidden="true">{t.emoji}</span>
+                      )}
+                      <span className="dash-side-nav__label">{tx(t.label)}</span>
+                    </button>
+                  </li>
+                );
+              })}
+              {settingsAllowed && (
+                <li>
+                  <button
+                    type="button"
+                    aria-current={settingsOpen ? "page" : undefined}
+                    className={`dash-side-nav__item ${settingsOpen ? "dash-side-nav__item--active" : ""}`}
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      if (!settingsOpen) goTo(settingsHome);
+                    }}
+                  >
+                    <span className="dash-side-nav__emoji" aria-hidden="true">⚙️</span>
+                    <span className="dash-side-nav__label">{tx("Configurações")}</span>
+                  </button>
+                </li>
+              )}
+            </ul>
+          </div>
+
+          <div className="dash-side-nav__footer">
+            <SyncStatus />
+            <div className="dash-side-nav__account">
+              <button
+                type="button"
+                aria-current={profileOpen ? "page" : undefined}
+                className={`dash-side-nav__item dash-side-nav__profile ${profileOpen ? "dash-side-nav__item--active" : ""}`}
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (!profileOpen) goTo("profile");
+                }}
+              >
+                <img className="dash-side-nav__icon" src={meta.icon} alt="" aria-hidden="true" />
+                <span className="dash-side-nav__label">{user.name.split(" ")[0]}</span>
+              </button>
+              <span className="dash-side-nav__version" aria-label={tx("Versão {version}", { version: __APP_VERSION__ })}>v{__APP_VERSION__}</span>
+            </div>
+          </div>
+        </nav>
+      )}
+
       <main className={`dash-body ${settingsOpen ? "dash-body--settings" : ""}`} role="tabpanel">
         {/* PHONES: the iPhone-style settings menu — one grouped card, one row per section */}
         {settingsMenuOpen && isPhone && (
@@ -720,6 +802,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
           </HideScanFabContext.Provider>
         </TabOverrideContext.Provider>
       </main>
+      </div>
 
       {/* every page's closing note lands here (see PageFooter) */}
       <footer className="dash-foot" id={PAGE_FOOTER_ID} />
@@ -737,6 +820,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
           onOpenChange={setAssistantOpen}
         />
       )}
+      </FabPortalProvider>
     </div>
   );
 }
@@ -785,7 +869,7 @@ function ProfileView({ token, user, isAdmin, onLogout, loggingOut, onSwitchRole,
   }
 
   return (
-    <div className="screen screen--narrow">
+    <div className="screen screen--narrow profile-screen">
       <div className="confetti" aria-hidden="true">🎉 🏕️ ✨ 🌲 🎈</div>
 
       <h1 className="title title--small">{tx("Boas-vindas, {name}! 🎉", { name: user.name.split(" ")[0] })}</h1>

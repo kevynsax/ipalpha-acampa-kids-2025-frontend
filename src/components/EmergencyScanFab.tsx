@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react";
-import { createPortal } from "react-dom";
 import { ApiError } from "../api/client";
 import { lookupCamper, type CamperLookupResult } from "../api/campers";
 import { camperIdFromQr } from "../print/camperLabels";
@@ -11,6 +10,7 @@ import { ICONS } from "../icons";
 import { goBack, useRoute } from "../router";
 import Breadcrumbs from "./Breadcrumbs";
 import { useI18n } from "../i18n";
+import { FabPortal } from "./FabPortal";
 
 interface EmergencyScanFabProps {
   token: string;
@@ -81,21 +81,22 @@ export default function EmergencyScanFab({ token, page = false }: EmergencyScanF
   }
 
   if (!page) {
-    return createPortal(
-      <button
-        type="button"
-        className="fab fab--emergency"
-        title={tx("Ler o crachá de qualquer criança (emergência)")}
-        aria-label={tx("Ler o crachá de qualquer criança")}
-        onClick={() => navigate("/badge")}
-      >
-        <img className="fab__kid" src={ICONS.boyFace} alt="" aria-hidden="true" />
-        <span className="fab__label">{tx("Ler crachá")}</span>
-        <span className="fab__icon" aria-hidden="true">
-          <QrGlyph size="1.4em" />
-        </span>
-      </button>,
-      document.body,
+    return (
+      <FabPortal>
+        <button
+          type="button"
+          className="fab fab--emergency"
+          title={tx("Ler o crachá de qualquer criança (emergência)")}
+          aria-label={tx("Ler o crachá de qualquer criança")}
+          onClick={() => navigate("/badge")}
+        >
+          <img className="fab__kid" src={ICONS.boyFace} alt="" aria-hidden="true" />
+          <span className="fab__label">{tx("Ler crachá")}</span>
+          <span className="fab__icon" aria-hidden="true">
+            <QrGlyph size="1.4em" />
+          </span>
+        </button>
+      </FabPortal>
     );
   }
 

@@ -1,5 +1,5 @@
-import { createPortal } from "react-dom";
 import { QrGlyph } from "./Glyph";
+import { FabPortal } from "./FabPortal";
 
 interface ScanFabProps {
   /** tooltip / accessible name, e.g. "Ler a pulseira ou o crachá" */
@@ -13,12 +13,13 @@ interface ScanFabProps {
  * show it must not also show the app-wide EmergencyScanFab.
  */
 export default function ScanFab({ label, onClick }: ScanFabProps) {
-  return createPortal(
-    <button type="button" className="fab fab--icon" title={label} aria-label={label} onClick={onClick}>
-      <span className="fab__icon" aria-hidden="true">
-        <QrGlyph size="1.5em" />
-      </span>
-    </button>,
-    document.body,
+  return (
+    <FabPortal>
+      <button type="button" className="fab fab--icon" title={label} aria-label={label} onClick={onClick}>
+        <span className="fab__icon" aria-hidden="true">
+          <QrGlyph size="1.5em" />
+        </span>
+      </button>
+    </FabPortal>
   );
 }

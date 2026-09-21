@@ -6,12 +6,15 @@ import BulkPointsPage from "./BulkPointsPage";
 import ScoreHistoryPage from "./score/ScoreHistoryPage";
 import TeamScorePage from "./score/TeamScorePage";
 import EventScorePage from "./score/EventScorePage";
+import ScoreSuspenseDialog from "./score/ScoreSuspenseDialog";
 import { fmtPoints, fmtShort, KIND_META, lineKind, useEventMap, useTeamMap } from "./score/scoreLog";
 import { useRoute } from "../router";
 import { useCollection, useCollectionOrEmpty } from "../store";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { ICONS } from "../icons";
 import { useI18n } from "../i18n";
+import { speakWhen } from "../dates";
+import { useScoreSuspense } from "../scoreSuspense";
 
 interface ScoreboardPageProps {
   token: string;
@@ -45,6 +48,9 @@ type Pending = { team: Team; sign: 1 | -1 };
 export default function ScoreboardPage({ token, userId, canEdit, canScan, showTeamsButton = false, onTeams, teamsParent = false }: ScoreboardPageProps) {
   const { tx } = useI18n();
   const teams = useCollection("teams");
+  const settings = useCollection("settings");
+  const suspense = useScoreSuspense(settings?.scoreHideWindow);
+  const [suspenseOpen, setSuspenseOpen] = useState(false);
   const scores = useCollectionOrEmpty("scores");
   const events = useCollectionOrEmpty("events");
   const { segments, navigate } = useRoute();
@@ -108,6 +114,27 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan, showTe
     );
   }
 
+  // Suspense is active and this person does not launch points: show only the reveal message.
+  // Team cards add no useful information without rankings or totals.
+  if (suspense.kind === "on" && !canScan) {
+    return (
+      <div className="admin-page">
+        {teamsParent && onTeams && <Breadcrumbs items={[{ label: tx("Times"), onClick: onTeams }, { label: tx("Placar") }]} />}
+        <header className="admin-head">
+          <h1 className="admin-title">🏆 {tx("Placar")}</h1>
+        </header>
+        <section className="suspense-hero">
+          <img className="suspense-hero__img" src={ICONS.scoreSuspense} alt="" aria-hidden="true" />
+          <h2 className="suspense-hero__title">🤫 {tx("Suspense!")}</h2>
+          <p className="cat-hint">
+            {tx("Os pontos estão escondidos. A revelação será")} <strong>{speakWhen(suspense.until)}</strong>.
+          </p>
+        </section>
+
+      </div>
+    );
+  }
+
   return (
     <div className="admin-page">
       {teamsParent && onTeams && <Breadcrumbs items={[{ label: tx("Times"), onClick: onTeams }, { label: tx("Placar") }]} />}
@@ -124,8 +151,40 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan, showTe
             📋 {tx("Pontos em massa")}
           </button>
         )}
+        {canEdit && (
+          <button type="button" className="button button--secondary admin-head__new" title={tx("Esconder o placar da equipe por um tempo")} onClick={() => setSuspenseOpen(true)}>
+            <img className="admin-head__action-icon" src={ICONS.curtain} alt="" aria-hidden="true" /><span className="admin-head__action-label">{tx("Suspense")}</span>
+          </button>
+        )}
         </div>
       </header>
+      {canScan && suspense.kind === "on" && (
+        <p className="message message--warn scoreboard-suspense-status">
+          <img className="scoreboard-suspense-status__icon" src={ICONS.curtain} alt="" aria-hidden="true" />
+          <span>{tx("A equipe não está vendo o placar. Você vê tudo porque lança pontos.")}</span>
+          {canEdit && (
+            <>
+              {" "}
+              <button type="button" className="link-btn" onClick={() => setSuspenseOpen(true)}>
+                {tx("alterar")}
+              </button>
+            </>
+          )}
+        </p>
+      )}
+      {canScan && suspense.kind === "scheduled" && (
+        <p className="cat-hint scoreboard-intro">
+          {tx("🕒 O placar some da equipe {from} e volta {until}.", { from: speakWhen(suspense.from), until: speakWhen(suspense.until) })}
+          {canEdit && (
+            <>
+              {" "}
+              <button type="button" className="link-btn" onClick={() => setSuspenseOpen(true)}>
+                {tx("alterar")}
+              </button>
+            </>
+          )}
+        </p>
+      )}
       {canScan && (
         <p className="admin-intro scoreboard-intro">
           {tx("📋 Pontos em massa dá pontos a várias crianças de uma vez — pelo nome ou lendo os crachás.")}
@@ -232,6 +291,7 @@ export default function ScoreboardPage({ token, userId, canEdit, canScan, showTe
       )}
 
       {pending && <PointsDialog pending={pending} busy={busy} onSubmit={submitPoints} onClose={() => setPending(null)} />}
+      {canEdit && <ScoreSuspenseDialog token={token} open={suspenseOpen} onClose={() => setSuspenseOpen(false)} current={settings?.scoreHideWindow} />}
     </div>
   );
 }

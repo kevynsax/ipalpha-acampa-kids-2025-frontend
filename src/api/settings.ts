@@ -121,6 +121,8 @@ export interface Settings {
   kidsRoomsDraft: boolean;
   /** scoreboard rehearsal: the Placar tab opens and accepts points regardless of the camp days; off + outside the camp = no tab, no writes */
   scoreDraft: boolean;
+  /** suspense window: while open, whoever does not launch points sees the Placar with the totals hidden; written through PUT /api/scores/suspense */
+  scoreHideWindow: CheckinWindow;
   /** setup wizard lock: the admin lands in the assistant until they finish or leave; settings gear is blocked */
   wizardMode: boolean;
   /** the photo album is visible to the camp; while false only the photographers (and the admin) see it */

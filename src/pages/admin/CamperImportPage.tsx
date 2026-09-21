@@ -25,6 +25,7 @@ type Stage = "file" | "mapping" | "panic" | "review" | "summary" | "done";
 const REVIEW_LABEL: Record<ImportReviewItem["kind"], string> = {
   duplicate:"Cadastros repetidos",leader: "Líderes", date: "Datas", guardianName: "Responsáveis", phone: "Telefones", cpf: "CPFs", email: "E-mails",
 };
+const OPTIONAL_FIELD_LABEL: Record<string, string> = { cpf: "CPF", guardianCpf: "CPF do responsável", email: "E-mail" };
 const IMPORTANT = new Set(["duplicate","leader", "date", "guardianName", "phone"]);
 const REVIEW_ORDER: ImportReviewItem["kind"][] = ["duplicate","leader", "date", "guardianName", "phone", "cpf", "email"];
 const ID_RE=/^(?:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|[a-f0-9]{24})$/i;
@@ -43,8 +44,6 @@ export default function CamperImportPage({ token, onDone }: Props) {
   const [stage, setStage] = useState<Stage>("file");
   const [delta, setDelta] = useState<Delta>({});
   const [reviewIndex, setReviewIndex] = useState(0);
-  const [showOptional, setShowOptional] = useState(false);
-  const [optionalDismissed, setOptionalDismissed] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(true);
   const [declinedCategoryIds, setDeclinedCategoryIds] = useState<Set<string>>(() => new Set());
   const [duplicateChoice,setDuplicateChoice]=useState<"update"|"keep"|"merge"|"">("");
@@ -52,6 +51,7 @@ export default function CamperImportPage({ token, onDone }: Props) {
   const [analyzing, setAnalyzing] = useState(false);
   const [phase, setPhase] = useState<ImportPhaseInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState<{ imported: number; created: { kind: string; count: number; label: string }[]; skipped: number } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const activeInput = useRef<HTMLInputElement | HTMLSelectElement>(null);
   const lastSkipped = useRef<string | null>(null);
@@ -86,10 +86,10 @@ export default function CamperImportPage({ token, onDone }: Props) {
   const reviews = useMemo(() => {
     if (!record) return [];
     return record.reviews
-      .filter((r) => !(r.kind==="duplicate"&&duplicateTotal>7) && (IMPORTANT.has(r.kind) || showOptional) && !isDropped(r))
+      .filter((r) => !(r.kind==="duplicate"&&duplicateTotal>7) && IMPORTANT.has(r.kind) && !isDropped(r))
       .slice()
       .sort((a, b) => REVIEW_ORDER.indexOf(a.kind) - REVIEW_ORDER.indexOf(b.kind) || a.row - b.row);
-  }, [record, showOptional, deadRows, delta,duplicateTotal]);
+  }, [record, deadRows, delta,duplicateTotal]);
   const current = reviews[reviewIndex] ?? null;
   const batchDuplicatePending=duplicateTotal>7&&!duplicateChoice;
   useEffect(() => {
@@ -146,7 +146,6 @@ export default function CamperImportPage({ token, onDone }: Props) {
       setRecord(next);
       setDelta(Object.fromEntries(next.reviews.map((r) => [r.id, { value: r.value, skip: r.skip }])));
       setReviewIndex(0);
-      setOptionalDismissed(false);
       setDeclinedCategoryIds(new Set());
       setDuplicateChoice("");
       if (next.status === "panic") setStage("panic");
@@ -179,6 +178,7 @@ export default function CamperImportPage({ token, onDone }: Props) {
     try {
       if (!file) throw new Error(tx("Escolha novamente a planilha original."));
       const result = await applyCamperImport(token, record.id, file, delta, [...declinedCategoryIds],duplicateChoice);
+      setOutcome({ imported: record.preview.length - skippedRows, created: createdCounters(record.createdItems), skipped: skippedRows });
       setRecord(result.import); setStage("done");
     } catch (e) { setError(e instanceof Error ? e.message : tx("Não foi possível importar.")); }
     finally { setBusy(false); }
@@ -211,6 +211,11 @@ export default function CamperImportPage({ token, onDone }: Props) {
         <span className="import-success__check"><CheckGlyph size={54} /></span>
         <h1 className="admin-title">{tx("Importação concluída")}</h1>
         <p className="admin-intro">{tx("As crianças já estão no sistema. A revisão das observações por IA continua em segundo plano.")}</p>
+        {outcome && <div className="import-stats">
+          <span className="import-stats__success"><b>{outcome.imported}</b> {tx("crianças")}</span>
+          {outcome.created.map((counter) => <span className="import-stats__success" key={counter.kind}><b>{counter.count}</b> {tx(counter.label)}</span>)}
+          <span className="import-stats__warning"><b>{outcome.skipped}{outcome.skipped > 0 && <button type="button" className="icon-btn icon-btn--bare import-download-icon" title={tx("Baixar não importados")} aria-label={tx("Baixar não importados")} onClick={downloadSkipped}><DownloadGlyph /></button>}</b> {tx("ignoradas")}</span>
+        </div>}
         <button type="button" className="button button--primary" onClick={leave}>{tx("Ver acampantes")}</button>
       </section>
     </div>
@@ -275,11 +280,6 @@ export default function CamperImportPage({ token, onDone }: Props) {
       {stage === "summary" && record && (
         <section className="import-summary">
           <h2>{tx("Pronto para importar")}</h2>
-          <div className="import-stats">
-            <span className="import-stats__success"><b>{record.preview.length - skippedRows}</b> {tx("crianças")}</span>
-            {createdCounters(record.createdItems).map((counter) => <span className="import-stats__success" key={counter.kind}><b>{counter.count}</b> {tx(counter.label)}</span>)}
-            <span className="import-stats__warning"><b>{skippedRows}{skippedRows > 0 && <button type="button" className="icon-btn icon-btn--bare import-download-icon" title={tx("Baixar não importados")} aria-label={tx("Baixar não importados")} onClick={downloadSkipped}><DownloadGlyph /></button>}</b> {tx("ignoradas")}</span>
-          </div>
           {unassignedColumns(record.columns).length > 0 && <p className="cat-hint">{tx("{n} coluna(s) sem destino reconhecido — os valores vão para as observações.", { n: unassignedColumns(record.columns).length })} <button type="button" className="link-btn" onClick={() => setStage("mapping")}>{tx("Atribuir colunas")}</button></p>}
           {record.createdItems.some((item) => item.kind !== "categoryOption" && item.kind !== "staff") && <div className="import-created">
             <p className="admin-intro">{tx("Também serão publicados:")}</p>
@@ -295,8 +295,10 @@ export default function CamperImportPage({ token, onDone }: Props) {
             <button type="button" className={`import-preview-toggle${previewOpen ? " is-visible" : ""}`} aria-label={previewOpen ? tx("Ocultar prévia") : tx("Mostrar prévia")} aria-pressed={previewOpen} title={previewOpen ? tx("Ocultar prévia") : tx("Mostrar prévia")} onClick={() => setPreviewOpen((v) => !v)}><EyeGlyph /></button>
           </div>
           {previewOpen && <PreviewTable record={record} delta={delta} skippedRowNumbers={skippedRowNumbers} categories={categories} declinedCategoryIds={declinedCategoryIds} duplicateChoice={duplicateChoice} />}
-          {optionalReviews.length > 0 && !optionalDismissed && <div className="import-optional-review"><p>{tx("Encontrei {n} CPF(s) ou e-mail(s) inválido(s). Quer revisar ou deixar esses campos em branco?", { n: optionalReviews.length })}</p><div className="cat-form__actions"><button type="button" className="button button--secondary" onClick={() => { setDelta((currentDelta) => ({ ...currentDelta, ...Object.fromEntries(optionalReviews.map((item) => [item.id, { ...currentDelta[item.id], skip: true }])) })); setOptionalDismissed(true); }}>{tx("Ignorar")}</button><button type="button" className="button button--primary" onClick={() => { setShowOptional(true); setOptionalDismissed(true); setReviewIndex(reviews.filter((r) => IMPORTANT.has(r.kind)).length); setStage("review"); }}>{tx("Revisar {n}", { n: optionalReviews.length })}</button></div></div>}
-          {optionalReviews.length > 0 && optionalDismissed && !showOptional && <p className="import-optional-warning">{tx("CPFs e e-mails inválidos serão deixados em branco.")}</p>}
+          {optionalReviews.length > 0 && <div className="import-optional-review">
+            <p>{optionalReviews.length === 1 ? tx("1 CPF ou e-mail inválido ficará em branco:") : tx("{n} CPFs ou e-mails inválidos ficarão em branco:", { n: optionalReviews.length })}</p>
+            <ul className="import-optional-review__list">{optionalReviews.map((item) => <li key={item.id}><strong>{item.kidName}</strong> · {tx(OPTIONAL_FIELD_LABEL[item.field] ?? REVIEW_LABEL[item.kind])}: <s>{item.original}</s></li>)}</ul>
+          </div>}
           <div className="cat-form__actions">
             <button type="button" className="button button--secondary" onClick={() => reviews.length ? setStage("review") : setStage("file")}>{tx("Voltar")}</button>
             <button type="button" className="button button--primary" disabled={busy || record.status === "panic" || record.status === "needs_mapping"||(duplicateTotal>7&&!duplicateChoice)} onClick={() => void apply()}>{busy ? tx("Importando…") : tx("Aplicar importação")}</button>

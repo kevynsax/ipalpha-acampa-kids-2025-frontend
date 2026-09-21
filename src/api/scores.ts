@@ -53,6 +53,11 @@ export async function resetScore(token: string, teamId: string, note = ""): Prom
   return res.score;
 }
 
+/** The suspense window: between `from` and `until` the team sees the Placar with the totals hidden (points keep being written). Both null clears it. Admin, organizer or game organizer. */
+export async function setScoreSuspense(token: string, window: { from: string | null; until: string | null }): Promise<void> {
+  await command("/api/scores/suspense", { method: "PUT", headers: json(token), body: JSON.stringify(window) }, ["settings"]);
+}
+
 /** Removes one line (a mistake) — its points are undone. */
 export async function deleteScore(token: string, id: string): Promise<void> {
   await command(`/api/scores/${id}`, { method: "DELETE", headers: bearer(token) }, ["scores"]);

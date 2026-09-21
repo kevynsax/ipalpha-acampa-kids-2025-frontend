@@ -5,6 +5,7 @@ import StaffListEditor from "./StaffListEditor";
 import { QrGlyph } from "../../components/Glyph";
 import PageFooter from "../../components/PageFooter";
 import { useI18n } from "../../i18n";
+import ScoreSuspenseCard from "../score/ScoreSuspenseCard";
 
 interface GameOrganizersPageProps {
   token: string;
@@ -86,6 +87,8 @@ export default function GameOrganizersPage({ token }: GameOrganizersPageProps) {
           empty={tx("Ninguém escolhido ainda. Só o admin lança pontos.")}
         />
       </section>
+
+      <ScoreSuspenseCard token={token} />
 
       <p className="admin-intro">
         <strong>{tx("Ajudantes do placar")}</strong>

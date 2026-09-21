@@ -206,7 +206,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
 
   if (!staff) {
     return (
-      <div className="admin-page">
+      <div className="admin-page admin-page--staff">
         {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>}
       </div>
     );
@@ -231,7 +231,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
   const editing = mode.kind === "edit" ? staff.find((s) => s.id === mode.id) : undefined;
 
   return (
-    <div className="admin-page">
+    <div className="admin-page admin-page--staff">
       {mode.kind === "create" && <Breadcrumbs items={[{ label: tx("Equipe"), onClick: () => guardedNav("/staff") }, { label: tx("Novo") }]} />}
       {mode.kind === "edit" && editing && (
         <Breadcrumbs items={[{ label: tx("Equipe"), onClick: () => guardedNav("/staff") }, { label: editing.name.split(" ")[0], onClick: () => guardedNav(`/staff/${editing.id}`) }, { label: tx("Editar") }]} />

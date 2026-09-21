@@ -135,6 +135,7 @@ function emptySettings(): Settings {
     checkinTestMode: false,
     kidsRoomsDraft: false,
     scoreDraft: false,
+    scoreHideWindow: emptyWindow(),
     wizardMode: false,
     galleryPublished: false,
     checkinReminder: { at: null, sentAt: null },

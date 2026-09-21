@@ -130,86 +130,77 @@ export default function CategoriesPage({ token }: CategoriesPageProps) {
     );
   }
 
-  const sidebar = (
-    <aside className="cat-side">
-      <button
-        type="button"
-        className="button button--primary cat-side__new"
-        disabled={busy}
-        onClick={() => navigate("/categories/new")}
-      >
-        + {tx("Nova categoria")}
-      </button>
-
-      {categories.length === 0 ? (
-        <p className="cat-side__empty">{tx("Nenhuma categoria ainda.")}</p>
-      ) : (
-        <nav className="cat-side__list" role="tablist" aria-orientation="vertical" aria-label={tx("Categorias")}>
-          {categories.map((c) => {
-            const active = c.id === selectedId && mode.kind === "view";
-            return (
-              <button
-                key={c.id}
-                role="tab"
-                type="button"
-                aria-selected={active}
-                className={`cat-side__item ${active ? "cat-side__item--active" : ""}`}
-                onClick={() => navigate(`/categories/${c.id}`)}
-              >
-                <span className="cat-side__emoji" aria-hidden="true">{c.emoji}</span>
-                <span className="cat-side__name">{c.name}</span>
-                <span className="cat-side__count">{c.options.filter((o) => o.active).length}</span>
-              </button>
-            );
-          })}
-        </nav>
-      )}
-    </aside>
+  const categoryTabs = categories.length > 0 && (
+    <nav className="cat-tabs cat-tabs--categories" role="tablist" aria-label={tx("Categorias")}>
+      {categories.map((c) => {
+        const active = c.id === selectedId && mode.kind === "view";
+        return (
+          <button
+            key={c.id}
+            role="tab"
+            type="button"
+            aria-selected={active}
+            className={`cat-tab ${active ? "cat-tab--active" : ""}`}
+            onClick={() => navigate(`/categories/${c.id}`)}
+          >
+            <span className="cat-tab__emoji" aria-hidden="true">{c.emoji}</span>
+            <span>{c.name}</span>
+            <span className="cat-tab__count">{c.options.filter((o) => o.active).length}</span>
+          </button>
+        );
+      })}
+    </nav>
   );
 
   return (
     <div className="admin-page admin-page--wide">
       <header className="admin-head">
         <h1 className="admin-title">{tx("Categorias")}</h1>
+        <button
+          type="button"
+          className="button button--primary admin-head__new"
+          disabled={busy}
+          onClick={() => navigate("/categories/new")}
+        >
+          + {tx("Nova categoria")}
+        </button>
       </header>
 
       {error && <p className="message message--error">{error}</p>}
+      {categoryTabs}
 
-      <div className="cat-layout">
-        {sidebar}
+      <div className="cat-main">
+        {mode.kind === "create" && (
+          <CategoryForm token={token} busy={busy} onSubmit={handleCreate} onCancel={() => goBack("/categories")} />
+        )}
+        {mode.kind === "edit" && !selected && <p className="opt-empty">{tx("Categoria não encontrada.")}</p>}
+        {mode.kind === "edit" && selected && (
+          <CategoryForm
+            token={token}
+            key={selected.id}
+            category={selected}
+            busy={busy}
+            onSubmit={handleEdit}
+            onCancel={() => goBack(`/categories/${selected.id}`)}
+          />
+        )}
 
-        <div className="cat-main">
-          {mode.kind === "create" && (
-            <CategoryForm token={token} busy={busy} onSubmit={handleCreate} onCancel={() => goBack("/categories")} />
-          )}
-          {mode.kind === "edit" && !selected && <p className="opt-empty">{tx("Categoria não encontrada.")}</p>}
-          {mode.kind === "edit" && selected && (
-            <CategoryForm
-              token={token}
-              key={selected.id}
-              category={selected}
-              busy={busy}
-              onSubmit={handleEdit}
-              onCancel={() => goBack(`/categories/${selected.id}`)}
-            />
-          )}
+        {mode.kind === "view" && categories.length === 0 && (
+          <div className="admin-empty">
+            <span className="admin-empty__emoji">🗂️</span>
+            <p>
+              {tx("Cada categoria é uma")} <strong>{tx("lista fechada de opções")}</strong>{" "}
+              {tx("que aparece nos formulários de acampante e/ou equipe — cama, alergias, condições de saúde…")}
+            </p>
+            <button type="button" className="button button--primary" onClick={() => navigate("/categories/new")}>
+              + {tx("Criar a primeira")}
+            </button>
+          </div>
+        )}
 
-          {mode.kind === "view" && categories.length === 0 && (
-            <div className="admin-empty">
-              <span className="admin-empty__emoji">🗂️</span>
-              <p>
-                {tx("Cada categoria é uma")} <strong>{tx("lista fechada de opções")}</strong>{" "}
-                {tx("que aparece nos formulários de acampante e/ou equipe — cama, alergias, condições de saúde…")}
-              </p>
-              <button type="button" className="button button--primary" onClick={() => navigate("/categories/new")}>
-                + {tx("Criar a primeira")}
-              </button>
-            </div>
-          )}
-
-          {mode.kind === "view" && selected && optionHandlers && (
-            <section className="cat-panel" role="tabpanel">
-              <div className="cat-panel__head">
+        {mode.kind === "view" && selected && optionHandlers && (
+          <section className="cat-panel" role="tabpanel">
+            <div className="cat-panel__head">
                 <div className="cat-panel__title">
                   <span className="cat-panel__emoji" aria-hidden="true">{selected.emoji}</span>
                   <div>
@@ -266,12 +257,11 @@ export default function CategoriesPage({ token }: CategoriesPageProps) {
                     🗑️
                   </button>
                 </div>
-              </div>
+            </div>
 
-              <CategoryOptions category={selected} busy={busy} {...optionHandlers} />
-            </section>
-          )}
-        </div>
+            <CategoryOptions category={selected} busy={busy} {...optionHandlers} />
+          </section>
+        )}
       </div>
     </div>
   );

@@ -197,7 +197,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
 
   if (!campers) {
     return (
-      <div className="admin-page">
+      <div className="admin-page admin-page--campers">
         {error ? <p className="message message--error">{error}</p> : <p className="opt-empty">{tx("Sincronizando com o servidor… 🏕️")}</p>}
       </div>
     );
@@ -225,7 +225,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
   const editing = mode.kind === "edit" ? campers.find((k) => k.id === mode.id) : undefined;
 
   return (
-    <div className="admin-page">
+    <div className="admin-page admin-page--campers">
       {mode.kind === "create" && <Breadcrumbs items={[{ label: tx("Acampantes"), onClick: () => guardedNav("/campers") }, { label: tx("Novo") }]} />}
       {mode.kind === "edit" && editing && (
         <Breadcrumbs items={[{ label: tx("Acampantes"), onClick: () => guardedNav("/campers") }, { label: editing.name.split(" ")[0], onClick: () => guardedNav(`/campers/${editing.id}`) }, { label: tx("Editar") }]} />

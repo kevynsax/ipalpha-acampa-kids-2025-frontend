@@ -102,6 +102,10 @@ export const ICONS = {
   wizardSample: icon("wizard-sample"),
   /** a desktop monitor showing a room-assignment board next to a crossed-out phone — "use a computer for this" */
   desktopBetter: icon("desktop-better"),
+  /** four kids cheering in front of a closed orange curtain that hides the scoreboard, trophy peeking, clock beside — the Placar suspense (dialog + hidden board) */
+  scoreSuspense: icon("score-suspense"),
+  /** closed orange curtain on a rod with the trophy peeking above — the "Suspense" button / settings card */
+  curtain: icon("curtain"),
   /** a desktop monitor showing a bus-seating board next to a crossed-out phone — "use a computer for the buses" */
   desktopBetterBus: icon("desktop-better-bus"),
   /** login / settings role: staff volunteer */
