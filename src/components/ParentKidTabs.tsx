@@ -30,7 +30,7 @@ export default function ParentKidTabs({ kids, selectedId, onSelect, idPrefix, pa
     <nav className="parent-kid-tabs" role="tablist" aria-label={tx("Escolha uma criança")}>
       {kids.map((kid) => {
         const active = kid.camper.id === selectedId;
-        const reviewing = kid.camper.aiReviewStatus === "pending" || kid.camper.aiReviewStatus === "processing";
+        const reviewing = kid.camper.aiReviewStatus === "pending" || kid.camper.aiReviewStatus === "processing" || kid.camper.aiReviewStatus === "structured";
         return (
           <button
             key={kid.camper.id}

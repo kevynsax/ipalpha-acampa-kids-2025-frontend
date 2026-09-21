@@ -251,9 +251,10 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   };
   const { path, segments, navigate } = useRoute();
   /**
-   * PHONES: the ⚙️ opens an iPhone-style settings MENU first (big list → pick a
-   * section → its page, with a back link on it). 760px is the same query the
-   * settings CSS switches at, so the two always agree. Desktop keeps the
+   * PHONES: the settings MENU (iPhone-style big list) opens from the drawer's
+   * "Configurações" row; the app-bar ⚙️ lands directly on Geral, and every
+   * section page carries a ‹ back link to the menu. 760px is the same query
+   * the settings CSS switches at, so the two always agree. Desktop keeps the
    * sidebar layout, untouched.
    */
   const isPhone = useMediaQuery("(max-width: 760px)");
@@ -274,6 +275,8 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   /** the admin, or a team member listed as ORGANIZER: the admin's pages and the ⚙️ settings (minus the admin-only ones) */
   const isAdmin = user.activeRole === "admin";
   const settingsAllowed = isAdmin || helper.organizer;
+  /** camp-admin lock from the super-admin handover: wizard takes over until they finish or leave (the deployment owner is never locked) */
+  const wizardLocked = isAdmin && !!settings?.wizardMode && !settings?.superAdmin;
   /**
    * Phones: up to 5 menu entries (Perfil does NOT count — it lives in the app
    * bar as the person's name) become a bottom bar with an app bar above it;
@@ -285,11 +288,13 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   /** the settings pages this session may open (Sementes: deployment owner only) */
   const settingsPages = SETTINGS.filter((s) => (isAdmin || !s.adminOnly) && (!s.superOnly || !!settings?.superAdmin));
   /** desktop ⚙️ landing — Notificações for the admin; organizers have no such page, so Geral */
-  const settingsHome: SettingsKey = settingsPages.find((s) => s.key === "notifications")?.key ?? settingsPages[0].key;
+  /** the settings page the ⚙️ lands on: always Geral — the menu (phones) stays one ‹ away */
+  const settingsHome: SettingsKey = settingsPages.find((s) => s.key === "general")?.key ?? settingsPages[0].key;
   const isSettingsKey = (s: string | undefined): s is SettingsKey => settingsPages.some((x) => x.key === s);
   const managesTeams = settingsAllowed || helper.gameOrganizer;
   const isView = (s: string | undefined): s is View => s === "profile" || (s === "wizard" && isAdmin) || (s === "badge" && !isParent && during) || (settingsAllowed && (s === "settings" || isSettingsKey(s))) || (managesTeams && (s === "teams" || s === "scoreboard")) || tabs.some((t) => t.key === s);
-  const view: View = isView(segments[0]) ? segments[0] : tabs[0]?.key ?? "profile";
+  const rawView: View = isView(segments[0]) ? segments[0] : tabs[0]?.key ?? "profile";
+  const view: View = wizardLocked && rawView !== "profile" && rawView !== "wizard" ? "wizard" : rawView;
   /** the tab we auto-landed on BEFORE the programme had arrived (the phase, hence the default, may still change) */
   const provisionalLanding = useRef<string | null>(null);
   /** login / reopen on #/profile must not show Perfil first; tapping the name later still works */
@@ -333,7 +338,12 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   const prepList = useCollectionOrEmpty("preparation");
   const instrList = useCollectionOrEmpty("instructions");
   useEffect(() => {
-    if (wizardAutoEntered.current || !isAdmin || !hydrated || wizardOpen) return;
+    if (!isAdmin || !hydrated) return;
+    if (wizardLocked) {
+      if (view !== "wizard" && view !== "profile") navigate("/wizard", { replace: true });
+      return;
+    }
+    if (wizardAutoEntered.current || wizardOpen) return;
     // only the default landing walks in by itself — a deep link is respected
     if (segments.length !== 1 || segments[0] !== tabs[0]?.key) return;
     wizardAutoEntered.current = true;
@@ -352,13 +362,13 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
       navigate("/wizard", { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, isAdmin, view, wizardOpen, segments, tabs, campersList, staffList, bedroomsList, eventsList, transportsList, prepList, instrList]);
+  }, [hydrated, isAdmin, view, wizardOpen, wizardLocked, segments, tabs, campersList, staffList, bedroomsList, eventsList, transportsList, prepList, instrList]);
 
   const profileOpen = view === "profile";
   /** admin settings (sidebar layout) — never for the team, even if a tab key happens to look alike */
-  const settingsOpen = settingsAllowed && isSettingsKey(view);
+  const settingsOpen = settingsAllowed && !wizardLocked && isSettingsKey(view);
   /** phones: the settings MENU (the big list the ⚙️ opens); picking an entry leaves it for that page */
-  const settingsMenuOpen = settingsAllowed && view === "settings";
+  const settingsMenuOpen = settingsAllowed && !wizardLocked && view === "settings";
   // the phone menu route on a DESKTOP window (resized, or a link pasted around): the
   // sidebar already IS the menu there, so fall through to the first settings page
   useEffect(() => {
@@ -424,10 +434,10 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   }
 
   return (
-    <div className={`dash ${useMobileBottomNav ? "dash--bottom-nav" : "dash--drawer-nav"}${settingsAllowed ? " dash--has-settings" : ""}${hasFab ? " dash--has-fab" : ""}`}>
+    <div className={`dash ${useMobileBottomNav ? "dash--bottom-nav" : "dash--drawer-nav"}${settingsAllowed && !wizardLocked ? " dash--has-settings" : ""}${hasFab ? " dash--has-fab" : ""}`}>
       <div className="dash-chrome">
       <header className="dash-top">
-        {tabs.length > 0 && !useMobileBottomNav && !wizardOpen && (
+        {tabs.length > 0 && !useMobileBottomNav && !wizardOpen && !wizardLocked && (
           <button
             type="button"
             className={`dash-iconbtn dash-menu-toggle ${mobileMenuOpen ? "dash-menu-toggle--open" : ""}`}
@@ -462,20 +472,26 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
             className={`role-chip dash-user__chip ${profileOpen ? "dash-user__chip--active" : ""}`}
             title={tx("Você entrou como {role} — ver perfil", { role: tx(meta.personLabel) })}
             aria-pressed={profileOpen}
-            onClick={() => goTo("profile")}
+            onClick={() => {
+              if (profileOpen) {
+                if (wizardLocked) goTo("wizard");
+                return;
+              }
+              goTo("profile");
+            }}
           >
             <img className="role-chip__icon" src={meta.icon} alt="" aria-hidden="true" />
             {user.name.split(" ")[0]}
           </button>
-          {settingsAllowed && (
+          {settingsAllowed && !wizardLocked && (
             <button
               type="button"
               className={`dash-iconbtn dash-settings-btn ${settingsOpen || settingsMenuOpen ? "dash-iconbtn--active" : ""}`}
               title={tx("Configurações: equipe, contatos, check-in e notificações")}
               aria-label={tx("Configurações")}
               aria-pressed={settingsOpen || settingsMenuOpen}
-              /* phones: the ⚙️ opens the menu (or, from a section page, goes back to it); desktop lands on Notificações (admin) / Geral (organizer) */
-              onClick={() => goTo(isPhone ? "settings" : settingsHome)}
+              /* the ⚙️ always lands on Geral; the phone menu stays reachable via the ‹ back link */
+              onClick={() => goTo(settingsHome)}
             >
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
                 <path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 .1-1 7.6 7.6 0 0 0-.1-1l2.1-1.6a.5.5 0 0 0 .1-.7l-2-3.4a.5.5 0 0 0-.6-.2l-2.5 1a7.3 7.3 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.5h-4a.5.5 0 0 0-.5.5l-.4 2.6a7.3 7.3 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.4a.5.5 0 0 0 .1.7L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.7l2 3.4c.1.2.4.3.6.2l2.5-1a7.3 7.3 0 0 0 1.7 1l.4 2.6c0 .3.2.5.5.5h4c.3 0 .5-.2.5-.5l.4-2.6a7.3 7.3 0 0 0 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.4a.5.5 0 0 0-.1-.7L19.4 13ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z" />
@@ -488,7 +504,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
         </div>
       </header>
 
-      {tabs.length > 0 && !wizardOpen && (
+      {tabs.length > 0 && !wizardOpen && !wizardLocked && (
       <nav id="dashboard-menu" className={`dash-tabs ${mobileMenuOpen ? "dash-tabs--open" : ""}`} role="tablist" aria-label={tx("Seções")}>
         {tabs.map((t) => {
           /** the merged 📖+mala entry (phone bottom bar only) stands in for BOTH halves */
@@ -552,7 +568,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
         </button>
         {/* phones: for everyone else the ⚙️ would live here, in the drawer; admins /
             organizers keep it in the app bar instead, so this entry is hidden for them */}
-        {settingsAllowed && (
+        {settingsAllowed && !wizardLocked && (
           <button
             type="button"
             role="tab"
@@ -711,7 +727,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
 
       {/* "Ler crachá" QR lookup — the team, WHILE THE CAMP IS ON (first day → end of the last event), on every page except the settings, the pages whose own yellow ScanFab performs their action, and any page showing a FORM (its Salvar / Cancelar own that corner) */}
       {showEmergencyFab && <EmergencyScanFab token={token} />}
-      {(settingsAllowed || helper.medical) && (
+      {(settingsAllowed || helper.medical) && !wizardLocked && !wizardOpen && (
         <CampAssistant
           token={token}
           userName={user.name}

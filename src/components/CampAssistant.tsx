@@ -367,8 +367,8 @@ export default function CampAssistant({ token, userName, availableTabs, availabl
         ref={launcherRef}
         type="button"
         className={`assistant-launcher ${avoidFab ? "assistant-launcher--with-fab" : ""} ${open ? "assistant-launcher--open" : ""} ${active ? "assistant-launcher--live" : ""} ${fabReturning ? "assistant-launcher--returning" : ""}`}
-        title={tx("Conversar com o assistente")}
-        aria-label={tx("Conversar com o assistente")}
+        title={tx("Conversar com a Sareca")}
+        aria-label={tx("Conversar com a Sareca")}
         aria-expanded={open}
         onClick={openAssistant}
       >
@@ -378,7 +378,7 @@ export default function CampAssistant({ token, userName, availableTabs, availabl
       {open && (
         <>
           <div className={`assistant-backdrop ${screenText ? "assistant-backdrop--display" : ""} ${handoff ? "assistant-backdrop--handoff" : ""} ${resuming ? "assistant-backdrop--resuming" : ""}`} aria-hidden="true" />
-          <section ref={stageRef} className={`assistant-stage ${screenText ? "assistant-stage--display" : ""} ${handoff ? "assistant-stage--handoff" : ""} ${resuming ? "assistant-stage--resuming" : ""}`} role="dialog" aria-modal="true" aria-label={tx("Assistente do acampamento")}>
+          <section ref={stageRef} className={`assistant-stage ${screenText ? "assistant-stage--display" : ""} ${handoff ? "assistant-stage--handoff" : ""} ${resuming ? "assistant-stage--resuming" : ""}`} role="dialog" aria-modal="true" aria-label={tx("Sareca, assistente do acampamento")}>
             <button type="button" className="assistant-stage__close" aria-label={tx("Encerrar conversa")} title={tx("Encerrar conversa")} onClick={close} autoFocus>
               <span aria-hidden="true">×</span>
             </button>

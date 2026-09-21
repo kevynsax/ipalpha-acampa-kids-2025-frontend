@@ -61,7 +61,7 @@ export default function StaffListEditor({ title, hint, value, onChange, disabled
       ) : (
         <ul className="staff-card__tags helpers-list" aria-label={tx("Pessoas")}>
           {people.map((s) => (
-            <li key={s.id} className={`staff-tag helpers-tag ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? tx("Cadastro em revisão pela IA") : undefined}>
+            <li key={s.id} className={`staff-tag helpers-tag ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" || s.aiReviewStatus === "structured" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" || s.aiReviewStatus === "structured" ? tx("Cadastro em revisão pela IA") : undefined}>
               <span className="helpers-tag__name">
                 {s.name}
                 {detail && <span className="helpers-tag__detail">{detail(s)}</span>}

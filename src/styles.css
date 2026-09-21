@@ -189,8 +189,9 @@ button, input { font: inherit; }
 }
 .admin-intro { margin: 0; color: var(--muted); font-size: .95rem; line-height: 1.5; }
 .admin-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 40px 24px; text-align: center; background: var(--paper); border: 3px dashed var(--sage); border-radius: var(--radius); color: var(--muted); }
-.admin-empty--drop { transition: border-color .12s ease; }
-.admin-empty--drop.admin-empty--over { border-color: var(--pine); }
+.admin-empty--drop { transition: border-color .12s ease, background .12s ease; }
+.admin-empty--drop.admin-empty--over { border-color: var(--pine); background: color-mix(in srgb, var(--sage) 22%, var(--paper)); }
+.admin-empty--drop.admin-empty--over * { pointer-events: none; }
 .admin-empty__emoji { font-size: 3rem; }
 .admin-empty__icon { width: 72px; height: 72px; object-fit: contain; }
 /* illustration rather than an icon (the glum photographer): give it room */
@@ -1647,9 +1648,15 @@ span.opt-item__label { cursor: default; }
 .staff-card--inactive { opacity: .6; border-style: dashed; border-color: var(--sage); }
 .staff-card__body { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .staff-card__name { margin: 0; font-family: var(--font-display); font-size: 1.05rem; font-weight: 800; color: var(--forest); display: flex; align-items: center; gap: 8px; }
+.staff-card__name-text { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .staff-card__inactive { font-family: var(--font-body); font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: #eef2ef; padding: 2px 8px; border-radius: 999px; }
 .staff-card__meta { margin: 0; color: var(--muted); font-size: .85rem; font-weight: 600; }
 .staff-card__tags { display: flex; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 700px) {
+  /* compact room-staff cards: chips under the name on phones */
+  .staff-card__name--with-tags { flex-wrap: wrap; align-items: flex-start; }
+  .staff-card__name--with-tags .staff-card__tags { flex: 1 1 100%; }
+}
 /* Roommates on the staff home: compact people cards, not oversized name pills. */
 .roommate-section { gap: 12px; }
 .roommate-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -3481,8 +3488,7 @@ body:has(.gallery-marquee) .gallery-tile, body:has(.gallery-marquee) .gallery-ti
 .cleanup-all__title { margin: 0; font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; color: #9a3f31; }
 .cleanup-all__text { margin: 0; color: var(--ink); font-size: .95rem; line-height: 1.5; }
 .cleanup-all__button { align-self: flex-start; }
-.cleanup-all__actions { display: flex; flex-wrap: wrap; gap: 10px; }
-@media (max-width: 560px) { .cleanup-all__button { align-self: stretch; } .cleanup-all__actions { flex-direction: column; } .cleanup-all__actions .cleanup-all__button { width: 100%; } }
+@media (max-width: 560px) { .cleanup-all__button { align-self: stretch; } }
 
 
 /* ── Montar quartos (room assignment board) ──────────────────────────────── */
@@ -3943,11 +3949,28 @@ body:has(.assign-ghost) .assign-chip:hover { transform: none; box-shadow: none; 
 .wizard-card__title { margin: 0; font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; color: var(--forest); }
 .wizard-card--intro { align-items: center; text-align: center; padding-top: 28px; }
 .wizard-card--intro .cat-form__actions { width: 100%; justify-content: center; }
+
+/* the welcome fork: two big visual choices side by side */
+.wizard-choice { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 6px 0 2px; }
+.wizard-choice__card { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 20px 16px 18px; border: 3px solid var(--sage); border-radius: 20px; background: #fff; font: inherit; color: var(--pine); cursor: pointer; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
+.wizard-choice__card:hover:not(:disabled) { transform: translateY(-3px); border-color: var(--forest); box-shadow: 0 6px 0 rgba(24,61,54,.14); }
+.wizard-choice__card:disabled { opacity: .6; cursor: wait; }
+.wizard-choice__card:focus-visible { outline: none; border-color: var(--forest); box-shadow: 0 0 0 4px rgba(15,154,138,.35); }
+.wizard-choice__art { width: 100%; max-width: 260px; height: 150px; object-fit: contain; }
+.wizard-choice__title { font-family: var(--font-display); font-weight: 800; font-size: 1.1rem; color: var(--forest); }
+.wizard-choice__hint { font-size: .82rem; color: var(--muted); line-height: 1.3; }
+.wizard-choice__skip { margin-top: 4px; }
+@media (max-width: 640px) {
+  .wizard-choice { grid-template-columns: 1fr; gap: 12px; }
+  .wizard-choice__art { height: 120px; }
+}
 .wizard-config { display: flex; flex-direction: column; gap: 14px; }
 
 /* an embedded app page (imports, check-in settings, boards): drop its own page frame */
 .wizard__page .admin-page { max-width: none; margin: 0; padding: 0; animation: none; }
 .wizard__page .admin-page .settings-back { display: none; }
+/* the embedded import pages carry their own breadcrumb — the wizard stepper already shows where you are */
+.wizard__page .crumbs { display: none; }
 
 .wizard__foot { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 10px; padding: 12px 0; background: var(--sand); border-top: 2px dashed #d8e1db; z-index: 5; }
 

@@ -42,6 +42,18 @@ export async function addAdmin(token: string, input: { name: string; phone: stri
   );
 }
 
+/** SUPER ADMIN: reset the camp, keep only the deployment owner, create the new admin and force their wizard. */
+export async function handoverCamp(
+  token: string,
+  body: { name: string; phone: string; email: string; notify: boolean },
+): Promise<{ usersRemoved: number; mailed: boolean; admin: { id: string; name: string; phone: string } }> {
+  return command(
+    "/api/admins/handover",
+    { method: "POST", headers: { ...bearer(token), "content-type": "application/json" }, body: JSON.stringify(body) },
+    ["campers", "staff", "bedrooms", "transports", "teams", "scores", "roles", "events", "occurrences", "medications", "gallery", "settings"],
+  );
+}
+
 /** Removes the admin role from an account (never your own, never the deployment owner's). */
 export async function removeAdmin(token: string, id: string): Promise<void> {
   await command(`/api/admins/${id}`, { method: "DELETE", headers: bearer(token) }, ["staff"]);

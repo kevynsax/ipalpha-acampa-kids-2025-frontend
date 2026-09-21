@@ -185,7 +185,7 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
               const key = `${e.kid.id}|${e.medKey}`;
               const taken = sosToday.get(key) ?? [];
               return (
-                <li key={key} className={`bus-row meds-row meds-row--tick meds-row--sos ${taken.length ? "bus-row--on" : ""} ${e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? tx("Cadastro em revisão pela IA") : undefined}>
+                <li key={key} className={`bus-row meds-row meds-row--tick meds-row--sos ${taken.length ? "bus-row--on" : ""} ${e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" || e.kid.aiReviewStatus === "structured" ? "camper-ai-review" : ""}`} title={e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" || e.kid.aiReviewStatus === "structured" ? tx("Cadastro em revisão pela IA") : undefined}>
                   {/* the kid + WhatsApp are ONE line: on a phone the icon is simply the last
                       item of that line (top right of the card), never a floating overlay */}
                   <div className="meds-sos__top">
@@ -258,7 +258,7 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
                   .join(" ");
                 return (
                   <li key={key} className={cls}>
-                    <div className={`bus-row meds-row meds-row--tick ${given ? "bus-row--on" : ""} ${justTicked ? "meds-row--ticked" : ""} ${e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? tx("Cadastro em revisão pela IA") : undefined}>
+                    <div className={`bus-row meds-row meds-row--tick ${given ? "bus-row--on" : ""} ${justTicked ? "meds-row--ticked" : ""} ${e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" || e.kid.aiReviewStatus === "structured" ? "camper-ai-review" : ""}`} title={e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" || e.kid.aiReviewStatus === "structured" ? tx("Cadastro em revisão pela IA") : undefined}>
                       {/* the tick lives in its own checkbox: the rest of the card opens the kid */}
                       <label className="meds-check" title={given ? tx("Dado por {name} · {when} — desmarque para desfazer", { name: given.by.name, when: speakStamp(given.givenAt) }) : tx("Marcar como dado")}>
                         <input
@@ -338,7 +338,7 @@ export default function MedicationChecklist({ token, day, variant = "page", titl
             <ul className={`meds-rows ${card ? "meds-rows--flat" : ""}`}>
               {unscheduled.map((e) => (
                 <li key={`${e.kid.id}|${e.medKey}`} className="meds-item">
-                  <div className={`bus-row meds-row meds-row--tick meds-row--warn ${e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" ? tx("Cadastro em revisão pela IA") : undefined}>
+                  <div className={`bus-row meds-row meds-row--tick meds-row--warn ${e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" || e.kid.aiReviewStatus === "structured" ? "camper-ai-review" : ""}`} title={e.kid.aiReviewStatus === "pending" || e.kid.aiReviewStatus === "processing" || e.kid.aiReviewStatus === "structured" ? tx("Cadastro em revisão pela IA") : undefined}>
                     <span className="bus-row__check meds-row__check meds-row__check--warn" aria-hidden="true">
                       ?
                     </span>

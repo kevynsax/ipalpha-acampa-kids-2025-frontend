@@ -12,7 +12,9 @@ import { useI18n } from "../i18n";
 export default function DesktopBoardNotice({ what, icon = ICONS.desktopBetter }: { what: string; icon?: string }) {
   const { tx } = useI18n();
   const isPhone = useMediaQuery("(max-width: 760px)");
-  const [dismissed, setDismissed] = useState(false);
+  // dev-only: the shell preview (`?shell=…`) sets `window.__acampaState` before this
+  // mounts — skip the notice so screenshot/QA comparisons aren't blocked by a dialog.
+  const [dismissed, setDismissed] = useState(() => typeof window !== "undefined" && window.__acampaState !== undefined);
   const open = isPhone && !dismissed;
 
   return (

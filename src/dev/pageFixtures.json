@@ -103,6 +103,40 @@
       ],
       "createdAt": "2026-08-01T12:00:00-03:00",
       "updatedAt": "2026-08-01T12:00:00-03:00"
+    },
+    {
+      "id": "cat4",
+      "key": "alergia-medicamentos",
+      "name": "Alergia a medicamentos",
+      "emoji": "💊",
+      "description": "Alergias a medicamentos conhecidas",
+      "appliesTo": [
+        "camper"
+      ],
+      "selection": "multiple",
+      "order": 3,
+      "options": [
+        {
+          "id": "amoxicilina",
+          "label": "Amoxicilina",
+          "order": 0,
+          "active": true
+        },
+        {
+          "id": "aas",
+          "label": "AAS",
+          "order": 1,
+          "active": true
+        },
+        {
+          "id": "codeina",
+          "label": "Codeína",
+          "order": 2,
+          "active": true
+        }
+      ],
+      "createdAt": "2026-08-01T12:00:00-03:00",
+      "updatedAt": "2026-08-01T12:00:00-03:00"
     }
   ],
   "roles": [
@@ -222,7 +256,7 @@
       "emoji": "🍽️",
       "startTime": "12:00",
       "endTime": "13:00",
-      "notes": "<p>Almoço de boas-vindas no salão principal.</p>",
+      "notes": "Almoço de boas-vindas no salão principal.",
       "roles": [
         "role1"
       ],
@@ -261,7 +295,7 @@
       "emoji": "🎯",
       "startTime": "09:30",
       "endTime": "11:00",
-      "notes": "<p>Gincana interna dos times, sem transmissão aos pais.</p>",
+      "notes": "Gincana interna dos times, sem transmissão aos pais.",
       "roles": [
         "role5"
       ],
@@ -307,7 +341,7 @@
       "emoji": "🔥",
       "startTime": "20:00",
       "endTime": "22:00",
-      "notes": "<p>Momento de <strong>testemunhos</strong> ao redor da fogueira.</p>",
+      "notes": "Momento de testemunhos ao redor da fogueira.",
       "roles": [
         "role4"
       ],

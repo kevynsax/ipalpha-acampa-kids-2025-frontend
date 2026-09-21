@@ -5,7 +5,7 @@ import pageFixturesRaw from "./pageFixtures.json";
 import { seedForDev, setConnection } from "../store";
 import { saveAuth } from "../auth/store";
 import type { LoggedUser } from "../roles";
-import { DEFAULT_CHECKIN_LOCATION, type Settings } from "../api/settings";
+import { DEFAULT_CHECKIN_LOCATION, type CheckinReminder, type CheckinWindow, type ForeignLookupOffender, type ParentContact, type Settings, type SmsRedirect } from "../api/settings";
 import type { CampEvent, ScheduleRole, EventAssignment } from "../api/schedule";
 import type { Camper } from "../api/campers";
 import type { Staff } from "../api/staff";
@@ -65,6 +65,7 @@ type CampKind = "before" | "camp" | "during" | "none";
 interface ScenarioSettingsPatch {
   kidsRoomsDraft?: boolean;
   scoreDraft?: boolean;
+  wizardMode?: boolean;
   galleryPublished?: boolean;
   superAdmin?: boolean;
   checkinTestMode?: boolean;
@@ -76,11 +77,21 @@ interface ScenarioSettingsPatch {
   vestHelpers?: string[];
   photographers?: string[];
   busHelpers?: { staffId: string; vehicleId: string }[];
+  parentContacts?: ParentContact[];
+  checkinWindow?: CheckinWindow;
+  busReturnWindow?: CheckinWindow;
+  staffAccessWindow?: CheckinWindow;
+  parentAccessWindow?: CheckinWindow;
+  checkinReminder?: CheckinReminder;
+  smsRedirect?: SmsRedirect;
+  foreignLookupOffenders?: ForeignLookupOffender[];
 }
 
 interface ShellScenario {
   user: LoggedUser;
   camp: CampKind;
+  /** overrides the camp kind's default day-0 offset (today + this many days) */
+  dayZeroOffset?: number;
   settings: ScenarioSettingsPatch;
   route: string;
 }
@@ -124,6 +135,7 @@ function emptySettings(): Settings {
     checkinTestMode: false,
     kidsRoomsDraft: false,
     scoreDraft: false,
+    wizardMode: false,
     galleryPublished: false,
     checkinReminder: { at: null, sentAt: null },
     smsRedirect: { enabled: false, staffPhone: null, parentPhone: null },
@@ -134,8 +146,9 @@ function emptySettings(): Settings {
   };
 }
 
-const FLAG_KEYS = ["kidsRoomsDraft", "scoreDraft", "galleryPublished", "superAdmin", "checkinTestMode"] as const;
+const FLAG_KEYS = ["kidsRoomsDraft", "scoreDraft", "wizardMode", "galleryPublished", "superAdmin", "checkinTestMode"] as const;
 const STAFF_LIST_KEYS = ["checkinHelpers", "organizers", "gameOrganizers", "scoreHelpers", "medicalStaff", "vestHelpers", "photographers"] as const;
+const WINDOW_KEYS = ["checkinWindow", "busReturnWindow", "staffAccessWindow", "parentAccessWindow"] as const;
 
 function buildSettings(patch: ScenarioSettingsPatch): Settings {
   const settings = emptySettings();
@@ -147,7 +160,15 @@ function buildSettings(patch: ScenarioSettingsPatch): Settings {
     const value = patch[key];
     if (value !== undefined) settings[key] = { staffIds: value };
   }
+  for (const key of WINDOW_KEYS) {
+    const value = patch[key];
+    if (value !== undefined) settings[key] = value;
+  }
   if (patch.busHelpers !== undefined) settings.busHelpers = { helpers: patch.busHelpers };
+  if (patch.parentContacts !== undefined) settings.parentContacts = patch.parentContacts;
+  if (patch.checkinReminder !== undefined) settings.checkinReminder = patch.checkinReminder;
+  if (patch.smsRedirect !== undefined) settings.smsRedirect = patch.smsRedirect;
+  if (patch.foreignLookupOffenders !== undefined) settings.foreignLookupOffenders = patch.foreignLookupOffenders;
   return settings;
 }
 
@@ -181,8 +202,12 @@ function baseOffset(camp: CampKind): number | null {
   }
 }
 
-function eventsFor(camp: CampKind): CampEvent[] {
-  const base = baseOffset(camp);
+function dayZeroOffset(scenario: ShellScenario): number | null {
+  return scenario.dayZeroOffset ?? baseOffset(scenario.camp);
+}
+
+function eventsFor(scenario: ShellScenario): CampEvent[] {
+  const base = dayZeroOffset(scenario);
   if (base === null) return [];
   return pageFixtures.events.map((e) => ({
     id: e.id,
@@ -200,9 +225,23 @@ function eventsFor(camp: CampKind): CampEvent[] {
   }));
 }
 
+/**
+ * `domainFixtures.json` can't bake in a birthday that lands on a camp day
+ * (the camp's dates are relative to "today" at seed time, not at fixture
+ * authoring time), so camper `c2`'s birthday is stamped onto camp day 1 here
+ * instead — same rule on the iOS side (`ShellScenarios.seed`).
+ */
+function campersWithBirthdayOverride(scenario: ShellScenario) {
+  const base = dayZeroOffset(scenario);
+  if (base === null) return fixtures.campers;
+  const day1 = addDays(base + 1);
+  const birthDate = `${day1.getFullYear() - 9}-${pad(day1.getMonth() + 1)}-${pad(day1.getDate())}`;
+  return fixtures.campers.map((c) => (c.id === "c2" ? { ...c, birthDate } : c));
+}
+
 function seedScenario(scenario: ShellScenario): void {
   seedForDev({
-    campers: fixtures.campers,
+    campers: campersWithBirthdayOverride(scenario),
     staff: fixtures.staff,
     bedrooms: fixtures.bedrooms,
     teams: fixtures.teams,
@@ -216,7 +255,7 @@ function seedScenario(scenario: ShellScenario): void {
     medications: pageFixtures.medications,
     gallery: pageFixtures.gallery,
     settings: buildSettings(scenario.settings),
-    events: eventsFor(scenario.camp),
+    events: eventsFor(scenario),
   });
   setConnection("online");
   saveAuth({

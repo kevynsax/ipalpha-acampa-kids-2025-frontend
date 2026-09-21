@@ -271,7 +271,7 @@ export async function aiDedupField(token: string, field: DedupField, value: stri
 }
 
 /**
- * Hidden sex field for a new camper: GLM 5.3 flash guesses F/M from the
+ * Hidden sex field for a new camper: Jev 1.13 guesses F/M from the
  * (Brazilian) first name. Best-effort — `sex: null` on any failure.
  */
 export async function aiGuessSex(token: string, name: string, signal?: AbortSignal): Promise<{ sex: "F" | "M" | null }> {

@@ -14,7 +14,7 @@ export interface Staff {
   name: string;
   /** "F" | "M" | null — from the room (meninas/meninos); never shown on the form */
   sex: import("./campers").CamperSex | null;
-  /** "F" | "M" | null — GLM guess on the name; internal, never shown; icon + ordering fallback when the room has no wing */
+  /** "F" | "M" | null — Jev guess on the name; internal, never shown; icon + ordering fallback when the room has no wing */
   probableGender: import("./campers").CamperSex | null;
   /** E.164, or null while the person hasn't registered a phone */
   phone: string | null;
@@ -42,7 +42,7 @@ export interface Staff {
   medications: import("./campers").Medication[];
   /** free-text health/allergy remarks */
   healthNotes: string;
-  aiReviewStatus?: "pending" | "processing" | "reviewed" | "error" | null;
+  aiReviewStatus?: "pending" | "processing" | "structured" | "reviewed" | "error" | null;
   aiReviewError?: string;
   aiReviewStartedAt?: string | null;
   aiReviewFinishedAt?: string | null;

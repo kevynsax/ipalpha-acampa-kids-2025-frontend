@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { fetchCleanupMarks, fetchImportCacheCount, runCleanup, wipeImportCache, wipeStaffImportCache, type CleanupGroup, type StaffKeepGroup } from "../../api/cleanup";
+import { handoverCamp } from "../../api/admins";
+import { fetchCleanupMarks, fetchImportCacheCount, runCleanup, wipeImportCache, type CleanupGroup, type StaffKeepGroup } from "../../api/cleanup";
 import { useConfirm } from "../../components/ConfirmDialog";
+import Dialog from "../../components/Dialog";
+import PhoneInput from "../../components/PhoneInput";
+import Toggle from "../../components/Toggle";
 import { useCollection } from "../../store";
 import type { Settings } from "../../api/settings";
 import { useRoute } from "../../router";
 import { setWizardDismissed } from "../../wizard/state";
 import { ICONS } from "../../icons";
 import { roleMeta } from "../../roles";
+import { toE164 } from "../../phone";
 import { useI18n } from "../../i18n";
 
 interface CleanupPageProps {
@@ -107,7 +112,7 @@ export default function CleanupPage({ token }: CleanupPageProps) {
   const { tx } = useI18n();
   const confirm = useConfirm();
   const { navigate } = useRoute();
-  const [busy, setBusy] = useState<CleanupGroup | "all" | "import-cache" | "staff-import-cache" | null>(null);
+  const [busy, setBusy] = useState<CleanupGroup | "all" | "import-cache" | "handover" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [marks, setMarks] = useState({ welcomes: 0, notices: 0 });
@@ -116,6 +121,7 @@ export default function CleanupPage({ token }: CleanupPageProps) {
   /** Programação only: the admin asked for the funções (and their texts) to go too */
   const rolesRef = useRef(false);
   const [reload, setReload] = useState(0);
+  const [handoverOpen, setHandoverOpen] = useState(false);
 
   const settings = useCollection("settings");
   const isSuper = !!settings?.superAdmin;
@@ -146,17 +152,15 @@ export default function CleanupPage({ token }: CleanupPageProps) {
     };
   }, [token, isSuper, reload]);
 
-  async function cleanCache(kind: "staff" | "all") {
+  async function cleanCache() {
     if (busy) return;
-    const n = kind === "staff" ? importCache?.staff ?? 0 : importCache?.count ?? 0;
+    const n = importCache?.count ?? 0;
     const ok = await confirm({
       emoji: "🧹",
-      title: kind === "staff" ? tx("Limpar o cache da importação de equipe?") : tx("Limpar o cache de importação?"),
+      title: tx("Limpar o cache de importação?"),
       message: (
         <>
-          {kind === "staff"
-            ? tx("Apaga as {n} correspondências que a importação de equipe guardou (coluna da planilha → valor do app).", { n })
-            : tx("Apaga as {n} correspondências que a importação de equipe e de acampantes guardou (coluna da planilha → valor do app).", { n })}
+          {tx("Apaga as {n} correspondências que a importação de equipe e de acampantes guardou (coluna da planilha → valor do app).", { n })}
           <br />
           {tx("A próxima importação vai remontar o mapeamento do zero. Não apaga nenhum cadastro.")}
         </>
@@ -165,11 +169,11 @@ export default function CleanupPage({ token }: CleanupPageProps) {
       danger: true,
     });
     if (!ok) return;
-    setBusy(kind === "staff" ? "staff-import-cache" : "import-cache");
+    setBusy("import-cache");
     setError(null);
     setDone(null);
     try {
-      const { removed } = kind === "staff" ? await wipeStaffImportCache(token) : await wipeImportCache(token);
+      const { removed } = await wipeImportCache(token);
       setReload((r) => r + 1);
       setDone(tx("{n} correspondência(s) do cache apagada(s).", { n: removed }));
     } catch (e) {
@@ -331,6 +335,33 @@ export default function CleanupPage({ token }: CleanupPageProps) {
             </section>
           );
         })}
+        {isSuper && (
+          <section className="cleanup-card">
+            <h2 className="cleanup-card__title">
+              <img className="cleanup-card__icon" src={ICONS.importCampers} alt="" aria-hidden="true" /> {tx("Cache de importação")}
+            </h2>
+            <p className="cleanup-card__count">
+              {importCache == null
+                ? "…"
+                : tx("{n} {unit}", { n: importCache.count, unit: tx(importCache.count === 1 ? "correspondência" : "correspondências") })}
+            </p>
+            <p className="cat-hint">
+              {tx("As correspondências que a importação de equipe e de acampantes guarda (coluna da planilha → valor do app). Limpar não apaga nenhum cadastro.")}
+            </p>
+            <button
+              type="button"
+              className="button button--danger"
+              disabled={busy !== null || importCache?.count === 0}
+              onClick={() => void cleanCache()}
+            >
+              {busy === "import-cache"
+                ? tx("Limpando…")
+                : importCache?.count === 0
+                  ? tx("Já está limpo")
+                  : tx("🧹 Limpar cache")}
+            </button>
+          </section>
+        )}
       </div>
 
       <section className="cleanup-all">
@@ -364,46 +395,6 @@ export default function CleanupPage({ token }: CleanupPageProps) {
           {busy === "all" ? tx("Limpando tudo…") : tx("🧹 Limpar tudo")}
         </button>
       </section>
-      {isSuper && (
-        <section className="cleanup-all">
-          <h2 className="cleanup-all__title">🧹 {tx("Cache de importação")}</h2>
-          <p className="cleanup-all__text">
-            {tx(
-              "As correspondências que a importação de equipe e de acampantes guarda (coluna da planilha → valor do app) para reaproveitar de um ano para o outro. Só o dono da implantação vê isto. Limpar não apaga nenhum cadastro — só faz a próxima importação remontar o mapeamento do zero.",
-            )}
-          </p>
-          <div className="cleanup-all__actions">
-            <button
-              type="button"
-              className="button button--danger cleanup-all__button"
-              disabled={busy !== null || importCache?.staff === 0}
-              onClick={() => void cleanCache("staff")}
-            >
-              {busy === "staff-import-cache"
-                ? tx("Limpando…")
-                : importCache?.staff === 0
-                  ? tx("Cache da equipe vazio")
-                  : importCache != null
-                    ? tx("🧹 Limpar cache da equipe ({n})", { n: importCache.staff })
-                    : tx("🧹 Limpar cache da equipe")}
-            </button>
-            <button
-              type="button"
-              className="button button--secondary cleanup-all__button"
-              disabled={busy !== null || importCache?.count === 0}
-              onClick={() => void cleanCache("all")}
-            >
-              {busy === "import-cache"
-                ? tx("Limpando…")
-                : importCache?.count === 0
-                  ? tx("Cache vazio")
-                  : importCache != null
-                    ? tx("🧹 Limpar cache ({n})", { n: importCache.count })
-                    : tx("🧹 Limpar cache")}
-            </button>
-          </div>
-        </section>
-      )}
       <section className="cleanup-all cleanup-next">
         <h2 className="cleanup-all__title">
           <img className="audience-icon" src={ICONS.wizard} alt="" aria-hidden="true" /> {tx("Próximo acampamento")}
@@ -414,6 +405,19 @@ export default function CleanupPage({ token }: CleanupPageProps) {
             "monta o próximo: importa equipe e crianças, escolhe o local conhecido, preenche a programação e ajusta as configurações — passo a passo, com etapas que podem ser puladas.",
           )}
         </p>
+        {isSuper && (
+          <button
+            type="button"
+            className="button button--danger cleanup-all__button"
+            disabled={busy !== null}
+            onClick={() => {
+              setError(null);
+              setHandoverOpen(true);
+            }}
+          >
+            {tx("🧹 Limpar tudo e forçar o assistente")}
+          </button>
+        )}
         <button
           type="button"
           className="button button--primary cleanup-all__button"
@@ -425,6 +429,111 @@ export default function CleanupPage({ token }: CleanupPageProps) {
           {tx("🏕️ Abrir o assistente")}
         </button>
       </section>
+      {isSuper && (
+        <HandoverDialog
+          open={handoverOpen}
+          busy={busy === "handover"}
+          error={error}
+          onClose={() => busy !== "handover" && setHandoverOpen(false)}
+          onSubmit={async (admin) => {
+            if (busy) return;
+            setBusy("handover");
+            setError(null);
+            setDone(null);
+            try {
+              const r = await handoverCamp(token, admin);
+              setHandoverOpen(false);
+              setReload((n) => n + 1);
+              setDone(
+                tx("{name} agora administra. {n} login(s) apagado(s).{mail}", {
+                  name: r.admin.name,
+                  n: r.usersRemoved,
+                  mail: admin.notify ? (r.mailed ? tx(" E-mail enviado.") : tx(" O e-mail não saiu.")) : "",
+                }),
+              );
+            } catch (e) {
+              setError(e instanceof Error ? e.message : tx("Algo deu errado."));
+            } finally {
+              setBusy(null);
+            }
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function HandoverDialog({
+  open,
+  busy,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean;
+  busy: boolean;
+  error: string | null;
+  onClose: () => void;
+  onSubmit: (admin: { name: string; phone: string; email: string; notify: boolean }) => Promise<void>;
+}) {
+  const { tx } = useI18n();
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [notify, setNotify] = useState(true);
+  const e164 = toE164(phone);
+  const emailOk = EMAIL_RE.test(email.trim());
+  const ready = !!name.trim() && !!e164 && emailOk;
+
+  useEffect(() => {
+    if (!open) return;
+    setName("");
+    setPhone("");
+    setEmail("");
+    setNotify(true);
+  }, [open]);
+
+  return (
+    <Dialog open={open} onClose={onClose} title={tx("Limpar tudo e forçar o assistente")} width={520} dismissible={!busy} autofocus>
+      <form
+        className="cat-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!ready || busy || !e164) return;
+          void onSubmit({ name: name.trim(), phone: e164, email: email.trim().toLowerCase(), notify });
+        }}
+      >
+        <h2 className="cat-form__title">{tx("Novo administrador")}</h2>
+        <p className="admin-intro">
+          {tx("Apaga o acampamento e todos os logins, menos o seu. Cria este admin e, no primeiro login dele, o assistente abre — Configurações fica bloqueado até concluir ou sair.")}
+        </p>
+        <label className="cat-field">
+          <span className="cat-field__label">{tx("Nome")}</span>
+          <input className="cat-input" value={name} maxLength={80} disabled={busy} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label className="cat-field">
+          <span className="cat-field__label">{tx("E-mail")}</span>
+          <input className="cat-input" type="email" inputMode="email" autoComplete="email" placeholder={tx("ex.: nome@email.com")} value={email} maxLength={160} disabled={busy} onChange={(e) => setEmail(e.target.value)} />
+          {email.trim() && !emailOk && <p className="cat-hint cat-hint--error">{tx("Informe um e-mail válido.")}</p>}
+        </label>
+        <label className="cat-field">
+          <span className="cat-field__label">{tx("Celular")}</span>
+          <PhoneInput value={phone} onChange={setPhone} disabled={busy} />
+        </label>
+        <Toggle checked={notify} disabled={busy} label={tx("Avisar por e-mail")} onChange={setNotify} />
+        <p className="cat-hint">{tx("⚠️ Não tem volta.")}</p>
+        {error && <p className="message message--error">{error}</p>}
+        <div className="cat-form__actions">
+          <button type="button" className="button button--secondary" disabled={busy} onClick={onClose}>
+            {tx("Cancelar")}
+          </button>
+          <button type="submit" className="button button--danger" disabled={busy || !ready}>
+            {busy ? tx("Limpando…") : tx("Limpar e passar")}
+          </button>
+        </div>
+      </form>
+    </Dialog>
   );
 }

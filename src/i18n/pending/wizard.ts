@@ -136,6 +136,41 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "Cargar datos de ejemplo",
     fr: "Charger des données d'exemple",
   },
+  "Camp de exemplo pronto! 🎉": {
+    en: "Sample camp ready! 🎉",
+    es: "¡Campamento de ejemplo listo! 🎉",
+    fr: "Camp d'exemple prêt ! 🎉",
+  },
+  "Ver funcionando": {
+    en: "See it working",
+    es: "Verlo funcionando",
+    fr: "Le voir en action",
+  },
+  "Um acampamento de exemplo, fictício": {
+    en: "A sample camp, all fictional",
+    es: "Un campamento de ejemplo, ficticio",
+    fr: "Un camp d'exemple, fictif",
+  },
+  "Montar do zero": {
+    en: "Set up from scratch",
+    es: "Montar de cero",
+    fr: "Monter de zéro",
+  },
+  "Passo a passo, do começo ao fim": {
+    en: "Step by step, start to finish",
+    es: "Paso a paso, de principio a fin",
+    fr: "Étape par étape, du début à la fin",
+  },
+  ", valendo a partir de hoje. Explore as abas ou siga o passo a passo.": {
+    en: ", starting from today. Explore the tabs or follow the steps.",
+    es: ", valiendo desde hoy. Explora las pestañas o sigue el paso a paso.",
+    fr: ", à partir d'aujourd'hui. Explorez les onglets ou suivez les étapes.",
+  },
+  "Tudo": {
+    en: "All",
+    es: "Todo",
+    fr: "Tout",
+  },
   "check-in —": {
     en: "check-in —",
     es: "check-in —",
@@ -405,6 +440,11 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     en: "Skip step",
     es: "Saltar paso",
     fr: "Passer l'étape",
+  },
+  "Pular {label}": {
+    en: "Skip {label}",
+    es: "Saltar {label}",
+    fr: "Passer {label}",
   },
   "quartos com as camas": {
     en: "rooms with the beds",

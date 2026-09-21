@@ -66,7 +66,7 @@ export default function CamperForm({ token, camper, categories, busy, onSubmit, 
   const roomSex: CamperSex | null = room?.group === "girls" ? "F" : room?.group === "boys" ? "M" : null;
   const nameChanged = editing && name.trim() !== (camper?.name ?? "").trim();
   const guessed = useGuessCamperSex({ token, name, enabled: !roomSex && (!editing || nameChanged) });
-  // girls/boys room wins; staff room / no room keeps the last GLM guess until a new one lands
+  // girls/boys room wins; staff room / no room keeps the last Jev guess until a new one lands
   const sex: CamperSex | null = roomSex ?? guessed.sex ?? (editing && !nameChanged ? (camper?.sex ?? null) : null);
   const probableGender: CamperSex | null = guessed.sex ?? (editing && !nameChanged ? (camper?.probableGender ?? null) : null);
   const sexBusy = !roomSex && guessed.busy;

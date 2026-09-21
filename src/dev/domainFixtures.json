@@ -45,10 +45,10 @@
       "bunkBeds": 2,
       "singleBeds": 0,
       "capacity": 8,
-      "occupied": 3,
-      "occupiedStaff": 1,
+      "occupied": 4,
+      "occupiedStaff": 2,
       "occupiedCampers": 2,
-      "available": 5,
+      "available": 4,
       "notes": "",
       "createdAt": "2026-08-01T12:00:00-03:00",
       "updatedAt": "2026-08-01T12:00:00-03:00"
@@ -203,7 +203,7 @@
       "transportation": "tr2",
       "bed": "cima",
       "bedroom": "r1",
-      "weightKg": 38.0,
+      "weightKg": 38,
       "allergies": [],
       "drugAllergies": [],
       "healthIssues": [],
@@ -220,7 +220,13 @@
       "guardianPhone": "+5511976543210",
       "guardianCpf": "444.444.444-44",
       "guardianEmail": "renata.lima@example.com",
-      "checkin": null,
+      "checkin": {
+        "at": "2026-09-18T07:52:00-03:00",
+        "byUserId": "s1",
+        "byName": "Juliana Alves",
+        "byRole": "staff",
+        "note": null
+      },
       "busCheckin": null,
       "busReturnCheckin": null,
       "createdAt": "2026-08-01T12:00:00-03:00",
@@ -341,7 +347,13 @@
       "guardianPhone": "+5511954321098",
       "guardianCpf": "888.888.888-88",
       "guardianEmail": "cesar.oliveira@example.com",
-      "checkin": null,
+      "checkin": {
+        "at": "2026-09-18T07:58:00-03:00",
+        "byUserId": "s4",
+        "byName": "Paula Nunes",
+        "byRole": "staff",
+        "note": null
+      },
       "busCheckin": null,
       "busReturnCheckin": null,
       "createdAt": "2026-08-01T12:00:00-03:00",
@@ -427,7 +439,8 @@
       "weightKg": null,
       "allergies": [],
       "drugAllergies": [
-        "penicilina"
+        "penicilina",
+        "amoxicilina"
       ],
       "healthIssues": [],
       "neurodivergent": false,
@@ -522,7 +535,7 @@
       "admin": null,
       "active": true,
       "team": null,
-      "transportation": null,
+      "transportation": "tr1",
       "bedroom": "r2",
       "roomRole": "helper",
       "allergies": [],
@@ -535,7 +548,13 @@
       "aiReviewError": null,
       "aiReviewStartedAt": null,
       "aiReviewFinishedAt": null,
-      "checkin": null,
+      "checkin": {
+        "at": "2026-09-18T07:05:00-03:00",
+        "byUserId": "s3",
+        "byName": "Rafael Santos",
+        "byRole": "staff",
+        "note": null
+      },
       "vest": {
         "delivered": null,
         "returned": null
@@ -603,7 +622,7 @@
       "active": true,
       "team": null,
       "transportation": null,
-      "bedroom": null,
+      "bedroom": "r1",
       "roomRole": "helper",
       "allergies": [],
       "drugAllergies": [],
@@ -615,7 +634,13 @@
       "aiReviewError": null,
       "aiReviewStartedAt": null,
       "aiReviewFinishedAt": null,
-      "checkin": null,
+      "checkin": {
+        "at": "2026-09-18T07:10:00-03:00",
+        "byUserId": "s3",
+        "byName": "Rafael Santos",
+        "byRole": "staff",
+        "note": null
+      },
       "vest": {
         "delivered": {
           "at": "2026-09-18T06:15:00-03:00",
@@ -870,7 +895,7 @@
         "phone": "+5511990001111",
         "email": "juliana.alves@example.com",
         "document": "",
-      "birthDate": null,
+        "birthDate": null,
         "admin": null,
         "active": true,
         "team": null,
@@ -905,7 +930,57 @@
         "createdAt": "2026-08-01T12:00:00-03:00",
         "updatedAt": "2026-08-01T12:00:00-03:00"
       },
-      "roomStaff": []
+      "roomStaff": [
+        {
+          "id": "s4",
+          "name": "Paula Nunes",
+          "sex": "F",
+          "probableGender": "F",
+          "phone": "+5511990004444",
+          "email": "paula.nunes@example.com",
+          "document": "",
+          "birthDate": null,
+          "admin": null,
+          "active": true,
+          "team": null,
+          "transportation": null,
+          "bedroom": "r1",
+          "roomRole": "helper",
+          "allergies": [],
+          "drugAllergies": [],
+          "foodRestrictions": "",
+          "healthIssues": [],
+          "medications": [],
+          "healthNotes": "Equipe de saúde.",
+          "aiReviewStatus": null,
+          "aiReviewError": null,
+          "aiReviewStartedAt": null,
+          "aiReviewFinishedAt": null,
+          "checkin": {
+            "at": "2026-09-18T07:10:00-03:00",
+            "byUserId": "s3",
+            "byName": "Rafael Santos",
+            "byRole": "staff",
+            "note": null
+          },
+          "vest": {
+            "delivered": {
+              "at": "2026-09-18T06:15:00-03:00",
+              "byUserId": "s3",
+              "byName": "Rafael Santos",
+              "byRole": "staff",
+              "note": null
+            },
+            "returned": null
+          },
+          "prepDone": [],
+          "foreignLookupCount": null,
+          "foreignLookupNames": null,
+          "redacted": null,
+          "createdAt": "2026-08-01T12:00:00-03:00",
+          "updatedAt": "2026-08-01T12:00:00-03:00"
+        }
+      ]
     },
     {
       "camper": {
@@ -929,7 +1004,7 @@
         "transportation": "tr2",
         "bed": "cima",
         "bedroom": "r1",
-        "weightKg": 38.0,
+        "weightKg": 38,
         "allergies": [],
         "drugAllergies": [],
         "healthIssues": [],
@@ -946,7 +1021,13 @@
         "guardianPhone": "+5511976543210",
         "guardianCpf": "444.444.444-44",
         "guardianEmail": "renata.lima@example.com",
-        "checkin": null,
+        "checkin": {
+          "at": "2026-09-18T07:52:00-03:00",
+          "byUserId": "s1",
+          "byName": "Juliana Alves",
+          "byRole": "staff",
+          "note": null
+        },
         "busCheckin": null,
         "busReturnCheckin": null,
         "createdAt": "2026-08-01T12:00:00-03:00",
@@ -981,7 +1062,7 @@
         "phone": "+5511990001111",
         "email": "juliana.alves@example.com",
         "document": "",
-      "birthDate": null,
+        "birthDate": null,
         "admin": null,
         "active": true,
         "team": null,
@@ -1016,7 +1097,57 @@
         "createdAt": "2026-08-01T12:00:00-03:00",
         "updatedAt": "2026-08-01T12:00:00-03:00"
       },
-      "roomStaff": []
+      "roomStaff": [
+        {
+          "id": "s4",
+          "name": "Paula Nunes",
+          "sex": "F",
+          "probableGender": "F",
+          "phone": "+5511990004444",
+          "email": "paula.nunes@example.com",
+          "document": "",
+          "birthDate": null,
+          "admin": null,
+          "active": true,
+          "team": null,
+          "transportation": null,
+          "bedroom": "r1",
+          "roomRole": "helper",
+          "allergies": [],
+          "drugAllergies": [],
+          "foodRestrictions": "",
+          "healthIssues": [],
+          "medications": [],
+          "healthNotes": "Equipe de saúde.",
+          "aiReviewStatus": null,
+          "aiReviewError": null,
+          "aiReviewStartedAt": null,
+          "aiReviewFinishedAt": null,
+          "checkin": {
+            "at": "2026-09-18T07:10:00-03:00",
+            "byUserId": "s3",
+            "byName": "Rafael Santos",
+            "byRole": "staff",
+            "note": null
+          },
+          "vest": {
+            "delivered": {
+              "at": "2026-09-18T06:15:00-03:00",
+              "byUserId": "s3",
+              "byName": "Rafael Santos",
+              "byRole": "staff",
+              "note": null
+            },
+            "returned": null
+          },
+          "prepDone": [],
+          "foreignLookupCount": null,
+          "foreignLookupNames": null,
+          "redacted": null,
+          "createdAt": "2026-08-01T12:00:00-03:00",
+          "updatedAt": "2026-08-01T12:00:00-03:00"
+        }
+      ]
     }
   ]
 }

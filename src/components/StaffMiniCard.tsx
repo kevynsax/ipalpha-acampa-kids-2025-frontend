@@ -21,7 +21,7 @@ export default function StaffMiniCard({ staff: s, onOpen }: StaffMiniCardProps) 
   const myName = loadAuth()?.user.name ?? "";
   const bedrooms = useCollectionOrEmpty("bedrooms");
   return (
-    <li className={`staff-card staff-card--compact staff-card--cover ${open ? "staff-card--clickable" : ""} ${s.active ? "" : "staff-card--inactive"} ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "Cadastro em revisão pela IA" : undefined}>
+    <li className={`staff-card staff-card--compact staff-card--cover ${open ? "staff-card--clickable" : ""} ${s.active ? "" : "staff-card--inactive"} ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" || s.aiReviewStatus === "structured" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" || s.aiReviewStatus === "structured" ? "Cadastro em revisão pela IA" : undefined}>
       <div
         className="staff-card__body"
         role={open ? "link" : undefined}
@@ -39,16 +39,22 @@ export default function StaffMiniCard({ staff: s, onOpen }: StaffMiniCardProps) 
             : undefined
         }
       >
-        <h3 className="staff-card__name">
-          {s.name}
-          {!s.active && <span className="staff-card__inactive">inativo</span>}
-          {s.bedroom && (
-            <span className="staff-tag staff-tag--soft" title={ROOM_ROLE_META[s.roomRole].hint}>
-              <RoomRoleIcon role={s.roomRole} sex={staffSex(s, bedrooms)} /> {ROOM_ROLE_META[s.roomRole].label}
+        <h3 className="staff-card__name staff-card__name--with-tags">
+          <span className="staff-card__name-text">
+            {s.name}
+            {!s.active && <span className="staff-card__inactive">inativo</span>}
+          </span>
+          {(s.bedroom || s.team || s.transportation) && (
+            <span className="staff-card__tags">
+              {s.bedroom && (
+                <span className="staff-tag staff-tag--soft" title={ROOM_ROLE_META[s.roomRole].hint}>
+                  <RoomRoleIcon role={s.roomRole} sex={staffSex(s, bedrooms)} /> {ROOM_ROLE_META[s.roomRole].label}
+                </span>
+              )}
+              <TeamTag teamId={s.team} />
+              <TransportTag transportId={s.transportation} size={18} short className="staff-tag--pill" />
             </span>
           )}
-          <TeamTag teamId={s.team} />
-          <TransportTag transportId={s.transportation} size={18} short className="staff-tag--pill" />
         </h3>
       </div>
       {s.phone && (

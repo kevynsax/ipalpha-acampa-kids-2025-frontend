@@ -12,7 +12,7 @@ interface Options {
 }
 
 /**
- * GLM 5.3 flash guess of a kid's sex from the (Brazilian) first name.
+ * Jev 1.13 guess of a kid's sex from the (Brazilian) first name.
  * Fires 700 ms after the user stops typing. Starting again cancels the
  * pending timer and any in-flight request. The last boy/girl stays up
  * until a new answer lands.

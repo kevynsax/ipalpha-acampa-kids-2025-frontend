@@ -2,8 +2,9 @@
   "_schema": {
     "user": "LoggedUser as in roles.ts / LoggedUser.swift",
     "camp": "before = one event 30 days from today | camp = events today+2 .. today+4 (phase camp, not during) | during = events today-1 09:00 .. today+1 23:00 | none = no programme",
-    "settings": "partial: flags kidsRoomsDraft/scoreDraft/galleryPublished/superAdmin/checkinTestMode; staff-id lists checkinHelpers/organizers/gameOrganizers/scoreHelpers/medicalStaff/vestHelpers/photographers; busHelpers [{staffId, vehicleId}]; everything else = empty defaults, windows null",
-    "route": "initial path (hash on the web)"
+    "settings": "partial: flags kidsRoomsDraft/scoreDraft/wizardMode/galleryPublished/superAdmin/checkinTestMode; staff-id lists checkinHelpers/organizers/gameOrganizers/scoreHelpers/medicalStaff/vestHelpers/photographers; busHelpers [{staffId, vehicleId}]; everything else = empty defaults, windows null; also: parentContacts [{id,title,staffId}]; checkinWindow/busReturnWindow/staffAccessWindow/parentAccessWindow {from,until,open}; checkinReminder {at,sentAt}; smsRedirect {enabled,staffPhone,parentPhone}; foreignLookupOffenders [{staffId,name,count,names,blocked}]",
+    "route": "initial path (hash on the web)",
+    "dayZeroOffset": "optional: overrides camp kind's default day-0 offset (today + N days) for a scenario"
   },
   "scenarios": {
     "parent": {
@@ -20,7 +21,21 @@
         "locale": "pt"
       },
       "camp": "camp",
-      "settings": {},
+      "settings": {
+        "parentContacts": [
+          {
+            "id": "pc1",
+            "title": "Coordenação",
+            "staffId": "s1"
+          },
+          {
+            "id": "pc2",
+            "title": "Equipe de saúde",
+            "staffId": "s4"
+          }
+        ],
+        "galleryPublished": true
+      },
       "route": "/home"
     },
     "staff-before": {
@@ -70,7 +85,21 @@
         "checkinHelpers": [
           "s1"
         ],
-        "galleryPublished": true
+        "galleryPublished": true,
+        "busHelpers": [
+          {
+            "staffId": "s2",
+            "vehicleId": "tr1"
+          }
+        ],
+        "vestHelpers": [
+          "s3"
+        ],
+        "checkinWindow": {
+          "from": "2026-09-18T06:00:00-03:00",
+          "until": "2026-09-18T23:59:00-03:00",
+          "open": true
+        }
       },
       "route": "/home"
     },
@@ -176,7 +205,16 @@
       },
       "camp": "camp",
       "settings": {
-        "superAdmin": true
+        "superAdmin": true,
+        "checkinReminder": {
+          "at": "2026-09-20T07:00:00-03:00",
+          "sentAt": null
+        },
+        "smsRedirect": {
+          "enabled": true,
+          "staffPhone": "+5511900000000",
+          "parentPhone": "+5511900000001"
+        }
       },
       "route": "/campers"
     },
@@ -198,6 +236,83 @@
         "superAdmin": true
       },
       "route": "/scoreboard"
+    },
+    "staff-departure": {
+      "user": {
+        "id": "s1",
+        "name": "Juliana Alves",
+        "phone": "+5511990001111",
+        "roles": [
+          "staff"
+        ],
+        "activeRole": "staff",
+        "locale": "pt"
+      },
+      "camp": "camp",
+      "dayZeroOffset": 0,
+      "settings": {
+        "kidsRoomsDraft": true
+      },
+      "route": "/home"
+    },
+    "staff-bus-helper": {
+      "user": {
+        "id": "s2",
+        "name": "Marcos Pereira",
+        "phone": "+5511990002222",
+        "roles": [
+          "staff"
+        ],
+        "activeRole": "staff",
+        "locale": "pt"
+      },
+      "camp": "camp",
+      "settings": {
+        "checkinTestMode": true,
+        "checkinHelpers": [],
+        "galleryPublished": true,
+        "busHelpers": [
+          {
+            "staffId": "s2",
+            "vehicleId": "tr1"
+          }
+        ],
+        "vestHelpers": [],
+        "checkinWindow": {
+          "from": "2026-09-18T06:00:00-03:00",
+          "until": "2026-09-18T23:59:00-03:00",
+          "open": true
+        }
+      },
+      "route": "/home"
+    },
+    "staff-vest-helper": {
+      "user": {
+        "id": "s3",
+        "name": "Rafael Santos",
+        "phone": "+5511990003333",
+        "roles": [
+          "staff"
+        ],
+        "activeRole": "staff",
+        "locale": "pt"
+      },
+      "camp": "camp",
+      "settings": {
+        "checkinTestMode": true,
+        "checkinHelpers": [],
+        "galleryPublished": true,
+        "busHelpers": [],
+        "vestHelpers": [
+          "s3"
+        ],
+        "checkinWindow": {
+          "from": "2026-09-18T06:00:00-03:00",
+          "until": "2026-09-18T23:59:00-03:00",
+          "open": true
+        }
+      },
+      "route": "/home"
     }
   }
 }

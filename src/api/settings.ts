@@ -121,6 +121,8 @@ export interface Settings {
   kidsRoomsDraft: boolean;
   /** scoreboard rehearsal: the Placar tab opens and accepts points regardless of the camp days; off + outside the camp = no tab, no writes */
   scoreDraft: boolean;
+  /** setup wizard lock: the admin lands in the assistant until they finish or leave; settings gear is blocked */
+  wizardMode: boolean;
   /** the photo album is visible to the camp; while false only the photographers (and the admin) see it */
   galleryPublished: boolean;
   /** the "do your check-in" SMS to the whole team, scheduled for one instant */
@@ -187,6 +189,7 @@ export interface SettingsPatch {
   checkinTestMode?: boolean;
   kidsRoomsDraft?: boolean;
   scoreDraft?: boolean;
+  wizardMode?: boolean;
   galleryPublished?: boolean;
   checkinReminder?: { at: string | null };
   /** partial: only the keys sent are changed (admin only) */

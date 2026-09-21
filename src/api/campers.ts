@@ -21,7 +21,7 @@ export interface Camper {
   birthDate: string | null;
   /** "F" | "M" | null — from the room (meninas/meninos); never shown on the form */
   sex: CamperSex | null;
-  /** "F" | "M" | null — GLM guess on the name; internal, never shown; icon + ordering fallback when the room has no wing */
+  /** "F" | "M" | null — Jev guess on the name; internal, never shown; icon + ordering fallback when the room has no wing */
   probableGender: CamperSex | null;
   cpf: string;
   rg: string;
@@ -75,7 +75,7 @@ export interface Camper {
   parentEditedAt: string | null;
   importId: string | null;
   /** Pending/processing imported campers pulse subtly while the worker reviews observations. */
-  aiReviewStatus: "pending" | "processing" | "reviewed" | "error" | null;
+  aiReviewStatus: "pending" | "processing" | "structured" | "reviewed" | "error" | null;
   aiReviewError: string;
   aiReviewStartedAt: string | null;
   aiReviewFinishedAt: string | null;

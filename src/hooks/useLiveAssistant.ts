@@ -196,7 +196,7 @@ export function useLiveAssistant(token: string, userName = "", onNavigate?: (raw
             type: "session.instructions.append",
             event_id: "acampa_greeting_instruction",
             delegation_id: null,
-            content: `Sua primeira fala deve ser somente: "Oi, tudo bem${firstName ? ` ${firstName}` : ""}?" Não acrescente apresentação nem explicação.`,
+            content: `Sua primeira fala deve ser somente: "Olá${firstName ? ` ${firstName}` : ""}! Meu nome é Sareca. O que você tá precisando?" Não acrescente outra apresentação nem explicação.`,
           });
         }
         break;

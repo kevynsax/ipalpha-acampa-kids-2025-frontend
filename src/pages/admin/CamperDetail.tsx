@@ -104,7 +104,7 @@ export default function CamperDetail({ token, camperId, nav, camperOverride, bed
   const { camper: k, bedroom, caretaker, caretakers, roommates } = resolved;
   const age = ageOf(k.birthDate);
   const sex = kidIconSex(bedroom?.group, k.sex, k.probableGender);
-  const reviewing = k.aiReviewStatus === "pending" || k.aiReviewStatus === "processing";
+  const reviewing = k.aiReviewStatus === "pending" || k.aiReviewStatus === "processing" || k.aiReviewStatus === "structured";
 
   return (
     <div className="admin-page">

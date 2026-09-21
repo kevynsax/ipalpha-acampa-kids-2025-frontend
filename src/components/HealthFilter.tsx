@@ -23,10 +23,11 @@ export function hasHealth(p: HealthLike, key: HealthKey): boolean {
   return Array.isArray(v) ? v.length > 0 : !!v;
 }
 
-/** true when the person matches EVERY selected key (empty selection = everyone) */
+/** true when the person matches ANY selected key (empty selection = everyone) */
 export function matchesHealth(p: HealthLike, selected: Set<HealthKey>): boolean {
-  for (const k of selected) if (!hasHealth(p, k)) return false;
-  return true;
+  if (selected.size === 0) return true;
+  for (const k of selected) if (hasHealth(p, k)) return true;
+  return false;
 }
 
 interface HealthFilterProps {
@@ -38,7 +39,7 @@ interface HealthFilterProps {
   counts?: Partial<Record<HealthKey, number>>;
 }
 
-/** Toggle chips: "⚠️ Condição · 🤮 Alergia · 🚫💊 · 💊 · 🍽️". Several can be on at once (AND). */
+/** Toggle chips: "⚠️ Condição · 🤮 Alergia · 🚫💊 · 💊 · 🍽️". Several can be on at once (OR). */
 export default function HealthFilter({ keys = HEALTH_KEYS, value, onChange, counts }: HealthFilterProps) {
   const toggle = (k: HealthKey) => {
     const next = new Set(value);

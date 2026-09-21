@@ -1,15 +1,15 @@
 import type { Locale } from "../locales";
 
 export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, string>>> = {
-  "Conversar com o assistente": {
-    en: "Talk with the assistant",
-    es: "Hablar con el asistente",
-    fr: "Parler avec l'assistant",
+  "Conversar com a Sareca": {
+    en: "Talk with Sareca",
+    es: "Hablar con Sareca",
+    fr: "Parler avec Sareca",
   },
-  "Assistente do acampamento": {
-    en: "Camp assistant",
-    es: "Asistente del campamento",
-    fr: "Assistant du camp",
+  "Sareca, assistente do acampamento": {
+    en: "Sareca, the camp assistant",
+    es: "Sareca, la asistente del campamento",
+    fr: "Sareca, l'assistante du camp",
   },
   "Encerrar conversa": {
     en: "End conversation",

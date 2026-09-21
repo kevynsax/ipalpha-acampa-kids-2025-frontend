@@ -44,7 +44,7 @@ export default function CamperCard({ camper: k, labelOf, hideBedroom, bedroom, o
     </>
   );
 
-  const reviewing = k.aiReviewStatus === "pending" || k.aiReviewStatus === "processing";
+  const reviewing = k.aiReviewStatus === "pending" || k.aiReviewStatus === "processing" || k.aiReviewStatus === "structured";
 
   return (
     <li className={`kid-card ${corner ? "kid-card--with-corner" : ""} ${reviewing ? "camper-ai-review" : ""}`} title={reviewing ? "Cadastro em revisão pela IA" : undefined}>

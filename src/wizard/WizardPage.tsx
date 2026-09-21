@@ -58,7 +58,7 @@ interface StepMeta {
   icon?: string;
 }
 
-const STEPS: readonly StepMeta[] = [
+const ALL_STEPS: readonly StepMeta[] = [
   { id: "intro", label: "Boas-vindas", emoji: "🏕️" },
   { id: "admins", label: "Admins", emoji: "🔑" },
   { id: "staff", label: "Equipe", icon: ICONS.staffPair },
@@ -82,6 +82,12 @@ interface WizardPageProps {
 export default function WizardPage({ token, user, onExit }: WizardPageProps) {
   const { tx } = useI18n();
   const { params, navigate } = useRoute();
+  const settings = useCollection("settings");
+
+  // Only the deployment owner (super admin) manages admins — everyone else
+  // skips that step entirely.
+  const STEPS = useMemo(() => ALL_STEPS.filter((s) => s.id !== "admins" || !!settings?.superAdmin), [settings?.superAdmin]);
+
   const asked = params.get("step") as StepId | null;
   const step: StepId = STEPS.some((s) => s.id === asked) ? (asked as StepId) : "intro";
   const index = STEPS.findIndex((s) => s.id === step);
@@ -112,8 +118,14 @@ export default function WizardPage({ token, user, onExit }: WizardPageProps) {
     window.scrollTo({ top: 0 });
   }, [step]);
 
-  function close() {
+  async function close() {
     setWizardDismissed(true);
+    try {
+      // the deployment owner is never locked — don't drop the new admin's lock by leaving
+      if (settings?.wizardMode && !settings.superAdmin) await updateSettings(token, { wizardMode: false });
+    } catch {
+      /* leaving still — the next login will retry the lock if the write failed */
+    }
     onExit();
   }
 
@@ -129,7 +141,7 @@ export default function WizardPage({ token, user, onExit }: WizardPageProps) {
             </p>
           </div>
         </div>
-        <button type="button" className="wizard__close" onClick={close} title={tx("Sair do assistente")}>
+        <button type="button" className="wizard__close" onClick={() => void close()} title={tx("Sair do assistente")}>
           ✕ {tx("Sair")}
         </button>
       </header>
@@ -168,15 +180,12 @@ export default function WizardPage({ token, user, onExit }: WizardPageProps) {
         {step === "intro" && <IntroStep token={token} onNext={next} onSkip={close} />}
         {step === "admins" && <AdminsStep token={token} user={user} />}
         {step === "staff" && (
-          <StepShell
-            title={tx("Importar a equipe")}
-            hint={tx("A IA reconhece a planilha (CSV ou Excel) e você confere as dúvidas antes de gravar. Celular e quarto podem ficar vazios.")}
-          >
+          <StepShell>
             <StaffImportPage token={token} onBack={next} />
           </StepShell>
         )}
         {step === "campers" && (
-          <StepShell title={tx("Importar os acampantes")} hint={tx("A IA compara as colunas e cruza quartos, líderes, transporte, times e saúde. Nada é gravado sem a sua revisão.")}>
+          <StepShell>
             <CamperImportPage token={token} onDone={next} />
           </StepShell>
         )}
@@ -195,11 +204,14 @@ export default function WizardPage({ token, user, onExit }: WizardPageProps) {
             {tx("‹ Voltar")}
           </button>
           <button type="button" className="button button--secondary" onClick={next}>
-            {tx("Pular etapa")}
+            {tx("Pular {label}", { label: tx(STEPS[index].label) })}
           </button>
-          <button type="button" className="button button--primary" onClick={next}>
-            {tx("Continuar ›")}
-          </button>
+          {/* each step carries its own continue; the footer only needs one on the very last step */}
+          {index === STEPS.length - 2 && (
+            <button type="button" className="button button--primary" onClick={next}>
+              {tx("Continuar ›")}
+            </button>
+          )}
         </footer>
       )}
     </div>
@@ -231,68 +243,48 @@ function IntroStep({ token, onNext, onSkip }: { token: string; onNext: () => voi
     }
   }
 
-  return (
-    <section className="wizard-card wizard-card--intro">
-      <div className="confetti" aria-hidden="true">🏕️ 🚌 🛏️ 📅 🎉</div>
-      <h2 className="wizard-card__title">{tx("Vamos montar o acampamento! 🏕️")}</h2>
-      <p className="admin-intro">
-        {tx("O app está")} <strong>{tx("zerado")}</strong>{tx(", pronto para um novo acampamento. Em poucos passos ele fica inteiro — importando a equipe e as crianças, escolhendo o local conhecido, preenchendo a programação e ajustando as configurações importantes.")}
-      </p>
-      <ul className="wizard-list">
-        <li>{tx("🔑 Convidar quem mais vai administrar (recebe o link por SMS ou WhatsApp)")}</li>
-        <li>{tx("🧢 Importar a")} <strong>{tx("equipe")}</strong> {tx("e os")} <strong>{tx("acampantes")}</strong> {tx("das planilhas")}</li>
-        <li>{tx("📍 Escolher o")} <strong>{tx("local")}</strong> {tx("— quartos, endereço e mapa já vêm preenchidos")}</li>
-        <li>{tx("📅 Pré-visualizar a")} <strong>{tx("programação")}</strong> {tx("modelo e tirar o que não vale")}</li>
-        <li>{tx("📖 Criar a primeira")} <strong>{tx("Preparação")}</strong> {tx("e a instrução com o")} <strong>{tx("endereço")}</strong></li>
-        <li>{tx("⚙️ Janelas de acesso, check-in, organizadores e SMS")}</li>
-        <li>{tx("🛏️ Organizar os")} <strong>{tx("quartos")}</strong> {tx("e os")} <strong>{tx("ônibus")}</strong> {tx("(4 já vêm prontos)")}</li>
-      </ul>
-      <p className="cat-hint">{tx("Dá para pular etapas, voltar e reabrir este assistente depois (Limpeza ou Perfil).")}</p>
-
-      {error && <p className="message message--error">{error}</p>}
-      {loaded ? (
-        <div className="wizard-test">
-          <p className="message message--ok">
-            {tx("✅ Camp de exemplo carregado:")} <strong>{tx("{n} acampantes", { n: loaded.campers })}</strong>, <strong>{tx("{n} pessoas na equipe", { n: loaded.staff })}</strong>,{" "}
-            {tx("{n} quartos", { n: loaded.bedrooms })}, {tx("{n} veículos", { n: loaded.transports })}, {tx("{n} times", { n: loaded.teams })} {tx("e")} {tx("{n} eventos", { n: loaded.events })} {tx("— tudo")} <strong>{tx("fictício")}</strong>,
-            {" "}{tx("com a programação e as janelas (equipe, pais, check-in e volta) valendo a partir de hoje. Continue o passo a passo ou vá direto explorar as abas.")}
-          </p>
-          <div className="cat-form__actions">
-            <button type="button" className="button button--secondary" onClick={onSkip}>
-              {tx("Explorar o app")}
-            </button>
-            <button type="button" className="button button--primary" onClick={onNext}>
-              {tx("Continuar o assistente ›")}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="wizard-test">
-          <div className="wizard-test__head">
-            <h3 className="cat-form__title">{tx("🧪 Testar o sistema")}</h3>
-          </div>
-          <p className="cat-hint">
-            {tx("Carrega um acampamento de exemplo com 154 acampantes e 72 pessoas na equipe — baseado no acampamento real, mas")}{" "}
-            <strong>{tx("fictício")}</strong>{tx(": nomes embaralhados dentro do mesmo gênero e celulares, CPFs, RGs e e-mails aleatórios. A programação e as janelas vêm ancoradas em hoje (primeiro dia amanhã). Só funciona com o app zerado.")}
-          </p>
-          <div className="cat-form__actions">
-            <button type="button" className="button button--secondary" disabled={testing} onClick={() => void loadSample()}>
-              {testing ? tx("Carregando… 🧪") : tx("Carregar dados de exemplo")}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {!loaded && (
+  if (loaded) {
+    return (
+      <section className="wizard-card wizard-card--intro">
+        <div className="confetti" aria-hidden="true">🏕️ 🚌 🛏️ 📅 🎉</div>
+        <h2 className="wizard-card__title">{tx("Camp de exemplo pronto! 🎉")}</h2>
+        <ul className="wizard-summary">
+          <li className="wizard-summary__ok"><span aria-hidden="true">✅</span> <strong>{tx("{n} acampantes", { n: loaded.campers })}</strong></li>
+          <li className="wizard-summary__ok"><span aria-hidden="true">✅</span> <strong>{tx("{n} pessoas na equipe", { n: loaded.staff })}</strong></li>
+          <li className="wizard-summary__ok"><span aria-hidden="true">✅</span> {tx("{n} quartos", { n: loaded.bedrooms })} · {tx("{n} veículos", { n: loaded.transports })} · {tx("{n} times", { n: loaded.teams })} · {tx("{n} eventos", { n: loaded.events })}</li>
+        </ul>
+        <p className="cat-hint">{tx("Tudo")} <strong>{tx("fictício")}</strong>{tx(", valendo a partir de hoje. Explore as abas ou siga o passo a passo.")}</p>
         <div className="cat-form__actions">
           <button type="button" className="button button--secondary" onClick={onSkip}>
-            {tx("Agora não")}
+            {tx("Explorar o app")}
           </button>
           <button type="button" className="button button--primary" onClick={onNext}>
-            {tx("Começar do zero 🚀")}
+            {tx("Continuar o assistente ›")}
           </button>
         </div>
-      )}
+      </section>
+    );
+  }
+
+  return (
+    <section className="wizard-card wizard-card--intro">
+      <h2 className="wizard-card__title">{tx("Vamos montar o acampamento! 🏕️")}</h2>
+      {error && <p className="message message--error">{error}</p>}
+      <div className="wizard-choice">
+        <button type="button" className="wizard-choice__card" disabled={testing} onClick={() => void loadSample()}>
+          <img className="wizard-choice__art" src={ICONS.wizardSample} alt="" aria-hidden="true" />
+          <span className="wizard-choice__title">{testing ? tx("Carregando… 🧪") : tx("Ver funcionando")}</span>
+          <span className="wizard-choice__hint">{tx("Um acampamento de exemplo, fictício")}</span>
+        </button>
+        <button type="button" className="wizard-choice__card" disabled={testing} onClick={onNext}>
+          <img className="wizard-choice__art" src={ICONS.wizard} alt="" aria-hidden="true" />
+          <span className="wizard-choice__title">{tx("Montar do zero")}</span>
+          <span className="wizard-choice__hint">{tx("Passo a passo, do começo ao fim")}</span>
+        </button>
+      </div>
+      <button type="button" className="link-btn wizard-choice__skip" onClick={onSkip}>
+        {tx("Agora não")}
+      </button>
     </section>
   );
 }
@@ -1093,11 +1085,11 @@ function DoneStep({ onExit }: { onExit: () => void }) {
 
 // ── shared shell ───────────────────────────────────────────────────────────
 
-function StepShell({ title, hint, children }: { title: string; hint: string; children: React.ReactNode }) {
+function StepShell({ title, hint, children }: { title?: string; hint?: string; children: React.ReactNode }) {
   return (
     <section className="wizard-card wizard-card--full">
-      <h2 className="wizard-card__title">{title}</h2>
-      <p className="admin-intro">{hint}</p>
+      {title && <h2 className="wizard-card__title">{title}</h2>}
+      {hint && <p className="admin-intro">{hint}</p>}
       <div className="wizard__page">{children}</div>
     </section>
   );

@@ -37,7 +37,7 @@ import WhatsAppButton from "../../components/WhatsAppButton";
 import { loadAuth } from "../../auth/store";
 import { staffGreeting, whatsappLink } from "../../whatsapp";
 import StaffImportPage from "./StaffImportPage";
-import { setPendingImportFile, useFileDrop } from "../../hooks/useFileDrop";
+import { setPendingImportFile, useWindowFileDrop } from "../../hooks/useFileDrop";
 import { collatorLocale, useI18n } from "../../i18n";
 
 interface StaffPageProps {
@@ -196,11 +196,11 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
     return m;
   }, [staff]);
   const teamChipLabel = teamFilter.size === 0 ? tx("Todos os times") : [...teamFilter].map((id) => teamById.get(id)?.name).filter(Boolean).join(", ");
-  const canDropImport = !readOnly && mode.kind === "view";
-  const { dragging: emptyDropOver, handlers: emptyDropHandlers } = useFileDrop((file) => {
+  const canDropImport = !readOnly && mode.kind === "view" && !!staff && staff.length === 0;
+  const emptyDropOver = useWindowFileDrop((file) => {
     setPendingImportFile(file);
     navigate("/staff/import");
-  });
+  }, canDropImport);
 
   // ── render ─────────────────────────────────────────────────────────────
 
@@ -367,7 +367,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
           <TeamFilterDialog open={teamDialogOpen} teams={teams} value={teamFilter} counts={teamCounts} onChange={setTeamFilter} onClose={() => setTeamDialogOpen(false)} />
 
           {staff.length === 0 && (
-            <div className={`admin-empty${canDropImport ? " admin-empty--drop" : ""}${canDropImport && emptyDropOver ? " admin-empty--over" : ""}`} {...(canDropImport ? emptyDropHandlers : {})}>
+            <div className={`admin-empty${canDropImport ? " admin-empty--drop" : ""}${canDropImport && emptyDropOver ? " admin-empty--over" : ""}`}>
               <img className="admin-empty__icon" src={roleMeta("staff").icon} alt="" aria-hidden="true" />
               <p>{tx("Ninguém na equipe ainda.")}{!readOnly && ` ${tx("Cadastre o primeiro voluntário!")}`}</p>
               {!readOnly && (
@@ -404,7 +404,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
               const noRoom = !s.bedroom;
 
               return (
-                <li key={s.id} className={`staff-card staff-card--clickable staff-card--cover ${noRoom ? "staff-card--orphan" : ""} ${s.active ? "" : "staff-card--inactive"} ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" ? tx("Cadastro em revisão pela IA") : undefined}>
+                <li key={s.id} className={`staff-card staff-card--clickable staff-card--cover ${noRoom ? "staff-card--orphan" : ""} ${s.active ? "" : "staff-card--inactive"} ${s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" || s.aiReviewStatus === "structured" ? "camper-ai-review" : ""}`} title={s.aiReviewStatus === "pending" || s.aiReviewStatus === "processing" || s.aiReviewStatus === "structured" ? tx("Cadastro em revisão pela IA") : undefined}>
                   <div
                     className="staff-card__body"
                     role="link"

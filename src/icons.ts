@@ -98,6 +98,8 @@ export const ICONS = {
   assistantEmpty: icon("assistant-empty"),
   /** wooden trail signpost with three direction boards and an orange pennant — the setup wizard */
   wizard: icon("wizard"),
+  /** tablet showing the app already full of sample kids, bus, bunk & calendar — the "try it with sample data" wizard choice */
+  wizardSample: icon("wizard-sample"),
   /** a desktop monitor showing a room-assignment board next to a crossed-out phone — "use a computer for this" */
   desktopBetter: icon("desktop-better"),
   /** a desktop monitor showing a bus-seating board next to a crossed-out phone — "use a computer for the buses" */
