@@ -25,35 +25,43 @@ import { ICONS } from "../../icons";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import StaffForm from "./StaffForm";
 import GiveawayPage from "../GiveawayPage";
+import ImportYearPage from "./ImportYearPage";
 import { DownloadGlyph } from "../../components/Glyph";
 import SearchField from "../../components/SearchField";
 import BedroomTag from "../../components/BedroomTag";
 import GroupIcon from "../../components/GroupIcon";
+import ImportSourceDialog from "../../components/ImportSourceDialog";
 import TeamFilterDialog from "../../components/TeamFilterDialog";
 import RoomRoleIcon from "../../components/RoomRoleIcon";
 import TeamTag from "../../components/TeamTag";
 import TransportTag from "../../components/TransportTag";
+import Toast from "../../components/Toast";
 import WhatsAppButton from "../../components/WhatsAppButton";
-import { loadAuth } from "../../auth/store";
+import { loadAuth, type CampSummary } from "../../auth/store";
 import { staffGreeting, whatsappLink } from "../../whatsapp";
 import StaffImportPage from "./StaffImportPage";
 import { setPendingImportFile, useWindowFileDrop } from "../../hooks/useFileDrop";
+import { takePendingToast } from "../../pendingToast";
 import { collatorLocale, useI18n } from "../../i18n";
 
 interface StaffPageProps {
   token: string;
+  camp: CampSummary;
+  /** every camp this session may switch into — empty when it can't switch years */
+  camps: CampSummary[];
   /** organizers: see everything, filter and open people, but no create / edit / delete / Excel */
   readOnly?: boolean;
 }
 
-/** URL → what to show:  /staff · /staff/new · /staff/giveaway · /staff/:id · /staff/:id/edit */
-type Mode = { kind: "view" } | { kind: "create" } | { kind: "giveaway" } | { kind: "import" } | { kind: "edit"; id: string } | { kind: "detail"; id: string };
+/** URL → what to show:  /staff · /staff/new · /staff/giveaway · /staff/:id · /staff/:id/edit · /staff/import-year */
+type Mode = { kind: "view" } | { kind: "create" } | { kind: "giveaway" } | { kind: "import" } | { kind: "import-year" } | { kind: "edit"; id: string } | { kind: "detail"; id: string };
 function modeOf(segments: string[]): Mode {
   const [, id, action] = segments;
   if (!id) return { kind: "view" };
   if (id === "new") return { kind: "create" };
   if (id === "giveaway") return { kind: "giveaway" };
   if (id === "import") return { kind: "import" };
+  if (id === "import-year") return { kind: "import-year" };
   if (action === "edit") return { kind: "edit", id };
   return { kind: "detail", id };
 }
@@ -62,9 +70,12 @@ function modeOf(segments: string[]): Mode {
 type Wing = "all" | "girls" | "boys";
 
 /** The camp staff (equipe) list + create/edit form (admin); read-only for programme organizers. */
-export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
+export default function StaffPage({ token, camp, camps, readOnly = false }: StaffPageProps) {
   const { tx } = useI18n();
   const myName = loadAuth()?.user.name ?? "";
+  const otherCamps = useMemo(() => camps.filter((c) => c.id !== camp.id), [camps, camp.id]);
+  const [importSheetOpen, setImportSheetOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(() => takePendingToast());
   // everything comes from the local store (localStorage + live WebSocket feed)
   const staff = useCollection("staff");
   const categories = useCategories("staff");
@@ -73,7 +84,7 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
   const { segments, navigate } = useRoute();
   /** read-only: the create / edit URLs fall back to the list */
   const rawMode = modeOf(segments);
-  const mode: Mode = readOnly && (rawMode.kind === "create" || rawMode.kind === "edit" || rawMode.kind === "giveaway" || rawMode.kind === "import") ? { kind: "view" } : rawMode;
+  const mode: Mode = readOnly && (rawMode.kind === "create" || rawMode.kind === "edit" || rawMode.kind === "giveaway" || rawMode.kind === "import" || rawMode.kind === "import-year") ? { kind: "view" } : rawMode;
   const confirm = useConfirm();
   // set by the open form; asks save/discard before a breadcrumb navigation leaves the form
   const leaveGuardRef = useRef<(() => Promise<boolean>) | null>(null);
@@ -216,6 +227,9 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
     return <GiveawayPage who="staff" crumbs={[{ label: tx("Equipe"), onClick: () => navigate("/staff") }, { label: tx("Sorteio") }]} />;
   }
   if (mode.kind === "import") return <StaffImportPage token={token} onBack={() => navigate("/staff")} />;
+  if (mode.kind === "import-year") {
+    return <ImportYearPage kind="staff" token={token} otherCamps={otherCamps} onBack={() => navigate("/staff")} onDone={() => navigate("/staff", { replace: true })} />;
+  }
 
   if (mode.kind === "detail") {
     return (
@@ -264,9 +278,9 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
               type="button"
               className="button button--secondary admin-head__new"
               disabled={busy}
-              title={tx("Importar equipe de uma planilha")}
-              aria-label={tx("Importar equipe de uma planilha")}
-              onClick={() => navigate("/staff/import")}
+              title={tx("Importar equipe")}
+              aria-label={tx("Importar equipe")}
+              onClick={() => (otherCamps.length > 0 ? setImportSheetOpen(true) : navigate("/staff/import"))}
             >
               <img className="admin-head__action-icon" src={ICONS.importCampers} alt="" aria-hidden="true" />
               <span className="admin-head__action-label">{tx("Importar")}</span>
@@ -310,6 +324,17 @@ export default function StaffPage({ token, readOnly = false }: StaffPageProps) {
       </header>
 
       {error && <p className="message message--error">{error}</p>}
+
+      {mode.kind === "view" && !readOnly && (
+        <ImportSourceDialog
+          open={importSheetOpen}
+          onClose={() => setImportSheetOpen(false)}
+          sheetIcon={ICONS.staffPair}
+          onPickSheet={() => { setImportSheetOpen(false); navigate("/staff/import"); }}
+          onPickYear={() => { setImportSheetOpen(false); navigate("/staff/import-year"); }}
+        />
+      )}
+      <Toast message={toast} onClose={() => setToast(null)} />
 
       {mode.kind === "create" && (
         <StaffForm

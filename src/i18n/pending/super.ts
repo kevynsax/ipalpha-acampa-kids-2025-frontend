@@ -1,0 +1,124 @@
+import type { Locale } from "../locales";
+
+export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, string>>> = {
+  "Superusuário": {
+    en: "Superuser",
+    es: "Superusuario",
+    fr: "Superutilisateur",
+  },
+  "Modelos do assistente ›": {
+    en: "Assistant templates ›",
+    es: "Modelos del asistente ›",
+    fr: "Modèles de l'assistant ›",
+  },
+  'Tornar "{label}" o acampamento ativo?': {
+    en: 'Make "{label}" the active camp?',
+    es: '¿Hacer que "{label}" sea el campamento activo?',
+    fr: '« {label} » devient le camp actif ?',
+  },
+  "{year} vira o acampamento arquivado; você entra em {newYear}.": {
+    en: "{year} becomes the archived camp; you'll enter {newYear}.",
+    es: "{year} pasa a ser el campamento archivado; entrarás en {newYear}.",
+    fr: "{year} devient le camp archivé ; vous entrerez dans {newYear}.",
+  },
+  "Tornar ativo": {
+    en: "Make active",
+    es: "Hacer activo",
+    fr: "Rendre actif",
+  },
+  'Arquivar "{label}"?': {
+    en: 'Archive "{label}"?',
+    es: '¿Archivar "{label}"?',
+    fr: '« {label} » archiver ?',
+  },
+  "Fica só leitura — visível para o admin e para quem organiza o acampamento ativo.": {
+    en: "Becomes read-only — visible to the admin and to the active camp's organizers.",
+    es: "Queda solo lectura — visible para el admin y para quien organiza el campamento activo.",
+    fr: "Devient en lecture seule — visible pour l'admin et les organisateurs du camp actif.",
+  },
+  "Arquivar": {
+    en: "Archive",
+    es: "Archivar",
+    fr: "Archiver",
+  },
+  "Renomear": {
+    en: "Rename",
+    es: "Renombrar",
+    fr: "Renommer",
+  },
+  "Apagar": {
+    en: "Delete",
+    es: "Borrar",
+    fr: "Supprimer",
+  },
+  "Renomear acampamento": {
+    en: "Rename camp",
+    es: "Renombrar campamento",
+    fr: "Renommer le camp",
+  },
+  "Salvando…": {
+    en: "Saving…",
+    es: "Guardando…",
+    fr: "Enregistrement…",
+  },
+  "Salvar": {
+    en: "Save",
+    es: "Guardar",
+    fr: "Enregistrer",
+  },
+  "Apagar acampamento": {
+    en: "Delete camp",
+    es: "Borrar campamento",
+    fr: "Supprimer le camp",
+  },
+  'Apagar "{label}"?': {
+    en: 'Delete "{label}"?',
+    es: '¿Borrar "{label}"?',
+    fr: '« {label} » supprimer ?',
+  },
+  "Isso apaga para sempre {campers} acampante(s), {staff} pessoa(s) da equipe e {photos} foto(s) de {label}. Não pode ser desfeito.": {
+    en: "This permanently deletes {campers} camper(s), {staff} staff member(s) and {photos} photo(s) from {label}. Cannot be undone.",
+    es: "Esto borra para siempre {campers} campista(s), {staff} persona(s) del equipo y {photos} foto(s) de {label}. No se puede deshacer.",
+    fr: "Cela supprime définitivement {campers} campeur(s), {staff} membre(s) de l'équipe et {photos} photo(s) de {label}. Ne peut pas être annulé.",
+  },
+  "Vamos mandar um código de confirmação por SMS para o seu celular.": {
+    en: "We'll text a confirmation code to your phone.",
+    es: "Vamos a enviar un código de confirmación por SMS a tu celular.",
+    fr: "Nous enverrons un code de confirmation par SMS à votre téléphone.",
+  },
+  " (modo dev: o código aparece no console do servidor)": {
+    en: " (dev mode: the code shows up in the server console)",
+    es: " (modo dev: el código aparece en la consola del servidor)",
+    fr: " (mode dev : le code apparaît dans la console du serveur)",
+  },
+  "Mandamos um código por SMS para {phone}": {
+    en: "We texted a code to {phone}",
+    es: "Enviamos un código por SMS a {phone}",
+    fr: "Nous avons envoyé un code par SMS au {phone}",
+  },
+  "Confirme o código": {
+    en: "Confirm the code",
+    es: "Confirma el código",
+    fr: "Confirmez le code",
+  },
+  "{n} tentativa(s) restante(s)": {
+    en: "{n} attempt(s) left",
+    es: "{n} intento(s) restante(s)",
+    fr: "{n} tentative(s) restante(s)",
+  },
+  "Confirmar exclusão": {
+    en: "Confirm deletion",
+    es: "Confirmar exclusión",
+    fr: "Confirmer la suppression",
+  },
+  "Enviando…": {
+    en: "Sending…",
+    es: "Enviando…",
+    fr: "Envoi…",
+  },
+  "Acampamento apagado: {n} registro(s) removido(s).": {
+    en: "Camp deleted: {n} record(s) removed.",
+    es: "Campamento borrado: {n} registro(s) eliminado(s).",
+    fr: "Camp supprimé : {n} enregistrement(s) supprimé(s).",
+  },
+};

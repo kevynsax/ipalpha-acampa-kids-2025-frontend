@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { handoverCamp } from "../../api/admins";
-import { fetchCleanupMarks, fetchImportCacheCount, runCleanup, wipeImportCache, type CleanupGroup, type StaffKeepGroup } from "../../api/cleanup";
+import { fetchCleanupMarks, runCleanup, type CleanupGroup, type StaffKeepGroup } from "../../api/cleanup";
+import type { CampSummary } from "../../auth/store";
 import { useConfirm } from "../../components/ConfirmDialog";
+import CreateCampDialog from "../../components/CreateCampDialog";
 import Dialog from "../../components/Dialog";
+import OptionCards, { type OptionCard } from "../../components/OptionCards";
 import PhoneInput from "../../components/PhoneInput";
 import Toggle from "../../components/Toggle";
 import { useCollection } from "../../store";
@@ -16,7 +19,11 @@ import { useI18n } from "../../i18n";
 
 interface CleanupPageProps {
   token: string;
+  camp: CampSummary;
+  onSwitchCamp: (campId: string) => Promise<void>;
 }
+
+type NextCampChoice = "create" | "cleanup" | "wizard";
 
 interface Block {
   key: CleanupGroup;
@@ -108,20 +115,20 @@ function idsOf(settings: Settings | null | undefined, group: StaffKeepGroup): st
  * bloco de cada vez, para preparar o do ano que vem. Nada aqui tem volta —
  * cada botão pergunta antes, com a quantidade que vai sumir.
  */
-export default function CleanupPage({ token }: CleanupPageProps) {
+export default function CleanupPage({ token, camp, onSwitchCamp }: CleanupPageProps) {
   const { tx } = useI18n();
   const confirm = useConfirm();
   const { navigate } = useRoute();
-  const [busy, setBusy] = useState<CleanupGroup | "all" | "import-cache" | "handover" | null>(null);
+  const [busy, setBusy] = useState<CleanupGroup | "all" | "handover" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [marks, setMarks] = useState({ welcomes: 0, notices: 0 });
-  const [importCache, setImportCache] = useState<{ count: number; staff: number; campers: number } | null>(null);
   const keepRef = useRef<StaffKeepGroup[]>([]);
   /** Programação only: the admin asked for the funções (and their texts) to go too */
   const rolesRef = useRef(false);
   const [reload, setReload] = useState(0);
   const [handoverOpen, setHandoverOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const settings = useCollection("settings");
   const isSuper = !!settings?.superAdmin;
@@ -137,51 +144,6 @@ export default function CleanupPage({ token }: CleanupPageProps) {
       alive = false;
     };
   }, [token, reload]);
-
-  // the import dictionary cache count is super-admin-only (its own endpoint)
-  useEffect(() => {
-    if (!isSuper) return;
-    let alive = true;
-    void fetchImportCacheCount(token)
-      .then((r) => {
-        if (alive) setImportCache(r);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [token, isSuper, reload]);
-
-  async function cleanCache() {
-    if (busy) return;
-    const n = importCache?.count ?? 0;
-    const ok = await confirm({
-      emoji: "🧹",
-      title: tx("Limpar o cache de importação?"),
-      message: (
-        <>
-          {tx("Apaga as {n} correspondências que a importação de equipe e de acampantes guardou (coluna da planilha → valor do app).", { n })}
-          <br />
-          {tx("A próxima importação vai remontar o mapeamento do zero. Não apaga nenhum cadastro.")}
-        </>
-      ),
-      confirmLabel: tx("Limpar cache"),
-      danger: true,
-    });
-    if (!ok) return;
-    setBusy("import-cache");
-    setError(null);
-    setDone(null);
-    try {
-      const { removed } = await wipeImportCache(token);
-      setReload((r) => r + 1);
-      setDone(tx("{n} correspondência(s) do cache apagada(s).", { n: removed }));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : tx("Algo deu errado."));
-    } finally {
-      setBusy(null);
-    }
-  }
 
   const counts: Record<CleanupGroup, number> = {
     campers: useCollection("campers")?.length ?? 0,
@@ -263,6 +225,19 @@ export default function CleanupPage({ token }: CleanupPageProps) {
     }
   }
 
+  const nextCampOptions: OptionCard<NextCampChoice>[] = [
+    {
+      key: "create",
+      icon: ICONS.createNew,
+      title: tx("Novo acampamento"),
+      subtitle: tx("Guarda {year} como está e começa {nextYear} do zero.", { year: camp.year, nextYear: camp.year + 1 }),
+    },
+    ...(isSuper
+      ? [{ key: "cleanup" as const, icon: ICONS.cleanup, title: tx("Limpar este acampamento"), subtitle: tx("Apaga os blocos deste ano e passa para outro admin.") }]
+      : []),
+    { key: "wizard", icon: ICONS.wizard, title: tx("Abrir o assistente") },
+  ];
+
   return (
     <div className="admin-page">
       <header className="admin-head">
@@ -335,33 +310,6 @@ export default function CleanupPage({ token }: CleanupPageProps) {
             </section>
           );
         })}
-        {isSuper && (
-          <section className="cleanup-card">
-            <h2 className="cleanup-card__title">
-              <img className="cleanup-card__icon" src={ICONS.importCampers} alt="" aria-hidden="true" /> {tx("Cache de importação")}
-            </h2>
-            <p className="cleanup-card__count">
-              {importCache == null
-                ? "…"
-                : tx("{n} {unit}", { n: importCache.count, unit: tx(importCache.count === 1 ? "correspondência" : "correspondências") })}
-            </p>
-            <p className="cat-hint">
-              {tx("As correspondências que a importação de equipe e de acampantes guarda (coluna da planilha → valor do app). Limpar não apaga nenhum cadastro.")}
-            </p>
-            <button
-              type="button"
-              className="button button--danger"
-              disabled={busy !== null || importCache?.count === 0}
-              onClick={() => void cleanCache()}
-            >
-              {busy === "import-cache"
-                ? tx("Limpando…")
-                : importCache?.count === 0
-                  ? tx("Já está limpo")
-                  : tx("🧹 Limpar cache")}
-            </button>
-          </section>
-        )}
       </div>
 
       <section className="cleanup-all">
@@ -399,36 +347,26 @@ export default function CleanupPage({ token }: CleanupPageProps) {
         <h2 className="cleanup-all__title">
           <img className="audience-icon" src={ICONS.wizard} alt="" aria-hidden="true" /> {tx("Próximo acampamento")}
         </h2>
-        <p className="cleanup-all__text">
-          {tx("Depois de limpar, o")} <strong>{tx("assistente de configuração")}</strong>{" "}
-          {tx(
-            "monta o próximo: importa equipe e crianças, escolhe o local conhecido, preenche a programação e ajusta as configurações — passo a passo, com etapas que podem ser puladas.",
-          )}
-        </p>
-        {isSuper && (
-          <button
-            type="button"
-            className="button button--danger cleanup-all__button"
-            disabled={busy !== null}
-            onClick={() => {
+        <OptionCards<NextCampChoice>
+          label={tx("Próximo acampamento")}
+          value={null}
+          disabled={busy !== null}
+          options={nextCampOptions}
+          onChange={(key) => {
+            if (key === "create") {
+              setError(null);
+              setCreateOpen(true);
+            } else if (key === "cleanup") {
               setError(null);
               setHandoverOpen(true);
-            }}
-          >
-            {tx("🧹 Limpar tudo e forçar o assistente")}
-          </button>
-        )}
-        <button
-          type="button"
-          className="button button--primary cleanup-all__button"
-          onClick={() => {
-            setWizardDismissed(false);
-            navigate("/wizard");
+            } else {
+              setWizardDismissed(false);
+              navigate("/wizard");
+            }
           }}
-        >
-          {tx("🏕️ Abrir o assistente")}
-        </button>
+        />
       </section>
+      <CreateCampDialog open={createOpen} token={token} currentYear={camp.year} onClose={() => setCreateOpen(false)} onSwitchCamp={onSwitchCamp} />
       {isSuper && (
         <HandoverDialog
           open={handoverOpen}

@@ -13,7 +13,7 @@ interface CamperHistoryDialogProps {
   onClose: () => void;
 }
 
-/** Every edit the kid's parent made to the "Pontos de atenção" block, newest first — read by the admin. */
+/** Every edit the kid's parent made to the "Informações de saúde" block, newest first — read by the admin. */
 export default function CamperHistoryDialog({ token, open, camperId, camperName, onClose }: CamperHistoryDialogProps) {
   const { tx } = useI18n();
   const [changes, setChanges] = useState<CamperChange[] | null>(null);

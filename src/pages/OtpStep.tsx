@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "../api/client";
-import { requestOtp, verifyOtp } from "../auth/store";
+import { requestOtp, verifyOtp, type CampSummary } from "../auth/store";
 import OtpInput from "../components/OtpInput";
 import StaffAccessDialog, { isStaffAccessError } from "../components/StaffAccessDialog";
 import { useI18n, useT } from "../i18n";
@@ -12,7 +12,7 @@ interface OtpStepProps {
   expiresAt: string;
   delivery: "sms" | "mock" | "redirect";
   onExpiryChange: (iso: string) => void;
-  onVerified: (info: { token: string; tokenExpiresAt: string; user: LoggedUser }) => void;
+  onVerified: (info: { token: string; tokenExpiresAt: string; user: LoggedUser; camp: CampSummary; camps?: CampSummary[] }) => void;
   onBack: () => void;
 }
 
@@ -78,7 +78,7 @@ export default function OtpStep({
 
       try {
         const res = await verifyOtp(phoneE164, value);
-        onVerified({ token: res.token, tokenExpiresAt: res.tokenExpiresAt, user: res.user });
+        onVerified({ token: res.token, tokenExpiresAt: res.tokenExpiresAt, user: res.user, camp: res.camp, camps: res.camps });
       } catch (err) {
         if (isStaffAccessError(err)) {
           setAccessError(err);

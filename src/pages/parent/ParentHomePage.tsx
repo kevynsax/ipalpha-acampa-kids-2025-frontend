@@ -7,12 +7,14 @@ import HealthAlerts from "../../components/HealthAlerts";
 import KidIcon from "../../components/KidIcon";
 import ParentKidTabs from "../../components/ParentKidTabs";
 import PlayScene from "../../components/PlayScene";
+import HealthIcon from "../../components/HealthIcon";
 import StaffIcon from "../../components/StaffIcon";
 import RoomRoleIcon from "../../components/RoomRoleIcon";
 import TeamTag from "../../components/TeamTag";
 import WhatsAppButton from "../../components/WhatsAppButton";
 import type { ParentAccess } from "../../hooks/useParentWindow";
 import { kidIconSex } from "../../icons";
+import { parentHomeIntroLiteral, teamLookingAfterLiteral } from "../../parentCopy";
 import { useCollectionOrEmpty } from "../../store";
 import { formatBrazilPhoneClient } from "../../phoneFormat";
 import type { LoggedUser } from "../../roles";
@@ -68,7 +70,7 @@ function TeamContact({ staff: s, title, from, about }: { staff: Staff; title?: R
   );
 }
 
-/** One kid: registration data, the team looking after them, the "Pontos de atenção" block and the QR code. */
+/** One kid: registration data, the team looking after them, the "Informações de saúde" block and the QR code. */
 function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string; user: LoggedUser; showTeam: boolean }) {
   const { tx } = useI18n();
   const { camper: k, bedroom, caretaker, roomStaff } = kid;
@@ -79,6 +81,7 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
   const sex = kidIconSex(bedroom?.group, k.sex, k.probableGender);
   const first = k.name.split(" ")[0];
   const bedLabel = labelOf(k.bed);
+  const reviewing = k.aiReviewStatus === "pending" || k.aiReviewStatus === "processing" || k.aiReviewStatus === "structured";
 
   return (
     <section className="detail-section parent-kid">
@@ -117,7 +120,7 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
       {showTeam && (
         <div className="detail-section">
           <h3 className="detail-h2">
-            <StaffIcon size={24} /> {tx("Equipe que cuida de {name}", { name: first })}
+            <StaffIcon size={24} /> {tx(teamLookingAfterLiteral(sex), { name: first })}
           </h3>
           {!caretaker && roomStaff.length === 0 ? (
             <p className="opt-empty">{tx("A equipe do quarto ainda não foi definida.")}</p>
@@ -134,12 +137,12 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
 
       <div className="detail-section">
         <div className="detail-h2-row">
-          <h3 className="detail-h2">{tx("⚠️ Pontos de atenção")}</h3>
+          <h3 className="detail-h2"><HealthIcon size={24} /> {tx("Informações de saúde")}</h3>
           <button type="button" className="button button--edit" onClick={() => setEditing(true)}>
             <span className="pencil" aria-hidden="true">✏️</span> {tx("Editar")}
           </button>
         </div>
-        <div className="detail-card">
+        <div className={`detail-card ${reviewing ? "camper-ai-observation" : ""}`} title={reviewing ? tx("Este campo está sendo revisado pela IA") : undefined}>
           <dl className="detail-grid">
             <dt>{tx("Peso")}</dt>
             <dd>{k.weightKg != null ? tx("{weight} kg", { weight: String(k.weightKg).replace(".", ",") }) : "—"}</dd>
@@ -153,7 +156,7 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
           {!k.allergies.length && !k.drugAllergies.length && !k.healthIssues.length && !k.medications.length && !k.foodRestrictions && !k.healthNotes && (
             <p className="cat-hint">{tx("Nenhuma alergia, condição ou medicação informada.")}</p>
           )}
-          <p className="detail-note">📝 {k.generalNotes || <em className="staff-card__missing">{tx("sem observações")}</em>}</p>
+          <p className="detail-note">📝 {k.generalNotes || (reviewing ? tx("Observações em revisão pela IA…") : <em className="staff-card__missing">{tx("sem observações")}</em>)}</p>
         </div>
       </div>
 
@@ -171,7 +174,7 @@ function KidSection({ kid, token, user, showTeam }: { kid: MyKid; token: string;
 /**
  * "Início" for a PARENT: the important contacts — always, for as long as the
  * parent may use the app — then the selected kid: registration data, the team
- * looking after them (parents' window only), the editable "Pontos de atenção"
+ * looking after them (parents' window only), the editable "Informações de saúde"
  * and the QR code. Before the check-in starts and after the last event the
  * ROOM TEAM is not sent by the server; the contacts are.
  */
@@ -218,7 +221,7 @@ export default function ParentHomePage({ user, token, access }: ParentHomePagePr
       <h1 className="admin-title">{tx("Olá, {name}! 👋", { name: first })}</h1>
       <p className="admin-intro">
         {access.open
-          ? tx("O acampamento está rolando! Aqui estão os contatos e as informações das suas crianças.")
+          ? tx(parentHomeIntroLiteral(data.kids.map((kid) => kidIconSex(kid.bedroom?.group, kid.camper.sex, kid.camper.probableGender))))
           : access.opensAt && new Date(access.opensAt).getTime() > Date.now()
             ? tx("A equipe do quarto aparece aqui a partir do check-in ({when}).", { when: speakWhen(access.opensAt, { long: true }) })
             : tx("O acampamento terminou. Obrigado por confiar em nós! 💚")}

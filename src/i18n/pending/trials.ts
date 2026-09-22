@@ -191,6 +191,11 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "van al segundo. Sin celular en uno de los campos, los SMS de ese grupo no salen. Los admins siguen recibiendo su propio código.",
     fr: "vont au second. Sans portable dans un des champs, les SMS de ce groupe ne partent pas. Les admins reçoivent toujours leur propre code.",
   },
+  "para o segundo. Sem celular em um dos campos, os SMS daquele grupo não saem. Administradores continuam recebendo diretamente os próprios códigos e convites de admin.": {
+    en: "go to the second. With no phone in a field, that group's SMS are not sent. Administrators still receive their own codes and admin invitations directly.",
+    es: "van al segundo. Sin celular en uno de los campos, los SMS de ese grupo no salen. Los administradores siguen recibiendo directamente sus propios códigos e invitaciones de administrador.",
+    fr: "vont au second. Sans portable dans un des champs, les SMS de ce groupe ne partent pas. Les administrateurs continuent de recevoir directement leurs propres codes et invitations d'administration.",
+  },
   "Placar em teste": {
     en: "Scoreboard in test",
     es: "Marcador en prueba",

@@ -278,7 +278,7 @@ A parent logs in with the phone registered as the kid's guardian
   the **important contacts** (title, name, phone, WhatsApp) on top, then one
   section per kid — name, birth date, team, room, bed, transport, the
   **caretaker** and the **team of the room** (name + phone + WhatsApp only;
-  the server sends nothing else), **⚠️ Pontos de atenção** (weight, insurance
+  the server sends nothing else), **Informações de saúde** (weight, insurance
   + card, allergies, drug allergies, conditions, medication, food, medical
   notes, observations — editable by the parent through
   `pages/parent/AttentionEditDialog`, `PUT /api/campers/:id/parent`) and the
@@ -357,6 +357,38 @@ welcome** entries show the exact text parents receive.
 The change SMS only says "houve uma mudança… abra o app"; the details are in
 **Início** / **Programação**. A warning shows when the server has no SMS
 provider configured.
+
+## Multi-year camps 🏕️📅
+
+Admins and active-camp organizers only — parents, ordinary team and medical
+never see a year switcher.
+
+- **⚙️ Superusuário / Acampamentos** (`pages/admin/SuperPage`, `#/super`,
+  icon `ICONS.superUser`) — the camp registry: rename, make active, archive,
+  and (SMS-confirmed) delete each camp. The deployment owner additionally
+  gets **Administradores**, **Cache de importação** and a link to
+  **Sementes** (`#/super/seeds`, the unchanged `SeedsPage`); a plain admin
+  sees the same page titled "Acampamentos" with only the registry.
+- **Limpeza → Próximo acampamento** (`pages/admin/CleanupPage`) — option
+  cards: **Novo acampamento** (`components/CreateCampDialog`, admin/super)
+  archives the current camp and creates + enters the next one; **Limpar este
+  acampamento** (super only) is the existing per-block wipe / handover;
+  **Abrir o assistente** reopens the wizard.
+- **Perfil → "Ano"** (the user card in `pages/Dashboard.tsx`) — year chips
+  next to the role switcher, shown only when the session may switch
+  (`camps.length > 1`); the current year is a plain label, the others are
+  tappable, archived ones show 🔒.
+- **Archived banner** (`pages/Dashboard.tsx`) — a history session shows "🔒
+  *label* — arquivado, só leitura" under the app bar with a "Voltar para
+  *year*" link; every write attempt answers `403 CAMP_ARCHIVED` server-side,
+  surfaced by `App.tsx` as a toast.
+- **Wizard → "Outros anos"** (`wizard/PreviousYearStep.tsx`, icon
+  `ICONS.previousYear`) — pick a source year and the blocks to copy from it,
+  shown only when another camp exists.
+- **Acampantes / Equipe → Importar → "Outro ano"**
+  (`components/ImportSourceDialog.tsx` → `/campers/import-year`,
+  `/staff/import-year`) — search another year's people and import selected
+  ones, alongside the existing spreadsheet import.
 
 ## Login flow (implemented)
 

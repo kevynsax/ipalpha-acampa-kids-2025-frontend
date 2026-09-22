@@ -56,9 +56,9 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "CPF {n}",
     fr: "CPF {n}",
   },
-  "Para corrigir o contato de emergência ou os documentos, fale com a organização. O convênio você edita em Início → Pontos de atenção.": {
-    en: "To fix the emergency contact or documents, talk to the organization. You can edit insurance in Home → Attention points.",
-    es: "Para corregir el contacto de emergencia o los documentos, habla con la organización. El seguro lo editas en Inicio → Puntos de atención.",
-    fr: "Pour corriger le contact d'urgence ou les documents, parlez à l'organisation. Vous modifiez l'assurance dans Accueil → Points d'attention.",
+  "Para corrigir o contato de emergência ou os documentos, fale com a organização. O convênio você edita em Início → Informações de saúde.": {
+    en: "To fix the emergency contact or documents, talk to the organization. You can edit insurance in Home → Health information.",
+    es: "Para corregir el contacto de emergencia o los documentos, habla con la organización. El seguro lo editas en Inicio → Información de salud.",
+    fr: "Pour corriger le contact d'urgence ou les documents, parlez à l'organisation. Vous modifiez l'assurance dans Accueil → Informations de santé.",
   },
 };

@@ -11,20 +11,24 @@ import { downloadCampersXlsx, downloadMedicalCampersXlsx } from "../../export";
 import PrintLabelsDialog from "../../components/PrintLabelsDialog";
 import BedroomTag from "../../components/BedroomTag";
 import GroupIcon from "../../components/GroupIcon";
+import ImportSourceDialog from "../../components/ImportSourceDialog";
 import TeamFilterDialog from "../../components/TeamFilterDialog";
 import RoomRoleIcon from "../../components/RoomRoleIcon";
 import TeamTag from "../../components/TeamTag";
 import TransportTag from "../../components/TransportTag";
+import Toast from "../../components/Toast";
 import WhatsAppButton from "../../components/WhatsAppButton";
-import { loadAuth } from "../../auth/store";
+import { loadAuth, type CampSummary } from "../../auth/store";
 import { staffGreeting, whatsappLink } from "../../whatsapp";
 import { ROOM_ROLE_META, staffSex } from "../../api/staff";
+import { takePendingToast } from "../../pendingToast";
 
 import Breadcrumbs from "../../components/Breadcrumbs";
 import CamperForm from "./CamperForm";
 import DetailStack from "./DetailStack";
 import GiveawayPage from "../GiveawayPage";
 import CamperImportPage from "./CamperImportPage";
+import ImportYearPage from "./ImportYearPage";
 import { DownloadGlyph } from "../../components/Glyph";
 import SearchField from "../../components/SearchField";
 import { setPendingImportFile, useWindowFileDrop } from "../../hooks/useFileDrop";
@@ -32,17 +36,23 @@ import { collatorLocale, useI18n } from "../../i18n";
 
 interface CampersPageProps {
   token: string;
-  /** medical team: see everything, filter and open kids, but no create / edit / delete / Excel / print */
+  camp: CampSummary;
+  /** every camp this session may switch into — empty when it can't switch years */
+  camps: CampSummary[];
+  /** medical team: see everything, filter and open kids, but no create / edit / delete / Excel / print — and the health block is still editable in place */
   readOnly?: boolean;
+  /** a history session (archived year): nobody edits anything, not even health — unlike `readOnly`, the admin's own filters/UI stay (never the medical health view) */
+  locked?: boolean;
 }
 
-/** URL → what to show:  /campers · /campers/new · /campers/import · /campers/giveaway · /campers/:id · /campers/:id/edit */
-type Mode = { kind: "view" } | { kind: "create" } | { kind: "import" } | { kind: "giveaway" } | { kind: "edit"; id: string } | { kind: "detail"; id: string };
+/** URL → what to show:  /campers · /campers/new · /campers/import · /campers/import-year · /campers/giveaway · /campers/:id · /campers/:id/edit */
+type Mode = { kind: "view" } | { kind: "create" } | { kind: "import" } | { kind: "import-year" } | { kind: "giveaway" } | { kind: "edit"; id: string } | { kind: "detail"; id: string };
 function modeOf(segments: string[]): Mode {
   const [, id, action] = segments;
   if (!id) return { kind: "view" };
   if (id === "new") return { kind: "create" };
   if (id === "import") return { kind: "import" };
+  if (id === "import-year") return { kind: "import-year" };
   if (id === "giveaway") return { kind: "giveaway" };
   if (action === "edit") return { kind: "edit", id };
   return { kind: "detail", id };
@@ -51,8 +61,11 @@ function modeOf(segments: string[]): Mode {
 type Wing = "all" | "girls" | "boys";
 
 /** Admin: the campers (kids) — searchable list, detail view and create/edit form; read-only for the medical team. */
-export default function CampersPage({ token, readOnly = false }: CampersPageProps) {
+export default function CampersPage({ token, camp, camps, readOnly = false, locked = false }: CampersPageProps) {
   const { tx } = useI18n();
+  const otherCamps = useMemo(() => camps.filter((c) => c.id !== camp.id), [camps, camp.id]);
+  const [importSheetOpen, setImportSheetOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(() => takePendingToast());
   // everything comes from the local store (localStorage + live WebSocket feed)
   const campers = useCollection("campers");
   const categories = useCategories("camper");
@@ -61,7 +74,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
   const { segments, navigate } = useRoute();
   const rawMode = modeOf(segments);
   // read-only viewers can't reach the forms even by URL
-  const mode: Mode = readOnly && (rawMode.kind === "create" || rawMode.kind === "edit" || rawMode.kind === "import" || rawMode.kind === "giveaway") ? { kind: "view" } : rawMode;
+  const mode: Mode = (readOnly || locked) && (rawMode.kind === "create" || rawMode.kind === "edit" || rawMode.kind === "import" || rawMode.kind === "import-year" || rawMode.kind === "giveaway") ? { kind: "view" } : rawMode;
   const confirm = useConfirm();
   // set by the open form; asks save/discard before a breadcrumb navigation leaves the form
   const leaveGuardRef = useRef<(() => Promise<boolean>) | null>(null);
@@ -177,7 +190,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
   }, [campers]);
   const teamById = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
   const teamChipLabel = teamFilter.size === 0 ? tx("Todos os times") : [...teamFilter].map((id) => teamById.get(id)?.name).filter(Boolean).join(", ");
-  const canDropImport = !readOnly && mode.kind === "view" && !!campers && campers.length === 0;
+  const canDropImport = !readOnly && !locked && mode.kind === "view" && !!campers && campers.length === 0;
   const emptyDropOver = useWindowFileDrop((file) => {
     setPendingImportFile(file);
     navigate("/campers/import");
@@ -209,15 +222,19 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
 
   if (mode.kind === "import") return <CamperImportPage token={token} />;
 
+  if (mode.kind === "import-year") {
+    return <ImportYearPage kind="campers" token={token} otherCamps={otherCamps} onBack={() => navigate("/campers")} onDone={() => navigate("/campers", { replace: true })} />;
+  }
+
   if (mode.kind === "detail") {
     return (
       <DetailStack
         token={token}
         current={{ kind: "camper", id: mode.id }}
         rootCrumbs={[{ label: tx("Acampantes"), onClick: () => navigate("/campers") }]}
-        onEditCamper={readOnly ? undefined : (camper) => navigate(`/campers/${camper.id}/edit`)}
-        // read-only here = the medical team: they still edit the kids' HEALTH block in place
-        canEditHealth={readOnly}
+        onEditCamper={readOnly || locked ? undefined : (camper) => navigate(`/campers/${camper.id}/edit`)}
+        // read-only here = the medical team: they still edit the kids' HEALTH block in place — never during a locked history session
+        canEditHealth={readOnly && !locked}
       />
     );
   }
@@ -242,7 +259,7 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
             tx("Acampantes")
           )}
         </h1>
-        {mode.kind === "view" && !readOnly && (
+        {mode.kind === "view" && !readOnly && !locked && (
           <div className="admin-head__actions admin-head__actions--icons">
             <button
               type="button"
@@ -257,9 +274,9 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
             <button
               type="button"
               className="button button--secondary admin-head__new"
-              title={tx("Importar acampantes de uma planilha")}
-              aria-label={tx("Importar acampantes de uma planilha")}
-              onClick={() => navigate("/campers/import")}
+              title={tx("Importar acampantes")}
+              aria-label={tx("Importar acampantes")}
+              onClick={() => (otherCamps.length > 0 ? setImportSheetOpen(true) : navigate("/campers/import"))}
             >
               <img className="admin-head__action-icon" src={ICONS.importCampers} alt="" aria-hidden="true" />
               <span className="admin-head__action-label">{tx("Importar")}</span>
@@ -329,9 +346,19 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
 
       {error && <p className="message message--error">{error}</p>}
 
-      {mode.kind === "view" && !readOnly && (
+      {mode.kind === "view" && !readOnly && !locked && (
         <PrintLabelsDialog open={printOpen} onClose={() => setPrintOpen(false)} campers={visible} allCampers={sortByName(campers)} bedrooms={bedrooms} labelOf={labelOf} />
       )}
+      {mode.kind === "view" && !readOnly && !locked && (
+        <ImportSourceDialog
+          open={importSheetOpen}
+          onClose={() => setImportSheetOpen(false)}
+          sheetIcon={ICONS.importCampers}
+          onPickSheet={() => { setImportSheetOpen(false); navigate("/campers/import"); }}
+          onPickYear={() => { setImportSheetOpen(false); navigate("/campers/import-year"); }}
+        />
+      )}
+      <Toast message={toast} onClose={() => setToast(null)} />
 
       {mode.kind === "create" && (
         <CamperForm token={token} categories={categories} busy={busy} onSubmit={handleCreate} onSexChange={onCreateSex} leaveGuardRef={leaveGuardRef} />
@@ -414,8 +441,8 @@ export default function CampersPage({ token, readOnly = false }: CampersPageProp
           {campers.length === 0 && (
             <div className={`admin-empty${canDropImport ? " admin-empty--drop" : ""}${canDropImport && emptyDropOver ? " admin-empty--over" : ""}`}>
               <img className="admin-empty__icon" src={ICONS.camper} alt="" aria-hidden="true" />
-              <p>{readOnly ? tx("Nenhum acampante ainda.") : tx("Nenhum acampante ainda. Cadastre a primeira criança!")}</p>
-              {!readOnly && (
+              <p>{readOnly || locked ? tx("Nenhum acampante ainda.") : tx("Nenhum acampante ainda. Cadastre a primeira criança!")}</p>
+              {!readOnly && !locked && (
                 <button type="button" className="button button--primary" onClick={() => navigate("/campers/new")}>
                   + {tx("Adicionar")}
                 </button>

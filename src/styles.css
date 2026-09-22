@@ -55,6 +55,7 @@ button, input { font: inherit; }
 .camping-panel__bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; image-rendering: auto; }
 .camping-panel__content { position: relative; padding: 42px 52px 48px; display: flex; flex-direction: column; align-items: center; gap: 22px; }
 .camping-panel__title { margin: 0; color: var(--sand); font-family: var(--font-display); font-size: clamp(1.7rem, 4vw, 2.4rem); font-weight: 800; letter-spacing: -.03em; text-align: center; }
+.camping-panel__camp { margin: -6px 0 0; color: var(--sand); opacity: .85; font-size: .82rem; font-weight: 700; text-align: center; }
 
 .role-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: 100%; }
 .role-card { min-height: 64px; display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 14px 18px; border: 0; border-radius: 16px; cursor: pointer; color: var(--forest-dark); text-align: left; background: var(--sand); box-shadow: 0 5px 0 rgba(0,0,0,.2); transition: transform .2s ease, box-shadow .2s ease; }
@@ -4038,6 +4039,16 @@ body:has(.assign-ghost) .assign-chip:hover { transform: none; box-shadow: none; 
 
 .wizard__foot { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 10px; padding: 12px 0; background: var(--sand); border-top: 2px dashed #d8e1db; z-index: 5; }
 
+/* "Outros anos" step: the sub-toggles nested under "Programação" (com as funções / com a escala) */
+.wizard-previous__sub { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 8px; }
+
+/* Acampantes / Equipe → Importar → Outro ano */
+.import-year__chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+.import-year__row { cursor: pointer; }
+.import-year__checkbox { flex: none; width: 22px; height: 22px; accent-color: var(--forest); cursor: pointer; }
+.import-year__matched { align-self: flex-start; padding: 3px 10px; border-radius: 999px; background: #eef2ef; color: var(--muted); font-size: .72rem; font-weight: 700; }
+.import-year__footer { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 12px 0; background: var(--sand); border-top: 2px dashed #d8e1db; z-index: 5; }
+
 .wizard-list, .wizard-summary { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; text-align: left; }
 .wizard-list li { padding: 8px 12px; border-radius: 12px; background: #eef4ef; color: var(--ink); font-size: .92rem; line-height: 1.4; }
 .wizard-summary li { padding: 8px 12px; border-radius: 12px; background: #f3ede0; color: var(--muted); font-size: .92rem; }
@@ -4094,6 +4105,12 @@ body:has(.assign-ghost) .assign-chip:hover { transform: none; box-shadow: none; 
 .seeds-place { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 3px solid #e4ece5; border-radius: var(--radius); background: #fff; }
 .seeds-place__head { display: flex; align-items: center; gap: 10px; }
 .seeds-place__name { flex: 1; min-width: 0; font-family: var(--font-display); font-weight: 800; color: var(--forest); }
+.camps-list { display: flex; flex-direction: column; gap: 10px; }
+.camps-row__actions { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 2px; }
+.camp-banner { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; padding: 8px 16px; background: var(--sand); color: var(--pine); font-size: .85rem; font-weight: 700; text-align: center; }
+.badge { flex: none; padding: 3px 10px; border-radius: 999px; font-family: var(--font-display); font-weight: 800; font-size: .72rem; text-transform: uppercase; letter-spacing: .02em; }
+.badge--active { background: var(--forest); color: #fff; }
+.badge--archived { background: var(--sand); color: var(--muted); }
 .seeds-roles { display: flex; flex-direction: column; gap: 8px; }
 .seeds-roles__row { display: grid; grid-template-columns: 74px 1fr 170px 190px 34px; gap: 8px; align-items: end; }
 .seeds-roles__emoji .cat-input { text-align: center; }

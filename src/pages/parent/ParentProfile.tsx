@@ -59,7 +59,7 @@ function KidEmergency({ kid: { camper: k }, tabbed }: { kid: MyKid; tabbed: bool
           )}
         </dl>
       </div>
-      <p className="cat-hint">{tx("Para corrigir o contato de emergência ou os documentos, fale com a organização. O convênio você edita em Início → Pontos de atenção.")}</p>
+      <p className="cat-hint">{tx("Para corrigir o contato de emergência ou os documentos, fale com a organização. O convênio você edita em Início → Informações de saúde.")}</p>
     </section>
   );
 }

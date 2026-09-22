@@ -28,6 +28,8 @@ import { collatorLocale, useI18n } from "../../i18n";
 
 interface SchedulePageProps {
   token: string;
+  /** a history session (archived year): no creating or editing events / roles */
+  readOnly?: boolean;
 }
 
 type SubTab = "events" | "roles";
@@ -56,7 +58,7 @@ function modeOf(segments: string[], params: URLSearchParams): { sub: SubTab; mod
   return { sub: "events", mode: { kind: "view" } };
 }
 
-export default function SchedulePage({ token }: SchedulePageProps) {
+export default function SchedulePage({ token, readOnly = false }: SchedulePageProps) {
   const { tx } = useI18n();
   const storedEvents = useCollection("events");
   const events = useMemo(() => (storedEvents ? sortEvents(storedEvents) : null), [storedEvents]);
@@ -64,7 +66,8 @@ export default function SchedulePage({ token }: SchedulePageProps) {
   const roles = useMemo(() => sortRoles(storedRoles), [storedRoles]);
   const staff = useCollectionOrEmpty("staff");
   const { segments, params, navigate } = useRoute();
-  const { sub, mode } = modeOf(segments, params);
+  const { sub, mode: rawMode } = modeOf(segments, params);
+  const mode: Mode = readOnly && (rawMode.kind === "create-event" || rawMode.kind === "edit-event" || rawMode.kind === "create-role" || rawMode.kind === "edit-role") ? { kind: "view" } : rawMode;
   const setSub = (t: SubTab) => navigate(t === "events" ? "/schedule" : "/schedule/roles");
   const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
@@ -219,7 +222,7 @@ export default function SchedulePage({ token }: SchedulePageProps) {
             </>
           )}
         </h1>
-        {!inForm && (
+        {!inForm && !readOnly && (
           <button
             type="button"
             className="button button--primary admin-head__new"
@@ -303,9 +306,11 @@ export default function SchedulePage({ token }: SchedulePageProps) {
         <div className="admin-empty">
           <img className="admin-empty__icon" src={ICONS.schedule} alt="" aria-hidden="true" />
           <p>{tx("Nenhum evento ainda. Monte a programação do acampamento!")}</p>
-          <button type="button" className="button button--primary" onClick={() => navigate("/schedule/events/new")}>
-            {tx("+ Criar evento")}
-          </button>
+          {!readOnly && (
+            <button type="button" className="button button--primary" onClick={() => navigate("/schedule/events/new")}>
+              {tx("+ Criar evento")}
+            </button>
+          )}
         </div>
       )}
 
@@ -315,9 +320,11 @@ export default function SchedulePage({ token }: SchedulePageProps) {
             <header className="room-group__head">
               <h2 className="room-group__title room-group__title--green">📆 {speakDay(d)}</h2>
               <span className="room-group__stats" />
-              <button type="button" className="icon-btn" title={tx("Novo evento em {day}", { day: speakDay(d, "compact") })} disabled={busy} onClick={() => navigate("/schedule/events/new", { query: { date: d } })}>
-                +
-              </button>
+              {!readOnly && (
+                <button type="button" className="icon-btn" title={tx("Novo evento em {day}", { day: speakDay(d, "compact") })} disabled={busy} onClick={() => navigate("/schedule/events/new", { query: { date: d } })}>
+                  +
+                </button>
+              )}
             </header>
             <ol className="timeline">
               {events
@@ -405,9 +412,11 @@ export default function SchedulePage({ token }: SchedulePageProps) {
         <div className="admin-empty">
           <span className="admin-empty__emoji">🎯</span>
           <p>{tx("Nenhuma função ainda. Cadastre o que a equipe faz em cada evento — com instruções!")}</p>
-          <button type="button" className="button button--primary" onClick={() => navigate("/schedule/roles/new")}>
-            {tx("+ Criar função")}
-          </button>
+          {!readOnly && (
+            <button type="button" className="button button--primary" onClick={() => navigate("/schedule/roles/new")}>
+              {tx("+ Criar função")}
+            </button>
+          )}
         </div>
       )}
 

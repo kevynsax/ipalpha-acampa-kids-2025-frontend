@@ -71,7 +71,7 @@ export interface Camper {
   /** set once the kid boarded the bus returning to church */
   busReturnCheckin: CamperCheckin | null;
   createdAt: string;
-  /** ISO — when a parent last edited the "Pontos de atenção"; null until they do (drives the 🕓 history button) */
+  /** ISO — when a parent last edited the "Informações de saúde"; null until they do (drives the 🕓 history button) */
   parentEditedAt: string | null;
   importId: string | null;
   /** Pending/processing imported campers pulse subtly while the worker reviews observations. */
@@ -172,7 +172,7 @@ export async function deleteCamper(token: string, id: string): Promise<void> {
   await command(`/api/campers/${id}`, { method: "DELETE", headers: bearer(token) }, ["campers", "bedrooms"]);
 }
 
-/** The fields a PARENT may edit on their own kid ("Pontos de atenção"). Everything but `generalNotes` is medical. */
+/** The fields a PARENT may edit on their own kid ("Informações de saúde"). Everything but `generalNotes` is medical. */
 export type ParentEditableField = "allergies" | "drugAllergies" | "healthIssues" | "medications" | "foodRestrictions" | "healthNotes" | "weightKg" | "insurance" | "insuranceCard" | "generalNotes";
 export type ParentPatch = Partial<Pick<Camper, ParentEditableField>>;
 
@@ -211,7 +211,7 @@ export interface CamperChange {
   changes: { field: CamperChangeField; before: unknown; after: unknown }[];
 }
 
-/** A PARENT edits the "Pontos de atenção" of their own kid. */
+/** A PARENT edits the "Informações de saúde" of their own kid. */
 export async function parentUpdateCamper(token: string, id: string, patch: ParentPatch): Promise<Camper> {
   const res = await command<{ camper: Camper }>(`/api/campers/${id}/parent`, { method: "PUT", headers: json(token), body: JSON.stringify(patch) }, ["campers"]);
   return res.camper;

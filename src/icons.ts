@@ -114,6 +114,10 @@ export const ICONS = {
   health: icon("health"),
   /** login / settings role: admin */
   admin: icon("admin"),
+  /** teal key wearing a small orange crown, sun sparkle beside — the Superusuário settings page (deployment owner) */
+  superUser: icon("super-user"),
+  /** cream calendar page with a bold orange arrow curving into it — import people / blocks from another year's camp */
+  previousYear: icon("previous-year"),
 } as const;
 
 /** A kid's icon follows the wing of the bedroom (meninas / meninos); without a wing, the probable gender. */

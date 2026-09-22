@@ -33,7 +33,7 @@ export interface NotificationSettings {
   occurrences: boolean;
   /** at `checkinReminder.at` the whole team is reminded to do their check-in (nothing goes out while the date is unset) */
   checkinReminder: boolean;
-  /** a parent edited their kid's "Pontos de atenção": medical data → medical team + admins + caretaker; observations only → caretaker */
+  /** a parent edited their kid's "Informações de saúde": medical data → medical team + admins + caretaker; observations only → caretaker */
   parentEdits: boolean;
   /** the kid boarded the bus → the guardian is texted */
   busCheckin: boolean;

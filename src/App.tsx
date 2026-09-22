@@ -2,7 +2,8 @@ import { useEffect, useState, type ReactElement } from "react";
 import { ApiError } from "./api/client";
 import CampingLayout from "./components/CampingLayout";
 import StaffAccessDialog from "./components/StaffAccessDialog";
-import { clearAuth, clearPendingOtp, loadAuth, loadPendingOtp, saveAuth, savePendingOtp, switchRole } from "./auth/store";
+import Toast from "./components/Toast";
+import { clearAuth, clearPendingOtp, loadAuth, loadPendingOtp, saveAuth, savePendingOtp, switchCamp, switchRole, validateAuth, type CampSummary } from "./auth/store";
 import Dashboard from "./pages/Dashboard";
 import RoleSwitchDialog from "./components/RoleSwitchDialog";
 import OtpStep from "./pages/OtpStep";
@@ -22,35 +23,74 @@ interface OtpContext {
   delivery: "sms" | "mock" | "redirect";
 }
 
+interface Session {
+  user: LoggedUser;
+  token: string;
+  tokenExpiresAt: string;
+  camp: CampSummary;
+  camps: CampSummary[];
+}
+
 export default function App() {
-  const { t } = useI18n();
+  const { t, tx } = useI18n();
   const [step, setStep] = useState<Step>("phone");
   const [phoneMasked, setPhoneMasked] = useState("");
   const [otp, setOtp] = useState<OtpContext | null>(null);
   /** set when the server kicked the person out because the team's access window closed */
   const [evicted, setEvicted] = useState<ApiError | null>(null);
+  /** CAMP_ARCHIVED / CAMP_FORBIDDEN messages from anywhere in the app (see api/client.ts) */
+  const [campToast, setCampToast] = useState<string | null>(null);
 
   // restore an existing session (still within its 4-day window)
-  const [session, setSession] = useState<{ user: LoggedUser; token: string; tokenExpiresAt: string } | null>(
-    null,
-  );
+  const [session, setSession] = useState<Session | null>(null);
   /** just logged in holding more than one profile: ask which one before letting them in */
   const [choosingRole, setChoosingRole] = useState(false);
   useEffect(() => {
     const stored = loadAuth();
-    if (stored) {
-      setSession({ user: stored.user, token: stored.token, tokenExpiresAt: stored.tokenExpiresAt });
+    if (!stored) {
+      // an SMS was already sent and is still valid → go straight to the code step with the real expiry
+      const pending = loadPendingOtp();
+      if (pending) {
+        setOtp(pending);
+        setPhoneMasked(formatBrazilPhoneClient(pending.phoneE164));
+        setStep("otp");
+      }
+      return;
+    }
+    // a session saved before camps existed has no `camp` yet — fill it in from the server
+    if (stored.camp) {
+      setSession({ user: stored.user, token: stored.token, tokenExpiresAt: stored.tokenExpiresAt, camp: stored.camp, camps: stored.camps ?? [] });
       setStep("done");
       return;
     }
-    // an SMS was already sent and is still valid → go straight to the code step with the real expiry
-    const pending = loadPendingOtp();
-    if (pending) {
-      setOtp(pending);
-      setPhoneMasked(formatBrazilPhoneClient(pending.phoneE164));
-      setStep("otp");
-    }
+    validateAuth(stored.token).then((res) => {
+      if (!res) {
+        resetToLogin();
+        return;
+      }
+      const next = { token: stored.token, tokenExpiresAt: stored.tokenExpiresAt, user: res.user, camp: res.camp, camps: res.camps };
+      saveAuth(next);
+      setSession(next);
+      setStep("done");
+    });
   }, []);
+
+  useEffect(() => {
+    function onCampError(e: Event) {
+      const detail = (e as CustomEvent<{ code: string; message: string }>).detail;
+      if (!detail) return;
+      if (detail.code === "CAMP_ARCHIVED") {
+        setCampToast(detail.message || tx("Este ano está arquivado — só leitura."));
+      } else if (detail.code === "CAMP_FORBIDDEN") {
+        setCampToast(tx("Você não tem acesso a esse ano."));
+        const activeId = session?.camps.find((c) => c.active)?.id;
+        if (activeId && activeId !== session?.camp.id) void applyCamp(activeId);
+      }
+    }
+    window.addEventListener("acampa:camp-error", onCampError);
+    return () => window.removeEventListener("acampa:camp-error", onCampError);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
 
   function resetToLogin() {
     setSession(null);
@@ -86,12 +126,24 @@ export default function App() {
     if (!session) return;
     const res = await switchRole(session.token, role);
     clearStore();
-    saveAuth({ token: res.token, tokenExpiresAt: res.tokenExpiresAt, user: res.user });
-    setSession({ user: res.user, token: res.token, tokenExpiresAt: res.tokenExpiresAt });
+    const next = { token: res.token, tokenExpiresAt: res.tokenExpiresAt, user: res.user, camp: res.camp, camps: res.camps ?? session.camps };
+    saveAuth(next);
+    setSession(next);
     // the other profile has its own menu: the screen we were on (usually
     // #/profile, where the chip lives) means nothing there → drop the path and
     // let the dashboard land on the new profile's first tab. `replace` so Back
     // doesn't bounce into the previous role's page.
+    navigate("/", { replace: true });
+  }
+
+  /** admin, or an organizer of the active camp: switches into another year — same wipe-and-reconnect dance as `applyRole` */
+  async function applyCamp(campId: string) {
+    if (!session) return;
+    const res = await switchCamp(session.token, campId);
+    clearStore();
+    const next = { token: res.token, tokenExpiresAt: res.tokenExpiresAt, user: res.user, camp: res.camp, camps: res.camps ?? session.camps };
+    saveAuth(next);
+    setSession(next);
     navigate("/", { replace: true });
   }
 
@@ -115,6 +167,7 @@ export default function App() {
             setChoosingRole(false);
           }}
         />
+        <Toast message={campToast} onClose={() => setCampToast(null)} />
       </>
     );
   }
@@ -126,12 +179,16 @@ export default function App() {
         <Dashboard
           user={session.user}
           token={session.token}
+          camp={session.camp}
+          camps={session.camps}
           onLoggedOut={() => {
             clearStore();
             resetToLogin();
           }}
           onSwitchRole={applyRole}
+          onSwitchCamp={applyCamp}
         />
+        <Toast message={campToast} onClose={() => setCampToast(null)} />
       </>
     );
   }
@@ -150,10 +207,11 @@ export default function App() {
           savePendingOtp(next);
           setOtp(next);
         }}
-        onVerified={({ token, tokenExpiresAt, user }) => {
+        onVerified={({ token, tokenExpiresAt, user, camp, camps }) => {
           clearPendingOtp();
-          saveAuth({ token, tokenExpiresAt, user });
-          setSession({ user, token, tokenExpiresAt });
+          const next = { token, tokenExpiresAt, user, camp, camps: camps ?? [] };
+          saveAuth(next);
+          setSession(next);
           // the login always lands on the highest-priority profile: let them
           // pick when they hold more than one (mãe que também é da equipe)
           setChoosingRole(user.roles.length > 1);
@@ -184,6 +242,7 @@ export default function App() {
       <VersionMark />
       <CampingLayout>{content}</CampingLayout>
       <StaffAccessDialog error={evicted} onClose={() => setEvicted(null)} />
+      <Toast message={campToast} onClose={() => setCampToast(null)} />
     </>
   );
 }

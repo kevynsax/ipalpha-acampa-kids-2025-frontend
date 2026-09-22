@@ -771,4 +771,89 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "🧪 Probar el sistema",
     fr: "🧪 Tester le système",
   },
+  "Outros anos": {
+    en: "Other years",
+    es: "Otros años",
+    fr: "Autres années",
+  },
+  "Não foi possível carregar.": {
+    en: "Could not load.",
+    es: "No se pudo cargar.",
+    fr: "Impossible de charger.",
+  },
+  "{campers} acampantes · {staff} na equipe": {
+    en: "{campers} campers · {staff} on staff",
+    es: "{campers} campistas · {staff} en el equipo",
+    fr: "{campers} campeurs · {staff} dans l'équipe",
+  },
+  "Traga o que já existe de outro acampamento: categorias, times, quartos, ônibus, equipe, acampantes, programação, documentos e configurações. Cada bloco vira gente e registro NOVOS deste ano — nada aqui altera o ano de origem.": {
+    en: "Bring in what already exists from another camp: categories, teams, rooms, buses, staff, campers, schedule, documents and settings. Each block becomes NEW people and records this year — nothing here touches the source year.",
+    es: "Trae lo que ya existe de otro campamento: categorías, equipos, habitaciones, autobuses, equipo, campistas, programación, documentos y configuraciones. Cada bloque se convierte en gente y registros NUEVOS este año — nada aquí altera el año de origen.",
+    fr: "Apportez ce qui existe déjà dans un autre camp : catégories, équipes, chambres, bus, équipe, campeurs, programme, documents et réglages. Chaque bloc devient des personnes et des enregistrements NEUFS cette année — rien ici ne touche l'année source.",
+  },
+  "O que importar": {
+    en: "What to import",
+    es: "Qué importar",
+    fr: "Quoi importer",
+  },
+  "com as funções": {
+    en: "with the roles",
+    es: "con las funciones",
+    fr: "avec les fonctions",
+  },
+  "com a escala": {
+    en: "with the roster",
+    es: "con la escala",
+    fr: "avec le planning",
+  },
+  "Para importar a escala, importe também a Equipe.": {
+    en: "To import the roster, import Staff too.",
+    es: "Para importar la escala, importa también el Equipo.",
+    fr: "Pour importer le planning, importez aussi l'Équipe.",
+  },
+  "Para manter quarto, time e ônibus das pessoas, importe esses blocos também.": {
+    en: "To keep people's room, team and bus, import those blocks too.",
+    es: "Para mantener habitación, equipo y autobús de las personas, importa también esos bloques.",
+    fr: "Pour garder la chambre, l'équipe et le bus des personnes, importez aussi ces blocs.",
+  },
+  "Importar de {year}": {
+    en: "Import from {year}",
+    es: "Importar de {year}",
+    fr: "Importer depuis {year}",
+  },
+  "Pode rodar de novo sem medo — quem já está neste ano é ignorado, nunca duplicado.": {
+    en: "Safe to run again — anyone already in this year is skipped, never duplicated.",
+    es: "Puedes repetirlo sin miedo — quien ya está en este año se ignora, nunca se duplica.",
+    fr: "Peut être relancé sans risque — qui est déjà dans cette année est ignoré, jamais dupliqué.",
+  },
+  "categoria": {
+    en: "category",
+    es: "categoría",
+    fr: "catégorie",
+  },
+  "categorias": {
+    en: "categories",
+    es: "categorías",
+    fr: "catégories",
+  },
+  "configuração": {
+    en: "setting",
+    es: "configuración",
+    fr: "réglage",
+  },
+  "configurações": {
+    en: "settings",
+    es: "configuraciones",
+    fr: "réglages",
+  },
+  "Nada novo para importar": {
+    en: "Nothing new to import",
+    es: "Nada nuevo para importar",
+    fr: "Rien de nouveau à importer",
+  },
+  "{summary} · {n} já estavam aqui": {
+    en: "{summary} · {n} were already here",
+    es: "{summary} · {n} ya estaban aquí",
+    fr: "{summary} · {n} étaient déjà là",
+  },
 };

@@ -4,10 +4,22 @@ import type { LoggedUser } from "../roles";
 
 const STORAGE_KEY = "acampa.auth";
 
+/** One camp in the registry, as a session carries it. */
+export interface CampSummary {
+  id: string;
+  label: string;
+  year: number;
+  active: boolean;
+  archivedAt?: string | null;
+}
+
 export interface AuthState {
   token: string;
   tokenExpiresAt: string; // ISO
   user: LoggedUser;
+  camp: CampSummary;
+  /** every camp this session may switch into — empty when it can't switch years */
+  camps: CampSummary[];
 }
 
 /** Saves the session in the browser; it auto-clears after the token expiry (checked on load). */
@@ -77,12 +89,12 @@ export function bearer(token: string): Record<string, string> {
 }
 
 /** Validates the stored token against the backend (GET /api/auth/me). */
-export async function validateAuth(token: string): Promise<LoggedUser | null> {
+export async function validateAuth(token: string): Promise<{ user: LoggedUser; camp: CampSummary; camps: CampSummary[] } | null> {
   try {
-    const res = await api<{ user: LoggedUser }>("/api/auth/me", {
+    const res = await api<{ user: LoggedUser; camp: CampSummary; camps?: CampSummary[] }>("/api/auth/me", {
       headers: bearer(token),
     });
-    return res.user;
+    return { user: res.user, camp: res.camp, camps: res.camps ?? [] };
   } catch {
     return null;
   }
@@ -108,6 +120,8 @@ export interface OtpVerifyResult {
   token: string;
   tokenExpiresAt: string;
   user: LoggedUser;
+  camp: CampSummary;
+  camps?: CampSummary[];
 }
 
 export async function verifyOtp(phoneE164: string, code: string): Promise<OtpVerifyResult> {
@@ -126,6 +140,19 @@ export async function switchRole(token: string, role: LoggedUser["activeRole"]):
     method: "POST",
     headers: bearer(token),
     body: JSON.stringify({ role }),
+  });
+}
+
+/**
+ * Switches the session into another camp (year): the server revokes this
+ * session and issues a new one in the target camp. Admin, or an organizer of
+ * the active camp, only.
+ */
+export async function switchCamp(token: string, campId: string): Promise<OtpVerifyResult> {
+  return api<OtpVerifyResult>("/api/auth/camp", {
+    method: "POST",
+    headers: bearer(token),
+    body: JSON.stringify({ campId }),
   });
 }
 

@@ -5,7 +5,8 @@ import { useCampTiming, type CampPhase } from "../campPhase";
 import { useI18n } from "../i18n";
 import { useRoute, useScrollTopOnRoute } from "../router";
 import Logo from "../components/Logo";
-import { logout } from "../auth/store";
+import { logout, type CampSummary } from "../auth/store";
+import { campBrandLabel } from "../camps";
 import { roleMeta, type LoggedUser, type Role } from "../roles";
 import { ICONS } from "../icons";
 import { updateStaff } from "../api/staff";
@@ -50,6 +51,8 @@ import GameOrganizersPage from "./admin/GameOrganizersPage";
 import TrialsPage from "./admin/TrialsPage";
 import CleanupPage from "./admin/CleanupPage";
 import SeedsPage from "./admin/SeedsPage";
+import SuperPage from "./admin/SuperPage";
+import Breadcrumbs from "../components/Breadcrumbs";
 import ScoreboardPage from "./ScoreboardPage";
 import GalleryPage from "./GalleryPage";
 import { useCheckinHelper, type HelperAccess } from "../hooks/useCheckinHelper";
@@ -70,16 +73,21 @@ import { FabPortalProvider } from "../components/FabPortal";
 interface DashboardProps {
   user: LoggedUser;
   token: string;
+  camp: CampSummary;
+  /** every camp this session may switch into — empty when it can't switch years */
+  camps: CampSummary[];
   onLoggedOut: () => void;
   /** switches the session to another profile the same person holds (parent ⇄ equipe) */
   onSwitchRole: (role: Role) => Promise<void>;
+  /** switches the session into another year (admin, or an organizer of the active camp) */
+  onSwitchCamp: (campId: string) => Promise<void>;
 }
 
 /** "profile" is not a tab: it opens when the user clicks their own name in the header. "settings" (phones only) is the settings MENU — the big list an entry is chosen from. "wizard" is the setup assistant, which takes over the whole body (no tabs). */
 type View = TabKey | "profile" | "badge" | "settings" | "wizard" | SettingsKey;
 
-/** Admin settings live behind the ⚙️ button; each one is its own URL (#/categories, #/settings). `superOnly`: just the deployment owner (SUPER_ADMIN_PHONE) — Sementes. */
-type SettingsKey = "general" | "trials" | "categories" | "cleanup" | "preparation" | "instructions-admin" | "checkin-settings" | "organizers" | "game-organizers" | "medical" | "vests-settings" | "photographers" | "contacts" | "notifications" | "seeds" | "about";
+/** Admin settings live behind the ⚙️ button; each one is its own URL (#/categories, #/settings). `superOnly`: just the deployment owner (SUPER_ADMIN_PHONE). */
+type SettingsKey = "general" | "trials" | "categories" | "cleanup" | "preparation" | "instructions-admin" | "checkin-settings" | "organizers" | "game-organizers" | "medical" | "vests-settings" | "photographers" | "contacts" | "notifications" | "super" | "about";
 /** `adminOnly`: an ORGANIZER (Settings → Organizadores) gets every other page — these four stay with the real admin. `superOnly`: only the deployment owner. */
 const SETTINGS: readonly { key: SettingsKey; label: string; emoji?: string; icon?: string; adminOnly?: boolean; superOnly?: boolean }[] = [
   { key: "general", label: "Geral", emoji: "⚙️" },
@@ -96,7 +104,7 @@ const SETTINGS: readonly { key: SettingsKey; label: string; emoji?: string; icon
   { key: "trials", label: "Testes", emoji: "🚧" },
   { key: "categories", label: "Categorias", emoji: "🗂️", adminOnly: true },
   { key: "cleanup", label: "Limpeza", icon: ICONS.cleanup, adminOnly: true },
-  { key: "seeds", label: "Sementes", emoji: "🌱", adminOnly: true, superOnly: true },
+  { key: "super", label: "Acampamentos", icon: ICONS.superUser, adminOnly: true },
   { key: "about", label: "Sobre", emoji: "ℹ️", adminOnly: true },
 ] as const;
 
@@ -213,9 +221,13 @@ function tabsFor(role: Role, phase: CampPhase, helper: HelperAccess, roomsDraft:
  * Clicking the user's name opens their profile (no tab). Roles without tabs
  * land on the profile.
  */
-export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: DashboardProps) {
+export default function Dashboard({ user, token, camp, camps, onLoggedOut, onSwitchRole, onSwitchCamp }: DashboardProps) {
   const { tx } = useI18n();
   const meta = roleMeta(user.activeRole);
+  /** an archived year: read-only for everyone but the super admin (checked per write, on the server) */
+  const isHistory = !camp.active;
+  const activeCamp = camps.find((c) => c.active) ?? null;
+  const brandLabel = campBrandLabel(camp.label, camp.year);
   const { phase, synced, during, endsAt } = useCampTiming();
   const isTeam = user.activeRole === "staff" || user.activeRole === "health_staff";
   const isParent = user.activeRole === "parent";
@@ -281,8 +293,8 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   /** the admin, or a team member listed as ORGANIZER: the admin's pages and the ⚙️ settings (minus the admin-only ones) */
   const isAdmin = user.activeRole === "admin";
   const settingsAllowed = isAdmin || helper.organizer;
-  /** camp-admin lock from the super-admin handover: wizard takes over until they finish or leave (the deployment owner is never locked) */
-  const wizardLocked = isAdmin && !!settings?.wizardMode && !settings?.superAdmin;
+  /** camp-admin lock from the super-admin handover: wizard takes over until they finish or leave (the deployment owner is never locked); never during a history session */
+  const wizardLocked = isAdmin && !!settings?.wizardMode && !settings?.superAdmin && !isHistory;
   /**
    * Phones: up to 5 menu entries (Perfil does NOT count — it lives in the app
    * bar as the person's name) become a bottom bar with an app bar above it;
@@ -291,14 +303,16 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
    * Preparação + Instruções pair, which shares one entry (`mergesPrep`).
    */
   const useMobileBottomNav = bottomTabs.length > 0 && bottomTabs.length <= 5 && !settingsAllowed;
-  /** the settings pages this session may open (Sementes: deployment owner only) */
-  const settingsPages = SETTINGS.filter((s) => (isAdmin || !s.adminOnly) && (!s.superOnly || !!settings?.superAdmin));
+  /** the settings pages this session may open (Sementes: deployment owner only; Limpeza: never on a history session) */
+  const settingsPages = SETTINGS.filter((s) => (isAdmin || !s.adminOnly) && (!s.superOnly || !!settings?.superAdmin) && !(isHistory && s.key === "cleanup")).map((s) =>
+    s.key === "super" ? { ...s, label: settings?.superAdmin ? "Superusuário" : "Acampamentos" } : s,
+  );
   /** desktop ⚙️ landing — Notificações for the admin; organizers have no such page, so Geral */
   /** the settings page the ⚙️ lands on: always Geral — the menu (phones) stays one ‹ away */
   const settingsHome: SettingsKey = settingsPages.find((s) => s.key === "general")?.key ?? settingsPages[0].key;
   const isSettingsKey = (s: string | undefined): s is SettingsKey => settingsPages.some((x) => x.key === s);
   const managesTeams = settingsAllowed || helper.gameOrganizer;
-  const isView = (s: string | undefined): s is View => s === "profile" || (s === "wizard" && isAdmin) || (s === "badge" && !isParent && during) || (settingsAllowed && (s === "settings" || isSettingsKey(s))) || (managesTeams && (s === "teams" || s === "scoreboard")) || tabs.some((t) => t.key === s);
+  const isView = (s: string | undefined): s is View => s === "profile" || (s === "wizard" && isAdmin && !isHistory) || (s === "badge" && !isParent && during) || (settingsAllowed && (s === "settings" || isSettingsKey(s))) || (managesTeams && (s === "teams" || s === "scoreboard")) || tabs.some((t) => t.key === s);
   const rawView: View = isView(segments[0]) ? segments[0] : tabs[0]?.key ?? "profile";
   const view: View = wizardLocked && rawView !== "profile" && rawView !== "wizard" ? "wizard" : rawView;
   /** the tab we auto-landed on BEFORE the programme had arrived (the phase, hence the default, may still change) */
@@ -344,7 +358,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
   const prepList = useCollectionOrEmpty("preparation");
   const instrList = useCollectionOrEmpty("instructions");
   useEffect(() => {
-    if (!isAdmin || !hydrated) return;
+    if (!isAdmin || !hydrated || isHistory) return;
     if (wizardLocked) {
       if (view !== "wizard" && view !== "profile") navigate("/wizard", { replace: true });
       return;
@@ -416,7 +430,9 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
       : settingsMenuOpen
       ? { label: "Configurações", icon: undefined, emoji: "⚙️" }
       : currentSetting
-      ? { label: currentSetting.label, icon: currentSetting.icon, emoji: currentSetting.emoji }
+      ? view === "super" && segments[1] === "seeds"
+        ? { label: "Sementes", icon: undefined, emoji: "🌱" }
+        : { label: currentSetting.label, icon: currentSetting.icon, emoji: currentSetting.emoji }
       : view === "badge"
         ? { label: "Ler crachá", icon: undefined, emoji: "🎟️" }
         : { label: currentTab?.label ?? "Acampa Kids", icon: currentTab?.icon, emoji: currentTab?.emoji };
@@ -460,7 +476,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
 
         <div className="dash-brand">
           <Logo size={48} />
-          <span className="dash-brand__name">Acampa Kids</span>
+          <span className="dash-brand__name">{brandLabel}</span>
         </div>
 
         <span className="dash-current-view" aria-live="polite">
@@ -510,6 +526,17 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
           <span className="dash-top-logo" aria-hidden="true"><Logo size={34} /></span>
         </div>
       </header>
+
+      {isHistory && (
+        <p className="camp-banner">
+          🔒 <strong>{tx("{label} — arquivado, só leitura", { label: camp.label })}</strong>
+          {activeCamp && (
+            <button type="button" className="link-btn" onClick={() => void onSwitchCamp(activeCamp.id)}>
+              {tx("Voltar para {year}", { year: activeCamp.year })}
+            </button>
+          )}
+        </p>
+      )}
 
       {tabs.length > 0 && !wizardOpen && !wizardLocked && (
       <nav id="dashboard-menu" className={`dash-tabs ${mobileMenuOpen ? "dash-tabs--open" : ""}`} role="tablist" aria-label={tx("Seções")}>
@@ -605,7 +632,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
         <nav className={`dash-side-nav ${mobileMenuOpen ? "dash-side-nav--open" : ""}`} aria-label={tx("Seções")}>
           <div className="dash-side-nav__brand">
             <Logo size={42} />
-            <span>Acampa Kids</span>
+            <span>{brandLabel}</span>
           </div>
 
           <div className="dash-side-nav__menu">
@@ -731,7 +758,7 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
           <HideScanFabContext.Provider value={bumpFormsOpen}>
             {view === "badge" && <EmergencyScanFab token={token} page />}
             {view === "wizard" && (
-              <WizardPage token={token} user={user} onExit={() => navigate("/", { replace: true })} />
+              <WizardPage token={token} user={user} camp={camp} camps={camps} onExit={() => navigate("/", { replace: true })} />
             )}
             {view === "home" && (isParent ? <ParentHomePage user={user} token={token} access={parentAccess} /> : <HomePage user={user} token={token} medical={helper.medical} />)}
             {view === "prep" && (isParent ? <ParentPreparationPage user={user} token={token} /> : <PreparationPage user={user} token={token} pairedWith={mergesPrep ? () => goTo("instructions") : undefined} />)}
@@ -740,18 +767,24 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
             {view === "instructions" && <InstructionsPage user={user} pairedWith={mergesPrep ? () => goTo("prep") : undefined} />}
             {view === "occurrences" && <OccurrencesPage token={token} audience={isAdmin ? "admin" : helper.organizer ? "organizer" : "medical"} />}
             {view === "medications" && <MedicationsPage token={token} />}
-            {view === "campers" && <CampersPage token={token} readOnly={!settingsAllowed} />}
-            {view === "staff" && <StaffPage token={token} readOnly={!settingsAllowed} />}
+            {view === "campers" && <CampersPage token={token} camp={camp} camps={camps} readOnly={!settingsAllowed} locked={isHistory} />}
+            {view === "staff" && <StaffPage token={token} camp={camp} camps={camps} readOnly={!settingsAllowed || isHistory} />}
             {view === "bedrooms" && segments[1] === "assign" &&
-              (settingsAllowed ? <RoomAssignPage token={token} onBack={() => navigate("/bedrooms")} /> : <BedroomsPage token={token} readOnly />)}
-            {view === "bedrooms" && segments[1] !== "assign" && <BedroomsPage token={token} readOnly={!settingsAllowed} />}
-            {view === "schedule" && (isParent ? <ParentSchedulePage /> : settingsAllowed || helper.gameOrganizer ? <SchedulePage token={token} /> : <MySchedulePage user={user} />)}
+              (settingsAllowed && !isHistory ? <RoomAssignPage token={token} onBack={() => navigate("/bedrooms")} /> : <BedroomsPage token={token} readOnly />)}
+            {view === "bedrooms" && segments[1] !== "assign" && <BedroomsPage token={token} readOnly={!settingsAllowed || isHistory} />}
+            {view === "schedule" && (isParent ? <ParentSchedulePage /> : settingsAllowed || helper.gameOrganizer ? <SchedulePage token={token} readOnly={isHistory} /> : <MySchedulePage user={user} />)}
             {view === "categories" && <CategoriesPage token={token} />}
             {view === "buses" && <BusAssignPage token={token} />}
             {view === "general" && <GeneralSettingsPage token={token} />}
             {view === "trials" && <TrialsPage token={token} isAdmin={isAdmin} />}
-            {view === "cleanup" && <CleanupPage token={token} />}
-            {view === "seeds" && <SeedsPage token={token} />}
+            {view === "cleanup" && <CleanupPage token={token} camp={camp} onSwitchCamp={onSwitchCamp} />}
+            {view === "super" && segments[1] === "seeds" && (
+              <>
+                <Breadcrumbs items={[{ label: tx(currentSetting?.label ?? "Acampamentos"), onClick: () => goTo("super") }, { label: tx("Sementes") }]} />
+                <SeedsPage token={token} />
+              </>
+            )}
+            {view === "super" && segments[1] !== "seeds" && <SuperPage token={token} user={user} camp={camp} onSwitchCamp={onSwitchCamp} />}
             {view === "checkin-settings" && <CheckinSettingsPage token={token} />}
             {view === "organizers" && <OrganizersPage token={token} />}
             {view === "medical" && <MedicalStaffPage token={token} />}
@@ -798,7 +831,20 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
             {view === "staffcheckin" && <StaffCheckinPage token={token} />}
             {view === "profile" && (isParent
               ? <ParentProfile user={user} onLogout={handleLogout} loggingOut={loggingOut} onSwitchRole={onSwitchRole} />
-              : <ProfileView token={token} user={user} isAdmin={isAdmin} onLogout={handleLogout} loggingOut={loggingOut} onSwitchRole={onSwitchRole} onOpenWizard={isAdmin ? () => { setWizardDismissed(false); goTo("wizard"); } : undefined} />)}
+              : (
+                <ProfileView
+                  token={token}
+                  user={user}
+                  isAdmin={isAdmin}
+                  camp={camp}
+                  camps={camps}
+                  onLogout={handleLogout}
+                  loggingOut={loggingOut}
+                  onSwitchRole={onSwitchRole}
+                  onSwitchCamp={onSwitchCamp}
+                  onOpenWizard={isAdmin && !isHistory ? () => { setWizardDismissed(false); goTo("wizard"); } : undefined}
+                />
+              ))}
           </HideScanFabContext.Provider>
         </TabOverrideContext.Provider>
       </main>
@@ -827,7 +873,30 @@ export default function Dashboard({ user, token, onLoggedOut, onSwitchRole }: Da
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function ProfileView({ token, user, isAdmin, onLogout, loggingOut, onSwitchRole, onOpenWizard }: { token: string; user: LoggedUser; isAdmin: boolean; onLogout: () => void; loggingOut: boolean; onSwitchRole: (role: Role) => Promise<void>; /** admin only: reopen the setup wizard */ onOpenWizard?: () => void }) {
+function ProfileView({
+  token,
+  user,
+  isAdmin,
+  camp,
+  camps,
+  onLogout,
+  loggingOut,
+  onSwitchRole,
+  onSwitchCamp,
+  onOpenWizard,
+}: {
+  token: string;
+  user: LoggedUser;
+  isAdmin: boolean;
+  camp: CampSummary;
+  camps: CampSummary[];
+  onLogout: () => void;
+  loggingOut: boolean;
+  onSwitchRole: (role: Role) => Promise<void>;
+  onSwitchCamp: (campId: string) => Promise<void>;
+  /** admin only: reopen the setup wizard */
+  onOpenWizard?: () => void;
+}) {
   const { tx } = useI18n();
   const meta = roleMeta(user.activeRole);
   const otherRoles = user.roles.filter((r) => r !== user.activeRole);
@@ -835,6 +904,8 @@ function ProfileView({ token, user, isAdmin, onLogout, loggingOut, onSwitchRole,
   const me = roster.find((s) => s.phone === user.phone);
   const [switchingTo, setSwitchingTo] = useState<Role | null>(null);
   const [switchError, setSwitchError] = useState<string | null>(null);
+  const [switchingCampTo, setSwitchingCampTo] = useState<string | null>(null);
+  const [campSwitchError, setCampSwitchError] = useState<string | null>(null);
   const [editingEmail, setEditingEmail] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
   const [emailBusy, setEmailBusy] = useState(false);
@@ -865,6 +936,19 @@ function ProfileView({ token, user, isAdmin, onLogout, loggingOut, onSwitchRole,
     } catch (err) {
       setSwitchError(err instanceof Error ? err.message : tx("Não foi possível trocar de perfil."));
       setSwitchingTo(null);
+    }
+  }
+
+  /** one tap on another year enters it — no confirm, same as switching profiles */
+  async function enterCamp(id: string) {
+    if (switchingCampTo) return;
+    setSwitchingCampTo(id);
+    setCampSwitchError(null);
+    try {
+      await onSwitchCamp(id);
+    } catch (err) {
+      setCampSwitchError(err instanceof Error ? err.message : tx("Não foi possível trocar de ano."));
+      setSwitchingCampTo(null);
     }
   }
 
@@ -932,9 +1016,37 @@ function ProfileView({ token, user, isAdmin, onLogout, loggingOut, onSwitchRole,
             </span>
           </div>
         )}
+        {camps.length > 1 && (
+          <div className="user-card__row">
+            <span className="user-card__label">{tx("Ano")}</span>
+            <span className="user-card__roles">
+              {camps.map((c) => {
+                const current = c.id === camp.id;
+                const label = `${c.active ? "" : "🔒 "}${c.year}`;
+                return current ? (
+                  <span key={c.id} className="role-chip role-chip--small role-chip--bare">
+                    {label}
+                  </span>
+                ) : (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className="role-chip role-chip--small role-chip--switch"
+                    disabled={!!switchingCampTo}
+                    onClick={() => void enterCamp(c.id)}
+                    title={tx("Entrar em {year}", { year: c.year })}
+                  >
+                    {switchingCampTo === c.id ? tx("Entrando…") : label}
+                  </button>
+                );
+              })}
+            </span>
+          </div>
+        )}
       </div>
 
       {switchError && <p className="message message--error">{switchError}</p>}
+      {campSwitchError && <p className="message message--error">{campSwitchError}</p>}
 
       <Dialog open={editingEmail} onClose={() => !emailBusy && setEditingEmail(false)} title={tx("Trocar e-mail")} width={480} dismissible={!emailBusy} className="sheet-dialog" autofocus>
         <div className="cat-form cat-form--plain">

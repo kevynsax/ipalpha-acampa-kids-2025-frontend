@@ -263,6 +263,8 @@ function seedScenario(scenario: ShellScenario): void {
     token: "dev",
     tokenExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     user: scenario.user,
+    camp: { id: "dev-camp", label: "Acampa Kids 2026", year: 2026, active: true, archivedAt: null },
+    camps: [],
   });
 }
 
@@ -294,5 +296,15 @@ export default function ShellPreview() {
     return <p style={{ padding: 24 }}>Unknown shell scenario: {shellKey}</p>;
   }
 
-  return <Dashboard user={scenario.user} token="dev" onLoggedOut={() => location.reload()} onSwitchRole={async () => {}} />;
+  return (
+    <Dashboard
+      user={scenario.user}
+      token="dev"
+      camp={{ id: "dev-camp", label: "Acampa Kids 2026", year: 2026, active: true, archivedAt: null }}
+      camps={[]}
+      onLoggedOut={() => location.reload()}
+      onSwitchRole={async () => {}}
+      onSwitchCamp={async () => {}}
+    />
+  );
 }

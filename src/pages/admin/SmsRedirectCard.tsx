@@ -17,7 +17,7 @@ const toMasked = (e164: string | null) => (e164 ? maskBrazilPhone(e164.replace(/
  * member (login code + notifications) goes to the STAFF test phone and every
  * text meant for a parent goes to the PARENT test phone — so the admin can
  * rehearse the whole flow (logins, roster changes, check-ins…) without
- * texting real people. Admins keep receiving their own login codes.
+ * texting real people. Admins keep receiving their own login codes and admin invitations.
  */
 export default function SmsRedirectCard({ token }: SmsRedirectCardProps) {
   const { tx } = useI18n();
@@ -66,7 +66,7 @@ export default function SmsRedirectCard({ token }: SmsRedirectCardProps) {
       <p className="cat-hint">
         {tx("Ligado,")} <strong>{tx("nenhum SMS chega às pessoas de verdade")}</strong>
         {tx(": o código de login e os avisos da")} <strong>{tx("equipe")}</strong> {tx("vão para o primeiro celular, os dos")}{" "}
-        <strong>{tx("pais")}</strong> {tx("para o segundo. Sem celular em um dos campos, os SMS daquele grupo não saem. Os admins continuam recebendo o próprio código.")}
+        <strong>{tx("pais")}</strong> {tx("para o segundo. Sem celular em um dos campos, os SMS daquele grupo não saem. Administradores continuam recebendo diretamente os próprios códigos e convites de admin.")}
       </p>
       <form
         className="cat-form__row staff-form__row sms-form"

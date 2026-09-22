@@ -211,6 +211,16 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "Equipo que cuida de {name}",
     fr: "Équipe qui s'occupe de {name}",
   },
+  "Equipe que cuida da {name}": {
+    en: "Team looking after {name}",
+    es: "Equipo que cuida de {name}",
+    fr: "Équipe qui s'occupe de {name}",
+  },
+  "Equipe que cuida do {name}": {
+    en: "Team looking after {name}",
+    es: "Equipo que cuida de {name}",
+    fr: "Équipe qui s'occupe de {name}",
+  },
   "A equipe do quarto ainda não foi definida.": {
     en: "The room team has not been set yet.",
     es: "El equipo de la habitación aún no fue definido.",
@@ -231,10 +241,10 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "Equipo de la habitación {name}",
     fr: "Équipe de la chambre {name}",
   },
-  "⚠️ Pontos de atenção": {
-    en: "⚠️ Attention points",
-    es: "⚠️ Puntos de atención",
-    fr: "⚠️ Points d'attention",
+  "Informações de saúde": {
+    en: "Health information",
+    es: "Información de salud",
+    fr: "Informations de santé",
   },
   "Peso": {
     en: "Weight",
@@ -281,6 +291,26 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "¡El campamento está en marcha! Aquí están los contactos y la información de tus niños.",
     fr: "Le camp bat son plein ! Voici les contacts et les infos de vos enfants.",
   },
+  "O acampamento está rolando! Aqui estão os contatos e as informações do seu filho.": {
+    en: "Camp is on! Here are the contacts and info for your son.",
+    es: "¡El campamento está en marcha! Aquí están los contactos y la información de tu hijo.",
+    fr: "Le camp bat son plein ! Voici les contacts et les infos de votre fils.",
+  },
+  "O acampamento está rolando! Aqui estão os contatos e as informações da sua princesa.": {
+    en: "Camp is on! Here are the contacts and info for your princess.",
+    es: "¡El campamento está en marcha! Aquí están los contactos y la información de tu princesa.",
+    fr: "Le camp bat son plein ! Voici les contacts et les infos de votre princesse.",
+  },
+  "O acampamento está rolando! Aqui estão os contatos e as informações das suas bonecas.": {
+    en: "Camp is on! Here are the contacts and info for your girls.",
+    es: "¡El campamento está en marcha! Aquí están los contactos y la información de tus muñecas.",
+    fr: "Le camp bat son plein ! Voici les contacts et les infos de vos poupées.",
+  },
+  "O acampamento está rolando! Aqui estão os contatos e as informações das suas crias.": {
+    en: "Camp is on! Here are the contacts and info for your boys.",
+    es: "¡El campamento está en marcha! Aquí están los contactos y la información de tus críos.",
+    fr: "Le camp bat son plein ! Voici les contacts et les infos de vos garçons.",
+  },
   "A equipe do quarto aparece aqui a partir do check-in ({when}).": {
     en: "The room team appears here from check-in ({when}).",
     es: "El equipo de la habitación aparece aquí a partir del check-in ({when}).",
@@ -291,15 +321,15 @@ export const LITERALS: Record<string, Partial<Record<Exclude<Locale, "pt">, stri
     es: "El campamento terminó. ¡Gracias por confiar en nosotros! 💚",
     fr: "Le camp est terminé. Merci de nous faire confiance ! 💚",
   },
-  "Editar pontos de atenção": {
-    en: "Edit attention points",
-    es: "Editar puntos de atención",
-    fr: "Modifier les points d'attention",
+  "Editar informações de saúde": {
+    en: "Edit health information",
+    es: "Editar información de salud",
+    fr: "Modifier les informations de santé",
   },
-  "⚠️ Pontos de atenção de {name}": {
-    en: "⚠️ Attention points for {name}",
-    es: "⚠️ Puntos de atención de {name}",
-    fr: "⚠️ Points d'attention de {name}",
+  "Informações de saúde de {name}": {
+    en: "Health information for {name}",
+    es: "Información de salud de {name}",
+    fr: "Informations de santé de {name}",
   },
   "O que você alterar aqui é avisado à equipe que cuida de {name} no acampamento.": {
     en: "What you change here is sent to the team looking after {name} at camp.",

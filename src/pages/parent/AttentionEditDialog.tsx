@@ -20,7 +20,7 @@ interface AttentionEditDialogProps {
 }
 
 /**
- * The parent edits the "Pontos de atenção" of their kid: same field order as
+ * The parent edits the "Informações de saúde" of their kid: same field order as
  * the registration form, with each medical topic collapsed behind a switch
  * until there's something to declare. Only changed fields are sent; the
  * server logs them and texts the team.
@@ -178,11 +178,11 @@ export default function AttentionEditDialog({ token, open, camper: k, onClose }:
   );
 
   return (
-    <Dialog open={open} onClose={onClose} title={tx("Editar pontos de atenção")} width={620} dismissible={!busy} className="attention-sheet-dialog">
+    <Dialog open={open} onClose={onClose} title={tx("Editar informações de saúde")} width={620} dismissible={!busy} className="attention-sheet-dialog">
       <div className="cat-form attention-sheet">
         <header className="attention-sheet__head">
           <span className="attention-sheet__handle" aria-hidden="true" />
-          <h2 className="cat-form__title">{tx("⚠️ Pontos de atenção de {name}", { name: first })}</h2>
+          <h2 className="cat-form__title">{tx("Informações de saúde de {name}", { name: first })}</h2>
           <p className="cat-hint">{tx("O que você alterar aqui é avisado à equipe que cuida de {name} no acampamento.", { name: first })}</p>
         </header>
 

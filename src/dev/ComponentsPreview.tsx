@@ -104,6 +104,8 @@ saveAuth({
   token: "dev-token",
   tokenExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   user: fixtures.loggedUser,
+  camp: { id: "dev-camp", label: "Acampa Kids 2026", year: 2026, active: true, archivedAt: null },
+  camps: [],
 });
 
 const labelOf = (id: string | null | undefined): string | null => id ?? null;

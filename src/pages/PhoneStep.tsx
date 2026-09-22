@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError } from "../api/client";
+import { fetchActiveCamp } from "../api/camps";
 import { requestOtp } from "../auth/store";
 import PhoneInput from "../components/PhoneInput";
 import StaffAccessDialog, { isStaffAccessError } from "../components/StaffAccessDialog";
 import { useT } from "../i18n";
 import { isCompleteMobile, toE164 } from "../phone";
+import { campBrandLabel } from "../camps";
 
 interface PhoneStepProps {
   phone: string; // masked
@@ -18,6 +20,17 @@ export default function PhoneStep({ phone, onPhoneChange, onSent }: PhoneStepPro
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accessError, setAccessError] = useState<ApiError | null>(null);
+  const [campLabel, setCampLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetchActiveCamp()
+      .then((c) => alive && setCampLabel(campBrandLabel(c.label, c.year)))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,6 +61,7 @@ export default function PhoneStep({ phone, onPhoneChange, onSent }: PhoneStepPro
   return (
     <>
       <h1 className="camping-panel__title">{t("login.phoneTitle")}</h1>
+      {campLabel && <p className="camping-panel__camp">{campLabel}</p>}
 
       <form className="form" onSubmit={handleSubmit}>
         <PhoneInput value={phone} onChange={onPhoneChange} disabled={loading} autoFocus />

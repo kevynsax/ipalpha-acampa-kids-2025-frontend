@@ -59,10 +59,17 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const err = (data as { error?: Record<string, unknown> } | null)?.error;
+    const code = (err?.code as string) ?? "UNKNOWN";
+    const message = (err?.message as string) ?? "Algo deu errado. Tente novamente.";
+    // a write blocked by an archived year, or a switch to a camp this session
+    // may not enter: App.tsx listens for this to toast / bounce back, from one place
+    if (code === "CAMP_ARCHIVED" || code === "CAMP_FORBIDDEN") {
+      window.dispatchEvent(new CustomEvent("acampa:camp-error", { detail: { code, message } }));
+    }
     throw new ApiError(
       res.status,
-      (err?.code as string) ?? "UNKNOWN",
-      (err?.message as string) ?? "Algo deu errado. Tente novamente.",
+      code,
+      message,
       {
         attemptsLeft: err?.attemptsLeft as number | undefined,
         minutesLeft: err?.minutesLeft as number | undefined,

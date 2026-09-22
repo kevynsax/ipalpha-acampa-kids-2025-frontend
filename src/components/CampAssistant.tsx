@@ -143,7 +143,7 @@ export default function CampAssistant({ token, userName, availableTabs, availabl
       game_organizers: { setting: "game-organizers", path: "/game-organizers" }, medical_staff: { setting: "medical", path: "/medical" },
       vest_helpers: { setting: "vests-settings", path: "/vests-settings" }, photographers: { setting: "photographers", path: "/photographers" },
       contacts: { setting: "contacts", path: "/contacts" }, notifications: { setting: "notifications", path: "/notifications" },
-      seeds: { setting: "seeds", path: "/seeds" }, about: { setting: "about", path: "/about" },
+      seeds: { setting: "super", path: "/super" }, about: { setting: "about", path: "/about" },
     };
 
     let path = destination === "profile" ? "/profile" : "";
